@@ -1,0 +1,53 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Models\Event;
+use App\Models\Payment;
+use App\Models\Player;
+use App\Models\Team;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class DashboardController extends Controller
+{
+    public function index(): Response
+    {
+        $events = Event::query()
+            ->withOccupiedSlotsCount()
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function (Event $event) {
+                $paidSum = (float) $event->payments()->where('status', 'paid')->sum('total_amount');
+
+                return [
+                    'id' => $event->id,
+                    'name' => $event->name,
+                    'slug' => $event->slug,
+                    'format_label' => Event::FORMATS[$event->format] ?? $event->format,
+                    'age_category' => $event->age_category,
+                    'status' => $event->status,
+                    'max_teams' => $event->max_teams,
+                    'occupied_slots' => $event->occupiedSlotsCount(),
+                    'active_teams' => (int) ($event->active_teams_count ?? 0),
+                    'registration_fee' => (float) $event->registration_fee,
+                    'revenue_paid' => $paidSum,
+                ];
+            });
+
+        return Inertia::render('Admin/Dashboard', [
+            'metrics' => [
+                'total_events' => Event::count(),
+                'occupied_slots_total' => Team::query()->occupyingQuotaAt(now())->count(),
+                'active_teams_total' => Team::query()->whereIn('status', ['active', 'locked_roster'])->count(),
+                'waiting_verification_count' => Payment::query()->where('status', 'waiting_verification')->count(),
+                'refund_required_count' => Payment::query()->where('status', 'refund_required')->count(),
+                'total_paid_revenue' => (float) Payment::query()->where('status', 'paid')->sum('total_amount'),
+                'players_submitted_count' => Player::query()->where('screening_status', 'submitted')->count(),
+            ],
+            'eventsOverview' => $events,
+        ]);
+    }
+}
+
