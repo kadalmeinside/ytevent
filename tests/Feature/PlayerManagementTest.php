@@ -319,3 +319,4 @@ class PlayerManagementTest extends TestCase
         $photoAllowed->assertOk();
     }
 }
+

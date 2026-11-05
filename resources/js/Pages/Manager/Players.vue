@@ -305,7 +305,7 @@ const isRosterLocked = computed(() => {
                                     :key="p.id"
                                     class="bg-white hover:bg-slate-50/90 transition-colors"
                                 >
-                                    <td class="py-2.5 px-3.5 font-bold tabular-data text-emerald-800 text-sm">
+                                    <td class="py-2.5 px-3.5 font-black tabular-data text-orange-600 text-sm">
                                         #{{ p.jersey_number }}
                                     </td>
                                     <td class="py-2.5 px-3.5">
@@ -349,7 +349,7 @@ const isRosterLocked = computed(() => {
                                             <button
                                                 v-if="!p.is_locked"
                                                 type="button"
-                                                class="text-[11px] font-semibold text-emerald-700 hover:underline inline-block mt-0.5"
+                                                class="text-[11px] font-semibold text-orange-600 hover:text-orange-700 hover:underline inline-block mt-0.5"
                                                 @click="openDocModal(p)"
                                             >
                                                 + Unggah / Ganti Berkas
@@ -660,3 +660,4 @@ const isRosterLocked = computed(() => {
         />
     </ManagerLayout>
 </template>
+

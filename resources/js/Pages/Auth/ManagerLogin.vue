@@ -42,7 +42,7 @@ const submit = () => {
         <div class="max-w-md mx-auto px-4 py-12">
             <div class="frosted-card p-6 sm:p-8">
                 <div class="mb-6">
-                    <span class="inline-block text-xs font-semibold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-md mb-2">
+                    <span class="inline-block text-xs font-semibold uppercase tracking-wider text-orange-800 bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-md mb-2">
                         Portal Manajer Tim
                     </span>
                     <h1 class="text-xl font-bold text-slate-900">Masuk ke Akun Tim</h1>
@@ -94,7 +94,7 @@ const submit = () => {
                             <input
                                 v-model="form.remember"
                                 type="checkbox"
-                                class="rounded border-slate-300 text-emerald-700 focus:ring-emerald-600"
+                                class="rounded border-slate-300 text-orange-600 focus:ring-orange-500"
                             />
                             <span>Ingat sesi saya</span>
                         </label>
@@ -107,7 +107,7 @@ const submit = () => {
 
                 <div class="mt-6 pt-5 border-t border-slate-200/80 text-center text-xs text-slate-600">
                     Belum mendaftarkan tim?
-                    <Link :href="route('home')" class="font-semibold text-emerald-700 hover:underline">
+                    <Link :href="route('home')" class="font-semibold text-orange-600 hover:text-orange-700 hover:underline">
                         Pilih kompetisi di Katalog Event
                     </Link>
                 </div>

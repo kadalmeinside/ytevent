@@ -13,7 +13,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @inertiaHead
 </head>
-<body class="font-sans antialiased bg-slate-50 text-slate-900 selection:bg-emerald-700 selection:text-white">
+<body class="font-sans antialiased text-slate-900 selection:bg-orange-600 selection:text-white bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-orange-100/35 via-slate-50/90 to-slate-100/70 min-h-screen">
     @inertia
 </body>
 </html>

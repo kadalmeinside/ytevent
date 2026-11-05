@@ -89,29 +89,29 @@ const logout = () => {
                 </button>
                 <span class="font-bold text-sm text-slate-900">Portal Panitia YTEvent</span>
             </div>
-            <span class="text-[11px] font-semibold uppercase px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-300">
+            <span class="text-[11px] font-semibold uppercase px-2 py-0.5 rounded-md bg-orange-50 text-orange-800 border border-orange-200">
                 {{ roleBadge }}
             </span>
         </header>
 
         <aside
-            class="w-64 bg-white/85 backdrop-blur-xl border-r border-slate-200 shrink-0 flex-col justify-between lg:flex lg:sticky lg:top-0 lg:h-screen z-50"
-            :class="mobileMenuOpen ? 'fixed inset-y-0 left-0 flex shadow-xl' : 'hidden'"
+            class="w-64 bg-white/80 backdrop-blur-xl border-r border-slate-200/80 shrink-0 flex-col justify-between lg:flex lg:sticky lg:top-0 lg:h-screen z-50"
+            :class="mobileMenuOpen ? 'fixed inset-y-0 left-0 flex shadow-2xl' : 'hidden'"
         >
             <div class="p-4 space-y-5 overflow-y-auto">
                 <div class="flex items-center justify-between">
-                    <Link :href="route('admin.dashboard')" class="flex items-center gap-2.5">
-                        <div class="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
+                    <Link :href="route('admin.dashboard')" class="flex items-center gap-2.5 group">
+                        <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white flex items-center justify-center font-bold text-xs shadow-sm group-hover:scale-105 transition-transform">
                             ADM
                         </div>
                         <div>
                             <span class="block text-sm font-bold text-slate-900 leading-tight">Control Center</span>
-                            <span class="block text-[11px] text-slate-500">Operasional &amp; Finance</span>
+                            <span class="block text-[11px] font-medium text-slate-500">Operasional &amp; Finance</span>
                         </div>
                     </Link>
                     <button
                         type="button"
-                        class="lg:hidden text-xs text-slate-500 px-2 py-1"
+                        class="lg:hidden text-xs text-slate-500 hover:text-slate-800 p-1 rounded-lg border border-slate-200 bg-white"
                         @click="mobileMenuOpen = false"
                     >
                         Tutup
@@ -123,11 +123,11 @@ const logout = () => {
                         v-for="item in navGroups"
                         :key="item.href"
                         :href="item.href"
-                        class="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                        class="flex items-center justify-between px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all"
                         :class="
                             currentPath.startsWith(item.match)
-                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-semibold'
-                                : 'text-slate-700 hover:bg-slate-100/80'
+                                ? 'bg-gradient-to-r from-orange-500/15 via-orange-500/5 to-transparent text-orange-950 font-bold border-l-4 border-orange-600 shadow-sm'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70 border-l-4 border-transparent'
                         "
                         @click="mobileMenuOpen = false"
                     >
@@ -136,13 +136,13 @@ const logout = () => {
                 </nav>
             </div>
 
-            <div class="p-4 border-t border-slate-200 space-y-2.5 bg-slate-50/70">
+            <div class="p-4 border-t border-slate-200/80 space-y-3 bg-slate-50/60 backdrop-blur-sm">
                 <div class="flex items-center justify-between gap-2">
                     <div class="min-w-0">
                         <p class="text-xs font-semibold text-slate-900 truncate">{{ user?.name }}</p>
                         <p class="text-[11px] text-slate-500 truncate">{{ user?.email }}</p>
                     </div>
-                    <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-300">
+                    <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-orange-50 text-orange-800 border border-orange-200 shrink-0">
                         {{ roleBadge }}
                     </span>
                 </div>

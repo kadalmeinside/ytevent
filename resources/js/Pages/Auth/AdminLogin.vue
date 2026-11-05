@@ -107,7 +107,7 @@ const submit = () => {
 
                 <div class="mt-5 pt-4 border-t border-slate-200/80 flex items-center justify-between text-xs text-slate-500">
                     <Link :href="route('home')" class="hover:text-slate-800">&larr; Kembali ke Portal Publik</Link>
-                    <Link :href="route('login')" class="text-emerald-700 font-semibold hover:underline">Login Manajer Tim</Link>
+                    <Link :href="route('login')" class="text-orange-600 hover:text-orange-700 font-semibold hover:underline">Login Manajer Tim</Link>
                 </div>
             </div>
         </div>

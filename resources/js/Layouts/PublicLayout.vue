@@ -16,15 +16,15 @@ const logout = () => {
 </script>
 
 <template>
-    <div class="min-h-screen flex flex-col bg-slate-50">
+    <div class="min-h-screen flex flex-col bg-transparent">
         <header class="sticky top-0 z-40 frosted-header">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-                <Link :href="route('home')" class="flex items-center gap-2.5">
-                    <div class="w-9 h-9 rounded-lg bg-emerald-700 text-white flex items-center justify-center font-bold text-sm tracking-tight shadow-sm">
+                <Link :href="route('home')" class="flex items-center gap-2.5 group">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-600 via-orange-600 to-red-600 text-white flex items-center justify-center font-black text-sm tracking-tight shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform">
                         YT
                     </div>
                     <div>
-                        <span class="block text-sm font-bold text-slate-900 leading-tight">
+                        <span class="block text-sm font-bold text-slate-900 leading-tight group-hover:text-orange-600 transition-colors">
                             YTEvent Football
                         </span>
                         <span class="block text-[11px] font-medium text-slate-500 leading-tight">
@@ -36,7 +36,7 @@ const logout = () => {
                 <nav class="flex items-center gap-2.5">
                     <Link
                         :href="route('home')"
-                        class="text-sm font-medium text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-lg hover:bg-slate-100/80 transition-colors"
+                        class="text-xs sm:text-sm font-medium text-slate-600 hover:text-orange-600 px-3 py-1.5 rounded-xl hover:bg-orange-50/60 transition-colors"
                     >
                         Katalog Kompetisi
                     </Link>

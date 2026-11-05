@@ -30,7 +30,7 @@ const quotaPercentage = computed(() => {
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div class="mb-4">
-                <Link :href="route('home')" class="text-xs font-semibold text-slate-600 hover:text-emerald-700">
+                <Link :href="route('home')" class="text-xs font-semibold text-slate-600 hover:text-orange-600 transition-colors">
                     &larr; Kembali ke Katalog Kompetisi
                 </Link>
             </div>
@@ -40,10 +40,10 @@ const quotaPercentage = computed(() => {
                 <div class="lg:col-span-2 space-y-6">
                     <div class="frosted-card p-6">
                         <div class="flex flex-wrap items-center gap-2 mb-3">
-                            <span class="px-2.5 py-0.5 rounded text-xs font-bold bg-slate-900 text-white">
+                            <span class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-slate-900 text-white">
                                 {{ event.age_category }}
                             </span>
-                            <span class="px-2.5 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                            <span class="px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
                                 {{ event.format_label }}
                             </span>
                             <StatusBadge :status="event.status" />
@@ -80,7 +80,7 @@ const quotaPercentage = computed(() => {
                             <button
                                 type="button"
                                 class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
-                                :class="activeTab === 'summary' ? 'border-emerald-700 text-emerald-800' : 'border-transparent text-slate-600 hover:text-slate-900'"
+                                :class="activeTab === 'summary' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
                                 @click="activeTab = 'summary'"
                             >
                                 Ringkasan &amp; Syarat Pemain
@@ -88,7 +88,7 @@ const quotaPercentage = computed(() => {
                             <button
                                 type="button"
                                 class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
-                                :class="activeTab === 'teams' ? 'border-emerald-700 text-emerald-800' : 'border-transparent text-slate-600 hover:text-slate-900'"
+                                :class="activeTab === 'teams' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
                                 @click="activeTab = 'teams'"
                             >
                                 Tim Terdaftar ({{ registeredTeams.length }}/{{ event.max_teams }})
@@ -96,7 +96,7 @@ const quotaPercentage = computed(() => {
                             <button
                                 type="button"
                                 class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
-                                :class="activeTab === 'contact' ? 'border-emerald-700 text-emerald-800' : 'border-transparent text-slate-600 hover:text-slate-900'"
+                                :class="activeTab === 'contact' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
                                 @click="activeTab = 'contact'"
                             >
                                 Regulasi &amp; Kontak Panitia
@@ -139,13 +139,13 @@ const quotaPercentage = computed(() => {
                                 <div>
                                     <h3 class="text-sm font-bold text-slate-900 mb-2">Dokumen Screening Wajib per Pemain</h3>
                                     <ul class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                                        <li class="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-50/60 border border-emerald-200 text-emerald-900 font-medium">
+                                        <li class="flex items-center gap-2 p-2.5 rounded-xl bg-orange-50/70 border border-orange-200/80 text-orange-950 font-medium">
                                             <span>1. Pas Foto Resmi Terbaru (JPG/PNG)</span>
                                         </li>
                                         <li
                                             v-for="(doc, idx) in event.required_documents"
                                             :key="doc.type"
-                                            class="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-50/60 border border-emerald-200 text-emerald-900 font-medium"
+                                            class="flex items-center gap-2 p-2.5 rounded-xl bg-orange-50/70 border border-orange-200/80 text-orange-950 font-medium"
                                         >
                                             <span>{{ idx + 2 }}. {{ doc.label }}</span>
                                         </li>
@@ -180,7 +180,7 @@ const quotaPercentage = computed(() => {
                                                         v-if="t.logo_url"
                                                         :src="t.logo_url"
                                                         :alt="t.name"
-                                                        class="w-7 h-7 rounded object-cover border border-slate-200 bg-white"
+                                                        class="w-7 h-7 rounded-lg object-cover border border-slate-200 bg-white"
                                                     />
                                                     <span>{{ t.name }}</span>
                                                 </td>
@@ -228,21 +228,21 @@ const quotaPercentage = computed(() => {
                 <div class="space-y-4">
                     <div class="frosted-card p-6 sticky top-24">
                         <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Biaya Pendaftaran Tim</p>
-                        <p class="text-2xl font-bold text-slate-900 tabular-data mt-1">
+                        <p class="text-2xl font-black text-slate-900 tabular-data mt-1 tracking-tight">
                             {{ formatRupiah(event.registration_fee) }}
                         </p>
 
-                        <div class="mt-4 p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                        <div class="mt-4 p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/90 space-y-2">
                             <div class="flex items-center justify-between text-xs">
                                 <span class="font-semibold text-slate-700">Kapasitas Kuota Maksimal</span>
-                                <span class="font-bold tabular-data" :class="event.available_slots === 0 ? 'text-rose-700' : 'text-emerald-800'">
+                                <span class="font-bold tabular-data" :class="event.available_slots === 0 ? 'text-rose-700' : 'text-orange-800'">
                                     {{ event.occupied_slots }} / {{ event.max_teams }} Tim
                                 </span>
                             </div>
                             <div class="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
                                 <div
-                                    class="h-full rounded-full"
-                                    :class="event.available_slots === 0 ? 'bg-rose-600' : 'bg-emerald-700'"
+                                    class="h-full rounded-full transition-all"
+                                    :class="event.available_slots === 0 ? 'bg-rose-600' : 'bg-gradient-to-r from-orange-500 to-red-600'"
                                     :style="{ width: `${quotaPercentage}%` }"
                                 />
                             </div>

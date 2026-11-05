@@ -69,43 +69,44 @@ const quotaPercentage = (event) => {
         <Head title="Katalog Kompetisi Sepak Bola" />
 
         <!-- Subtle Enterprise Frosted Hero -->
-        <section class="bg-gradient-to-b from-slate-100/80 to-emerald-50/30 border-b border-slate-200/80">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-12">
+        <section class="bg-gradient-to-b from-orange-100/40 via-white/80 to-slate-50/50 border-b border-slate-200/80 backdrop-blur-md">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
                 <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
                     <div class="max-w-2xl">
-                        <span class="inline-block px-2.5 py-0.5 rounded-md text-xs font-semibold uppercase tracking-wide bg-emerald-50 text-emerald-800 border border-emerald-300 mb-3">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-orange-100/80 text-orange-800 border border-orange-300/80 mb-3 shadow-sm">
+                            <span class="w-2 h-2 rounded-full bg-orange-600 animate-pulse"></span>
                             Multi-Event Football Management
                         </span>
-                        <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+                        <h1 class="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
                             Portal Resmi Pendaftaran Turnamen &amp; Liga Sepak Bola
                         </h1>
-                        <p class="mt-2 text-sm text-slate-600 leading-relaxed">
-                            Sistem pendaftaran tim terintegrasi dengan reservasi kuota real-time, pembayaran instan maupun manual, serta kelengkapan berkas screening pemain berbasis kelompok usia.
+                        <p class="mt-3 text-xs sm:text-sm text-slate-600 leading-relaxed">
+                            Sistem pendaftaran tim terintegrasi dengan reservasi kuota real-time bebas race-condition, pembayaran instan maupun manual, serta kelengkapan berkas screening pemain berbasis kelompok usia.
                         </p>
                     </div>
 
                     <!-- Platform Stats -->
                     <div class="grid grid-cols-3 gap-3 sm:gap-4 shrink-0">
                         <div class="frosted-card px-4 py-3">
-                            <p class="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Total Kompetisi</p>
-                            <p class="text-xl font-bold text-slate-900 tabular-data mt-0.5">{{ stats.total_events || 0 }}</p>
+                            <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Kompetisi</p>
+                            <p class="text-xl sm:text-2xl font-black text-slate-900 tabular-data mt-0.5">{{ stats.total_events || 0 }}</p>
+                        </div>
+                        <div class="frosted-card px-4 py-3 border-orange-200/80 bg-orange-50/30">
+                            <p class="text-[11px] font-bold text-orange-600/80 uppercase tracking-wider">Slot Terisi</p>
+                            <p class="text-xl sm:text-2xl font-black text-orange-600 tabular-data mt-0.5">{{ stats.total_teams || 0 }}</p>
                         </div>
                         <div class="frosted-card px-4 py-3">
-                            <p class="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Slot Tim Terisi</p>
-                            <p class="text-xl font-bold text-emerald-800 tabular-data mt-0.5">{{ stats.total_teams || 0 }}</p>
-                        </div>
-                        <div class="frosted-card px-4 py-3">
-                            <p class="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Pemain Terverifikasi</p>
-                            <p class="text-xl font-bold text-slate-900 tabular-data mt-0.5">{{ stats.total_verified_players || 0 }}</p>
+                            <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Pemain Sah</p>
+                            <p class="text-xl sm:text-2xl font-black text-slate-900 tabular-data mt-0.5">{{ stats.total_verified_players || 0 }}</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- Filter Bar -->
-                <form @submit.prevent="applyFilters" novalidate class="mt-8 frosted-card p-4">
+                <form @submit.prevent="applyFilters" novalidate class="mt-8 frosted-card p-4 sm:p-5">
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                         <div class="lg:col-span-2">
-                            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Cari Nama Event / Kota</label>
+                            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Cari Nama Event / Kota</label>
                             <input
                                 v-model="filterState.search"
                                 type="text"
@@ -115,7 +116,7 @@ const quotaPercentage = (event) => {
                         </div>
 
                         <div>
-                            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Format Kompetisi</label>
+                            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Format Kompetisi</label>
                             <select v-model="filterState.format" class="input-field" @change="applyFilters">
                                 <option value="">Semua Format</option>
                                 <option v-for="(label, key) in formats" :key="key" :value="key">
@@ -125,7 +126,7 @@ const quotaPercentage = (event) => {
                         </div>
 
                         <div>
-                            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Kelompok Usia</label>
+                            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Kelompok Usia</label>
                             <select v-model="filterState.age_category" class="input-field" @change="applyFilters">
                                 <option value="">Semua Usia</option>
                                 <option v-for="cat in ageCategories" :key="cat" :value="cat">
@@ -135,7 +136,7 @@ const quotaPercentage = (event) => {
                         </div>
 
                         <div>
-                            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Status Kuota</label>
+                            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Status Kuota</label>
                             <div class="flex items-center gap-2">
                                 <select v-model="filterState.status" class="input-field" @change="applyFilters">
                                     <option value="">Semua Status</option>
@@ -144,7 +145,7 @@ const quotaPercentage = (event) => {
                                     <option value="ongoing">Sedang Berjalan</option>
                                     <option value="completed">Selesai</option>
                                 </select>
-                                <button type="submit" class="btn-pitch px-3.5 py-2 shrink-0">Cari</button>
+                                <button type="submit" class="btn-pitch px-4 py-2.5 shrink-0">Cari</button>
                             </div>
                         </div>
                     </div>
@@ -154,7 +155,7 @@ const quotaPercentage = (event) => {
                         class="mt-3 pt-2.5 border-t border-slate-200/70 flex items-center justify-between text-xs text-slate-500"
                     >
                         <span>Menampilkan {{ events.length }} kompetisi sesuai filter</span>
-                        <button type="button" class="text-emerald-700 font-semibold hover:underline" @click="resetFilters">
+                        <button type="button" class="text-orange-600 font-semibold hover:text-orange-700 hover:underline" @click="resetFilters">
                             Reset Filter
                         </button>
                     </div>
@@ -189,7 +190,7 @@ const quotaPercentage = (event) => {
                         </div>
 
                         <Link :href="route('events.show', { event: event.slug })" class="group block">
-                            <h2 class="text-base font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
+                            <h2 class="text-base font-bold text-slate-900 group-hover:text-orange-600 transition-colors">
                                 {{ event.name }}
                             </h2>
                         </Link>
@@ -220,17 +221,17 @@ const quotaPercentage = (event) => {
                         </dl>
 
                         <!-- Quota Progress -->
-                        <div class="mt-4 p-3 rounded-lg bg-slate-50 border border-slate-200/80">
+                        <div class="mt-4 p-3 rounded-xl bg-slate-50/80 border border-slate-200/80">
                             <div class="flex items-center justify-between text-xs mb-1.5">
                                 <span class="font-semibold text-slate-700">Kuota Tim Terisi</span>
-                                <span class="font-bold tabular-data" :class="event.available_slots === 0 ? 'text-rose-700' : 'text-emerald-800'">
+                                <span class="font-bold tabular-data" :class="event.available_slots === 0 ? 'text-rose-700' : 'text-orange-800'">
                                     {{ event.occupied_slots }} / {{ event.max_teams }} Tim (Sisa {{ event.available_slots }})
                                 </span>
                             </div>
                             <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
                                 <div
                                     class="h-full rounded-full transition-all"
-                                    :class="event.available_slots === 0 ? 'bg-rose-600' : 'bg-emerald-700'"
+                                    :class="event.available_slots === 0 ? 'bg-rose-600' : 'bg-gradient-to-r from-orange-500 to-red-600'"
                                     :style="{ width: `${quotaPercentage(event)}%` }"
                                 />
                             </div>

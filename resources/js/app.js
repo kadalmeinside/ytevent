@@ -25,7 +25,7 @@ createInertiaApp({
         vueApp.mount(el);
     },
     progress: {
-        color: '#047857',
+        color: '#EA580C',
         showSpinner: false,
     },
 });

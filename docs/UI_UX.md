@@ -1,74 +1,53 @@
-# UI/UX Design Specification: High-Density Operational Utility + Clean Enterprise Frosted Glass
+# UI/UX Design Specification: High-Density Operational Utility + Liquid Glass Persija Red-Orange
 
-## 1. Filosofi Desain & Prinsip Anti-Slop
-Aplikasi dirancang sebagai **perangkat kerja operasional sepak bola berdensitas tinggi** (seperti dashboard data FIFA TMS / PremierLeague Competition Portal versi terang) yang dipadukan dengan estetika **Clean Enterprise Frosted Glass**.
-- **Utamakan Scannability:** Panitia turnamen, tim finance, dan manajer tim harus dapat memindai ratusan baris pemain, tanggal lahir, NIK, dan status pembayaran dalam hitungan detik.
-- **Zero Visual Slop:** Tidak ada dekorasi tanpa fungsi, tidak ada gradien mencolok di area kerja utama, dan tidak ada animasi berlebih yang memperlambat alur verifikasi.
+## 1. Filosofi Desain & Karakter Visual
+Aplikasi dirancang sebagai **perangkat kerja operasional sepak bola berdensitas tinggi** (seperti portal kompetisi resmi FIFA TMS / Premier League) yang dipadukan dengan estetika **Ultra-Clean Liquid Glass** dan identitas warna **Persija Red-Orange (Merah-Oranye Api / Macan Kemayoran)**.
 
----
-
-## 2. Larangan Visual Mutlak (Strict Visual Prohibitions)
-1. **DILARang Keras:** Menggunakan latar belakang hitam pekat (`#000000` / `#09090b`) dengan teks neon menyala (hijau stabilo/cyan terang) untuk tabel utama atau halaman kerja.
-2. **DILARANG Keras:** Menggunakan efek *pulse* (`animate-pulse`), *ping* (`animate-ping`), atau titik bulat berkedip (*dot indicator*) di dalam komponen **Badge Status**.
-3. **DILARANG Keras:** Menggunakan atribut validasi HTML5 bawaan (`required`, `minlength`, `type="email"` browser tooltip) atau `window.alert()` / `window.confirm()` bawaan browser.
-4. **DILARANG Keras:** Menyembunyikan informasi krusial (seperti alasan gagal screening atau batas usia) di balik tooltip kecil yang harus di-hover satu per satu.
+- **Vibrant & Energetic yet Professional:** Dominasi oranye menyala (`#EA580C` / `#F97316`) dan merah kobaran api (`#DC2626` / `#C2410C`) berpadu dengan kanvas kaca terang (*Light Frosted Liquid Glass*) yang tajam, kontras tinggi, dan berkelas enterprise.
+- **Utamakan Scannability & Anti-Overlap:** Setiap baris data, kartu metrik, status pembayaran, dan nomor invoice memiliki zona spasial tersendiri tanpa tumpang-tindih (*zero text collision*).
+- **Refined Micro-Interactions & Liquid Glass Depth:** Lapisan kartu transparan (`backdrop-blur-xl`, `border-white/80`, `shadow-[0_8px_30px_rgb(0,0,0,0.04)]`) dengan efek pendar halus di latar belakang (*ambient atmospheric mesh*).
 
 ---
 
-## 3. Palet Warna (Light Enterprise Frosted Canvas)
+## 2. Palet Warna (Persija Red-Orange Liquid Glass)
 
-### 3.1 Permukaan & Latar Belakang (Canvas & Glass)
-- **Base App Canvas:** `bg-slate-50` (`#F8FAFC`) dengan aksen *mesh subtle* sangat tipis di area header (`from-slate-100/80 to-emerald-50/30`).
-- **Primary Frosted Surface (Cards & Containers):** `bg-white/85 backdrop-blur-xl border border-slate-200/80 shadow-sm`.
-- **Sticky Header & Modal Surface:** `bg-white/90 backdrop-blur-md border-b border-slate-200`.
-- **Table Surface:**
-  - Header Tabel: `bg-slate-100/90 text-slate-700 border-b border-slate-200`.
-  - Baris Tabel: `bg-white hover:bg-slate-50/90 transition-colors duration-100 divide-y divide-slate-200/70`.
+### 2.1 Aksen Utama Persija Red-Orange (Pitch & Fire Accents)
+- **Primary Brand / Pitch Fire Action:** `bg-gradient-to-r from-orange-600 via-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white shadow-sm shadow-orange-500/25` (Aksen dinamis merah-oranye berkarakter kuat).
+- **Primary Solid:** `#EA580C` (`orange-600`), `#C2410C` (`orange-700`), `#9A3412` (`orange-800`).
+- **Accent Red Glow:** `#DC2626` (`red-600`), `#B91C1C` (`red-700`).
+- **Highlight Flame:** `#FB923C` (`orange-400`), `#FDBA74` (`orange-300`), `#FFEDD5` (`orange-100`).
+- **Focus Rings:** `focus:ring-2 focus:ring-orange-500/20 focus:border-orange-600`.
+- **Selection:** `selection:bg-orange-600 selection:text-white`.
 
-### 3.2 Tipografi & Aksen Warna Sepak Bola (Tactile Pitch Accents)
-- **Primary Text:** `text-slate-900` (`#0F172A`)
-- **Secondary / Label Text:** `text-slate-600` (`#475569`)
-- **Muted / Helper Text:** `text-slate-400` (`#94A3B8`)
-- **Primary Brand / Pitch Action:** `bg-emerald-700 hover:bg-emerald-800 text-white` (`#047857` — hijau rumput stadion profesional, bukan hijau neon).
-- **Secondary Action:** `bg-white hover:bg-slate-50 text-slate-700 border border-slate-300`.
+### 2.2 Permukaan & Latar Belakang (Liquid Canvas & Glass)
+- **Base Canvas:** `bg-slate-50` dengan ambient mesh gradient lembut di latar:
+  `bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-orange-100/35 via-slate-50/90 to-slate-100/70`.
+- **Liquid Frosted Card:** `bg-white/80 backdrop-blur-xl border border-white/90 shadow-[0_4px_20px_rgba(15,23,42,0.04)] rounded-2xl transition-all duration-150`.
+- **Sticky Header & Modals:** `bg-white/85 backdrop-blur-md border-b border-slate-200/80 shadow-xs`.
+- **Active Navigation Pill:** `bg-gradient-to-r from-orange-500/10 to-red-500/10 text-orange-800 font-bold border-l-4 border-orange-600 rounded-r-xl`.
 
----
-
-## 4. Tipografi & Hierarki Data
-- **UI & Body Font:** `Inter` atau `Plus Jakarta Sans` — tajam pada ukuran kecil (`12px`–`14px`).
-- **Monospace / Tabular Data:** `JetBrains Mono` atau `font-mono tabular-nums` wajib diterapkan pada:
-  - Nomor Punggung Pemain
-  - Tanggal Lahir & Perhitungan Usia
-  - NIK / Nomor Identitas
-  - Nominal Rupiah & Nomor Invoice (`INV-...`)
-- **Ukuran Tabel High-Density:**
-  - Tinggi baris (*row height*): Kompak (`py-2.5 px-3.5`, tinggi ~40px–44px per baris).
-  - Ukuran teks sel tabel: `text-xs` (`12px`) untuk metadata/kode, `text-sm` (`14px`) untuk nama tim/pemain.
+### 2.3 Tipografi & Hierarki Data
+- **Body & Heading:** `Plus Jakarta Sans` atau `Inter` (bersih, tajam pada ukuran 12–14px).
+- **Tabular / Monospace:** `JetBrains Mono` (`font-mono tabular-nums`) pada nominal Rupiah, tanggal lahir, NIK, dan nomor invoice.
 
 ---
 
-## 5. Komponen Standar
+## 3. Komponen Standar & Aturan Anti-Overlap
 
-### 5.1 Badge Status (Tanpa Dot & Tanpa Pulse)
-Gunakan bentuk *pill* tegas atau *rounded-md* (`px-2.5 py-0.5 text-xs font-semibold tracking-wide uppercase border`) dengan kontras teks tinggi:
-- **Lolos / Lunas (`PASSED` / `PAID`):** `bg-emerald-50 text-emerald-800 border-emerald-300`
-- **Menunggu Verifikasi (`SUBMITTED` / `PENDING`):** `bg-amber-50 text-amber-800 border-amber-300`
-- **Gagal / Ditolak (`REJECTED` / `FAILED`):** `bg-rose-50 text-rose-800 border-rose-300`
-- **Draft / Belum Lengkap (`DRAFT`):** `bg-slate-100 text-slate-700 border-slate-300`
+### 3.1 Badge Status (Tanpa Dot & Tanpa Pulse)
+Pill tegas dengan teks kontras tinggi:
+- **Lunas / Aktif / Lolos (`PAID` / `ACTIVE` / `PASSED` / `OPEN`):** `bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold text-xs px-2.5 py-0.5 rounded-md`
+- **Menunggu Verifikasi / Belum Bayar (`WAITING_VERIFICATION` / `UNPAID` / `PENDING_PAYMENT` / `SUBMITTED`):** `bg-amber-50 text-amber-900 border-amber-300 font-semibold text-xs px-2.5 py-0.5 rounded-md`
+- **Ditolak / Kedaluwarsa / Kuota Penuh (`REJECTED` / `EXPIRED` / `QUOTA_FULL`):** `bg-rose-50 text-rose-800 border-rose-300 font-semibold text-xs px-2.5 py-0.5 rounded-md`
+- **Draft / Terkunci:** `bg-slate-100 text-slate-700 border-slate-300 font-semibold text-xs px-2 py-0.5 rounded-md`
 
-### 5.2 Sistem Validasi Form & Error State (Custom Vue UI)
-- Seluruh tag `<form>` wajib menyertakan atribut `novalidate`.
-- **Kondisi Normal:** `bg-white border border-slate-300 rounded-lg px-3.5 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600`.
-- **Kondisi Error (`form.errors.field`):**
-  - Border input berubah menjadi `border-rose-500 bg-rose-50/30 focus:ring-rose-500/20 focus:border-rose-600`.
-  - Di bawah field muncul komponen `<InputError :message="form.errors.field" />` dengan ikon SVG tanda seru statis (`w-4 h-4 text-rose-600`) dan teks `text-xs font-medium text-rose-600 mt-1`.
-- **Global Form Error Banner:** Jika terdapat error validasi saat submit, tampilkan banner *Frosted Rose* di bagian atas form (`bg-rose-50/90 backdrop-blur-md border border-rose-200 text-rose-800 px-4 py-3 rounded-xl text-sm`) yang merangkum jumlah field yang perlu diperbaiki.
+### 3.2 Menu Sidebar Bebas Tumpukan (Anti-Block Clutter)
+- Jangan gunakan badge teks bulky `[TERKUNCI]` yang memecah baris judul menu.
+- Gunakan **ikon gembok halus (Padlock Icon)** di sisi kanan item menu yang terkunci (`w-3.5 h-3.5 text-slate-400 shrink-0`).
+- Sertakan ikon semantik pada setiap menu sidebar agar *scannable* dan tertata proporsional.
 
-### 5.3 Responsivitas Desktop & Mobile
-- **Desktop (`>= 1024px`):**
-  - Sidebar navigasi kiri *fixed* (`w-64 bg-white/85 backdrop-blur-xl border-r border-slate-200`).
-  - Tabel data menampilkan seluruh kolom penting secara horizontal dengan *sticky action column* di sebelah kanan.
-  - Panel *Screening Pemain* menggunakan layout *Split-View* (Kiri: Daftar & Data Pemain, Kanan: Preview Dokumen Akta/KK/Foto dengan fitur Zoom/Rotate).
-- **Mobile (`< 768px`):**
-  - Navigasi menggunakan *Top Frosted Navbar* + *Slide-over Drawer* (untuk Admin) atau *Bottom Action Bar* (untuk Manajer Tim).
-  - Tabel berdensitas tinggi memiliki *horizontal scroll* halus dengan kolom pertama (Nama Tim/Pemain) *sticky*, atau berubah menjadi *Compact Data Card* terstruktur yang tetap memuat informasi utama tanpa harus membuka halaman baru.
+### 3.3 Kartu Dashboard Proporsional (Grid Metrics Anti-Overlap)
+Setiap kartu pada ringkasan tim wajib memiliki 3 tingkatan visual vertikal yang independen:
+1. **Header:** Label kategori (abu-abu, uppercase kecil) + Icon/Status Badge di pojok kanan atas.
+2. **Body:** Angka/Nominal utama ukuran besar (`text-xl` s/d `text-2xl font-black tabular-data`).
+3. **Footer:** Keterangan sekunder (No. Invoice, Asal Askot, atau batas kuota) dengan baris terpisah dan spasi proporsional.

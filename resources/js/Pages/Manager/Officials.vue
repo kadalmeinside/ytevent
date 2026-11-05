@@ -198,7 +198,7 @@ const executeDelete = () => {
                                         v-if="item.license_url"
                                         :href="item.license_url"
                                         target="_blank"
-                                        class="ml-2 text-emerald-700 underline text-[11px]"
+                                        class="ml-2 text-orange-600 hover:text-orange-700 underline text-[11px]"
                                     >
                                         (Lihat Berkas)
                                     </a>
@@ -336,3 +336,4 @@ const executeDelete = () => {
         />
     </ManagerLayout>
 </template>
+

@@ -25,8 +25,8 @@ const { formatRupiah } = useFormatters();
             <!-- Metrik Finansial & Operasional -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div class="frosted-card p-4">
-                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Total Pendapatan Lunas</p>
-                    <p class="text-xl sm:text-2xl font-bold text-emerald-800 tabular-data mt-1">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Pendapatan Lunas</p>
+                    <p class="text-xl sm:text-2xl font-black text-slate-900 tabular-data mt-1 tracking-tight">
                         {{ formatRupiah(metrics.total_paid_revenue) }}
                     </p>
                     <p class="text-[11px] text-slate-500 mt-1">
@@ -35,28 +35,28 @@ const { formatRupiah } = useFormatters();
                 </div>
 
                 <div class="frosted-card p-4">
-                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Antrean Bukti Transfer</p>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Antrean Bukti Transfer</p>
                     <p class="text-xl sm:text-2xl font-bold tabular-data mt-1" :class="metrics.waiting_verification_count > 0 ? 'text-amber-800' : 'text-slate-900'">
                         {{ metrics.waiting_verification_count }} Bukti
                     </p>
-                    <Link :href="route('admin.payments.manual-verification')" class="text-[11px] font-semibold text-emerald-700 hover:underline mt-1 inline-block">
+                    <Link :href="route('admin.payments.manual-verification')" class="text-[11px] font-semibold text-orange-600 hover:text-orange-700 hover:underline mt-1 inline-block">
                         Buka Antrean Finance &rarr;
                     </Link>
                 </div>
 
                 <div class="frosted-card p-4">
-                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Slot Kuota Terisi</p>
-                    <p class="text-xl sm:text-2xl font-bold text-slate-900 tabular-data mt-1">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Slot Kuota Terisi</p>
+                    <p class="text-xl sm:text-2xl font-black text-slate-900 tabular-data mt-1">
                         {{ metrics.occupied_slots_total }} Tim
                     </p>
                     <p class="text-[11px] text-slate-500 mt-1">
-                        Aktif / Lunas: <strong class="tabular-data text-emerald-700">{{ metrics.active_teams_total }}</strong> tim
+                        Aktif / Lunas: <strong class="tabular-data text-orange-700 font-bold">{{ metrics.active_teams_total }}</strong> tim
                     </p>
                 </div>
 
                 <div class="frosted-card p-4">
-                    <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Antrean Screening Pemain</p>
-                    <p class="text-xl sm:text-2xl font-bold text-slate-900 tabular-data mt-1">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Antrean Screening Pemain</p>
+                    <p class="text-xl sm:text-2xl font-black text-slate-900 tabular-data mt-1">
                         {{ metrics.players_submitted_count }} Pemain
                     </p>
                     <p class="text-[11px] text-slate-500 mt-1">
@@ -105,7 +105,7 @@ const { formatRupiah } = useFormatters();
                         <tbody class="divide-y divide-slate-200/70">
                             <tr v-for="evt in eventsOverview" :key="evt.id" class="bg-white hover:bg-slate-50/90">
                                 <td class="py-2.5 px-3.5 font-bold text-slate-900">
-                                    <Link :href="route('admin.events.edit', { event: evt.id })" class="hover:text-emerald-700">
+                                    <Link :href="route('admin.events.edit', { event: evt.id })" class="hover:text-orange-600 transition-colors">
                                         {{ evt.name }}
                                     </Link>
                                 </td>
@@ -115,7 +115,7 @@ const { formatRupiah } = useFormatters();
                                 <td class="py-2.5 px-3.5 tabular-data font-semibold">
                                     {{ evt.occupied_slots }} / {{ evt.max_teams }} Tim
                                 </td>
-                                <td class="py-2.5 px-3.5 tabular-data font-medium text-emerald-800">
+                                <td class="py-2.5 px-3.5 tabular-data font-semibold text-slate-800">
                                     {{ evt.active_teams }} Tim
                                 </td>
                                 <td class="py-2.5 px-3.5 tabular-data font-bold text-slate-900">
@@ -132,3 +132,4 @@ const { formatRupiah } = useFormatters();
         </div>
     </AdminLayout>
 </template>
+

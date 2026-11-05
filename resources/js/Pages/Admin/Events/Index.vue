@@ -87,3 +87,4 @@ const { formatRupiah, formatDate } = useFormatters();
         </div>
     </AdminLayout>
 </template>
+

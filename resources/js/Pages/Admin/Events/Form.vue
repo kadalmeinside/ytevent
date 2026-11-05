@@ -112,7 +112,7 @@ const submit = () => {
 
         <div class="max-w-4xl">
             <div class="mb-4">
-                <Link :href="route('admin.events.index')" class="text-xs font-semibold text-slate-600 hover:text-emerald-700">
+                <Link :href="route('admin.events.index')" class="text-xs font-semibold text-slate-600 hover:text-orange-600 transition-colors">
                     &larr; Kembali ke Daftar Kompetisi
                 </Link>
             </div>
@@ -211,7 +211,7 @@ const submit = () => {
                                     @input="form.clearErrors('max_teams')"
                                 />
                                 <p v-if="isEdit" class="text-[10px] text-slate-500 mt-0.5">
-                                    Slot terisi saat ini: <strong class="tabular-data text-emerald-800">{{ event.occupied_slots }} tim</strong>.
+                                    Slot terisi saat ini: <strong class="tabular-data text-orange-950 font-bold">{{ event.occupied_slots }} tim</strong>.
                                 </p>
                                 <InputError :message="form.errors.max_teams" />
                             </div>
@@ -261,12 +261,12 @@ const submit = () => {
                                 />
                             </div>
 
-                            <div class="sm:col-span-3 p-3.5 rounded-lg bg-slate-50 border border-slate-200">
+                            <div class="sm:col-span-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200">
                                 <label class="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700">
                                     <input
                                         v-model="form.lock_roster_until_paid"
                                         type="checkbox"
-                                        class="rounded border-slate-300 text-emerald-700 focus:ring-emerald-600"
+                                        class="rounded border-slate-300 text-orange-600 focus:ring-orange-500"
                                     />
                                     <span>Kunci menu input pemain hingga tim menyelesaikan pembayaran pendaftaran (Status Lunas)</span>
                                 </label>
@@ -333,7 +333,7 @@ const submit = () => {
                                             v-model="form.required_documents"
                                             type="checkbox"
                                             :value="docKey"
-                                            class="rounded border-slate-300 text-emerald-700 focus:ring-emerald-600"
+                                            class="rounded border-slate-300 text-orange-600 focus:ring-orange-500"
                                             @change="form.clearErrors('required_documents')"
                                         />
                                         <span>{{ label }}</span>
@@ -380,7 +380,7 @@ const submit = () => {
                                     Berkas PDF Regulasi Teknis (Maks. 5 MB)
                                 </label>
                                 <input type="file" accept=".pdf" class="input-field py-1.5 text-xs" @change="handlePdf" />
-                                <p v-if="event?.regulation_pdf_url" class="text-[11px] text-emerald-700 mt-1">
+                                <p v-if="event?.regulation_pdf_url" class="text-[11px] text-orange-800 font-medium mt-1">
                                     Berkas PDF saat ini sudah terunggah. Pilih berkas baru hanya jika ingin menggantinya.
                                 </p>
                             </div>
@@ -398,3 +398,4 @@ const submit = () => {
         </div>
     </AdminLayout>
 </template>
+

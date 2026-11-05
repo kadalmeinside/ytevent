@@ -107,7 +107,7 @@ const executeReject = () => {
                         v-for="item in queue"
                         :key="item.id"
                         class="p-3.5 cursor-pointer transition-colors text-xs"
-                        :class="selectedPayment?.id === item.id ? 'bg-emerald-50/70 border-l-4 border-emerald-700' : 'bg-white hover:bg-slate-50/90'"
+                        :class="selectedPayment?.id === item.id ? 'bg-orange-50/80 border-l-4 border-orange-600' : 'bg-white hover:bg-slate-50/90'"
                         @click="selectPayment(item)"
                     >
                         <div class="flex items-center justify-between gap-2 mb-1">
@@ -118,7 +118,7 @@ const executeReject = () => {
                         <p class="text-[11px] text-slate-500">{{ item.event?.name }}</p>
                         <div class="mt-2 pt-2 border-t border-slate-200/60 flex items-center justify-between">
                             <span class="text-slate-500">{{ item.sender_bank_name }} a.n {{ item.sender_account_holder }}</span>
-                            <strong class="text-emerald-800 tabular-data text-sm">{{ formatRupiah(item.total_amount) }}</strong>
+                            <strong class="text-orange-950 tabular-data text-sm font-black">{{ formatRupiah(item.total_amount) }}</strong>
                         </div>
                     </div>
                 </div>
@@ -137,7 +137,7 @@ const executeReject = () => {
                         </div>
                         <div class="text-left sm:text-right">
                             <span class="text-[11px] text-slate-500 block">Nominal Wajib Transfer</span>
-                            <span class="text-xl font-bold text-emerald-800 tabular-data">{{ formatRupiah(selectedPayment.total_amount) }}</span>
+                            <span class="text-xl font-black text-slate-900 tabular-data">{{ formatRupiah(selectedPayment.total_amount) }}</span>
                         </div>
                     </div>
 
@@ -176,7 +176,7 @@ const executeReject = () => {
                                         alt="Bukti Transfer"
                                         class="max-h-[450px] w-auto mx-auto rounded shadow-sm group-hover:opacity-95 transition-opacity"
                                     />
-                                    <span class="text-[11px] text-slate-500 mt-2 inline-block font-semibold group-hover:text-emerald-700">
+                                    <span class="text-[11px] text-slate-500 mt-2 inline-block font-semibold group-hover:text-orange-600 transition-colors">
                                         Klik gambar untuk membuka ukuran penuh di tab baru &rarr;
                                     </span>
                                 </a>
@@ -255,3 +255,4 @@ const executeReject = () => {
         </div>
     </AdminLayout>
 </template>
+

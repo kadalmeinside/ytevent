@@ -149,7 +149,7 @@ const submit = () => {
 
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div class="mb-4">
-                <Link :href="route('events.show', { event: event.slug })" class="text-xs font-semibold text-slate-600 hover:text-emerald-700">
+                <Link :href="route('events.show', { event: event.slug })" class="text-xs font-semibold text-slate-600 hover:text-orange-600 transition-colors">
                     &larr; Kembali ke Halaman Kompetisi
                 </Link>
             </div>
@@ -158,7 +158,7 @@ const submit = () => {
             <div class="frosted-card p-5 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <div class="flex items-center gap-2 mb-1.5">
-                        <span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-900 text-white">
+                        <span class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-slate-900 text-white">
                             {{ event.age_category }}
                         </span>
                         <StatusBadge :status="event.status" />
@@ -169,9 +169,9 @@ const submit = () => {
                     </p>
                 </div>
 
-                <div class="text-left sm:text-right shrink-0 p-3 rounded-lg bg-slate-50 border border-slate-200">
-                    <p class="text-[11px] font-medium text-slate-500">Sisa Kuota Saat Ini</p>
-                    <p class="text-base font-bold tabular-data" :class="event.available_slots === 0 ? 'text-rose-700' : 'text-emerald-800'">
+                <div class="text-left sm:text-right shrink-0 p-3.5 rounded-xl bg-orange-50/50 border border-orange-200/80">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Sisa Kuota Saat Ini</p>
+                    <p class="text-base font-black tabular-data" :class="event.available_slots === 0 ? 'text-rose-700' : 'text-orange-800'">
                         {{ event.available_slots }} dari {{ event.max_teams }} Slot
                     </p>
                     <p class="text-xs font-semibold text-slate-800 tabular-data mt-0.5">
@@ -402,7 +402,7 @@ const submit = () => {
                             </div>
                         </div>
                     </div>
-                    <div v-else class="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs text-emerald-900">
+                    <div v-else class="p-3.5 rounded-xl bg-orange-50/70 border border-orange-200 text-xs text-orange-950">
                         Anda sedang login sebagai <strong>{{ page.props.auth.user.email }}</strong>. Pendaftaran tim ini akan langsung dikaitkan ke akun Manajer Tim Anda.
                     </div>
 
@@ -412,7 +412,7 @@ const submit = () => {
                             <input
                                 v-model="form.terms_accepted"
                                 type="checkbox"
-                                class="mt-0.5 rounded border-slate-300 text-emerald-700 focus:ring-emerald-600"
+                                class="mt-0.5 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
                                 @change="form.clearErrors('terms_accepted')"
                             />
                             <span>

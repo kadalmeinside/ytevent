@@ -150,8 +150,8 @@ const reclaimSlot = () => {
                     </div>
 
                     <div class="text-left md:text-right">
-                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Total Tagihan</p>
-                        <p class="text-2xl font-bold text-emerald-800 tabular-data mt-0.5">
+                        <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Tagihan</p>
+                        <p class="text-2xl font-black text-slate-900 tabular-data mt-0.5 tracking-tight">
                             {{ formatRupiah(payment.total_amount) }}
                         </p>
                     </div>
@@ -264,7 +264,7 @@ const reclaimSlot = () => {
                     <button
                         type="button"
                         class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors"
-                        :class="paymentTab === 'manual' ? 'border-emerald-700 text-emerald-800' : 'border-transparent text-slate-600 hover:text-slate-900'"
+                        :class="paymentTab === 'manual' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
                         @click="paymentTab = 'manual'"
                     >
                         1. Transfer Bank Manual (Unggah Bukti)
@@ -272,7 +272,7 @@ const reclaimSlot = () => {
                     <button
                         type="button"
                         class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors"
-                        :class="paymentTab === 'gateway' ? 'border-emerald-700 text-emerald-800' : 'border-transparent text-slate-600 hover:text-slate-900'"
+                        :class="paymentTab === 'gateway' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
                         @click="paymentTab = 'gateway'"
                     >
                         2. Pembayaran Otomatis (Midtrans / Xendit)
@@ -289,7 +289,7 @@ const reclaimSlot = () => {
                         </div>
                         <div class="text-left sm:text-right">
                             <span class="text-[11px] text-slate-500 block">Nominal Transfer Tepat</span>
-                            <strong class="text-base text-emerald-800 tabular-data">{{ formatRupiah(payment.total_amount) }}</strong>
+                            <strong class="text-base text-orange-600 tabular-data font-bold">{{ formatRupiah(payment.total_amount) }}</strong>
                         </div>
                     </div>
 
