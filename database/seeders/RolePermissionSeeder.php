@@ -45,6 +45,7 @@ class RolePermissionSeeder extends Seeder
 
         $superadminRole = Role::findOrCreate('superadmin', 'web');
         $financeRole = Role::findOrCreate('finance', 'web');
+        $screeningRole = Role::findOrCreate('screening_officer', 'web');
         $managerRole = Role::findOrCreate('team_manager', 'web');
 
         $superadminRole->syncPermissions([
@@ -73,6 +74,14 @@ class RolePermissionSeeder extends Seeder
             'payments.view_all',
             'payments.verify_manual',
             'payments.export_report',
+        ]);
+
+        $screeningRole->syncPermissions([
+            'dashboard.admin.view',
+            'teams.view_all',
+            'screening.view_queue',
+            'screening.verify_player',
+            'screening.unlock_player',
         ]);
 
         $managerRole->syncPermissions([

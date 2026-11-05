@@ -5,6 +5,7 @@ import ManagerLayout from '@/Layouts/ManagerLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import FormErrorBanner from '@/Components/FormErrorBanner.vue';
 import { useFormValidator } from '@/Composables/useFormValidator';
+import { compressImage } from '@/Utils/imageCompressor';
 
 const props = defineProps({
     team: {
@@ -30,13 +31,17 @@ const form = useForm({
     logo: null,
 });
 
-const onLogoChange = (e) => {
-    const file = e.target.files?.[0] || null;
+const onLogoChange = async (e) => {
+    const rawFile = e.target.files?.[0] || null;
+    if (!rawFile) {
+        form.logo = null;
+        logoPreview.value = props.team?.logo_url || null;
+        return;
+    }
+    const { file } = await compressImage(rawFile, { maxDimension: 1200, quality: 0.85 });
     form.logo = file;
     form.clearErrors('logo');
-    if (file) {
-        logoPreview.value = URL.createObjectURL(file);
-    }
+    logoPreview.value = URL.createObjectURL(file);
 };
 
 const submit = () => {

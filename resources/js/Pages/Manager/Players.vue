@@ -8,6 +8,7 @@ import FormErrorBanner from '@/Components/FormErrorBanner.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
 import { useFormValidator } from '@/Composables/useFormValidator';
 import { useFormatters } from '@/Composables/useFormatters';
+import { compressImage } from '@/Utils/imageCompressor';
 
 const props = defineProps({
     team: {
@@ -91,15 +92,17 @@ const openEditModal = (player) => {
     isModalOpen.value = true;
 };
 
-const handlePhotoChange = (e) => {
-    const file = e.target.files?.[0] || null;
+const handlePhotoChange = async (e) => {
+    const rawFile = e.target.files?.[0] || null;
+    if (!rawFile) {
+        playerForm.photo = null;
+        photoPreview.value = editingPlayer.value?.photo_url || null;
+        return;
+    }
+    const { file } = await compressImage(rawFile, { maxDimension: 1400, quality: 0.85 });
     playerForm.photo = file;
     playerForm.clearErrors('photo');
-    if (file) {
-        photoPreview.value = URL.createObjectURL(file);
-    } else {
-        photoPreview.value = editingPlayer.value?.photo_url || null;
-    }
+    photoPreview.value = URL.createObjectURL(file);
 };
 
 const savePlayer = () => {

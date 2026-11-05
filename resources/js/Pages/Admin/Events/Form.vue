@@ -1,10 +1,11 @@
 <script setup>
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import FormErrorBanner from '@/Components/FormErrorBanner.vue';
 import { useFormValidator } from '@/Composables/useFormValidator';
+import { compressImage } from '@/Utils/imageCompressor';
 
 const props = defineProps({
     event: {
@@ -26,6 +27,7 @@ const props = defineProps({
 });
 
 const isEdit = computed(() => Boolean(props.event?.id));
+const bannerPreview = ref(props.event?.banner_url || null);
 const { applyValidation, isEmpty } = useFormValidator();
 
 const form = useForm({
@@ -58,9 +60,17 @@ const form = useForm({
     regulation_pdf: null,
 });
 
-const handleBanner = (e) => {
-    form.banner_file = e.target.files?.[0] || null;
+const handleBanner = async (e) => {
+    const raw = e.target.files?.[0] || null;
+    if (!raw) {
+        form.banner_file = null;
+        bannerPreview.value = props.event?.banner_url || null;
+        return;
+    }
+    const { file } = await compressImage(raw, { maxDimension: 1920, quality: 0.85 });
+    form.banner_file = file;
     form.clearErrors('banner_file');
+    bannerPreview.value = URL.createObjectURL(file);
 };
 
 const handlePdf = (e) => {
@@ -373,6 +383,18 @@ const submit = () => {
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">WhatsApp PIC</label>
                                 <input v-model="form.contact_whatsapp" type="text" placeholder="0812xxxxxxxx" class="input-field tabular-data" />
+                            </div>
+
+                            <div class="sm:col-span-2">
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">
+                                    Banner Gambar Kompetisi (Format JPG/PNG/WebP, Rasio 16:9 / Landscape)
+                                </label>
+                                <div v-if="bannerPreview" class="mb-3 rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 max-h-48 flex items-center justify-center">
+                                    <img :src="bannerPreview" alt="Preview Banner" class="w-full h-48 object-cover" />
+                                </div>
+                                <input type="file" accept=".jpg,.jpeg,.png,.webp" class="input-field py-1.5 text-xs" @change="handleBanner" />
+                                <p class="text-[10px] text-slate-500 mt-1">Gambar berukuran besar dikompresi otomatis sebelum diunggah.</p>
+                                <InputError :message="form.errors.banner_file" />
                             </div>
 
                             <div class="sm:col-span-2">

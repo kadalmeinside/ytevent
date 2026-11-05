@@ -4,6 +4,9 @@ use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\EventController as AdminEventController;
 use App\Http\Controllers\Admin\PaymentVerificationController as AdminPaymentVerificationController;
 use App\Http\Controllers\Admin\TeamManagementController as AdminTeamManagementController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Admin\RolePermissionController as AdminRolePermissionController;
+use App\Http\Controllers\Admin\SystemSettingController as AdminSystemSettingController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Manager\DashboardController as ManagerDashboardController;
 use App\Http\Controllers\Manager\OfficialController as ManagerOfficialController;
@@ -100,4 +103,19 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
     Route::get('/payments/transactions', [AdminPaymentVerificationController::class, 'transactions'])
         ->middleware('permission:payments.view_all')
         ->name('payments.transactions');
+
+    // Area Khusus Super Administrator
+    Route::middleware('role:superadmin')->group(function () {
+        Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');
+        Route::post('/users', [AdminUserController::class, 'store'])->name('users.store');
+        Route::post('/users/{user}/update', [AdminUserController::class, 'update'])->name('users.update');
+        Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
+
+        Route::get('/roles', [AdminRolePermissionController::class, 'index'])->name('roles.index');
+        Route::post('/roles/{role}/permissions', [AdminRolePermissionController::class, 'update'])->name('roles.update');
+
+        Route::get('/settings', [AdminSystemSettingController::class, 'index'])->name('settings.index');
+        Route::post('/settings/branding', [AdminSystemSettingController::class, 'updateBranding'])->name('settings.branding');
+        Route::post('/settings/payment-gateway', [AdminSystemSettingController::class, 'updatePaymentGateway'])->name('settings.payment-gateway');
+    });
 });

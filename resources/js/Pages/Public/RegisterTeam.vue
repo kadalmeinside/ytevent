@@ -7,6 +7,7 @@ import FormErrorBanner from '@/Components/FormErrorBanner.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import { useFormValidator } from '@/Composables/useFormValidator';
 import { useFormatters } from '@/Composables/useFormatters';
+import { compressImage } from '@/Utils/imageCompressor';
 
 const props = defineProps({
     event: {
@@ -61,15 +62,17 @@ const askotSuggestions = [
     'Askot PSSI Semarang',
 ];
 
-const handleLogoChange = (e) => {
-    const file = e.target.files?.[0] || null;
+const handleLogoChange = async (e) => {
+    const rawFile = e.target.files?.[0] || null;
+    if (!rawFile) {
+        form.logo = null;
+        logoPreview.value = null;
+        return;
+    }
+    const { file } = await compressImage(rawFile, { maxDimension: 1200, quality: 0.85 });
     form.logo = file;
     form.clearErrors('logo');
-    if (file) {
-        logoPreview.value = URL.createObjectURL(file);
-    } else {
-        logoPreview.value = null;
-    }
+    logoPreview.value = URL.createObjectURL(file);
 };
 
 const submit = () => {

@@ -20,18 +20,10 @@ Dokumen ini adalah instruksi sistem wajib untuk AI Coding Agent saat menulis, me
    - **WAJIB** membuat class `FormRequest` terpisah untuk setiap endpoint mutasi data (contoh: `RegisterTeamRequest`, `StorePlayerRequest`, `VerifyScreeningRequest`, `UploadPaymentProofRequest`).
    - Seluruh pesan error di `FormRequest::messages()` harus menggunakan Bahasa Indonesia yang jelas, operasional, dan spesifik.
 
-## 3. Keamanan, Autentikasi, & RBAC (Spatie)
-- Gunakan `spatie/laravel-permission` untuk manajemen Role & Permission.
-- Gunakan middleware dan Laravel `Policy` (`TeamPolicy`, `PlayerPolicy`, `EventPolicy`, `PaymentPolicy`) di setiap Controller action (`$this->authorize('update', $team)`).
-- Pastikan **Data Isolation** untuk `team_manager`: Manajer tim hanya boleh melihat dan memodifikasi `Team`, `Player`, dan `Invoice` yang memiliki `user_id === auth()->id()`.
-- Bagikan state otorisasi ke Vue melalui middleware `HandleInertiaRequests.php`:
-  ```php
-  'auth' => [
-      'user' => $request->user() ? [
-          'id' => $request->user()->id,
-          'name' => $request->user()->name,
-          'email' => $request->user()->email,
-          'roles' => $request->user()->getRoleNames(),
-          'permissions' => $request->user()->getAllPermissions()->pluck('name'),
-      ] : null,
-  ],
+## 4. Aturan Desain UI/UX & Larangan Visual Wajib
+1. **Larangan Animasi Pulse / Blinking:**
+   - **DILARANG KERAS** menggunakan kelas Tailwind `animate-pulse`, `animate-ping`, `animate-bounce`, atau CSS blinking pada kartu operasional, banner, ikon, tombol, maupun badge status. Antarmuka sepak bola profesional harus stabil, tenang, dan tidak mendistraksi konsentrasi operasional panitia dan manajer.
+2. **Larangan Dot Indicator / Lingkaran Status:**
+   - **DILARANG KERAS** menggunakan elemen titik bulat (`dot indicator` seperti `<span class="w-2 h-2 rounded-full ..."></span>`) baik yang berdiri sendiri maupun berdampingan dengan badge teks. Status wajib disajikan sebagai teks badge pill solid/terstruktur yang kontras tinggi dan tegas tanpa bulatan hiasan.
+3. **Larangan Validasi Bawaan Browser:**
+   - Formulir selalu menggunakan `<form novalidate>` dan validasi reaktif via composable / form error banner. Dilarang menggunakan HTML5 browser tooltips.

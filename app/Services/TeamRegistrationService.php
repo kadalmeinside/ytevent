@@ -152,7 +152,7 @@ class TeamRegistrationService
 
                 $invoiceNumber = $this->generateInvoiceNumber($lockedEvent);
 
-                Payment::create([
+                $payment = Payment::create([
                     'invoice_number' => $invoiceNumber,
                     'team_id' => $team->id,
                     'event_id' => $lockedEvent->id,
@@ -169,13 +169,12 @@ class TeamRegistrationService
                 // 6. Sinkronisasi status open -> quota_full bila slot terakhir terambil
                 $lockedEvent->syncQuotaStatus($occupied + 1);
 
-                EmailNotificationLog::create([
-                    'event_id' => $lockedEvent->id,
-                    'team_id' => $team->id,
-                    'mailable_type' => 'TeamRegisteredMail',
-                    'recipient_email' => $team->manager_email,
-                    'status' => 'queued',
-                ]);
+                $emailService = app(EmailNotificationService::class);
+                if ($isFree) {
+                    $emailService->sendPaymentConfirmed($team, $payment);
+                } else {
+                    $emailService->sendTeamRegistered($team, $payment);
+                }
 
                 return [
                     'ok' => true,

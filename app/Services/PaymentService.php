@@ -316,13 +316,7 @@ class PaymentService
                     $lockedEvent->syncQuotaStatus();
                 }
 
-                EmailNotificationLog::create([
-                    'event_id' => $lockedEvent->id,
-                    'team_id' => $lockedTeam->id,
-                    'mailable_type' => 'PaymentReceivedMail',
-                    'recipient_email' => $lockedTeam->manager_email,
-                    'status' => 'queued',
-                ]);
+                app(EmailNotificationService::class)->sendPaymentConfirmed($lockedTeam, $lockedPayment);
 
                 return $lockedPayment->fresh();
             }
@@ -437,13 +431,7 @@ class PaymentService
 
             $lockedEvent->syncQuotaStatus();
 
-            EmailNotificationLog::create([
-                'event_id' => $lockedEvent->id,
-                'team_id' => $lockedTeam->id,
-                'mailable_type' => 'PaymentReceivedMail',
-                'recipient_email' => $lockedTeam->manager_email,
-                'status' => 'queued',
-            ]);
+            app(EmailNotificationService::class)->sendPaymentConfirmed($lockedTeam, $lockedPayment);
 
             return $lockedPayment->fresh();
         });
@@ -483,13 +471,7 @@ class PaymentService
                 ]);
             }
 
-            EmailNotificationLog::create([
-                'event_id' => $lockedEvent->id,
-                'team_id' => $lockedTeam->id,
-                'mailable_type' => 'PaymentRejectedMail',
-                'recipient_email' => $lockedTeam->manager_email,
-                'status' => 'queued',
-            ]);
+            app(EmailNotificationService::class)->sendPaymentRejected($lockedTeam, $lockedPayment, $reason);
 
             return $lockedPayment->fresh();
         });

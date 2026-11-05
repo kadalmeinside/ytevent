@@ -2,7 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\SystemSetting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -54,6 +56,16 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
                 'warning' => fn () => $request->session()->get('warning'),
                 'info' => fn () => $request->session()->get('info'),
+            ],
+            'systemSettings' => fn () => [
+                'app_name' => SystemSetting::get('app_name', config('app.name', 'YTEvent Football')),
+                'app_tagline' => SystemSetting::get('app_tagline', 'Multi-Event Competition Portal'),
+                'app_logo_url' => SystemSetting::get('app_logo') ? Storage::disk('public')->url(SystemSetting::get('app_logo')) : null,
+                'app_favicon_url' => SystemSetting::get('app_favicon') ? Storage::disk('public')->url(SystemSetting::get('app_favicon')) : null,
+                'footer_copyright' => SystemSetting::get('footer_copyright', 'YTEvent Multi-Event Football Tournament & League Management System'),
+                'contact_whatsapp' => SystemSetting::get('contact_whatsapp'),
+                'fee_borne_by' => SystemSetting::get('fee_borne_by', 'team'),
+                'fee_fixed_amount' => (int) SystemSetting::get('fee_fixed_amount', 4500),
             ],
         ];
     }

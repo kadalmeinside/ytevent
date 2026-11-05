@@ -57,8 +57,14 @@ const logout = () => {
                         </button>
                     </template>
                     <template v-else>
-                        <Link :href="route('login')" class="btn-secondary text-xs sm:text-sm py-1.5 px-3.5">
-                            Login Manajer Tim
+                        <Link
+                            :href="route('login')"
+                            class="inline-flex items-center gap-2 bg-gradient-to-r from-orange-600 via-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white text-xs sm:text-sm font-bold py-2 px-4 rounded-xl shadow-md shadow-orange-500/25 hover:shadow-lg hover:shadow-orange-500/35 active:scale-[0.98] transition-all border border-orange-500/40"
+                        >
+                            <svg class="w-4 h-4 text-orange-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                            </svg>
+                            <span>Login Manajer Tim</span>
                         </Link>
                     </template>
                 </nav>

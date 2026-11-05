@@ -7,10 +7,16 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 class Event extends Model
 {
     use HasFactory, SoftDeletes;
+
+    protected $appends = [
+        'banner_url',
+        'regulation_pdf_url',
+    ];
 
     public const FORMATS = [
         'cup' => 'Cup (Sistem Gugur)',
@@ -177,6 +183,16 @@ class Event extends Model
         } elseif ($occupied < $this->max_teams && $this->status === 'quota_full' && $this->isWithinRegistrationWindow()) {
             $this->update(['status' => 'open']);
         }
+    }
+
+    public function getBannerUrlAttribute(): ?string
+    {
+        return $this->banner_path ? Storage::disk('public')->url($this->banner_path) : null;
+    }
+
+    public function getRegulationPdfUrlAttribute(): ?string
+    {
+        return $this->regulation_pdf_path ? Storage::disk('public')->url($this->regulation_pdf_path) : null;
     }
 
     public static function documentLabel(string $type): string

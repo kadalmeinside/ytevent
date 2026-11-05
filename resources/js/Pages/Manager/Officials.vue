@@ -6,6 +6,7 @@ import InputError from '@/Components/InputError.vue';
 import FormErrorBanner from '@/Components/FormErrorBanner.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
 import { useFormValidator } from '@/Composables/useFormValidator';
+import { compressImage } from '@/Utils/imageCompressor';
 
 const props = defineProps({
     team: {
@@ -65,13 +66,17 @@ const openEditModal = (item) => {
     isModalOpen.value = true;
 };
 
-const handlePhoto = (e) => {
-    const file = e.target.files?.[0] || null;
+const handlePhoto = async (e) => {
+    const rawFile = e.target.files?.[0] || null;
+    if (!rawFile) {
+        form.photo = null;
+        photoPreview.value = editingOfficial.value?.photo_url || null;
+        return;
+    }
+    const { file } = await compressImage(rawFile, { maxDimension: 1200, quality: 0.85 });
     form.photo = file;
     form.clearErrors('photo');
-    if (file) {
-        photoPreview.value = URL.createObjectURL(file);
-    }
+    photoPreview.value = URL.createObjectURL(file);
 };
 
 const handleLicense = (e) => {

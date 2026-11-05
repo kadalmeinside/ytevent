@@ -38,6 +38,11 @@ const quotaPercentage = computed(() => {
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Left Main Content -->
                 <div class="lg:col-span-2 space-y-6">
+                    <!-- Event Hero Banner -->
+                    <div v-if="event.banner_url" class="rounded-2xl overflow-hidden border border-slate-200/80 shadow-sm bg-slate-100 max-h-72">
+                        <img :src="event.banner_url" :alt="event.name" class="w-full h-72 object-cover" />
+                    </div>
+
                     <div class="frosted-card p-6">
                         <div class="flex flex-wrap items-center gap-2 mb-3">
                             <span class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-slate-900 text-white">

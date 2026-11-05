@@ -57,6 +57,24 @@ const navGroups = computed(() => {
             match: '/admin/payments/transactions',
             show: can('payments.view_all'),
         },
+        {
+            label: 'Manajemen Pengguna',
+            href: route('admin.users.index'),
+            match: '/admin/users',
+            show: user.value?.roles?.includes('superadmin'),
+        },
+        {
+            label: 'Hak Akses & Role',
+            href: route('admin.roles.index'),
+            match: '/admin/roles',
+            show: user.value?.roles?.includes('superadmin'),
+        },
+        {
+            label: 'Pengaturan Global',
+            href: route('admin.settings.index'),
+            match: '/admin/settings',
+            show: user.value?.roles?.includes('superadmin'),
+        },
     ];
 
     return items.filter((i) => i.show);

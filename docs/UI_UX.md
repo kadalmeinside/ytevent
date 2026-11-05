@@ -35,7 +35,7 @@ Aplikasi dirancang sebagai **perangkat kerja operasional sepak bola berdensitas 
 ## 3. Komponen Standar & Aturan Anti-Overlap
 
 ### 3.1 Badge Status (Tanpa Dot & Tanpa Pulse)
-Pill tegas dengan teks kontras tinggi:
+Pill tegas dengan teks kontras tinggi tanpa bulatan ataupun animasi:
 - **Lunas / Aktif / Lolos (`PAID` / `ACTIVE` / `PASSED` / `OPEN`):** `bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold text-xs px-2.5 py-0.5 rounded-md`
 - **Menunggu Verifikasi / Belum Bayar (`WAITING_VERIFICATION` / `UNPAID` / `PENDING_PAYMENT` / `SUBMITTED`):** `bg-amber-50 text-amber-900 border-amber-300 font-semibold text-xs px-2.5 py-0.5 rounded-md`
 - **Ditolak / Kedaluwarsa / Kuota Penuh (`REJECTED` / `EXPIRED` / `QUOTA_FULL`):** `bg-rose-50 text-rose-800 border-rose-300 font-semibold text-xs px-2.5 py-0.5 rounded-md`
@@ -51,3 +51,13 @@ Setiap kartu pada ringkasan tim wajib memiliki 3 tingkatan visual vertikal yang 
 1. **Header:** Label kategori (abu-abu, uppercase kecil) + Icon/Status Badge di pojok kanan atas.
 2. **Body:** Angka/Nominal utama ukuran besar (`text-xl` s/d `text-2xl font-black tabular-data`).
 3. **Footer:** Keterangan sekunder (No. Invoice, Asal Askot, atau batas kuota) dengan baris terpisah dan spasi proporsional.
+
+---
+
+## 4. Larangan Desain Visual Wajib (Strict Prohibitions)
+1. **DILARANG menggunakan Animasi `pulse`, `ping`, atau efek berkedip (*blinking*):**
+   - Tidak boleh menggunakan `animate-pulse`, `animate-ping`, atau animasi kedap-kedip pada ikon, status badge, tombol, maupun kartu metrik. Antarmuka harus tenang, kokoh, dan berstandar utilitas operasional enterprise.
+2. **DILARANG menggunakan Dot Indicator / Titik Bulat Status:**
+   - Tidak boleh menaruh elemen dot bulat hiasan (`rounded-full w-2 h-2` dsb.) baik standalone maupun di dalam pill badge. Status selalu dinyatakan secara eksplisit dengan teks badge yang jelas.
+3. **DILARANG menggunakan Validasi Bawaan Browser:**
+   - Semua form wajib `<form novalidate>`. Pesan error disajikan melalui composable reaktif dan `FormErrorBanner`.

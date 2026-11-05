@@ -73,8 +73,7 @@ const quotaPercentage = (event) => {
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
                 <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
                     <div class="max-w-2xl">
-                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-orange-100/80 text-orange-800 border border-orange-300/80 mb-3 shadow-sm">
-                            <span class="w-2 h-2 rounded-full bg-orange-600 animate-pulse"></span>
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-orange-100/80 text-orange-800 border border-orange-300/80 mb-3 shadow-sm">
                             Multi-Event Football Management
                         </span>
                         <h1 class="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
@@ -174,30 +173,34 @@ const quotaPercentage = (event) => {
                 <article
                     v-for="event in events"
                     :key="event.id"
-                    class="frosted-card flex flex-col justify-between p-5 hover:border-slate-300 transition-colors"
+                    class="frosted-card flex flex-col justify-between overflow-hidden hover:border-orange-300/80 hover:shadow-lg transition-all"
                 >
-                    <div>
-                        <div class="flex items-center justify-between gap-2 mb-3">
-                            <div class="flex items-center gap-1.5">
-                                <span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-900 text-white">
-                                    {{ event.age_category }}
-                                </span>
-                                <span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                                    {{ event.format_label }}
-                                </span>
+                    <div v-if="event.banner_url" class="h-40 w-full overflow-hidden bg-slate-100">
+                        <img :src="event.banner_url" :alt="event.name" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+                    </div>
+                    <div class="p-5 flex-1 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between gap-2 mb-3">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-900 text-white">
+                                        {{ event.age_category }}
+                                    </span>
+                                    <span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                                        {{ event.format_label }}
+                                    </span>
+                                </div>
+                                <StatusBadge :status="event.status" />
                             </div>
-                            <StatusBadge :status="event.status" />
-                        </div>
 
-                        <Link :href="route('events.show', { event: event.slug })" class="group block">
-                            <h2 class="text-base font-bold text-slate-900 group-hover:text-orange-600 transition-colors">
-                                {{ event.name }}
-                            </h2>
-                        </Link>
+                            <Link :href="route('events.show', { event: event.slug })" class="group block">
+                                <h2 class="text-base font-bold text-slate-900 group-hover:text-orange-600 transition-colors">
+                                    {{ event.name }}
+                                </h2>
+                            </Link>
 
-                        <p class="mt-1.5 text-xs text-slate-600 line-clamp-2">
-                            {{ event.short_description }}
-                        </p>
+                            <p class="mt-1.5 text-xs text-slate-600 line-clamp-2">
+                                {{ event.short_description }}
+                            </p>
 
                         <dl class="mt-4 space-y-1.5 text-xs border-t border-slate-200/70 pt-3">
                             <div class="flex items-center justify-between gap-2">
@@ -258,6 +261,7 @@ const quotaPercentage = (event) => {
                         >
                             {{ event.available_slots === 0 ? 'Kuota Penuh' : 'Ditutup' }}
                         </span>
+                        </div>
                     </div>
                 </article>
             </div>

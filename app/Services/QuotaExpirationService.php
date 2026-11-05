@@ -63,6 +63,7 @@ class QuotaExpirationService
                 ->whereIn('status', ['unpaid', 'rejected'])
                 ->update(['status' => 'expired']);
             $count++;
+            app(EmailNotificationService::class)->sendSlotExpired($staleTeam);
         }
 
         $lockedEvent->syncQuotaStatus();
