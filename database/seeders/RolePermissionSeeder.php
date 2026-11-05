@@ -91,10 +91,24 @@ class RolePermissionSeeder extends Seeder
             'manager.players.manage_own',
         ]);
 
+        // Akun Utama Super Admin Persija Development
+        $superadminPersija = User::updateOrCreate(
+            ['email' => 'superadmin@persijadevelopment.id'],
+            [
+                'name' => 'Superadmin Persija Development',
+                'phone' => '081128021928',
+                'password' => Hash::make('Admin12345'),
+                'is_active' => true,
+                'email_verified_at' => now(),
+            ]
+        );
+        $superadminPersija->syncRoles(['superadmin']);
+
+        // Akun Super Admin Standar
         $superadmin = User::updateOrCreate(
             ['email' => 'superadmin@ytevent.id'],
             [
-                'name' => 'Superadmin Kompetisi',
+                'name' => 'Superadmin Persija Development',
                 'phone' => '08111000111',
                 'password' => Hash::make('Admin12345'),
                 'is_active' => true,
@@ -103,10 +117,23 @@ class RolePermissionSeeder extends Seeder
         );
         $superadmin->syncRoles(['superadmin']);
 
+        // Akun Finance
+        $financePersija = User::updateOrCreate(
+            ['email' => 'finance@persijadevelopment.id'],
+            [
+                'name' => 'Finance Persija Development',
+                'phone' => '081128021929',
+                'password' => Hash::make('Finance12345'),
+                'is_active' => true,
+                'email_verified_at' => now(),
+            ]
+        );
+        $financePersija->syncRoles(['finance']);
+
         $finance = User::updateOrCreate(
             ['email' => 'finance@ytevent.id'],
             [
-                'name' => 'Staf Finance YTEvent',
+                'name' => 'Staf Finance Persija',
                 'phone' => '08111000222',
                 'password' => Hash::make('Finance12345'),
                 'is_active' => true,
@@ -114,6 +141,19 @@ class RolePermissionSeeder extends Seeder
             ]
         );
         $finance->syncRoles(['finance']);
+
+        // Akun Screening Officer
+        $screening = User::updateOrCreate(
+            ['email' => 'screening@persijadevelopment.id'],
+            [
+                'name' => 'Petugas Screening Persija',
+                'phone' => '081128021930',
+                'password' => Hash::make('Screening12345'),
+                'is_active' => true,
+                'email_verified_at' => now(),
+            ]
+        );
+        $screening->syncRoles(['screening_officer']);
     }
 }
 

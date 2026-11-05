@@ -3,130 +3,78 @@
 namespace Database\Seeders;
 
 use App\Models\Event;
+use App\Models\Payment;
+use App\Models\Player;
+use App\Models\Team;
+use Carbon\Carbon;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\File;
 
 class EventSeeder extends Seeder
 {
     public function run(): void
     {
-        $events = [
-            [
-                'name' => 'Piala Nusantara Youth Cup U-15 2026',
-                'slug' => 'piala-nusantara-youth-cup-u15-2026',
-                'short_description' => 'Turnamen sepak bola kelompok usia U-15 tingkat regional dengan sistem Fase Grup lanjut Babak Gugur. Screening ketat berbasis NIK, Akta Kelahiran, KK, dan KIA/Rapor.',
-                'venue_name' => 'Stadion Madya Gelora Bung Karno',
-                'city' => 'Jakarta Pusat',
-                'format' => 'group_knockout',
-                'age_category' => 'U-15',
-                'min_birth_date' => '2011-01-01',
-                'max_birth_date' => '2012-12-31',
-                'min_players_per_team' => 14,
-                'max_players_per_team' => 22,
-                'max_officials_per_team' => 5,
-                'required_documents' => ['birth_certificate', 'family_card', 'student_card_kia'],
-                'max_teams' => 32,
-                'registration_fee' => 2500000,
-                'prize_info' => 'Total Pembinaan Rp 35.000.000 + Trofi Bergilir & Medali',
-                'lock_roster_until_paid' => true,
-                'payment_deadline_hours' => 24,
-                'reupload_grace_hours' => 6,
-                'registration_open_at' => now()->subDays(10),
-                'registration_close_at' => now()->addDays(20),
-                'match_start_date' => now()->addDays(30)->toDateString(),
-                'match_end_date' => now()->addDays(37)->toDateString(),
-                'contact_person' => 'Sekretariat Panitia Pelaksana',
-                'contact_whatsapp' => '081288990011',
-                'status' => 'open',
-            ],
-            [
-                'name' => 'Festival Grassroots Sepak Bola U-12 Jawa Barat',
-                'slug' => 'festival-grassroots-u12-jawa-barat',
-                'short_description' => 'Festival pembinaan usia dini format 9v9 untuk SSB dan Akademi terafiliasi Askot/Askab PSSI dengan fokus menit bermain merata dan verifikasi usia akurat.',
-                'venue_name' => 'Lapangan Progresif Sport Center',
-                'city' => 'Bandung',
-                'format' => 'festival',
-                'age_category' => 'U-12',
-                'min_birth_date' => '2014-01-01',
-                'max_birth_date' => '2015-12-31',
-                'min_players_per_team' => 12,
-                'max_players_per_team' => 18,
-                'max_officials_per_team' => 4,
-                'required_documents' => ['birth_certificate', 'family_card', 'report_card_diploma'],
-                'max_teams' => 24,
-                'registration_fee' => 1750000,
-                'prize_info' => 'Trofi Juara 1-4, Sertifikat Resmi Pemain, & Penghargaan Fair Play',
-                'lock_roster_until_paid' => true,
-                'payment_deadline_hours' => 24,
-                'reupload_grace_hours' => 6,
-                'registration_open_at' => now()->subDays(5),
-                'registration_close_at' => now()->addDays(15),
-                'match_start_date' => now()->addDays(22)->toDateString(),
-                'match_end_date' => now()->addDays(24)->toDateString(),
-                'contact_person' => 'Komisi Usia Dini Jawa Barat',
-                'contact_whatsapp' => '081322445566',
-                'status' => 'open',
-            ],
-            [
-                'name' => 'Liga Akademi Kompetisi Penuh U-17 2026/2027',
-                'slug' => 'liga-akademi-kompetisi-penuh-u17-2026',
-                'short_description' => 'Kompetisi liga penuh satu musim (Home & Away / Series) bagi akademi U-17 untuk persiapan jenjang kompetisi nasional.',
-                'venue_name' => 'Stadion Pakansari Cibinong',
-                'city' => 'Bogor',
-                'format' => 'league',
-                'age_category' => 'U-17',
-                'min_birth_date' => '2009-01-01',
-                'max_birth_date' => '2010-12-31',
-                'min_players_per_team' => 16,
-                'max_players_per_team' => 30,
-                'max_officials_per_team' => 6,
-                'required_documents' => ['birth_certificate', 'family_card', 'report_card_diploma'],
-                'max_teams' => 16,
-                'registration_fee' => 4500000,
-                'prize_info' => 'Dana Pembinaan Rp 60.000.000 + Slot Putaran Nasional',
-                'lock_roster_until_paid' => true,
-                'payment_deadline_hours' => 24,
-                'reupload_grace_hours' => 6,
-                'registration_open_at' => now()->subDays(3),
-                'registration_close_at' => now()->addDays(25),
-                'match_start_date' => now()->addDays(40)->toDateString(),
-                'match_end_date' => now()->addDays(120)->toDateString(),
-                'contact_person' => 'Operator Liga Akademi',
-                'contact_whatsapp' => '081299887766',
-                'status' => 'open',
-            ],
-            [
-                'name' => 'Piala Gubernur Open Knockout Cup Senior 2026',
-                'slug' => 'piala-gubernur-open-knockout-senior-2026',
-                'short_description' => 'Turnamen sistem gugur (Knockout) kategori Senior Amatir antar klub anggota Askot/Askab.',
-                'venue_name' => 'Stadion Gelora Bung Tomo',
-                'city' => 'Surabaya',
-                'format' => 'cup',
-                'age_category' => 'Senior',
-                'min_birth_date' => '1986-01-01',
-                'max_birth_date' => '2008-12-31',
-                'min_players_per_team' => 15,
-                'max_players_per_team' => 25,
-                'max_officials_per_team' => 6,
-                'required_documents' => ['national_id_ktp', 'family_card'],
-                'max_teams' => 16,
-                'registration_fee' => 3500000,
-                'prize_info' => 'Total Hadiah Rp 75.000.000 + Trofi Kejuaraan',
-                'lock_roster_until_paid' => true,
-                'payment_deadline_hours' => 24,
-                'reupload_grace_hours' => 6,
-                'registration_open_at' => now()->subDays(7),
-                'registration_close_at' => now()->addDays(14),
-                'match_start_date' => now()->addDays(25)->toDateString(),
-                'match_end_date' => now()->addDays(35)->toDateString(),
-                'contact_person' => 'Panpel Piala Gubernur',
-                'contact_whatsapp' => '081133445577',
-                'status' => 'open',
-            ],
-        ];
+        // 1. Bersihkan semua event lama beserta data terkait
+        Team::query()->forceDelete();
+        Payment::query()->delete();
+        Player::query()->forceDelete();
+        Event::query()->forceDelete();
 
-        foreach ($events as $data) {
-            Event::updateOrCreate(['slug' => $data['slug']], $data);
+        // 2. Pastikan file banner poster Young Tiger Cup tersimpan di storage/app/public/events
+        $targetBanner = storage_path('app/public/events/young-tiger-cup-u12-banner.jpg');
+        $bundledAsset = database_path('seeders/assets/young-tiger-cup-u12-banner.jpg');
+        $altSource = '/Users/macbook/.gemini/antigravity/brain/fdad4be1-49e6-447e-a227-50de012ac19f/.user_uploaded/media_1793868996233_29d232ff.jpg';
+
+        File::ensureDirectoryExists(storage_path('app/public/events'));
+        if (! File::exists($targetBanner)) {
+            if (File::exists($bundledAsset)) {
+                File::copy($bundledAsset, $targetBanner);
+            } elseif (File::exists($altSource)) {
+                File::copy($altSource, $targetBanner);
+            }
         }
+
+        $currentYear = now()->year;
+        $matchStartDate = Carbon::create($currentYear, 12, 19, 8, 0, 0);
+        if ($matchStartDate->isPast() && now()->month === 12 && now()->day > 20) {
+            $matchStartDate = Carbon::create($currentYear + 1, 12, 19, 8, 0, 0);
+        }
+        $matchEndDate = (clone $matchStartDate)->addDay();
+        $registrationClose = (clone $matchStartDate)->subDays(4)->endOfDay();
+
+        Event::create([
+            'name' => 'Young Tiger Cup U-12',
+            'slug' => 'young-tiger-cup-u12',
+            'banner_path' => 'events/young-tiger-cup-u12-banner.jpg',
+            'short_description' => 'Turnamen resmi Young Tiger Cup Kategori U-12 (Kelahiran 2014-2015) format 7 vs 7 (Bola Ukuran 4, durasi 2x15 menit) di Persija Academy Training Ground. Babak Grup (Grup A, B, C, D) dilanjutkan babak gugur menuju Juara 1, 2, 3, Pemain Terbaik, dan Pelatih Terbaik.',
+            'venue_name' => 'Persija Academy Training Ground',
+            'city' => 'DKI Jakarta',
+            'format' => 'group_knockout',
+            'age_category' => 'U-12',
+            'min_birth_date' => '2014-01-01',
+            'max_birth_date' => '2015-12-31',
+            'min_players_per_team' => 10,
+            'max_players_per_team' => 20,
+            'max_officials_per_team' => 4,
+            'required_documents' => [
+                'birth_certificate',
+                'family_card',
+                'student_card_kia',
+                'report_card_diploma',
+            ],
+            'max_teams' => 16,
+            'registration_fee' => 2500000,
+            'prize_info' => 'Juara 1: Piala, Medali, Equipment, Merchandise | Juara 2: Piala, Medali, Equipment | Juara 3: Piala, Medali | Pemain Terbaik: Medali, Merchandise | Pelatih Terbaik: Piala, Merchandise',
+            'lock_roster_until_paid' => true,
+            'payment_deadline_hours' => 24,
+            'reupload_grace_hours' => 6,
+            'registration_open_at' => now()->subDays(5),
+            'registration_close_at' => $registrationClose,
+            'match_start_date' => $matchStartDate->toDateString(),
+            'match_end_date' => $matchEndDate->toDateString(),
+            'contact_person' => 'Panitia Pelaksana Young Tiger Cup',
+            'contact_whatsapp' => '081128021928',
+            'status' => 'open',
+        ]);
     }
 }
-
