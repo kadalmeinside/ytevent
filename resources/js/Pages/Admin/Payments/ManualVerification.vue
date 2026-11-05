@@ -189,7 +189,7 @@ const executeReject = () => {
                     <div class="pt-2 flex items-center justify-between gap-3">
                         <button
                             type="button"
-                            class="px-4 py-2 rounded-lg text-xs font-semibold text-rose-700 hover:bg-rose-50 border border-rose-300 transition-colors"
+                            class="btn-danger"
                             :disabled="approveForm.processing"
                             @click="openRejectModal"
                         >
@@ -198,7 +198,7 @@ const executeReject = () => {
 
                         <button
                             type="button"
-                            class="btn-pitch text-xs px-6 py-2.5"
+                            class="btn-pitch"
                             :disabled="approveForm.processing"
                             @click="approvePayment(selectedPayment)"
                         >
@@ -238,12 +238,12 @@ const executeReject = () => {
                     </p>
 
                     <div class="mt-5 flex items-center justify-end gap-2.5">
-                        <button type="button" class="btn-secondary text-xs" @click="isRejectModalOpen = false">
+                        <button type="button" class="btn-secondary" @click="isRejectModalOpen = false">
                             Batal
                         </button>
                         <button
                             type="button"
-                            class="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 transition-colors disabled:opacity-60"
+                            class="btn-danger"
                             :disabled="rejectForm.processing"
                             @click="executeReject"
                         >

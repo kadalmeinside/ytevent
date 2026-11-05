@@ -64,8 +64,10 @@ class HandleInertiaRequests extends Middleware
                 'app_favicon_url' => SystemSetting::get('app_favicon') ? Storage::disk('public')->url(SystemSetting::get('app_favicon')) : null,
                 'footer_copyright' => SystemSetting::get('footer_copyright', 'YTEvent Multi-Event Football Tournament & League Management System'),
                 'contact_whatsapp' => SystemSetting::get('contact_whatsapp'),
+                'payment_method_mode' => SystemSetting::get('payment_method_mode', 'midtrans'),
+                'manual_bank_accounts' => SystemSetting::get('manual_bank_accounts', []),
                 'fee_borne_by' => SystemSetting::get('fee_borne_by', 'team'),
-                'fee_fixed_amount' => (int) SystemSetting::get('fee_fixed_amount', 4500),
+                'fee_fixed_amount' => (int) SystemSetting::get('midtrans_va_fee', 4000),
             ],
         ];
     }

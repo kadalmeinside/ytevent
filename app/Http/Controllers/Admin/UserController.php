@@ -127,3 +127,4 @@ class UserController extends Controller
             ->with('success', "Akun pengguna {$userName} berhasil dihapus dari sistem.");
     }
 }
+

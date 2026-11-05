@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\EmailNotificationLog;
 use App\Models\Event;
 use App\Models\Payment;
+use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -40,6 +41,34 @@ class PaymentService
                 ? max(5, (int) now()->diffInMinutes($lockedPayment->expires_at, false))
                 : 1440;
 
+            // Hitung Biaya MDR / Fee Layanan Midtrans Berdasarkan Channel yang Dipilih
+            $feeBorneBy = SystemSetting::get('fee_borne_by', 'team');
+            $vaFee = (float) SystemSetting::get('midtrans_va_fee', 4000);
+            $qrisFeePercent = (float) SystemSetting::get('midtrans_qris_fee_percent', 0.7);
+            $ewalletFeePercent = (float) SystemSetting::get('midtrans_ewallet_fee_percent', 1.5);
+            $ccFeePercent = (float) SystemSetting::get('midtrans_cc_fee_percent', 2.9);
+            $ccFeeFixed = (float) SystemSetting::get('midtrans_cc_fee_fixed', 2000);
+
+            $channelLower = strtolower($channel);
+            $calculatedFee = 0;
+
+            if (str_contains($channelLower, 'qris') || str_contains($channelLower, 'qr')) {
+                $calculatedFee = round((float) $lockedPayment->amount * ($qrisFeePercent / 100));
+            } elseif (str_contains($channelLower, 'gopay') || str_contains($channelLower, 'shopeepay') || str_contains($channelLower, 'wallet') || str_contains($channelLower, 'ewallet')) {
+                $calculatedFee = round((float) $lockedPayment->amount * ($ewalletFeePercent / 100));
+            } elseif (str_contains($channelLower, 'credit') || str_contains($channelLower, 'card') || str_contains($channelLower, 'kartu')) {
+                $calculatedFee = round(((float) $lockedPayment->amount * ($ccFeePercent / 100)) + $ccFeeFixed);
+            } else {
+                // Virtual Account default (BCA, Mandiri, BNI, BRI, Permata)
+                $calculatedFee = $vaFee;
+            }
+
+            $gatewayFee = $feeBorneBy === 'team' ? $calculatedFee : 0;
+            $totalAmount = (float) $lockedPayment->amount + (float) $gatewayFee;
+
+            $lockedPayment->gateway_fee = $gatewayFee;
+            $lockedPayment->total_amount = $totalAmount;
+
             $snapToken = $lockedPayment->snap_token;
             $paymentUrl = $lockedPayment->payment_url;
             $externalRef = $lockedPayment->external_reference_id;
@@ -59,7 +88,7 @@ class PaymentService
                     ->post(config('payment.midtrans.snap_url'), [
                         'transaction_details' => [
                             'order_id' => $lockedPayment->invoice_number,
-                            'gross_amount' => (int) round((float) $lockedPayment->total_amount),
+                            'gross_amount' => (int) round($totalAmount),
                         ],
                         'customer_details' => [
                             'first_name' => $team->manager_name,
@@ -110,6 +139,8 @@ class PaymentService
             $lockedPayment->update([
                 'method' => $provider,
                 'payment_channel' => $channel,
+                'gateway_fee' => $gatewayFee,
+                'total_amount' => $totalAmount,
                 'external_reference_id' => $externalRef,
                 'snap_token' => $snapToken,
                 'payment_url' => $paymentUrl,

@@ -73,60 +73,93 @@ const { formatRupiah } = useFormatters();
                 <div>
                     <strong>Peringatan Rekonsiliasi:</strong> Terdapat {{ metrics.refund_required_count }} transaksi pembayaran yang masuk setelah kuota kompetisi penuh (*Late Settlement*). Perlu proses pengembalian dana manual.
                 </div>
-                <Link :href="route('admin.payments.transactions', { status: 'refund_required' })" class="btn-pitch text-xs py-1.5 px-3">
+                <Link :href="route('admin.payments.transactions', { status: 'refund_required' })" class="btn-sm-pitch shrink-0">
                     Lihat Transaksi
                 </Link>
             </div>
 
-            <!-- Events Quota & Revenue Overview Table -->
+            <!-- Events Quota & Revenue Overview Container -->
             <div class="frosted-card overflow-hidden">
-                <div class="px-5 py-4 border-b border-slate-200 bg-slate-100/70 flex items-center justify-between">
+                <div class="px-5 py-4 border-b border-slate-200 bg-slate-100/70 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
                         <h2 class="text-sm font-bold text-slate-900">Pemantauan Kuota &amp; Pendapatan per Kompetisi</h2>
                         <p class="text-xs text-slate-500">Kapasitas maksimal terlindungi dari *race condition* dengan penguncian baris database.</p>
                     </div>
-                    <Link :href="route('admin.events.create')" class="btn-pitch text-xs py-1.5 px-3">
+                    <Link :href="route('admin.events.create')" class="btn-pitch">
                         + Buat Event Baru
                     </Link>
                 </div>
 
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse text-xs">
+                <!-- DESKTOP TABLE VIEW -->
+                <div class="hidden md:block overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="bg-slate-100/90 text-slate-700 border-b border-slate-200 uppercase tracking-wide">
-                                <th class="py-2.5 px-3.5">Nama Kompetisi</th>
-                                <th class="py-2.5 px-3.5">Usia &amp; Format</th>
-                                <th class="py-2.5 px-3.5">Kapasitas Kuota</th>
-                                <th class="py-2.5 px-3.5">Tim Lunas</th>
-                                <th class="py-2.5 px-3.5">Pendapatan Lunas</th>
-                                <th class="py-2.5 px-3.5 text-right">Status</th>
+                            <tr>
+                                <th class="table-th">Nama Kompetisi</th>
+                                <th class="table-th">Usia &amp; Format</th>
+                                <th class="table-th">Kapasitas Kuota</th>
+                                <th class="table-th">Tim Lunas</th>
+                                <th class="table-th">Pendapatan Lunas</th>
+                                <th class="table-th text-right">Status</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-200/70">
-                            <tr v-for="evt in eventsOverview" :key="evt.id" class="bg-white hover:bg-slate-50/90">
-                                <td class="py-2.5 px-3.5 font-bold text-slate-900">
+                        <tbody class="divide-y divide-slate-100 bg-white">
+                            <tr v-for="evt in eventsOverview" :key="evt.id" class="hover:bg-orange-50/25 transition-colors">
+                                <td class="table-td font-bold text-slate-900">
                                     <Link :href="route('admin.events.edit', { event: evt.id })" class="hover:text-orange-600 transition-colors">
                                         {{ evt.name }}
                                     </Link>
                                 </td>
-                                <td class="py-2.5 px-3.5 text-slate-600">
+                                <td class="table-td text-slate-600">
                                     {{ evt.age_category }} &bull; {{ evt.format_label }}
                                 </td>
-                                <td class="py-2.5 px-3.5 tabular-data font-semibold">
+                                <td class="table-td tabular-data font-semibold">
                                     {{ evt.occupied_slots }} / {{ evt.max_teams }} Tim
                                 </td>
-                                <td class="py-2.5 px-3.5 tabular-data font-semibold text-slate-800">
+                                <td class="table-td tabular-data font-semibold text-slate-800">
                                     {{ evt.active_teams }} Tim
                                 </td>
-                                <td class="py-2.5 px-3.5 tabular-data font-bold text-slate-900">
+                                <td class="table-td tabular-data font-bold text-slate-900">
                                     {{ formatRupiah(evt.revenue_paid) }}
                                 </td>
-                                <td class="py-2.5 px-3.5 text-right">
+                                <td class="table-td text-right">
                                     <StatusBadge :status="evt.status" />
                                 </td>
                             </tr>
                         </tbody>
                     </table>
+                </div>
+
+                <!-- MOBILE HIGH-DENSITY CARD LIST VIEW -->
+                <div class="md:hidden divide-y divide-slate-100">
+                    <div
+                        v-for="evt in eventsOverview"
+                        :key="evt.id"
+                        class="p-4 hover:bg-orange-50/20 transition-colors space-y-3"
+                    >
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-900 leading-snug">
+                                    <Link :href="route('admin.events.edit', { event: evt.id })" class="hover:text-orange-600">
+                                        {{ evt.name }}
+                                    </Link>
+                                </h4>
+                                <p class="text-xs text-slate-500">{{ evt.age_category }} &bull; {{ evt.format_label }}</p>
+                            </div>
+                            <StatusBadge :status="evt.status" />
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2 bg-slate-50/80 rounded-lg p-2.5 border border-slate-200/60 text-xs">
+                            <div>
+                                <span class="text-[10px] text-slate-500 uppercase font-bold block">Kuota Terisi</span>
+                                <span class="font-mono tabular-data font-bold text-slate-900">{{ evt.occupied_slots }} / {{ evt.max_teams }} Tim</span>
+                            </div>
+                            <div>
+                                <span class="text-[10px] text-slate-500 uppercase font-bold block">Pendapatan Lunas</span>
+                                <span class="font-mono tabular-data font-bold text-slate-900">{{ formatRupiah(evt.revenue_paid) }}</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

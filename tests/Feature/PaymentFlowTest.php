@@ -272,4 +272,36 @@ class PaymentFlowTest extends TestCase
         $this->assertEquals('expired', $this->team->status);
         $this->assertEquals(1, $this->event->fresh()->occupiedSlotsCount());
     }
+
+    public function test_admin_can_view_teams_and_transactions_with_payment_proof_metadata(): void
+    {
+        // Manager uploads proof
+        $file = UploadedFile::fake()->create('bukti_transfer.jpg', 500, 'image/jpeg');
+        $this->actingAs($this->manager)
+            ->post(route('manager.payments.manual-proof', ['payment' => $this->payment->id]), [
+                'sender_bank_name' => 'BCA',
+                'sender_account_holder' => 'Manajer Klub',
+                'sender_account_number' => '1234567890',
+                'transfer_date' => now()->toDateString(),
+                'proof_file' => $file,
+            ]);
+
+        // Finance user visits admin teams page
+        $resTeams = $this->actingAs($this->financeUser)
+            ->get(route('admin.teams.index'));
+        $resTeams->assertOk();
+        $resTeams->assertInertia(fn ($page) => $page
+            ->component('Admin/Teams/Index')
+            ->has('teams.0.latest_payment.proof_url')
+        );
+
+        // Finance user visits admin transactions page
+        $resTransactions = $this->actingAs($this->financeUser)
+            ->get(route('admin.payments.transactions'));
+        $resTransactions->assertOk();
+        $resTransactions->assertInertia(fn ($page) => $page
+            ->component('Admin/Payments/Transactions')
+            ->has('transactions.0.proof_url')
+        );
+    }
 }

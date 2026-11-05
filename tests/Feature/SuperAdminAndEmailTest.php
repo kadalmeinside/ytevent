@@ -97,24 +97,31 @@ class SuperAdminAndEmailTest extends TestCase
         $brandResponse->assertSessionHas('success');
         $this->assertSame('Liga Grassroots Persija Muda 2026', SystemSetting::get('app_name'));
 
-        // 2. Update gateway fee MDR rule
+        // 2. Update gateway fee MDR rule with payment_method_mode
         $feeResponse = $this->actingAs($superadmin)->post(route('admin.settings.payment-gateway'), [
+            'payment_method_mode' => 'midtrans',
             'payment_gateway_default' => 'midtrans',
             'midtrans_server_key' => 'SB-Mid-server-test123',
             'midtrans_client_key' => 'SB-Mid-client-test123',
             'midtrans_is_production' => false,
-            'xendit_secret_key' => '',
-            'xendit_public_key' => '',
-            'xendit_is_production' => false,
             'fee_borne_by' => 'organizer',
-            'fee_scheme' => 'fixed',
-            'fee_fixed_amount' => 5000,
-            'fee_percentage' => 0,
+            'midtrans_va_fee' => 4000,
+            'midtrans_qris_fee_percent' => 0.7,
+            'midtrans_ewallet_fee_percent' => 1.5,
+            'manual_bank_accounts' => [
+                [
+                    'bank_name' => 'BCA',
+                    'account_number' => '1234567890',
+                    'account_holder' => 'Persija Muda Official',
+                    'notes' => 'KCU Sudirman',
+                ],
+            ],
         ]);
 
         $feeResponse->assertSessionHas('success');
+        $this->assertSame('midtrans', SystemSetting::get('payment_method_mode'));
         $this->assertSame('organizer', SystemSetting::get('fee_borne_by'));
-        $this->assertSame(5000, SystemSetting::get('fee_fixed_amount'));
+        $this->assertSame(4000, SystemSetting::get('midtrans_va_fee'));
     }
 
     public function test_non_superadmin_is_forbidden_from_admin_settings_and_users(): void

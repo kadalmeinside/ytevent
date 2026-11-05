@@ -4,6 +4,7 @@ import { useForm } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import FormErrorBanner from '@/Components/FormErrorBanner.vue';
+import FileInput from '@/Components/FileInput.vue';
 import { useFormValidator } from '@/Composables/useFormValidator';
 import { compressImage } from '@/Utils/imageCompressor';
 
@@ -60,8 +61,7 @@ const form = useForm({
     regulation_pdf: null,
 });
 
-const handleBanner = async (e) => {
-    const raw = e.target.files?.[0] || null;
+const handleBannerFile = async (raw) => {
     if (!raw) {
         form.banner_file = null;
         bannerPreview.value = props.event?.banner_url || null;
@@ -73,8 +73,8 @@ const handleBanner = async (e) => {
     bannerPreview.value = URL.createObjectURL(file);
 };
 
-const handlePdf = (e) => {
-    form.regulation_pdf = e.target.files?.[0] || null;
+const handlePdfFile = (raw) => {
+    form.regulation_pdf = raw || null;
     form.clearErrors('regulation_pdf');
 };
 
@@ -386,32 +386,40 @@ const submit = () => {
                             </div>
 
                             <div class="sm:col-span-2">
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">
+                                <label class="block text-xs font-bold text-slate-800 mb-1.5">
                                     Banner Gambar Kompetisi (Format JPG/PNG/WebP, Rasio 16:9 / Landscape)
                                 </label>
-                                <div v-if="bannerPreview" class="mb-3 rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 max-h-48 flex items-center justify-center">
-                                    <img :src="bannerPreview" alt="Preview Banner" class="w-full h-48 object-cover" />
-                                </div>
-                                <input type="file" accept=".jpg,.jpeg,.png,.webp" class="input-field py-1.5 text-xs" @change="handleBanner" />
-                                <p class="text-[10px] text-slate-500 mt-1">Gambar berukuran besar dikompresi otomatis sebelum diunggah.</p>
-                                <InputError :message="form.errors.banner_file" />
+                                <FileInput
+                                    v-model="form.banner_file"
+                                    accept=".jpg,.jpeg,.png,.webp"
+                                    :preview-url="bannerPreview"
+                                    label="Pilih Banner Kompetisi"
+                                    hint="Gambar berukuran besar dikompresi otomatis sebelum diunggah."
+                                    :error="form.errors.banner_file"
+                                    @change="handleBannerFile"
+                                />
                             </div>
 
                             <div class="sm:col-span-2">
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">
-                                    Berkas PDF Regulasi Teknis (Maks. 5 MB)
+                                <label class="block text-xs font-bold text-slate-800 mb-1.5">
+                                    Berkas PDF Regulasi Teknis Kompetisi (Maks. 5 MB)
                                 </label>
-                                <input type="file" accept=".pdf" class="input-field py-1.5 text-xs" @change="handlePdf" />
-                                <p v-if="event?.regulation_pdf_url" class="text-[11px] text-orange-800 font-medium mt-1">
-                                    Berkas PDF saat ini sudah terunggah. Pilih berkas baru hanya jika ingin menggantinya.
-                                </p>
+                                <FileInput
+                                    v-model="form.regulation_pdf"
+                                    accept=".pdf"
+                                    :preview-url="event?.regulation_pdf_url"
+                                    label="Pilih Berkas PDF Regulasi"
+                                    hint="Format berkas: Dokumen PDF resmi (Maksimal 5 MB)"
+                                    :error="form.errors.regulation_pdf"
+                                    @change="handlePdfFile"
+                                />
                             </div>
                         </div>
                     </div>
 
                     <div class="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
-                        <Link :href="route('admin.events.index')" class="btn-secondary text-xs">Batal</Link>
-                        <button type="submit" class="btn-pitch text-xs px-6 py-2.5" :disabled="form.processing">
+                        <Link :href="route('admin.events.index')" class="btn-secondary">Batal</Link>
+                        <button type="submit" class="btn-pitch" :disabled="form.processing">
                             {{ form.processing ? 'Menyimpan...' : (isEdit ? 'Perbarui Pengaturan Kompetisi' : 'Simpan Kompetisi Baru') }}
                         </button>
                     </div>

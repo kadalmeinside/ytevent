@@ -5,6 +5,7 @@ import ManagerLayout from '@/Layouts/ManagerLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import FormErrorBanner from '@/Components/FormErrorBanner.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
+import FileInput from '@/Components/FileInput.vue';
 import { useFormValidator } from '@/Composables/useFormValidator';
 import { compressImage } from '@/Utils/imageCompressor';
 
@@ -66,8 +67,7 @@ const openEditModal = (item) => {
     isModalOpen.value = true;
 };
 
-const handlePhoto = async (e) => {
-    const rawFile = e.target.files?.[0] || null;
+const handlePhoto = async (rawFile) => {
     if (!rawFile) {
         form.photo = null;
         photoPreview.value = editingOfficial.value?.photo_url || null;
@@ -79,8 +79,8 @@ const handlePhoto = async (e) => {
     photoPreview.value = URL.createObjectURL(file);
 };
 
-const handleLicense = (e) => {
-    form.license_file = e.target.files?.[0] || null;
+const handleLicense = (rawFile) => {
+    form.license_file = rawFile || null;
     form.clearErrors('license_file');
 };
 
@@ -155,7 +155,7 @@ const executeDelete = () => {
                     </span>
                     <button
                         type="button"
-                        class="btn-pitch text-xs"
+                        class="btn-pitch"
                         :disabled="officials.length >= team.event?.max_officials_per_team || !team.can_manage_roster"
                         @click="openCreateModal"
                     >
@@ -164,75 +164,146 @@ const executeDelete = () => {
                 </div>
             </div>
 
-            <!-- Officials Table -->
+            <!-- Officials Container (Desktop Table + Mobile Cards) -->
             <div class="frosted-card overflow-hidden">
                 <div v-if="officials.length === 0" class="p-8 text-center text-xs text-slate-500">
                     Belum ada ofisial terdaftar.
                 </div>
-                <div v-else class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-slate-100/90 text-slate-700 border-b border-slate-200 text-xs uppercase">
-                                <th class="py-2.5 px-3.5">Ofisial</th>
-                                <th class="py-2.5 px-3.5">Jabatan</th>
-                                <th class="py-2.5 px-3.5">No. Lisensi</th>
-                                <th class="py-2.5 px-3.5">Kontak WhatsApp</th>
-                                <th class="py-2.5 px-3.5 text-right">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-200/70 text-xs">
-                            <tr v-for="item in officials" :key="item.id" class="bg-white hover:bg-slate-50/90">
-                                <td class="py-2.5 px-3.5">
-                                    <div class="flex items-center gap-2.5">
-                                        <img
-                                            v-if="item.photo_url"
-                                            :src="item.photo_url"
-                                            :alt="item.full_name"
-                                            class="w-8 h-8 rounded-lg object-cover border border-slate-200 bg-slate-100"
-                                        />
-                                        <div v-else class="w-8 h-8 rounded-lg bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-[10px]">
-                                            FOTO
+                <div v-else>
+                    <!-- DESKTOP TABLE VIEW -->
+                    <div class="hidden md:block overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr>
+                                    <th class="table-th">Ofisial</th>
+                                    <th class="table-th">Jabatan</th>
+                                    <th class="table-th">No. Lisensi</th>
+                                    <th class="table-th">Kontak WhatsApp</th>
+                                    <th class="table-th text-right">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 bg-white">
+                                <tr v-for="item in officials" :key="item.id" class="hover:bg-orange-50/25 transition-colors">
+                                    <td class="table-td">
+                                        <div class="flex items-center gap-2.5">
+                                            <img
+                                                v-if="item.photo_url"
+                                                :src="item.photo_url"
+                                                :alt="item.full_name"
+                                                class="w-9 h-9 rounded-lg object-cover border border-slate-200 bg-slate-100 shrink-0"
+                                            />
+                                            <div v-else class="w-9 h-9 rounded-lg bg-orange-100 text-orange-800 flex items-center justify-center font-bold text-xs shrink-0">
+                                                FOTO
+                                            </div>
+                                            <span class="font-bold text-slate-900 text-sm">{{ item.full_name }}</span>
                                         </div>
-                                        <span class="font-bold text-slate-900 text-sm">{{ item.full_name }}</span>
+                                    </td>
+                                    <td class="table-td font-semibold text-slate-800">
+                                        <span class="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700 border border-slate-200">
+                                            {{ item.role_label }}
+                                        </span>
+                                    </td>
+                                    <td class="table-td">
+                                        <span v-if="item.license_number" class="tabular-data font-mono font-medium text-slate-800">{{ item.license_number }}</span>
+                                        <a
+                                            v-if="item.license_url"
+                                            :href="item.license_url"
+                                            target="_blank"
+                                            class="ml-2 text-orange-600 hover:text-orange-700 underline text-[11px] font-semibold"
+                                        >
+                                            (Lihat Berkas)
+                                        </a>
+                                        <span v-if="!item.license_number && !item.license_url" class="text-slate-400">-</span>
+                                    </td>
+                                    <td class="table-td tabular-data text-slate-700">{{ item.phone || '-' }}</td>
+                                    <td class="table-td text-right">
+                                        <div class="inline-flex items-center justify-end gap-1.5" v-if="team.can_manage_roster">
+                                            <button
+                                                type="button"
+                                                class="btn-sm-secondary"
+                                                @click="openEditModal(item)"
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                v-if="item.role !== 'Head Coach'"
+                                                type="button"
+                                                class="btn-sm-danger"
+                                                @click="officialToDelete = item"
+                                            >
+                                                Hapus
+                                            </button>
+                                        </div>
+                                        <span v-else class="text-[11px] text-slate-400">Terkunci</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- MOBILE HIGH-DENSITY CARD LIST VIEW -->
+                    <div class="md:hidden divide-y divide-slate-100">
+                        <div
+                            v-for="item in officials"
+                            :key="item.id"
+                            class="p-4 hover:bg-orange-50/20 transition-colors space-y-2.5"
+                        >
+                            <div class="flex items-center justify-between gap-2.5">
+                                <div class="flex items-center gap-2.5">
+                                    <img
+                                        v-if="item.photo_url"
+                                        :src="item.photo_url"
+                                        :alt="item.full_name"
+                                        class="w-10 h-10 rounded-lg object-cover border border-slate-200 bg-slate-100 shrink-0"
+                                    />
+                                    <div v-else class="w-10 h-10 rounded-lg bg-orange-100 text-orange-800 flex items-center justify-center font-bold text-xs shrink-0">
+                                        FOTO
                                     </div>
-                                </td>
-                                <td class="py-2.5 px-3.5 font-semibold text-slate-800">{{ item.role_label }}</td>
-                                <td class="py-2.5 px-3.5">
-                                    <span v-if="item.license_number" class="tabular-data font-mono">{{ item.license_number }}</span>
+                                    <div>
+                                        <h4 class="text-sm font-bold text-slate-900 leading-snug">{{ item.full_name }}</h4>
+                                        <span class="text-xs font-semibold text-slate-600">{{ item.role_label }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-between text-xs bg-slate-50/80 rounded-lg p-2.5 border border-slate-200/60">
+                                <div>
+                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Lisensi</span>
+                                    <span class="font-mono text-slate-800">{{ item.license_number || '-' }}</span>
                                     <a
                                         v-if="item.license_url"
                                         :href="item.license_url"
                                         target="_blank"
-                                        class="ml-2 text-orange-600 hover:text-orange-700 underline text-[11px]"
+                                        class="ml-1.5 text-orange-600 underline font-semibold text-[11px]"
                                     >
-                                        (Lihat Berkas)
+                                        Berkas
                                     </a>
-                                    <span v-if="!item.license_number && !item.license_url" class="text-slate-400">-</span>
-                                </td>
-                                <td class="py-2.5 px-3.5 tabular-data text-slate-700">{{ item.phone || '-' }}</td>
-                                <td class="py-2.5 px-3.5 text-right">
-                                    <div class="inline-flex items-center gap-1.5" v-if="team.can_manage_roster">
-                                        <button
-                                            type="button"
-                                            class="btn-secondary text-[11px] py-1 px-2"
-                                            @click="openEditModal(item)"
-                                        >
-                                            Edit
-                                        </button>
-                                        <button
-                                            v-if="item.role !== 'Head Coach'"
-                                            type="button"
-                                            class="px-2 py-1 rounded text-[11px] font-semibold text-rose-700 hover:bg-rose-50 border border-rose-200"
-                                            @click="officialToDelete = item"
-                                        >
-                                            Hapus
-                                        </button>
-                                    </div>
-                                    <span v-else class="text-[11px] text-slate-400">Terkunci</span>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Telepon</span>
+                                    <span class="font-mono text-slate-800 tabular-data">{{ item.phone || '-' }}</span>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-end gap-1.5 pt-1" v-if="team.can_manage_roster">
+                                <button
+                                    type="button"
+                                    class="btn-sm-secondary"
+                                    @click="openEditModal(item)"
+                                >
+                                    Edit
+                                </button>
+                                <button
+                                    v-if="item.role !== 'Head Coach'"
+                                    type="button"
+                                    class="btn-sm-danger"
+                                    @click="officialToDelete = item"
+                                >
+                                    Hapus
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -289,33 +360,28 @@ const executeDelete = () => {
                         </div>
 
                         <div data-field="photo">
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">Pas Foto (JPG/PNG, maks. 2 MB)</label>
-                            <div class="flex items-center gap-3">
-                                <img
-                                    v-if="photoPreview"
-                                    :src="photoPreview"
-                                    alt="Foto"
-                                    class="w-10 h-10 rounded-lg object-cover border border-slate-200 bg-slate-100 shrink-0"
-                                />
-                                <input
-                                    type="file"
-                                    accept=".jpg,.jpeg,.png"
-                                    class="input-field py-1.5 text-xs"
-                                    @change="handlePhoto"
-                                />
-                            </div>
-                            <InputError :message="form.errors.photo" />
+                            <label class="block text-xs font-bold text-slate-800 mb-1.5">Pas Foto Ofisial (Maks. 2 MB)</label>
+                            <FileInput
+                                v-model="form.photo"
+                                accept=".jpg,.jpeg,.png"
+                                :preview-url="photoPreview"
+                                label="Pilih Foto Ofisial"
+                                hint="Pas foto wajah terbaru background polos"
+                                :error="form.errors.photo"
+                                @change="handlePhoto"
+                            />
                         </div>
 
                         <div data-field="license_file">
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">Sertifikat Lisensi (JPG/PNG/PDF, maks. 2 MB)</label>
-                            <input
-                                type="file"
+                            <label class="block text-xs font-bold text-slate-800 mb-1.5">Sertifikat Lisensi Kepelatihan (Maks. 2 MB)</label>
+                            <FileInput
+                                v-model="form.license_file"
                                 accept=".jpg,.jpeg,.png,.pdf"
-                                class="input-field py-1.5 text-xs"
+                                label="Pilih Berkas Lisensi"
+                                hint="Format: JPG, PNG, atau PDF (opsional untuk ofisial non-pelatih)"
+                                :error="form.errors.license_file"
                                 @change="handleLicense"
                             />
-                            <InputError :message="form.errors.license_file" />
                         </div>
 
                         <div class="pt-3 flex justify-end gap-2.5">

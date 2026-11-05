@@ -7,6 +7,7 @@ use App\Http\Controllers\Manager\Concerns\ResolvesActiveTeam;
 use App\Http\Requests\Manager\InitiateGatewayPaymentRequest;
 use App\Http\Requests\Manager\UploadPaymentProofRequest;
 use App\Models\Payment;
+use App\Models\SystemSetting;
 use App\Models\Team;
 use App\Services\PaymentService;
 use App\Services\QuotaExpirationService;
@@ -51,12 +52,27 @@ class PaymentController extends Controller
             $paymentHistory = $payments->map(fn (Payment $p) => $this->formatPayment($p))->values();
         }
 
+        $bankAccounts = SystemSetting::get('manual_bank_accounts');
+        if (empty($bankAccounts)) {
+            $defaultBank = config('payment.manual_bank');
+            $bankAccounts = $defaultBank ? [$defaultBank] : [];
+        }
+
         return Inertia::render('Manager/Payments', [
             'team' => $ctx['teamPayload'],
             'teamsList' => $ctx['teamsList'],
             'payment' => $activePayment,
             'paymentHistory' => $paymentHistory,
-            'bankAccount' => config('payment.manual_bank'),
+            'paymentMethodMode' => SystemSetting::get('payment_method_mode', 'midtrans'),
+            'bankAccounts' => $bankAccounts,
+            'midtransFeeConfig' => [
+                'fee_borne_by' => SystemSetting::get('fee_borne_by', 'team'),
+                'va_fee' => (int) SystemSetting::get('midtrans_va_fee', 4000),
+                'qris_fee_percent' => (float) SystemSetting::get('midtrans_qris_fee_percent', 0.7),
+                'ewallet_fee_percent' => (float) SystemSetting::get('midtrans_ewallet_fee_percent', 1.5),
+                'cc_fee_percent' => (float) SystemSetting::get('midtrans_cc_fee_percent', 2.9),
+                'cc_fee_fixed' => (int) SystemSetting::get('midtrans_cc_fee_fixed', 2000),
+            ],
             'sandboxSimulatorEnabled' => (bool) config('payment.sandbox_simulator'),
         ]);
     }
@@ -152,6 +168,9 @@ class PaymentController extends Controller
             'proof_url' => $payment->proof_file_path
                 ? route('private.payment-proof', ['payment' => $payment->id])
                 : null,
+            'proof_is_pdf' => $payment->proof_file_path
+                ? strtolower(pathinfo($payment->proof_file_path, PATHINFO_EXTENSION)) === 'pdf'
+                : false,
             'status' => $payment->status,
             'rejection_reason' => $payment->rejection_reason,
             'paid_at' => $payment->paid_at?->toIso8601String(),

@@ -96,7 +96,7 @@ const quotaPercentage = computed(() => {
                                 :class="activeTab === 'teams' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
                                 @click="activeTab = 'teams'"
                             >
-                                Tim Terdaftar ({{ registeredTeams.length }}/{{ event.max_teams }})
+                                Tim Lunas / Terverifikasi ({{ registeredTeams.length }})
                             </button>
                             <button
                                 type="button"
@@ -158,44 +158,86 @@ const quotaPercentage = computed(() => {
                                 </div>
                             </div>
 
-                            <!-- Tab: Teams -->
+                            <!-- Tab: Teams (Desktop Table + Mobile Cards) -->
                             <div v-else-if="activeTab === 'teams'">
-                                <div v-if="registeredTeams.length === 0" class="text-center py-6 text-xs text-slate-500">
-                                    Belum ada tim terdaftar pada kompetisi ini. Jadilah tim pertama yang mengamankan slot kuota!
+                                <div v-if="registeredTeams.length === 0" class="text-center py-10 text-xs text-slate-500 space-y-1">
+                                    <svg class="w-10 h-10 mx-auto text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                    </svg>
+                                    <p class="font-bold text-slate-800 text-sm">Belum Ada Tim Terverifikasi</p>
+                                    <p class="text-slate-400">Hanya tim yang telah menyelesaikan pelunasan dan verifikasi yang ditampilkan di sini.</p>
                                 </div>
-                                <div v-else class="overflow-x-auto">
-                                    <table class="w-full text-left border-collapse">
-                                        <thead>
-                                            <tr class="bg-slate-100/90 text-slate-700 border-b border-slate-200 text-xs uppercase">
-                                                <th class="py-2.5 px-3.5">#</th>
-                                                <th class="py-2.5 px-3.5">Nama Tim</th>
-                                                <th class="py-2.5 px-3.5">Kota / Askot / Askab</th>
-                                                <th class="py-2.5 px-3.5 text-right">Status Slot</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-slate-200/70 text-sm">
-                                            <tr
-                                                v-for="(t, index) in registeredTeams"
-                                                :key="t.id"
-                                                class="bg-white hover:bg-slate-50/90 transition-colors"
-                                            >
-                                                <td class="py-2.5 px-3.5 text-xs tabular-data text-slate-500">{{ index + 1 }}</td>
-                                                <td class="py-2.5 px-3.5 font-semibold text-slate-900 flex items-center gap-2.5">
-                                                    <img
-                                                        v-if="t.logo_url"
-                                                        :src="t.logo_url"
-                                                        :alt="t.name"
-                                                        class="w-7 h-7 rounded-lg object-cover border border-slate-200 bg-white"
-                                                    />
-                                                    <span>{{ t.name }}</span>
-                                                </td>
-                                                <td class="py-2.5 px-3.5 text-xs text-slate-600">{{ t.origin_association }}</td>
-                                                <td class="py-2.5 px-3.5 text-right">
-                                                    <StatusBadge :status="t.status" />
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
+                                <div v-else>
+                                    <div class="mb-3 flex items-center justify-between text-xs text-slate-500">
+                                        <span>Menampilkan {{ registeredTeams.length }} tim dengan status pembayaran lunas sah.</span>
+                                    </div>
+                                    <!-- DESKTOP TABLE -->
+                                    <div class="hidden md:block overflow-x-auto">
+                                        <table class="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr>
+                                                    <th class="table-th w-12">#</th>
+                                                    <th class="table-th">Nama Tim</th>
+                                                    <th class="table-th">Kota / Askot / Askab</th>
+                                                    <th class="table-th text-right">Status Slot</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-slate-100 bg-white">
+                                                <tr
+                                                    v-for="(t, index) in registeredTeams"
+                                                    :key="t.id"
+                                                    class="hover:bg-orange-50/25 transition-colors"
+                                                >
+                                                    <td class="table-td text-xs tabular-data text-slate-500 font-mono">{{ index + 1 }}</td>
+                                                    <td class="table-td font-semibold text-slate-900">
+                                                        <div class="flex items-center gap-2.5">
+                                                            <img
+                                                                v-if="t.logo_url"
+                                                                :src="t.logo_url"
+                                                                :alt="t.name"
+                                                                class="w-7 h-7 rounded-lg object-cover border border-slate-200 bg-white shrink-0"
+                                                            />
+                                                            <div v-else class="w-7 h-7 rounded-lg bg-orange-100 text-orange-800 flex items-center justify-center font-bold text-xs shrink-0">
+                                                                {{ t.name.charAt(0) }}
+                                                            </div>
+                                                            <span>{{ t.name }}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td class="table-td text-xs text-slate-600">{{ t.origin_association }}</td>
+                                                    <td class="table-td text-right">
+                                                        <StatusBadge :status="t.status" />
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <!-- MOBILE HIGH-DENSITY CARDS -->
+                                    <div class="md:hidden divide-y divide-slate-100">
+                                        <div
+                                            v-for="(t, index) in registeredTeams"
+                                            :key="t.id"
+                                            class="py-3 flex items-center justify-between gap-2.5"
+                                        >
+                                            <div class="flex items-center gap-2.5">
+                                                <span class="font-mono text-xs font-bold text-slate-400 w-5 text-center">{{ index + 1 }}</span>
+                                                <img
+                                                    v-if="t.logo_url"
+                                                    :src="t.logo_url"
+                                                    :alt="t.name"
+                                                    class="w-8 h-8 rounded-lg object-cover border border-slate-200 bg-white shrink-0"
+                                                />
+                                                <div v-else class="w-8 h-8 rounded-lg bg-orange-100 text-orange-800 flex items-center justify-center font-bold text-xs shrink-0">
+                                                    {{ t.name.charAt(0) }}
+                                                </div>
+                                                <div>
+                                                    <h5 class="text-xs font-bold text-slate-900 leading-tight">{{ t.name }}</h5>
+                                                    <p class="text-[11px] text-slate-500">{{ t.origin_association }}</p>
+                                                </div>
+                                            </div>
+                                            <StatusBadge :status="t.status" />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 

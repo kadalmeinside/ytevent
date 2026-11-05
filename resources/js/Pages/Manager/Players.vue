@@ -6,6 +6,7 @@ import StatusBadge from '@/Components/StatusBadge.vue';
 import InputError from '@/Components/InputError.vue';
 import FormErrorBanner from '@/Components/FormErrorBanner.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
+import FileInput from '@/Components/FileInput.vue';
 import { useFormValidator } from '@/Composables/useFormValidator';
 import { useFormatters } from '@/Composables/useFormatters';
 import { compressImage } from '@/Utils/imageCompressor';
@@ -92,8 +93,7 @@ const openEditModal = (player) => {
     isModalOpen.value = true;
 };
 
-const handlePhotoChange = async (e) => {
-    const rawFile = e.target.files?.[0] || null;
+const handlePhotoChange = async (rawFile) => {
     if (!rawFile) {
         playerForm.photo = null;
         photoPreview.value = editingPlayer.value?.photo_url || null;
@@ -270,7 +270,7 @@ const isRosterLocked = computed(() => {
                         </div>
                         <button
                             type="button"
-                            class="btn-pitch text-xs"
+                            class="btn-pitch"
                             :disabled="players.length >= team.event?.max_players_per_team"
                             @click="openCreateModal"
                         >
@@ -282,128 +282,236 @@ const isRosterLocked = computed(() => {
                 <!-- Global Submission Error Banner if any -->
                 <FormErrorBanner :errors="submitPlayerForm.errors" />
 
-                <!-- Players Table / List -->
+                <!-- Players Container (Desktop Table + Mobile Cards) -->
                 <div class="frosted-card overflow-hidden">
                     <div v-if="players.length === 0" class="p-10 text-center text-xs text-slate-500">
                         Belum ada pemain yang didaftarkan. Klik tombol <strong>+ Tambah Pemain Baru</strong> untuk mulai melengkapi skuad tim.
                     </div>
 
-                    <div v-else class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-slate-100/90 text-slate-700 border-b border-slate-200 text-xs uppercase tracking-wide">
-                                    <th class="py-2.5 px-3.5">No</th>
-                                    <th class="py-2.5 px-3.5">Pemain</th>
-                                    <th class="py-2.5 px-3.5">Posisi</th>
-                                    <th class="py-2.5 px-3.5">Tanggal Lahir</th>
-                                    <th class="py-2.5 px-3.5">NIK (16 Digit)</th>
-                                    <th class="py-2.5 px-3.5">Kelengkapan Berkas</th>
-                                    <th class="py-2.5 px-3.5">Status Screening</th>
-                                    <th class="py-2.5 px-3.5 text-right">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-200/70 text-xs">
-                                <tr
-                                    v-for="p in players"
-                                    :key="p.id"
-                                    class="bg-white hover:bg-slate-50/90 transition-colors"
-                                >
-                                    <td class="py-2.5 px-3.5 font-black tabular-data text-orange-600 text-sm">
-                                        #{{ p.jersey_number }}
-                                    </td>
-                                    <td class="py-2.5 px-3.5">
-                                        <div class="flex items-center gap-2.5">
+                    <div v-else>
+                        <!-- DESKTOP TABLE VIEW -->
+                        <div class="hidden md:block overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr>
+                                        <th class="table-th">No</th>
+                                        <th class="table-th">Pemain</th>
+                                        <th class="table-th">Posisi</th>
+                                        <th class="table-th">Tanggal Lahir</th>
+                                        <th class="table-th">NIK (16 Digit)</th>
+                                        <th class="table-th">Kelengkapan Berkas</th>
+                                        <th class="table-th">Status Screening</th>
+                                        <th class="table-th text-right">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 bg-white">
+                                    <tr
+                                        v-for="p in players"
+                                        :key="p.id"
+                                        class="hover:bg-orange-50/25 transition-colors"
+                                    >
+                                        <td class="table-td font-black tabular-data text-orange-600 text-sm">
+                                            #{{ p.jersey_number }}
+                                        </td>
+                                        <td class="table-td">
+                                            <div class="flex items-center gap-2.5">
+                                                <img
+                                                    v-if="p.photo_url"
+                                                    :src="p.photo_url"
+                                                    :alt="p.full_name"
+                                                    class="w-9 h-9 rounded-lg object-cover border border-slate-200 bg-slate-100 shrink-0"
+                                                />
+                                                <div class="w-9 h-9 rounded-lg bg-orange-100 text-orange-800 flex items-center justify-center font-bold text-xs shrink-0" v-else>
+                                                    FOTO
+                                                </div>
+                                                <div>
+                                                    <p class="font-bold text-slate-900 text-sm leading-tight">{{ p.full_name }}</p>
+                                                    <p class="text-[11px] text-slate-500 leading-tight">{{ p.jersey_name || '-' }}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="table-td font-semibold text-slate-800">
+                                            {{ p.position }} ({{ p.dominant_foot }})
+                                        </td>
+                                        <td class="table-td tabular-data text-slate-700">
+                                            {{ formatDate(p.birth_date) }}
+                                        </td>
+                                        <td class="table-td font-mono tabular-data text-slate-700">
+                                            {{ p.nik }}
+                                        </td>
+                                        <td class="table-td">
+                                            <div class="space-y-1">
+                                                <div class="flex flex-wrap gap-1">
+                                                    <span
+                                                        v-for="doc in team.event?.required_documents"
+                                                        :key="doc.type"
+                                                        class="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold border"
+                                                        :class="p.documents[doc.type] ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-rose-50 text-rose-800 border-rose-200'"
+                                                    >
+                                                        {{ doc.label.split(' ')[0] }}: {{ p.documents[doc.type] ? 'ADA' : 'BELUM' }}
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    v-if="!p.is_locked"
+                                                    type="button"
+                                                    class="text-[11px] font-semibold text-orange-600 hover:text-orange-700 hover:underline inline-block mt-0.5"
+                                                    @click="openDocModal(p)"
+                                                >
+                                                    + Unggah / Ganti Berkas
+                                                </button>
+                                            </div>
+                                        </td>
+                                        <td class="table-td">
+                                            <div class="space-y-1">
+                                                <StatusBadge :status="p.screening_status" />
+                                                <p v-if="p.rejection_reason" class="text-[11px] text-rose-700 leading-tight font-medium">
+                                                    <strong>Catatan:</strong> {{ p.rejection_reason }}
+                                                </p>
+                                            </div>
+                                        </td>
+                                        <td class="table-td text-right">
+                                            <div class="inline-flex items-center justify-end gap-1.5">
+                                                <!-- Tombol Ajukan Screening -->
+                                                <button
+                                                    v-if="['draft', 'rejected'].includes(p.screening_status) && p.is_complete_for_submission"
+                                                    type="button"
+                                                    class="btn-sm-pitch"
+                                                    :disabled="submitPlayerForm.processing"
+                                                    @click="submitForScreening(p)"
+                                                >
+                                                    Ajukan
+                                                </button>
+
+                                                <!-- Tombol Edit -->
+                                                <button
+                                                    v-if="!p.is_locked"
+                                                    type="button"
+                                                    class="btn-sm-secondary"
+                                                    @click="openEditModal(p)"
+                                                >
+                                                    Edit
+                                                </button>
+
+                                                <!-- Tombol Hapus Draft -->
+                                                <button
+                                                    v-if="p.screening_status === 'draft' && !p.is_locked"
+                                                    type="button"
+                                                    class="btn-sm-danger"
+                                                    @click="confirmDelete(p)"
+                                                >
+                                                    Hapus
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- MOBILE HIGH-DENSITY CARD LIST VIEW -->
+                        <div class="md:hidden divide-y divide-slate-100">
+                            <div
+                                v-for="p in players"
+                                :key="p.id"
+                                class="p-4 hover:bg-orange-50/20 transition-colors space-y-3"
+                            >
+                                <!-- Top row: Jersey badge, Photo, Name & Status -->
+                                <div class="flex items-start justify-between gap-2.5">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="relative">
                                             <img
                                                 v-if="p.photo_url"
                                                 :src="p.photo_url"
                                                 :alt="p.full_name"
-                                                class="w-8 h-8 rounded-lg object-cover border border-slate-200 bg-slate-100 shrink-0"
+                                                class="w-11 h-11 rounded-lg object-cover border border-slate-200 bg-slate-100 shrink-0"
                                             />
-                                            <div class="w-8 h-8 rounded-lg bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-[10px] shrink-0" v-else>
+                                            <div class="w-11 h-11 rounded-lg bg-orange-100 text-orange-800 flex items-center justify-center font-bold text-xs shrink-0" v-else>
                                                 FOTO
                                             </div>
-                                            <div>
-                                                <p class="font-bold text-slate-900 text-sm leading-tight">{{ p.full_name }}</p>
-                                                <p class="text-[11px] text-slate-500 leading-tight">{{ p.jersey_name || '-' }}</p>
-                                            </div>
+                                            <span class="absolute -bottom-1 -right-1 font-mono font-black text-[10px] bg-slate-900 text-white px-1 rounded shadow">
+                                                #{{ p.jersey_number }}
+                                            </span>
                                         </div>
-                                    </td>
-                                    <td class="py-2.5 px-3.5 font-semibold text-slate-800">
-                                        {{ p.position }} ({{ p.dominant_foot }})
-                                    </td>
-                                    <td class="py-2.5 px-3.5 tabular-data text-slate-700">
-                                        {{ formatDate(p.birth_date) }}
-                                    </td>
-                                    <td class="py-2.5 px-3.5 font-mono tabular-data text-slate-700">
-                                        {{ p.nik }}
-                                    </td>
-                                    <td class="py-2.5 px-3.5">
-                                        <div class="space-y-1">
-                                            <div class="flex flex-wrap gap-1">
-                                                <span
-                                                    v-for="doc in team.event?.required_documents"
-                                                    :key="doc.type"
-                                                    class="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold border"
-                                                    :class="p.documents[doc.type] ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-rose-50 text-rose-800 border-rose-200'"
-                                                >
-                                                    {{ doc.label.split(' ')[0] }}: {{ p.documents[doc.type] ? 'ADA' : 'BELUM' }}
-                                                </span>
-                                            </div>
-                                            <button
-                                                v-if="!p.is_locked"
-                                                type="button"
-                                                class="text-[11px] font-semibold text-orange-600 hover:text-orange-700 hover:underline inline-block mt-0.5"
-                                                @click="openDocModal(p)"
-                                            >
-                                                + Unggah / Ganti Berkas
-                                            </button>
+                                        <div>
+                                            <h4 class="text-sm font-bold text-slate-900 leading-snug">{{ p.full_name }}</h4>
+                                            <p class="text-xs text-slate-500 font-medium">{{ p.position }} &bull; {{ p.dominant_foot }}</p>
                                         </div>
-                                    </td>
-                                    <td class="py-2.5 px-3.5">
-                                        <div class="space-y-1">
-                                            <StatusBadge :status="p.screening_status" />
-                                            <p v-if="p.rejection_reason" class="text-[11px] text-rose-700 leading-tight">
-                                                <strong>Catatan:</strong> {{ p.rejection_reason }}
-                                            </p>
-                                        </div>
-                                    </td>
-                                    <td class="py-2.5 px-3.5 text-right">
-                                        <div class="inline-flex items-center gap-1.5">
-                                            <!-- Tombol Ajukan Screening -->
-                                            <button
-                                                v-if="['draft', 'rejected'].includes(p.screening_status) && p.is_complete_for_submission"
-                                                type="button"
-                                                class="btn-pitch text-[11px] py-1 px-2.5"
-                                                :disabled="submitPlayerForm.processing"
-                                                @click="submitForScreening(p)"
-                                            >
-                                                Ajukan
-                                            </button>
+                                    </div>
+                                    <StatusBadge :status="p.screening_status" />
+                                </div>
 
-                                            <!-- Tombol Edit -->
-                                            <button
-                                                v-if="!p.is_locked"
-                                                type="button"
-                                                class="btn-secondary text-[11px] py-1 px-2"
-                                                @click="openEditModal(p)"
-                                            >
-                                                Edit
-                                            </button>
+                                <!-- Birth date & NIK -->
+                                <div class="grid grid-cols-2 gap-2 bg-slate-50/80 rounded-lg p-2.5 border border-slate-200/60 text-xs">
+                                    <div>
+                                        <span class="text-slate-400 block text-[10px] uppercase font-bold">Tanggal Lahir</span>
+                                        <span class="font-mono tabular-data font-medium text-slate-800">{{ formatDate(p.birth_date) }}</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-slate-400 block text-[10px] uppercase font-bold">NIK (16 Digit)</span>
+                                        <span class="font-mono tabular-data font-medium text-slate-800">{{ p.nik }}</span>
+                                    </div>
+                                </div>
 
-                                            <!-- Tombol Hapus Draft -->
-                                            <button
-                                                v-if="p.screening_status === 'draft' && !p.is_locked"
-                                                type="button"
-                                                class="px-2 py-1 rounded text-[11px] font-semibold text-rose-700 hover:bg-rose-50 border border-rose-200"
-                                                @click="confirmDelete(p)"
-                                            >
-                                                Hapus
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                                <!-- Documents status chips -->
+                                <div>
+                                    <div class="flex items-center justify-between mb-1 text-xs">
+                                        <span class="text-slate-500 font-semibold text-[11px]">Berkas Dokumen:</span>
+                                        <button
+                                            v-if="!p.is_locked"
+                                            type="button"
+                                            class="text-[11px] font-semibold text-orange-600 hover:text-orange-700 underline"
+                                            @click="openDocModal(p)"
+                                        >
+                                            Kelola Berkas
+                                        </button>
+                                    </div>
+                                    <div class="flex flex-wrap gap-1">
+                                        <span
+                                            v-for="doc in team.event?.required_documents"
+                                            :key="doc.type"
+                                            class="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold border"
+                                            :class="p.documents[doc.type] ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-rose-50 text-rose-800 border-rose-200'"
+                                        >
+                                            {{ doc.label.split(' ')[0] }}: {{ p.documents[doc.type] ? 'ADA' : 'BELUM' }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Rejection Reason if any -->
+                                <div v-if="p.rejection_reason" class="p-2 rounded-lg bg-rose-50 border border-rose-200 text-[11px] text-rose-800">
+                                    <span class="font-bold">Catatan Penolakan:</span> {{ p.rejection_reason }}
+                                </div>
+
+                                <!-- Actions row -->
+                                <div class="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100">
+                                    <button
+                                        v-if="['draft', 'rejected'].includes(p.screening_status) && p.is_complete_for_submission"
+                                        type="button"
+                                        class="btn-sm-pitch"
+                                        :disabled="submitPlayerForm.processing"
+                                        @click="submitForScreening(p)"
+                                    >
+                                        Ajukan Screening
+                                    </button>
+                                    <button
+                                        v-if="!p.is_locked"
+                                        type="button"
+                                        class="btn-sm-secondary"
+                                        @click="openEditModal(p)"
+                                    >
+                                        Edit
+                                    </button>
+                                    <button
+                                        v-if="p.screening_status === 'draft' && !p.is_locked"
+                                        type="button"
+                                        class="btn-sm-danger"
+                                        @click="confirmDelete(p)"
+                                    >
+                                        Hapus
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -540,25 +648,18 @@ const isRosterLocked = computed(() => {
                             </div>
 
                             <div data-field="photo" class="sm:col-span-2">
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">
+                                <label class="block text-xs font-bold text-slate-800 mb-1.5">
                                     Pas Foto Resmi Pemain (JPG/PNG, maks. 2 MB)
                                 </label>
-                                <div class="flex items-center gap-4">
-                                    <img
-                                        v-if="photoPreview"
-                                        :src="photoPreview"
-                                        alt="Preview"
-                                        class="w-12 h-12 rounded-lg object-cover border border-slate-200 bg-slate-100 shrink-0"
-                                    />
-                                    <input
-                                        type="file"
-                                        accept=".jpg,.jpeg,.png"
-                                        class="input-field py-1.5 text-xs"
-                                        :class="{ 'input-field-error': playerForm.errors.photo }"
-                                        @change="handlePhotoChange"
-                                    />
-                                </div>
-                                <InputError :message="playerForm.errors.photo" />
+                                <FileInput
+                                    v-model="playerForm.photo"
+                                    accept=".jpg,.jpeg,.png"
+                                    :preview-url="photoPreview"
+                                    label="Pilih Foto Pemain"
+                                    hint="Pas foto wajah terbaru pemain dengan background polos (Maks 2 MB)"
+                                    :error="playerForm.errors.photo"
+                                    @change="handlePhotoChange"
+                                />
                             </div>
                         </div>
 
@@ -624,17 +725,17 @@ const isRosterLocked = computed(() => {
                         </div>
 
                         <div data-field="file">
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">
-                                Pilih Berkas Scan / Foto (JPG, PNG, atau PDF &mdash; Maks. 2 MB)
+                            <label class="block text-xs font-bold text-slate-800 mb-1.5">
+                                Pilih Berkas Scan / Foto Dokumen (JPG, PNG, atau PDF &mdash; Maks. 2 MB)
                             </label>
-                            <input
-                                type="file"
+                            <FileInput
+                                v-model="docForm.file"
                                 accept=".jpg,.jpeg,.png,.pdf"
-                                class="input-field py-1.5 text-xs"
-                                :class="{ 'input-field-error': docForm.errors.file }"
-                                @change="handleDocFile"
+                                label="Pilih Berkas Dokumen"
+                                hint="Format: JPG, PNG, atau PDF (maksimal 2 MB)"
+                                :error="docForm.errors.file"
+                                @change="docForm.clearErrors('file')"
                             />
-                            <InputError :message="docForm.errors.file" />
                         </div>
 
                         <div class="pt-3 flex justify-end gap-2.5">

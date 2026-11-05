@@ -4,6 +4,7 @@ import { useForm } from '@inertiajs/vue3';
 import ManagerLayout from '@/Layouts/ManagerLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import FormErrorBanner from '@/Components/FormErrorBanner.vue';
+import FileInput from '@/Components/FileInput.vue';
 import { useFormValidator } from '@/Composables/useFormValidator';
 import { compressImage } from '@/Utils/imageCompressor';
 
@@ -31,8 +32,7 @@ const form = useForm({
     logo: null,
 });
 
-const onLogoChange = async (e) => {
-    const rawFile = e.target.files?.[0] || null;
+const onLogoChange = async (rawFile) => {
     if (!rawFile) {
         form.logo = null;
         logoPreview.value = props.team?.logo_url || null;
@@ -94,23 +94,16 @@ const submit = () => {
 
                 <form @submit.prevent="submit" novalidate class="space-y-4">
                     <div data-field="logo">
-                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Logo Resmi Tim</label>
-                        <div class="flex items-center gap-4">
-                            <img
-                                v-if="logoPreview"
-                                :src="logoPreview"
-                                :alt="team.name"
-                                class="w-14 h-14 rounded-xl object-cover border border-slate-200 bg-white shrink-0"
-                            />
-                            <input
-                                type="file"
-                                accept=".png,.jpg,.jpeg"
-                                class="input-field py-1.5 text-xs"
-                                :class="{ 'input-field-error': form.errors.logo }"
-                                @change="onLogoChange"
-                            />
-                        </div>
-                        <InputError :message="form.errors.logo" />
+                        <label class="block text-xs font-bold text-slate-800 mb-1.5">Logo Resmi Tim</label>
+                        <FileInput
+                            v-model="form.logo"
+                            accept=".png,.jpg,.jpeg"
+                            :preview-url="logoPreview"
+                            label="Pilih Logo Klub"
+                            hint="Format: PNG, JPG (Maks 2 MB, rasio 1:1 persegi)"
+                            :error="form.errors.logo"
+                            @change="onLogoChange"
+                        />
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">

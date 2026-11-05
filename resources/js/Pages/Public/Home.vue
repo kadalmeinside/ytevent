@@ -244,24 +244,24 @@ const quotaPercentage = (event) => {
                     <div class="mt-5 pt-3 border-t border-slate-200/70 flex items-center gap-2">
                         <Link
                             :href="route('events.show', { event: event.slug })"
-                            class="btn-secondary flex-1 text-xs py-2"
+                            class="btn-secondary flex-1 text-center"
                         >
                             Detail &amp; Regulasi
                         </Link>
                         <Link
                             v-if="event.can_register"
                             :href="route('events.register', { event: event.slug })"
-                            class="btn-pitch flex-1 text-xs py-2"
+                            class="btn-pitch flex-1 text-center"
                         >
                             Daftar Sekarang
                         </Link>
                         <span
                             v-else
-                            class="flex-1 text-center text-xs font-semibold py-2 px-3 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed"
+                            class="flex-1 h-10 inline-flex items-center justify-center text-center text-xs font-semibold px-3 rounded-xl bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed"
                         >
                             {{ event.available_slots === 0 ? 'Kuota Penuh' : 'Ditutup' }}
                         </span>
-                        </div>
+                    </div>
                     </div>
                 </article>
             </div>

@@ -5,6 +5,8 @@ import ManagerLayout from '@/Layouts/ManagerLayout.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import InputError from '@/Components/InputError.vue';
 import FormErrorBanner from '@/Components/FormErrorBanner.vue';
+import PaymentProofModal from '@/Components/PaymentProofModal.vue';
+import FileInput from '@/Components/FileInput.vue';
 import { useFormValidator } from '@/Composables/useFormValidator';
 import { useFormatters } from '@/Composables/useFormatters';
 
@@ -25,9 +27,24 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
-    bankAccount: {
+    paymentMethodMode: {
+        type: String,
+        default: 'midtrans', // 'midtrans' atau 'manual'
+    },
+    bankAccounts: {
+        type: Array,
+        default: () => [],
+    },
+    midtransFeeConfig: {
         type: Object,
-        default: () => ({}),
+        default: () => ({
+            fee_borne_by: 'team',
+            va_fee: 4000,
+            qris_fee_percent: 0.7,
+            ewallet_fee_percent: 1.5,
+            cc_fee_percent: 2.9,
+            cc_fee_fixed: 2000,
+        }),
     },
     sandboxSimulatorEnabled: {
         type: Boolean,
@@ -36,31 +53,99 @@ const props = defineProps({
 });
 
 const { formatRupiah, formatDateTime, formatDate } = useFormatters();
-const { applyValidation, isEmpty, checkFile } = useFormValidator();
+const { applyValidation, isEmpty } = useFormValidator();
 
-const paymentTab = ref('manual');
+// Proof Viewer Modal State
+const isProofModalOpen = ref(false);
+const selectedProofPayment = ref(null);
+
+const openProofModal = (p) => {
+    selectedProofPayment.value = {
+        ...p,
+        team: props.team,
+        event: props.team?.event,
+    };
+    isProofModalOpen.value = true;
+};
+
+const closeProofModal = () => {
+    isProofModalOpen.value = false;
+    selectedProofPayment.value = null;
+};
 
 const canPay = computed(() => {
     if (!props.payment) return false;
     return ['unpaid', 'rejected'].includes(props.payment.status);
 });
 
+// Copy Account Number Helper
+const copiedAccountIndex = ref(null);
+const copyAccountNumber = (accNumber, index) => {
+    if (!accNumber) return;
+    navigator.clipboard.writeText(accNumber).then(() => {
+        copiedAccountIndex.value = index;
+        setTimeout(() => {
+            if (copiedAccountIndex.value === index) copiedAccountIndex.value = null;
+        }, 2200);
+    });
+};
+
+// Available Midtrans Payment Channels
+const midtransChannels = [
+    { id: 'BCA Virtual Account', name: 'BCA Virtual Account', type: 'va' },
+    { id: 'Mandiri Bill', name: 'Mandiri Bill (VA)', type: 'va' },
+    { id: 'BNI Virtual Account', name: 'BNI Virtual Account', type: 'va' },
+    { id: 'BRI Virtual Account', name: 'BRI Virtual Account', type: 'va' },
+    { id: 'Permata Virtual Account', name: 'Permata Virtual Account', type: 'va' },
+    { id: 'QRIS', name: 'QRIS (GoPay / BCA Mobile / All e-Wallet)', type: 'qris' },
+    { id: 'GoPay', name: 'GoPay E-Wallet', type: 'ewallet' },
+    { id: 'ShopeePay', name: 'ShopeePay E-Wallet', type: 'ewallet' },
+    { id: 'Credit Card', name: 'Kartu Kredit / Debit Visa/Mastercard', type: 'cc' },
+];
+
 // Gateway Form
 const gatewayForm = useForm({
-    provider: props.payment?.method === 'xendit' ? 'xendit' : 'midtrans',
+    provider: 'midtrans',
     payment_channel: props.payment?.payment_channel || 'BCA Virtual Account',
+});
+
+const currentSelectedChannel = computed(() => {
+    return midtransChannels.find((c) => c.id === gatewayForm.payment_channel) || midtransChannels[0];
+});
+
+// Dynamic MDR Fee Calculation for Midtrans
+const calculatedMdrFee = computed(() => {
+    if (!props.payment) return 0;
+    const base = Number(props.payment.amount || props.payment.total_amount);
+    const cfg = props.midtransFeeConfig || {};
+    const type = currentSelectedChannel.value?.type;
+
+    if (type === 'qris') {
+        return Math.round(base * ((cfg.qris_fee_percent ?? 0.7) / 100));
+    }
+    if (type === 'ewallet') {
+        return Math.round(base * ((cfg.ewallet_fee_percent ?? 1.5) / 100));
+    }
+    if (type === 'cc') {
+        return Math.round((base * ((cfg.cc_fee_percent ?? 2.9) / 100)) + (cfg.cc_fee_fixed ?? 2000));
+    }
+    // Default Virtual Account (flat Rp)
+    return Number(cfg.va_fee ?? 4000);
+});
+
+const feeBorneByTeam = computed(() => {
+    return (props.midtransFeeConfig?.fee_borne_by ?? 'team') === 'team';
+});
+
+const calculatedTotalPayable = computed(() => {
+    if (!props.payment) return 0;
+    const base = Number(props.payment.amount || props.payment.total_amount);
+    return feeBorneByTeam.value ? base + calculatedMdrFee.value : base;
 });
 
 const initiateGateway = () => {
     if (!props.payment) return;
-    const ok = applyValidation(gatewayForm, () => {
-        const errs = {};
-        if (isEmpty(gatewayForm.provider)) errs.provider = 'Penyedia pembayaran otomatis wajib dipilih.';
-        if (isEmpty(gatewayForm.payment_channel)) errs.payment_channel = 'Saluran pembayaran wajib dipilih.';
-        return errs;
-    });
-    if (!ok) return;
-
+    gatewayForm.provider = 'midtrans';
     gatewayForm.post(route('manager.payments.gateway', { payment: props.payment.id }), {
         preserveScroll: true,
     });
@@ -84,11 +169,6 @@ const manualForm = useForm({
     proof_file: null,
 });
 
-const handleProofFile = (e) => {
-    manualForm.proof_file = e.target.files?.[0] || null;
-    manualForm.clearErrors('proof_file');
-};
-
 const submitManualProof = () => {
     if (!props.payment) return;
     const ok = applyValidation(manualForm, () => {
@@ -100,14 +180,9 @@ const submitManualProof = () => {
             errs.sender_account_holder = 'Nama pemilik rekening pengirim wajib diisi.';
         }
         if (isEmpty(manualForm.transfer_date)) {
-            errs.transfer_date = 'Tanggal transfer pembayaran wajib diisi.';
+            errs.transfer_date = 'Tanggal transfer mutasi wajib diisi.';
         }
-        const fCheck = checkFile(
-            manualForm.proof_file,
-            ['image/jpeg', 'image/png', 'application/pdf'],
-            2 * 1024 * 1024
-        );
-        if (!fCheck.valid) {
+        if (!manualForm.proof_file) {
             errs.proof_file = 'Bukti transfer wajib diunggah dalam format JPG, PNG, atau PDF (maksimal 2 MB).';
         }
         return errs;
@@ -116,106 +191,94 @@ const submitManualProof = () => {
     if (!ok) return;
 
     manualForm.post(route('manager.payments.manual-proof', { payment: props.payment.id }), {
-        forceFormData: true,
         preserveScroll: true,
+        onSuccess: () => {
+            manualForm.reset('proof_file');
+        },
     });
 };
 
 // Reclaim Slot Form
 const reclaimForm = useForm({});
 const reclaimSlot = () => {
-    if (!props.team) return;
-    reclaimForm.post(route('manager.payments.reclaim-slot', { team: props.team.id }), {
+    reclaimForm.post(route('manager.teams.reclaim-slot', { team: props.team.id }), {
         preserveScroll: true,
     });
 };
 </script>
 
 <template>
-    <ManagerLayout :team="team" :teams-list="teamsList" page-title="Pembayaran Pendaftaran Tim">
+    <ManagerLayout
+        :team="team"
+        :teams-list="teamsList"
+        page-title="Pembayaran Pendaftaran Tim"
+        subtitle="Selesaikan tagihan pendaftaran kompetisi untuk mengaktifkan slot permanen dan membuka formulir pemain."
+    >
         <Head title="Pembayaran Pendaftaran" />
 
-        <div v-if="team" class="space-y-6">
-            <!-- Invoice Header Summary -->
-            <div v-if="payment" class="frosted-card p-6">
-                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200">
-                    <div>
-                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wide">Nomor Invoice Pendaftaran</p>
-                        <div class="flex items-center gap-3 mt-1">
-                            <span class="text-lg sm:text-xl font-bold text-slate-900 tabular-data">
-                                {{ payment.invoice_number }}
-                            </span>
-                            <StatusBadge :status="payment.status" />
-                        </div>
-                    </div>
+        <div class="space-y-6 max-w-5xl">
+            <!-- State: NO ACTIVE BILL -->
+            <div v-if="!payment" class="frosted-card p-10 text-center text-xs text-slate-500 space-y-2">
+                <svg class="w-10 h-10 text-slate-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p class="font-bold text-slate-800 text-sm">Tidak Ada Tagihan Aktif</p>
+                <p>Seluruh pendaftaran kompetisi tim ini telah terselesaikan atau gratis.</p>
+            </div>
 
-                    <div class="text-left md:text-right">
-                        <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Tagihan</p>
-                        <p class="text-2xl font-black text-slate-900 tabular-data mt-0.5 tracking-tight">
-                            {{ formatRupiah(payment.total_amount) }}
+            <!-- State: ALREADY PAID / SETTLED -->
+            <div
+                v-else-if="payment.status === 'paid'"
+                class="frosted-card p-6 border-emerald-300 bg-emerald-50/70 space-y-3"
+            >
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                            <h2 class="text-base font-bold text-emerald-950">Pembayaran Pendaftaran Lunas &amp; Sah</h2>
+                        </div>
+                        <p class="text-xs text-emerald-800 mt-1">
+                            Invoice <strong>{{ payment.invoice_number }}</strong> sejumlah
+                            <strong class="tabular-data">{{ formatRupiah(payment.total_amount) }}</strong> telah lunas diverifikasi
+                            pada <span class="tabular-data font-semibold">{{ formatDateTime(payment.paid_at) }}</span>.
+                            Slot tim Anda kini <strong>AKTIF</strong> dan pengisian nama pemain telah terbuka penuh.
                         </p>
                     </div>
-                </div>
-
-                <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-                    <div>
-                        <span class="text-slate-500 block">Tim &amp; Kompetisi</span>
-                        <strong class="text-slate-900 mt-0.5 block">{{ team.name }} &mdash; {{ team.event?.name }}</strong>
-                    </div>
-                    <div>
-                        <span class="text-slate-500 block">Batas Waktu Reservasi Slot</span>
-                        <strong class="text-slate-900 tabular-data mt-0.5 block">
-                            {{ payment.status === 'paid' ? 'Slot Terkunci Permanen' : formatDateTime(payment.expires_at) }}
-                        </strong>
-                    </div>
-                    <div>
-                        <span class="text-slate-500 block">Metode Terakhir</span>
-                        <strong class="text-slate-900 mt-0.5 block uppercase">
-                            {{ payment.payment_channel || payment.method || 'Belum Dipilih' }}
-                        </strong>
-                    </div>
+                    <Link :href="route('manager.players')" class="btn-pitch shrink-0">
+                        Kelola Daftar Pemain &rarr;
+                    </Link>
                 </div>
             </div>
 
-            <!-- State: PAID -->
+            <!-- State: WAITING VERIFICATION (Manual Transfer Uploaded) -->
             <div
-                v-if="payment?.status === 'paid'"
-                class="frosted-card p-6 border-emerald-300 bg-emerald-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-            >
-                <div>
-                    <h2 class="text-base font-bold text-emerald-950">Pembayaran Pendaftaran Telah Lunas</h2>
-                    <p class="text-xs text-emerald-800 mt-1">
-                        Diterima pada <strong class="tabular-data">{{ formatDateTime(payment.paid_at) }}</strong>.
-                        Slot tim Anda telah resmi dikunci dan menu pengisian nama pemain beserta dokumen kelengkapan telah terbuka penuh.
-                    </p>
-                </div>
-                <Link :href="route('manager.players')" class="btn-pitch shrink-0">
-                    Input Nama Pemain &amp; Dokumen &rarr;
-                </Link>
-            </div>
-
-            <!-- State: WAITING VERIFICATION -->
-            <div
-                v-else-if="payment?.status === 'waiting_verification'"
+                v-else-if="payment.status === 'waiting_verification'"
                 class="frosted-card p-6 border-amber-300 bg-amber-50/70 space-y-3"
             >
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                        <h2 class="text-base font-bold text-amber-950">Menunggu Pemeriksaan Staf Finance</h2>
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                            <h2 class="text-base font-bold text-amber-950">Menunggu Pemeriksaan Staf Finance Panitia</h2>
+                        </div>
                         <p class="text-xs text-amber-800 mt-1">
                             Bukti transfer dari <strong>{{ payment.sender_bank_name }}</strong> a.n. <strong>{{ payment.sender_account_holder }}</strong>
-                            (Tanggal: <span class="tabular-data">{{ formatDate(payment.transfer_date) }}</span>) sedang diperiksa.
+                            (Tanggal: <span class="tabular-data">{{ formatDate(payment.transfer_date) }}</span>) sedang diverifikasi.
                             Selama status ini aktif, slot kuota tim Anda aman dan tidak akan hangus otomatis.
                         </p>
                     </div>
-                    <a
+                    <button
                         v-if="payment.proof_url"
-                        :href="payment.proof_url"
-                        target="_blank"
+                        type="button"
                         class="btn-secondary text-xs shrink-0"
+                        @click="openProofModal(payment)"
                     >
-                        Lihat Bukti Terunggah
-                    </a>
+                        <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        <span>Lihat Bukti Terunggah</span>
+                    </button>
                 </div>
             </div>
 
@@ -228,8 +291,8 @@ const reclaimSlot = () => {
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <h2 class="text-base font-bold text-rose-950">Tagihan &amp; Reservasi Slot Kedaluwarsa</h2>
-                        <p class="text-xs text-rose-800 mt-1">
-                            Batas waktu pembayaran telah berakhir sehingga slot sementara dilepas kembali. Klik tombol di samping untuk mengunci ulang slot dan menerbitkan invoice baru apabila kuota kompetisi masih tersedia.
+                        <p class="text-xs text-rose-800 mt-1 leading-relaxed">
+                            Batas waktu pembayaran telah berakhir sehingga slot sementara dilepas kembali ke kuota umum. Klik tombol di samping untuk mengunci ulang slot dan menerbitkan invoice baru apabila kuota kompetisi masih tersedia.
                         </p>
                     </div>
                     <button
@@ -238,125 +301,176 @@ const reclaimSlot = () => {
                         :disabled="reclaimForm.processing"
                         @click="reclaimSlot"
                     >
-                        {{ reclaimForm.processing ? 'Memeriksa Sisa Kuota...' : 'Ajukan Ulang Slot & Buat Invoice Baru' }}
+                        {{ reclaimForm.processing ? 'Memeriksa Sisa Kuota...' : 'Ajukan Ulang Slot & Buat Tagihan Baru' }}
                     </button>
                 </div>
             </div>
 
-            <!-- State: REJECTED Notice (Inline, Never Hidden) -->
+            <!-- State: REJECTED (Warning Notice) -->
             <div
                 v-if="payment?.status === 'rejected'"
                 class="frosted-card p-5 border-rose-300 bg-rose-50/90 space-y-1.5"
             >
-                <p class="text-sm font-bold text-rose-900">Bukti Pembayaran Sebelumnya Ditolak oleh Finance</p>
-                <p class="text-xs text-rose-800">
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-rose-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <p class="text-sm font-bold text-rose-900">Bukti Pembayaran Sebelumnya Ditolak oleh Staf Finance</p>
+                </div>
+                <p class="text-xs text-rose-800 ml-7">
                     <strong>Alasan Penolakan:</strong> {{ payment.rejection_reason }}
                 </p>
-                <p class="text-xs text-rose-700">
-                    Silakan unggah ulang bukti transfer yang sah atau gunakan pembayaran instan sebelum batas waktu perpanjangan
+                <p class="text-xs text-rose-700 ml-7">
+                    Silakan unggah ulang bukti transfer yang sah sebelum batas waktu perpanjangan
                     <strong class="tabular-data">{{ formatDateTime(payment.expires_at) }}</strong>.
                 </p>
             </div>
 
-            <!-- Payment Action Channels (Unpaid or Rejected) -->
+            <!-- ACTIVE PAYMENT WORKFLOW (Unpaid or Rejected) -->
             <div v-if="canPay" class="frosted-card overflow-hidden">
-                <div class="border-b border-slate-200 bg-slate-100/80 px-4 flex items-center gap-2">
-                    <button
-                        type="button"
-                        class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors"
-                        :class="paymentTab === 'manual' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
-                        @click="paymentTab = 'manual'"
-                    >
-                        1. Transfer Bank Manual (Unggah Bukti)
-                    </button>
-                    <button
-                        type="button"
-                        class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors"
-                        :class="paymentTab === 'gateway' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
-                        @click="paymentTab = 'gateway'"
-                    >
-                        2. Pembayaran Otomatis (Midtrans / Xendit)
-                    </button>
-                </div>
-
-                <!-- Tab 1: Manual Transfer -->
-                <div v-if="paymentTab === 'manual'" class="p-6 space-y-6">
-                    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div class="text-xs space-y-1">
-                            <p class="text-slate-500 font-medium uppercase tracking-wide">Rekening Resmi Panitia</p>
-                            <p class="text-sm font-bold text-slate-900">{{ bankAccount.bank_name }} &mdash; <span class="tabular-data">{{ bankAccount.account_number }}</span></p>
-                            <p class="text-slate-700">a.n. <strong>{{ bankAccount.account_holder }}</strong></p>
+                <!-- ========================================== -->
+                <!-- MODE 1: TRANSFER BANK MANUAL (Multi-Rekening) -->
+                <!-- ========================================== -->
+                <div v-if="paymentMethodMode === 'manual'" class="p-6 space-y-6">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-orange-600"></span>
+                            <h3 class="text-base font-bold text-slate-900">Instruksi Pembayaran &mdash; Transfer Bank Manual</h3>
                         </div>
-                        <div class="text-left sm:text-right">
-                            <span class="text-[11px] text-slate-500 block">Nominal Transfer Tepat</span>
-                            <strong class="text-base text-orange-600 tabular-data font-bold">{{ formatRupiah(payment.total_amount) }}</strong>
+                        <p class="text-xs text-slate-500 mt-0.5">
+                            Silakan lakukan transfer ke salah satu rekening resmi panitia di bawah ini sesuai nominal tepat tagihan invoice Anda.
+                        </p>
+                    </div>
+
+                    <!-- Destination Bank Accounts Cards Grid -->
+                    <div>
+                        <span class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
+                            Pilihan Rekening Resmi Penerima ({{ bankAccounts.length }} Rekening Tersedia)
+                        </span>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                            <div
+                                v-for="(acc, idx) in bankAccounts"
+                                :key="idx"
+                                class="p-4 rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white to-slate-50/80 shadow-xs space-y-2 relative"
+                            >
+                                <div class="flex items-center justify-between">
+                                    <span class="px-2.5 py-0.5 rounded-md text-xs font-black uppercase tracking-wider bg-orange-100 text-orange-800 border border-orange-200">
+                                        {{ acc.bank_name }}
+                                    </span>
+                                    <span v-if="acc.notes" class="text-[11px] text-slate-500 truncate max-w-[140px]">{{ acc.notes }}</span>
+                                </div>
+
+                                <div class="pt-1">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="text-base sm:text-lg font-mono font-bold tabular-data text-slate-900 tracking-wider">
+                                            {{ acc.account_number }}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            class="btn-sm-secondary text-xs h-7 px-2.5"
+                                            @click="copyAccountNumber(acc.account_number, idx)"
+                                        >
+                                            <svg v-if="copiedAccountIndex === idx" class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                            <svg v-else class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                                            </svg>
+                                            <span>{{ copiedAccountIndex === idx ? 'Tersalin!' : 'Salin Rekening' }}</span>
+                                        </button>
+                                    </div>
+                                    <p class="text-xs text-slate-600 mt-1">
+                                        a.n. <strong class="text-slate-900">{{ acc.account_holder }}</strong>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Nominal Tagihan Box -->
+                    <div class="p-4 rounded-xl bg-gradient-to-r from-orange-500/10 via-amber-500/5 to-transparent border border-orange-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                            <span class="text-xs font-semibold text-slate-600 uppercase tracking-wide">Nominal Transfer Harus Tepat:</span>
+                            <div class="text-2xl font-black font-mono tabular-data text-slate-900 mt-0.5">
+                                {{ formatRupiah(payment.total_amount) }}
+                            </div>
+                        </div>
+                        <div class="text-xs text-slate-500 sm:text-right">
+                            <span>Batas Akhir Pelunasan:</span>
+                            <strong class="block tabular-data text-orange-950 font-bold">{{ formatDateTime(payment.expires_at) }}</strong>
                         </div>
                     </div>
 
                     <FormErrorBanner :errors="manualForm.errors" />
 
-                    <form @submit.prevent="submitManualProof" novalidate class="space-y-4">
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div data-field="sender_bank_name">
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Bank Pengirim</label>
-                                <input
-                                    v-model="manualForm.sender_bank_name"
-                                    type="text"
-                                    placeholder="Contoh: BCA / Mandiri / BRI / BSI"
-                                    class="input-field"
-                                    :class="{ 'input-field-error': manualForm.errors.sender_bank_name }"
-                                    @input="manualForm.clearErrors('sender_bank_name')"
-                                />
-                                <InputError :message="manualForm.errors.sender_bank_name" />
-                            </div>
+                    <!-- Upload Proof Form with FileInput -->
+                    <form @submit.prevent="submitManualProof" novalidate class="space-y-4 pt-2">
+                        <div class="border-t border-slate-200 pt-4">
+                            <h4 class="text-sm font-bold text-slate-900 mb-1">Konfirmasi &amp; Unggah Bukti Transfer</h4>
+                            <p class="text-xs text-slate-500 mb-4">Lengkapi data rekening pengirim mutasi untuk verifikasi staf finance.</p>
 
-                            <div data-field="sender_account_holder">
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Pemilik Rekening Pengirim</label>
-                                <input
-                                    v-model="manualForm.sender_account_holder"
-                                    type="text"
-                                    placeholder="Sesuai buku tabungan / mutasi"
-                                    class="input-field"
-                                    :class="{ 'input-field-error': manualForm.errors.sender_account_holder }"
-                                    @input="manualForm.clearErrors('sender_account_holder')"
-                                />
-                                <InputError :message="manualForm.errors.sender_account_holder" />
-                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div data-field="sender_bank_name">
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Bank Pengirim</label>
+                                    <input
+                                        v-model="manualForm.sender_bank_name"
+                                        type="text"
+                                        placeholder="Contoh: BCA / Mandiri / BRI / BSI"
+                                        class="input-field"
+                                        :class="{ 'input-field-error': manualForm.errors.sender_bank_name }"
+                                        @input="manualForm.clearErrors('sender_bank_name')"
+                                    />
+                                    <InputError :message="manualForm.errors.sender_bank_name" />
+                                </div>
 
-                            <div>
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">Nomor Rekening Pengirim (Opsional)</label>
-                                <input
-                                    v-model="manualForm.sender_account_number"
-                                    type="text"
-                                    placeholder="Contoh: 1234567890"
-                                    class="input-field tabular-data"
-                                />
-                            </div>
+                                <div data-field="sender_account_holder">
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Pemilik Rekening Pengirim</label>
+                                    <input
+                                        v-model="manualForm.sender_account_holder"
+                                        type="text"
+                                        placeholder="Sesuai buku tabungan / mutasi"
+                                        class="input-field"
+                                        :class="{ 'input-field-error': manualForm.errors.sender_account_holder }"
+                                        @input="manualForm.clearErrors('sender_account_holder')"
+                                    />
+                                    <InputError :message="manualForm.errors.sender_account_holder" />
+                                </div>
 
-                            <div data-field="transfer_date">
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Transfer</label>
-                                <input
-                                    v-model="manualForm.transfer_date"
-                                    type="date"
-                                    class="input-field tabular-data"
-                                    :class="{ 'input-field-error': manualForm.errors.transfer_date }"
-                                    @input="manualForm.clearErrors('transfer_date')"
-                                />
-                                <InputError :message="manualForm.errors.transfer_date" />
-                            </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1">Nomor Rekening Pengirim (Opsional)</label>
+                                    <input
+                                        v-model="manualForm.sender_account_number"
+                                        type="text"
+                                        placeholder="Contoh: 1234567890"
+                                        class="input-field tabular-data"
+                                    />
+                                </div>
 
-                            <div data-field="proof_file" class="sm:col-span-2">
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">
-                                    Unggah Bukti Transfer (JPG, PNG, atau PDF &mdash; Maks. 2 MB)
-                                </label>
-                                <input
-                                    type="file"
-                                    accept=".jpg,.jpeg,.png,.pdf"
-                                    class="input-field py-1.5 text-xs"
-                                    :class="{ 'input-field-error': manualForm.errors.proof_file }"
-                                    @change="handleProofFile"
-                                />
-                                <InputError :message="manualForm.errors.proof_file" />
+                                <div data-field="transfer_date">
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Transfer</label>
+                                    <input
+                                        v-model="manualForm.transfer_date"
+                                        type="date"
+                                        class="input-field tabular-data"
+                                        :class="{ 'input-field-error': manualForm.errors.transfer_date }"
+                                        @input="manualForm.clearErrors('transfer_date')"
+                                    />
+                                    <InputError :message="manualForm.errors.transfer_date" />
+                                </div>
+
+                                <div data-field="proof_file" class="sm:col-span-2">
+                                    <label class="block text-xs font-bold text-slate-800 mb-1.5">
+                                        Berkas Bukti Transfer (JPG, PNG, atau PDF)
+                                    </label>
+                                    <FileInput
+                                        v-model="manualForm.proof_file"
+                                        accept=".jpg,.jpeg,.png,.pdf"
+                                        label="Pilih Bukti Transfer"
+                                        hint="Format: JPG, PNG, atau PDF (maks. 2 MB)"
+                                        :error="manualForm.errors.proof_file"
+                                        @change="manualForm.clearErrors('proof_file')"
+                                    />
+                                </div>
                             </div>
                         </div>
 
@@ -368,63 +482,104 @@ const reclaimSlot = () => {
                     </form>
                 </div>
 
-                <!-- Tab 2: Automatic Payment Gateway -->
+                <!-- ========================================== -->
+                <!-- MODE 2: MIDTRANS PAYMENT GATEWAY           -->
+                <!-- ========================================== -->
                 <div v-else class="p-6 space-y-6">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+                            <h3 class="text-base font-bold text-slate-900">Pembayaran Instan &mdash; Midtrans Payment Gateway</h3>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-0.5">
+                            Pilih kanal pembayaran (Virtual Account bank, QRIS, atau E-Wallet). Biaya MDR akan disesuaikan otomatis dengan metode yang Anda pilih.
+                        </p>
+                    </div>
+
                     <FormErrorBanner :errors="gatewayForm.errors" />
 
-                    <form @submit.prevent="initiateGateway" novalidate class="space-y-4">
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div data-field="provider">
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">Penyedia Payment Gateway</label>
-                                <select
-                                    v-model="gatewayForm.provider"
-                                    class="input-field"
-                                    @change="gatewayForm.clearErrors('provider')"
+                    <form @submit.prevent="initiateGateway" novalidate class="space-y-5">
+                        <!-- Channel Grid Selector -->
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2.5">
+                                Pilih Kanal Pembayaran Midtrans:
+                            </label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                <label
+                                    v-for="ch in midtransChannels"
+                                    :key="ch.id"
+                                    class="p-3.5 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between"
+                                    :class="gatewayForm.payment_channel === ch.id
+                                        ? 'border-orange-500 bg-orange-50/80 shadow-xs ring-2 ring-orange-500/10'
+                                        : 'border-slate-200 bg-white hover:bg-slate-50/80'"
                                 >
-                                    <option value="midtrans">Midtrans (Snap VA &amp; QRIS)</option>
-                                    <option value="xendit">Xendit (Invoice VA &amp; E-Wallet)</option>
-                                </select>
-                                <InputError :message="gatewayForm.errors.provider" />
-                            </div>
-
-                            <div data-field="payment_channel">
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">Saluran Pembayaran</label>
-                                <select
-                                    v-model="gatewayForm.payment_channel"
-                                    class="input-field"
-                                    @change="gatewayForm.clearErrors('payment_channel')"
-                                >
-                                    <option value="BCA Virtual Account">BCA Virtual Account</option>
-                                    <option value="Mandiri Virtual Account">Mandiri Virtual Account</option>
-                                    <option value="BNI Virtual Account">BNI Virtual Account</option>
-                                    <option value="BRI Virtual Account">BRI Virtual Account</option>
-                                    <option value="QRIS Instan">QRIS Instan</option>
-                                </select>
-                                <InputError :message="gatewayForm.errors.payment_channel" />
+                                    <div class="flex items-center gap-2.5 min-w-0">
+                                        <input
+                                            v-model="gatewayForm.payment_channel"
+                                            type="radio"
+                                            :value="ch.id"
+                                            class="text-orange-600 focus:ring-orange-500"
+                                        />
+                                        <span class="text-xs font-bold text-slate-900 truncate">{{ ch.name }}</span>
+                                    </div>
+                                    <span class="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 shrink-0">
+                                        {{ ch.type }}
+                                    </span>
+                                </label>
                             </div>
                         </div>
 
-                        <div class="flex justify-end">
-                            <button type="submit" class="btn-secondary" :disabled="gatewayForm.processing">
-                                {{ gatewayForm.processing ? 'Membuat Kode Bayar...' : 'Buat Instruksi Pembayaran Otomatis' }}
+                        <!-- Live Cost & MDR Breakdown Box -->
+                        <div class="p-4 rounded-xl bg-slate-50/90 border border-slate-200/90 space-y-2.5 text-xs">
+                            <span class="font-bold text-slate-800 uppercase text-[11px] block">Rincian Perhitungan Tagihan (MDR):</span>
+
+                            <div class="flex items-center justify-between py-1 border-b border-slate-200/60">
+                                <span class="text-slate-600">Biaya Registrasi Kompetisi</span>
+                                <span class="font-mono tabular-data font-bold text-slate-900">{{ formatRupiah(payment.amount || payment.total_amount) }}</span>
+                            </div>
+
+                            <div class="flex items-center justify-between py-1 border-b border-slate-200/60">
+                                <span class="text-slate-600">
+                                    Biaya Layanan &amp; MDR Midtrans ({{ currentSelectedChannel.name }})
+                                </span>
+                                <span v-if="feeBorneByTeam" class="font-mono tabular-data font-bold text-orange-700">
+                                    + {{ formatRupiah(calculatedMdrFee) }}
+                                </span>
+                                <span v-else class="text-emerald-700 font-bold">
+                                    Gratis (Ditanggung Penyelenggara)
+                                </span>
+                            </div>
+
+                            <div class="flex items-center justify-between pt-1 text-sm font-bold">
+                                <span class="text-slate-900">Total Pembayaran</span>
+                                <span class="font-mono tabular-data text-lg text-slate-900">{{ formatRupiah(calculatedTotalPayable) }}</span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between pt-2">
+                            <p class="text-[11px] text-slate-400">
+                                Selesaikan sebelum: <strong class="tabular-data text-slate-700">{{ formatDateTime(payment.expires_at) }}</strong>
+                            </p>
+                            <button type="submit" class="btn-pitch" :disabled="gatewayForm.processing">
+                                {{ gatewayForm.processing ? 'Membuat Instruksi Bayar...' : 'Lanjutkan Pembayaran Midtrans &rarr;' }}
                             </button>
                         </div>
                     </form>
 
                     <!-- Active Gateway Reference Box -->
                     <div
-                        v-if="payment.external_reference_id && ['midtrans', 'xendit'].includes(payment.method)"
-                        class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3 text-xs"
+                        v-if="payment.external_reference_id && payment.method === 'midtrans'"
+                        class="p-4 rounded-xl bg-orange-50/60 border border-orange-200/80 space-y-3 text-xs"
                     >
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div>
-                                <p class="font-bold text-slate-900 uppercase">
-                                    Instruksi Aktif: {{ payment.method }} &mdash; {{ payment.payment_channel }}
+                                <p class="font-bold text-orange-950 uppercase">
+                                    Instruksi Midtrans Aktif &mdash; {{ payment.payment_channel }}
                                 </p>
                                 <p class="text-slate-600 mt-0.5">
-                                    Kode Referensi Gateway: <strong class="tabular-data text-slate-900">{{ payment.external_reference_id }}</strong>
-                                    <span v-if="payment.snap_token" class="ml-2 text-slate-500">
-                                        (Snap Token: <code class="tabular-data">{{ payment.snap_token }}</code>)
+                                    No. Order / Ref: <strong class="tabular-data text-slate-900">{{ payment.external_reference_id }}</strong>
+                                    <span v-if="payment.snap_token" class="ml-2 text-slate-500 font-mono">
+                                        (Token: {{ payment.snap_token.slice(0, 15) }}...)
                                     </span>
                                 </p>
                             </div>
@@ -434,61 +589,113 @@ const reclaimSlot = () => {
                                 target="_blank"
                                 class="btn-pitch text-xs"
                             >
-                                Buka Halaman Pembayaran
+                                Buka Halaman Bayar Midtrans
                             </a>
                         </div>
 
                         <div
                             v-if="sandboxSimulatorEnabled"
-                            class="pt-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                            class="pt-3 border-t border-orange-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/70 p-3 rounded-lg"
                         >
-                            <p class="text-slate-600">
-                                <strong>Mode Sandbox Pengujian Aktif:</strong> Tombol ini mengirim callback Webhook bertanda tangan asli ({{ payment.method.toUpperCase() }}) untuk memverifikasi pelunasan instan.
+                            <p class="text-orange-900 font-medium">
+                                Mode Sandbox Simulator Aktif &mdash; Simulasikan pembayaran lunas instan tanpa kartu/bank asli.
                             </p>
                             <button
                                 type="button"
-                                class="btn-pitch text-xs shrink-0"
+                                class="btn-sm-pitch shrink-0"
                                 :disabled="simulateForm.processing"
                                 @click="triggerSandboxSettlement"
                             >
-                                {{ simulateForm.processing ? 'Memproses Webhook...' : 'Simulasikan Pelunasan Instan (Sandbox)' }}
+                                {{ simulateForm.processing ? 'Memproses Webhook...' : 'Simulasikan Lunas Instan' }}
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Riwayat Tagihan Tim -->
+            <!-- Riwayat Tagihan Tim (Dual Responsive View) -->
             <div v-if="paymentHistory.length > 1" class="frosted-card overflow-hidden">
                 <div class="px-5 py-3.5 border-b border-slate-200 bg-slate-100/70">
                     <h3 class="text-xs font-bold uppercase tracking-wide text-slate-700">Riwayat Invoice Tim</h3>
                 </div>
-                <div class="overflow-x-auto">
+
+                <!-- DESKTOP TABLE -->
+                <div class="hidden md:block overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="bg-slate-100/90 text-slate-700 border-b border-slate-200 text-xs">
-                                <th class="py-2.5 px-3.5">No. Invoice</th>
-                                <th class="py-2.5 px-3.5">Metode</th>
-                                <th class="py-2.5 px-3.5">Nominal</th>
-                                <th class="py-2.5 px-3.5">Kedaluwarsa</th>
-                                <th class="py-2.5 px-3.5 text-right">Status</th>
+                            <tr>
+                                <th class="table-th">No. Invoice</th>
+                                <th class="table-th">Metode</th>
+                                <th class="table-th">Nominal Tagihan</th>
+                                <th class="table-th">Kedaluwarsa</th>
+                                <th class="table-th">Status</th>
+                                <th class="table-th text-right">Aksi</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-200/70 text-xs">
-                            <tr v-for="item in paymentHistory" :key="item.id" class="bg-white hover:bg-slate-50/90">
-                                <td class="py-2.5 px-3.5 font-semibold tabular-data text-slate-900">{{ item.invoice_number }}</td>
-                                <td class="py-2.5 px-3.5 text-slate-600">{{ item.payment_channel || item.method || '-' }}</td>
-                                <td class="py-2.5 px-3.5 tabular-data font-medium">{{ formatRupiah(item.total_amount) }}</td>
-                                <td class="py-2.5 px-3.5 tabular-data text-slate-500">{{ formatDateTime(item.expires_at) }}</td>
-                                <td class="py-2.5 px-3.5 text-right">
+                        <tbody class="divide-y divide-slate-100 bg-white">
+                            <tr v-for="item in paymentHistory" :key="item.id" class="hover:bg-orange-50/25 transition-colors">
+                                <td class="table-td font-semibold tabular-data text-slate-900 font-mono">{{ item.invoice_number }}</td>
+                                <td class="table-td text-slate-600 uppercase text-xs font-medium">{{ item.payment_channel || item.method || '-' }}</td>
+                                <td class="table-td tabular-data font-bold text-slate-900">{{ formatRupiah(item.total_amount) }}</td>
+                                <td class="table-td tabular-data text-slate-500 text-xs">{{ formatDateTime(item.expires_at) }}</td>
+                                <td class="table-td">
                                     <StatusBadge :status="item.status" />
+                                </td>
+                                <td class="table-td text-right">
+                                    <button
+                                        v-if="item.proof_url"
+                                        type="button"
+                                        class="btn-sm-secondary"
+                                        @click="openProofModal(item)"
+                                    >
+                                        Bukti Bayar
+                                    </button>
+                                    <span v-else class="text-slate-400 text-xs">-</span>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
+
+                <!-- MOBILE CARD LIST -->
+                <div class="md:hidden divide-y divide-slate-100">
+                    <div
+                        v-for="item in paymentHistory"
+                        :key="item.id"
+                        class="p-4 hover:bg-orange-50/20 transition-colors space-y-2.5"
+                    >
+                        <div class="flex items-center justify-between">
+                            <span class="font-mono text-xs font-bold text-slate-900 px-2 py-0.5 rounded bg-slate-100 border border-slate-200">
+                                {{ item.invoice_number }}
+                            </span>
+                            <StatusBadge :status="item.status" />
+                        </div>
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="text-slate-500">{{ item.payment_channel || item.method || 'Transfer Manual' }}</span>
+                            <span class="font-mono tabular-data font-bold text-slate-900">{{ formatRupiah(item.total_amount) }}</span>
+                        </div>
+                        <div class="flex items-center justify-between pt-1 border-t border-slate-100 text-[11px] text-slate-500">
+                            <span>Expired: {{ formatDateTime(item.expires_at) }}</span>
+                            <button
+                                v-if="item.proof_url"
+                                type="button"
+                                class="btn-sm-secondary"
+                                @click="openProofModal(item)"
+                            >
+                                Bukti Bayar
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
+
+        <!-- Integrated Proof Modal for Manager View -->
+        <PaymentProofModal
+            :show="isProofModalOpen"
+            :payment="selectedProofPayment"
+            :can-verify="false"
+            @close="closeProofModal"
+        />
     </ManagerLayout>
 </template>
-

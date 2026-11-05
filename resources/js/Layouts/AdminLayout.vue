@@ -165,12 +165,12 @@ const logout = () => {
                     </span>
                 </div>
                 <div class="flex items-center gap-2">
-                    <Link :href="route('home')" class="btn-secondary flex-1 text-xs py-1.5 px-2.5">
+                    <Link :href="route('home')" class="btn-sm-secondary flex-1">
                         Portal Publik
                     </Link>
                     <button
                         type="button"
-                        class="px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors"
+                        class="btn-sm-danger"
                         @click="logout"
                     >
                         Keluar

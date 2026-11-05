@@ -34,3 +34,4 @@ class PaymentProofRejectedMail extends Mailable
         );
     }
 }
+

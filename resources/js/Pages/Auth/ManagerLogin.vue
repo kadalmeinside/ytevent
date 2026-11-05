@@ -100,7 +100,7 @@ const submit = () => {
                         </label>
                     </div>
 
-                    <button type="submit" class="btn-pitch w-full py-2.5" :disabled="form.processing">
+                    <button type="submit" class="btn-pitch w-full" :disabled="form.processing">
                         {{ form.processing ? 'Memverifikasi...' : 'Masuk ke Portal Manajer' }}
                     </button>
                 </form>

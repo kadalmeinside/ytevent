@@ -73,3 +73,4 @@ class RolePermissionController extends Controller
         return back()->with('success', "Hak akses izin (permissions) untuk peran {$role->name} berhasil diperbarui.");
     }
 }
+

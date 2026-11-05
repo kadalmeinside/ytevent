@@ -84,7 +84,7 @@ const savePermissions = () => {
                     <button
                         v-if="selectedRole.name !== 'superadmin'"
                         type="button"
-                        class="btn-pitch text-xs px-5"
+                        class="btn-pitch"
                         :disabled="form.processing"
                         @click="savePermissions"
                     >
@@ -125,3 +125,4 @@ const savePermissions = () => {
         </div>
     </AdminLayout>
 </template>
+

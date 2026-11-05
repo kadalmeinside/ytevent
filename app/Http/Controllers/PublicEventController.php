@@ -92,7 +92,7 @@ class PublicEventController extends Controller
         ]);
 
         $registeredTeams = $event->teams()
-            ->occupyingQuotaAt(now())
+            ->whereIn('status', ['active', 'locked_roster'])
             ->orderBy('created_at')
             ->get()
             ->map(fn (Team $team) => [

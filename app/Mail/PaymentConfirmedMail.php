@@ -33,3 +33,4 @@ class PaymentConfirmedMail extends Mailable
         );
     }
 }
+

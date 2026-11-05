@@ -1,10 +1,11 @@
 <script setup>
 import { computed } from 'vue';
-import { usePage, useForm } from '@inertiajs/vue3';
+import { usePage, useForm, Link } from '@inertiajs/vue3';
 import FlashAlert from '@/Components/FlashAlert.vue';
 
 const page = usePage();
 const user = computed(() => page.props.auth?.user);
+const systemSettings = computed(() => page.props.systemSettings || {});
 const isAdmin = computed(() =>
     user.value?.roles?.some((r) => ['superadmin', 'finance'].includes(r))
 );
@@ -18,25 +19,36 @@ const logout = () => {
 <template>
     <div class="min-h-screen flex flex-col bg-transparent">
         <header class="sticky top-0 z-40 frosted-header">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-                <Link :href="route('home')" class="flex items-center gap-2.5 group">
-                    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-600 via-orange-600 to-red-600 text-white flex items-center justify-center font-black text-sm tracking-tight shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform">
+            <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
+                <!-- Brand / Logo Area -->
+                <Link :href="route('home')" class="flex items-center gap-2 sm:gap-2.5 min-w-0 group shrink-0">
+                    <img
+                        v-if="systemSettings?.app_logo_url"
+                        :src="systemSettings.app_logo_url"
+                        :alt="systemSettings.app_name || 'Logo'"
+                        class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl object-contain bg-white border border-slate-200/90 shadow-xs shrink-0"
+                    />
+                    <div
+                        v-else
+                        class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-orange-600 via-orange-600 to-red-600 text-white flex items-center justify-center font-black text-xs sm:text-sm tracking-tight shadow-sm shadow-orange-500/25 shrink-0 group-hover:scale-105 transition-transform"
+                    >
                         YT
                     </div>
-                    <div>
-                        <span class="block text-sm font-bold text-slate-900 leading-tight group-hover:text-orange-600 transition-colors">
-                            YTEvent Football
+                    <div class="min-w-0">
+                        <span class="block text-xs sm:text-base font-black text-slate-900 tracking-tight leading-none group-hover:text-orange-600 transition-colors truncate">
+                            {{ systemSettings?.app_name || 'YTEvent' }}
                         </span>
-                        <span class="block text-[11px] font-medium text-slate-500 leading-tight">
-                            Multi-Event Competition Portal
+                        <span class="hidden md:block text-[11px] font-medium text-slate-500 leading-tight truncate mt-0.5">
+                            {{ systemSettings?.app_tagline || 'Multi-Event Competition Portal' }}
                         </span>
                     </div>
                 </Link>
 
-                <nav class="flex items-center gap-2.5">
+                <!-- Navigation & Actions Area -->
+                <nav class="flex items-center gap-1.5 sm:gap-3 shrink-0">
                     <Link
                         :href="route('home')"
-                        class="text-xs sm:text-sm font-medium text-slate-600 hover:text-orange-600 px-3 py-1.5 rounded-xl hover:bg-orange-50/60 transition-colors"
+                        class="hidden md:inline-flex text-xs sm:text-sm font-semibold text-slate-600 hover:text-orange-600 px-3 py-1.5 rounded-xl hover:bg-orange-50/60 transition-colors"
                     >
                         Katalog Kompetisi
                     </Link>
@@ -44,13 +56,13 @@ const logout = () => {
                     <template v-if="user">
                         <Link
                             :href="isAdmin ? route('admin.dashboard') : route('manager.dashboard')"
-                            class="btn-pitch text-xs sm:text-sm py-1.5 px-3.5"
+                            class="btn-pitch text-xs sm:text-sm h-8 sm:h-10 px-2.5 sm:px-4"
                         >
-                            {{ isAdmin ? 'Dashboard Panitia' : 'Portal Manajer Tim' }}
+                            {{ isAdmin ? 'Dashboard' : 'Portal Tim' }}
                         </Link>
                         <button
                             type="button"
-                            class="btn-secondary text-xs sm:text-sm py-1.5 px-3"
+                            class="btn-secondary text-xs sm:text-sm h-8 sm:h-10 px-2 sm:px-3"
                             @click="logout"
                         >
                             Keluar
@@ -59,12 +71,13 @@ const logout = () => {
                     <template v-else>
                         <Link
                             :href="route('login')"
-                            class="inline-flex items-center gap-2 bg-gradient-to-r from-orange-600 via-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white text-xs sm:text-sm font-bold py-2 px-4 rounded-xl shadow-md shadow-orange-500/25 hover:shadow-lg hover:shadow-orange-500/35 active:scale-[0.98] transition-all border border-orange-500/40"
+                            class="btn-pitch h-8 sm:h-10 px-2.5 sm:px-4 text-xs sm:text-sm font-bold shadow-md shadow-orange-500/20"
                         >
-                            <svg class="w-4 h-4 text-orange-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-100 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                             </svg>
-                            <span>Login Manajer Tim</span>
+                            <span class="hidden sm:inline">Login Manajer Tim</span>
+                            <span class="sm:hidden">Login Manajer</span>
                         </Link>
                     </template>
                 </nav>
@@ -78,15 +91,15 @@ const logout = () => {
             <slot />
         </main>
 
-        <footer class="border-t border-slate-200 bg-white/80 mt-16">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
-                <p>YTEvent Multi-Event Football Tournament &amp; League Management System</p>
-                <div class="flex items-center gap-4">
-                    <Link :href="route('home')" class="hover:text-slate-800">Daftar Event</Link>
-                    <Link :href="route('admin.login')" class="hover:text-slate-800">Portal Panitia</Link>
+        <footer class="frosted-header border-t border-slate-200/80 mt-16 py-6 text-center text-xs text-slate-500">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-2">
+                <p>{{ systemSettings?.footer_copyright || 'YTEvent Multi-Event Football Tournament & League Management System' }}</p>
+                <div class="flex items-center justify-center gap-4 text-slate-400">
+                    <Link :href="route('home')" class="hover:text-slate-700">Daftar Event</Link>
+                    <span>&bull;</span>
+                    <Link :href="route('admin.login')" class="hover:text-slate-700">Portal Panitia</Link>
                 </div>
             </div>
         </footer>
     </div>
 </template>
-

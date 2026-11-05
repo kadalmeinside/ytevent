@@ -31,3 +31,4 @@ class SlotExpiredMail extends Mailable
         );
     }
 }
+

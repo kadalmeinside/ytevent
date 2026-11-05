@@ -100,7 +100,7 @@ const submit = () => {
                         <InputError :message="form.errors.password" />
                     </div>
 
-                    <button type="submit" class="btn-pitch w-full py-2.5" :disabled="form.processing">
+                    <button type="submit" class="btn-pitch w-full" :disabled="form.processing">
                         {{ form.processing ? 'Memverifikasi Sesi...' : 'Masuk ke Control Center' }}
                     </button>
                 </form>

@@ -229,12 +229,12 @@ const logout = () => {
                     <p class="text-[11px] text-slate-500 truncate">{{ user?.email }}</p>
                 </div>
                 <div class="flex items-center gap-2">
-                    <Link :href="route('home')" class="btn-secondary flex-1 text-xs py-2 px-2.5 truncate text-center">
+                    <Link :href="route('home')" class="btn-sm-secondary flex-1 text-center truncate">
                         Daftar Event Lain
                     </Link>
                     <button
                         type="button"
-                        class="px-3 py-2 rounded-xl text-xs font-semibold text-rose-700 bg-rose-50/80 hover:bg-rose-100 border border-rose-200 transition-colors shadow-sm"
+                        class="btn-sm-danger"
                         @click="logout"
                     >
                         Keluar

@@ -5,6 +5,7 @@ import PublicLayout from '@/Layouts/PublicLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import FormErrorBanner from '@/Components/FormErrorBanner.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
+import FileInput from '@/Components/FileInput.vue';
 import { useFormValidator } from '@/Composables/useFormValidator';
 import { useFormatters } from '@/Composables/useFormatters';
 import { compressImage } from '@/Utils/imageCompressor';
@@ -33,8 +34,6 @@ const {
     checkFile,
 } = useFormValidator();
 
-const logoPreview = ref(null);
-
 const form = useForm({
     team_name: '',
     logo: null,
@@ -62,17 +61,14 @@ const askotSuggestions = [
     'Askot PSSI Semarang',
 ];
 
-const handleLogoChange = async (e) => {
-    const rawFile = e.target.files?.[0] || null;
-    if (!rawFile) {
+const handleLogoChange = async (file) => {
+    if (!file) {
         form.logo = null;
-        logoPreview.value = null;
         return;
     }
-    const { file } = await compressImage(rawFile, { maxDimension: 1200, quality: 0.85 });
-    form.logo = file;
+    const { file: compressed } = await compressImage(file, { maxDimension: 1200, quality: 0.85 });
+    form.logo = compressed;
     form.clearErrors('logo');
-    logoPreview.value = URL.createObjectURL(file);
 };
 
 const submit = () => {
@@ -245,24 +241,18 @@ const submit = () => {
                             </div>
 
                             <div data-field="logo" class="sm:col-span-2">
-                                <label for="logo" class="block text-xs font-semibold text-slate-700 mb-1">
-                                    Logo Resmi Tim (PNG / JPG, maks. 2 MB, disarankan rasio 1:1)
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">
+                                    Logo Resmi Tim <span class="text-rose-500">*</span>
                                 </label>
-                                <div class="flex items-center gap-4">
-                                    <div class="w-14 h-14 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0">
-                                        <img v-if="logoPreview" :src="logoPreview" alt="Preview Logo" class="w-full h-full object-cover" />
-                                        <span v-else class="text-[10px] font-semibold text-slate-400">LOGO</span>
-                                    </div>
-                                    <input
-                                        id="logo"
-                                        type="file"
-                                        accept=".png,.jpg,.jpeg"
-                                        class="input-field py-1.5 text-xs"
-                                        :class="{ 'input-field-error': form.errors.logo }"
-                                        @change="handleLogoChange"
-                                    />
-                                </div>
-                                <InputError :message="form.errors.logo" />
+                                <FileInput
+                                    :model-value="form.logo"
+                                    accept=".png,.jpg,.jpeg"
+                                    :max-size-mb="2"
+                                    label="Pilih atau Tarik Logo Tim"
+                                    hint="Format PNG / JPG maks. 2 MB (disarankan rasio 1:1)"
+                                    :error="form.errors.logo"
+                                    @update:model-value="handleLogoChange"
+                                />
                             </div>
 
                             <div class="sm:col-span-2">
@@ -429,7 +419,7 @@ const submit = () => {
                         <p class="text-xs text-slate-500">
                             Slot kuota dikunci secara atomik saat formulir dikirim untuk mencegah bentrok pendaftaran.
                         </p>
-                        <button type="submit" class="btn-pitch w-full sm:w-auto px-6 py-2.5" :disabled="form.processing">
+                        <button type="submit" class="btn-pitch w-full sm:w-auto px-6" :disabled="form.processing">
                             {{ form.processing ? 'Mengunci Slot & Memproses...' : 'Kirim Pendaftaran & Amankan Slot' }}
                         </button>
                     </div>

@@ -38,7 +38,7 @@ const calculatePercent = (current, total) => {
             </div>
             <h2 class="text-base font-bold text-slate-900">Anda Belum Memiliki Tim Terdaftar</h2>
             <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">Silakan pilih kompetisi di Katalog Event untuk mendaftarkan tim baru.</p>
-            <Link :href="route('home')" class="btn-pitch mt-5 text-xs">Lihat Katalog Kompetisi</Link>
+            <Link :href="route('home')" class="btn-pitch mt-5">Lihat Katalog Kompetisi</Link>
         </div>
 
         <div v-else class="space-y-6">
@@ -63,7 +63,7 @@ const calculatePercent = (current, total) => {
                         </p>
                     </div>
                 </div>
-                <Link :href="route('manager.payments')" class="btn-pitch shrink-0 text-xs shadow-md shadow-orange-500/20 whitespace-nowrap">
+                <Link :href="route('manager.payments')" class="btn-pitch shrink-0">
                     Selesaikan Pembayaran &rarr;
                 </Link>
             </div>
@@ -86,7 +86,7 @@ const calculatePercent = (current, total) => {
                         </p>
                     </div>
                 </div>
-                <Link :href="route('manager.payments')" class="btn-pitch shrink-0 text-xs whitespace-nowrap">
+                <Link :href="route('manager.payments')" class="btn-pitch shrink-0">
                     Ajukan Ulang Slot &rarr;
                 </Link>
             </div>

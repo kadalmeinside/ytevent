@@ -81,27 +81,46 @@ class SystemSettingController extends Controller
     public function updatePaymentGateway(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'payment_gateway_default' => ['required', 'in:midtrans,xendit'],
+            'payment_method_mode' => ['required', 'in:manual,midtrans'],
+            'manual_bank_accounts' => ['nullable', 'array'],
+            'manual_bank_accounts.*.bank_name' => ['required_if:payment_method_mode,manual', 'string', 'max:100'],
+            'manual_bank_accounts.*.account_number' => ['required_if:payment_method_mode,manual', 'string', 'max:50'],
+            'manual_bank_accounts.*.account_holder' => ['required_if:payment_method_mode,manual', 'string', 'max:150'],
+            'manual_bank_accounts.*.notes' => ['nullable', 'string', 'max:150'],
             'midtrans_server_key' => ['nullable', 'string', 'max:255'],
             'midtrans_client_key' => ['nullable', 'string', 'max:255'],
-            'midtrans_is_production' => ['required', 'boolean'],
-            'xendit_secret_key' => ['nullable', 'string', 'max:255'],
-            'xendit_public_key' => ['nullable', 'string', 'max:255'],
-            'xendit_is_production' => ['required', 'boolean'],
-            'fee_borne_by' => ['required', 'in:team,organizer'],
-            'fee_scheme' => ['required', 'in:fixed,percentage,both'],
-            'fee_fixed_amount' => ['required', 'numeric', 'min:0'],
-            'fee_percentage' => ['required', 'numeric', 'min:0', 'max:100'],
+            'midtrans_is_production' => ['nullable', 'boolean'],
+            'fee_borne_by' => ['nullable', 'in:team,organizer'],
+            'midtrans_va_fee' => ['nullable', 'numeric', 'min:0'],
+            'midtrans_qris_fee_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'midtrans_ewallet_fee_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'midtrans_cc_fee_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'midtrans_cc_fee_fixed' => ['nullable', 'numeric', 'min:0'],
         ], [
-            'payment_gateway_default.required' => 'Pilih gateway pembayaran utama.',
-            'fee_borne_by.required' => 'Pilih penanggung biaya MDR / administrasi.',
+            'payment_method_mode.required' => 'Pilih salah satu metode pembayaran aktif.',
+            'manual_bank_accounts.*.bank_name.required_if' => 'Nama bank penerima wajib diisi.',
+            'manual_bank_accounts.*.account_number.required_if' => 'Nomor rekening wajib diisi.',
+            'manual_bank_accounts.*.account_holder.required_if' => 'Nama pemilik rekening wajib diisi.',
         ]);
 
-        foreach ($validated as $key => $val) {
-            $type = is_bool($val) ? 'boolean' : (is_numeric($val) ? (str_contains((string) $val, '.') ? 'float' : 'integer') : 'text');
-            SystemSetting::set($key, $val, $type, 'payment');
+        SystemSetting::set('payment_method_mode', $validated['payment_method_mode'], 'text', 'payment');
+
+        if ($validated['payment_method_mode'] === 'manual') {
+            $accounts = array_values($validated['manual_bank_accounts'] ?? []);
+            SystemSetting::set('manual_bank_accounts', $accounts, 'json', 'payment');
+        } else {
+            SystemSetting::set('midtrans_server_key', $validated['midtrans_server_key'] ?? '', 'text', 'payment');
+            SystemSetting::set('midtrans_client_key', $validated['midtrans_client_key'] ?? '', 'text', 'payment');
+            SystemSetting::set('midtrans_is_production', (bool) ($validated['midtrans_is_production'] ?? false), 'boolean', 'payment');
+            SystemSetting::set('fee_borne_by', $validated['fee_borne_by'] ?? 'team', 'text', 'payment');
+            SystemSetting::set('midtrans_va_fee', (int) ($validated['midtrans_va_fee'] ?? 4000), 'integer', 'payment');
+            SystemSetting::set('midtrans_qris_fee_percent', (float) ($validated['midtrans_qris_fee_percent'] ?? 0.7), 'float', 'payment');
+            SystemSetting::set('midtrans_ewallet_fee_percent', (float) ($validated['midtrans_ewallet_fee_percent'] ?? 1.5), 'float', 'payment');
+            SystemSetting::set('midtrans_cc_fee_percent', (float) ($validated['midtrans_cc_fee_percent'] ?? 2.9), 'float', 'payment');
+            SystemSetting::set('midtrans_cc_fee_fixed', (int) ($validated['midtrans_cc_fee_fixed'] ?? 2000), 'integer', 'payment');
         }
 
-        return back()->with('success', 'Pengaturan kredensial gateway dan aturan biaya MDR berhasil disimpan.');
+        return back()->with('success', 'Pengaturan metode pembayaran dan nomor rekening / MDR berhasil disimpan.');
     }
 }
+

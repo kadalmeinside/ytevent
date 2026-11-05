@@ -57,9 +57,30 @@ class TeamManagementController extends Controller
                 'age_category' => $team->event->age_category,
             ] : null,
             'latest_payment' => $team->latestPayment ? [
+                'id' => $team->latestPayment->id,
                 'invoice_number' => $team->latestPayment->invoice_number,
                 'status' => $team->latestPayment->status,
                 'total_amount' => (float) $team->latestPayment->total_amount,
+                'method' => $team->latestPayment->method,
+                'payment_channel' => $team->latestPayment->payment_channel,
+                'sender_bank_name' => $team->latestPayment->sender_bank_name,
+                'sender_account_holder' => $team->latestPayment->sender_account_holder,
+                'sender_account_number' => $team->latestPayment->sender_account_number,
+                'transfer_date' => $team->latestPayment->transfer_date?->toDateString(),
+                'rejection_reason' => $team->latestPayment->rejection_reason,
+                'paid_at' => $team->latestPayment->paid_at?->toIso8601String(),
+                'proof_url' => $team->latestPayment->proof_file_path
+                    ? route('private.payment-proof', ['payment' => $team->latestPayment->id])
+                    : null,
+                'proof_is_pdf' => $team->latestPayment->proof_file_path
+                    ? strtolower(pathinfo($team->latestPayment->proof_file_path, PATHINFO_EXTENSION)) === 'pdf'
+                    : false,
+                'team' => [
+                    'name' => $team->name,
+                ],
+                'event' => $team->event ? [
+                    'name' => $team->event->name,
+                ] : null,
             ] : null,
         ]);
 
