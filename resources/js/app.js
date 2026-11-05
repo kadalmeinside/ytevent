@@ -5,7 +5,8 @@ import { createApp, h } from 'vue';
 import { createInertiaApp, Link, Head } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 
-const appName = import.meta.env.VITE_APP_NAME || 'YTEvent Football Competition';
+const appName = import.meta.env.VITE_APP_NAME || 'Persija Development';
+window.__APP_VERSION__ = '1.0.1-persija';
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
