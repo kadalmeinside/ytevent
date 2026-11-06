@@ -63,6 +63,38 @@ class SuperAdminAndEmailTest extends TestCase
 
         $updateResponse->assertRedirect(route('admin.users.index'));
         $this->assertTrue($newUser->fresh()->hasRole('screening_officer'));
+
+        // 4. Reset password via PUT request (Inertia method spoofing / PUT)
+        $putResponse = $this->actingAs($superadmin)->put(route('admin.users.update', ['user' => $newUser->id]), [
+            'name' => 'Staf Screening Panitia Updated',
+            'email' => 'finance.baru@organizer.id',
+            'phone' => '081234567899',
+            'role' => 'screening_officer',
+            'password' => 'NewSecretPassword123!',
+            'password_confirmation' => 'NewSecretPassword123!',
+            'is_active' => true,
+        ]);
+
+        $putResponse->assertRedirect(route('admin.users.index'));
+        $newUser->refresh();
+        $this->assertSame('Staf Screening Panitia Updated', $newUser->name);
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('NewSecretPassword123!', $newUser->password));
+
+        // 5. Reset password via POST request
+        $postResponse = $this->actingAs($superadmin)->post(route('admin.users.update', ['user' => $newUser->id]), [
+            'name' => 'Staf Screening Panitia Final',
+            'email' => 'finance.baru@organizer.id',
+            'phone' => '081234567899',
+            'role' => 'screening_officer',
+            'password' => 'AnotherPassword999!',
+            'password_confirmation' => 'AnotherPassword999!',
+            'is_active' => true,
+        ]);
+
+        $postResponse->assertRedirect(route('admin.users.index'));
+        $newUser->refresh();
+        $this->assertSame('Staf Screening Panitia Final', $newUser->name);
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('AnotherPassword999!', $newUser->password));
     }
 
     public function test_superadmin_can_update_role_permissions(): void

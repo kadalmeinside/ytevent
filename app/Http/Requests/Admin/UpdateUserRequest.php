@@ -15,8 +15,9 @@ class UpdateUserRequest extends FormRequest
 
     public function rules(): array
     {
-        /** @var User|null $targetUser */
+        /** @var User|string|int|null $targetUser */
         $targetUser = $this->route('user');
+        $targetUserId = $targetUser instanceof User ? $targetUser->id : (is_numeric($targetUser) ? (int) $targetUser : null);
 
         return [
             'name' => ['required', 'string', 'min:3', 'max:120'],
@@ -25,11 +26,12 @@ class UpdateUserRequest extends FormRequest
                 'string',
                 'email:rfc',
                 'max:160',
-                Rule::unique('users', 'email')->ignore($targetUser?->id),
+                Rule::unique('users', 'email')->ignore($targetUserId),
             ],
             'phone' => ['nullable', 'string', 'max:30'],
             'role' => ['required', 'string', Rule::in(['superadmin', 'finance', 'screening_officer', 'team_manager'])],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+            'password_confirmation' => ['nullable', 'string'],
             'is_active' => ['required', 'boolean'],
         ];
     }

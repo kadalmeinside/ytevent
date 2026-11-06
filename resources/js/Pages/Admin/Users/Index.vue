@@ -70,7 +70,7 @@ const openEditModal = (u) => {
     form.name = u.name;
     form.email = u.email;
     form.phone = u.phone || '';
-    form.role = u.role;
+    form.role = u.role && u.role !== '-' ? u.role : (props.roles[0]?.name || 'finance');
     form.password = '';
     form.password_confirmation = '';
     form.is_active = Boolean(u.is_active);
@@ -106,11 +106,13 @@ const submitForm = () => {
     if (!ok) return;
 
     if (editingUser.value) {
-        form.put(route('admin.users.update', { user: editingUser.value.id }), {
+        form.post(route('admin.users.update', { user: editingUser.value.id }), {
+            preserveScroll: true,
             onSuccess: () => closeModal(),
         });
     } else {
         form.post(route('admin.users.store'), {
+            preserveScroll: true,
             onSuccess: () => closeModal(),
         });
     }
@@ -311,26 +313,26 @@ const executeDelete = () => {
                 <form @submit.prevent="submitForm" novalidate class="space-y-4 text-xs">
                     <div>
                         <label class="block font-semibold text-slate-700 mb-1">Nama Lengkap</label>
-                        <input v-model="form.name" type="text" placeholder="Nama lengkap" class="input-field" />
+                        <input v-model="form.name" type="text" placeholder="Nama lengkap" class="input-field" @input="form.clearErrors('name')" />
                         <InputError :message="form.errors.name" />
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="block font-semibold text-slate-700 mb-1">Alamat Email (Akun Login)</label>
-                            <input v-model="form.email" type="email" placeholder="nama@domain.id" class="input-field" />
+                            <input v-model="form.email" type="email" placeholder="nama@domain.id" class="input-field" @input="form.clearErrors('email')" />
                             <InputError :message="form.errors.email" />
                         </div>
                         <div>
                             <label class="block font-semibold text-slate-700 mb-1">Nomor Telepon / WA</label>
-                            <input v-model="form.phone" type="text" placeholder="0812xxxxxxxx" class="input-field tabular-data" />
+                            <input v-model="form.phone" type="text" placeholder="0812xxxxxxxx" class="input-field tabular-data" @input="form.clearErrors('phone')" />
                             <InputError :message="form.errors.phone" />
                         </div>
                     </div>
 
                     <div>
                         <label class="block font-semibold text-slate-700 mb-1">Peran Akses (Role)</label>
-                        <select v-model="form.role" class="input-field">
+                        <select v-model="form.role" class="input-field" @change="form.clearErrors('role')">
                             <option v-for="r in roles" :key="r.id" :value="r.name">{{ r.label }}</option>
                         </select>
                         <InputError :message="form.errors.role" />
@@ -350,12 +352,24 @@ const executeDelete = () => {
                                 <label class="block font-medium text-slate-700 mb-1">
                                     {{ editingUser ? 'Kata Sandi Baru' : 'Kata Sandi' }}
                                 </label>
-                                <input v-model="form.password" type="password" placeholder="Minimal 8 karakter" class="input-field bg-white" />
+                                <input
+                                    v-model="form.password"
+                                    type="password"
+                                    placeholder="Minimal 8 karakter"
+                                    class="input-field bg-white"
+                                    @input="form.clearErrors('password')"
+                                />
                                 <InputError :message="form.errors.password" />
                             </div>
                             <div>
                                 <label class="block font-medium text-slate-700 mb-1">Konfirmasi Kata Sandi</label>
-                                <input v-model="form.password_confirmation" type="password" placeholder="Ulangi kata sandi" class="input-field bg-white" />
+                                <input
+                                    v-model="form.password_confirmation"
+                                    type="password"
+                                    placeholder="Ulangi kata sandi"
+                                    class="input-field bg-white"
+                                    @input="form.clearErrors('password_confirmation')"
+                                />
                                 <InputError :message="form.errors.password_confirmation" />
                             </div>
                         </div>

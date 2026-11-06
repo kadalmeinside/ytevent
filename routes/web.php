@@ -111,7 +111,7 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
     Route::middleware('role:superadmin')->group(function () {
         Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');
         Route::post('/users', [AdminUserController::class, 'store'])->name('users.store');
-        Route::post('/users/{user}/update', [AdminUserController::class, 'update'])->name('users.update');
+        Route::match(['post', 'put'], '/users/{user}/update', [AdminUserController::class, 'update'])->name('users.update');
         Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
 
         Route::get('/roles', [AdminRolePermissionController::class, 'index'])->name('roles.index');
