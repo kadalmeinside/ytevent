@@ -28,7 +28,7 @@ class UpdateUserRequest extends FormRequest
                 Rule::unique('users', 'email')->ignore($targetUser?->id),
             ],
             'phone' => ['nullable', 'string', 'max:30'],
-            'role' => ['required', 'string', Rule::in(['superadmin', 'finance', 'screening_officer'])],
+            'role' => ['required', 'string', Rule::in(['superadmin', 'finance', 'screening_officer', 'team_manager'])],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
             'is_active' => ['required', 'boolean'],
         ];

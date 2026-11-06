@@ -33,7 +33,9 @@ class TeamManagementController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                     ->orWhere('origin_association', 'like', "%{$search}%")
-                    ->orWhere('manager_name', 'like', "%{$search}%");
+                    ->orWhere('manager_name', 'like', "%{$search}%")
+                    ->orWhere('manager_email', 'like', "%{$search}%")
+                    ->orWhere('manager_whatsapp', 'like', "%{$search}%");
             });
         }
 

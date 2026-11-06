@@ -21,14 +21,13 @@ class UserController extends Controller
         $roleFilter = $request->query('role');
 
         $users = User::query()
-            ->with('roles')
-            ->whereHas('roles', function ($q) {
-                $q->whereIn('name', ['superadmin', 'finance', 'screening_officer']);
-            })
+            ->with(['roles', 'teams:id,user_id,name'])
             ->when($search, function ($q, $search) {
                 $q->where(function ($sub) use ($search) {
                     $sub->where('name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%");
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhereHas('teams', fn ($tq) => $tq->where('name', 'like', "%{$search}%"));
                 });
             })
             ->when($roleFilter, function ($q, $role) {
@@ -48,9 +47,10 @@ class UserController extends Controller
                 'created_at' => $u->created_at?->format('d M Y, H:i'),
                 'roles' => $u->getRoleNames()->values(),
                 'role' => $u->getRoleNames()->first() ?? '-',
+                'teams' => $u->teams->map(fn ($t) => ['id' => $t->id, 'name' => $t->name]),
             ]);
 
-        $availableRoles = Role::whereIn('name', ['superadmin', 'finance', 'screening_officer'])
+        $availableRoles = Role::query()
             ->get(['id', 'name'])
             ->map(fn ($r) => [
                 'id' => $r->id,
@@ -59,6 +59,7 @@ class UserController extends Controller
                     'superadmin' => 'Super Administrator (Full Access)',
                     'finance' => 'Finance & Verifikator Pembayaran',
                     'screening_officer' => 'Screening Officer (Verifikator Berkas Pemain)',
+                    'team_manager' => 'Manajer Tim (Peserta Kompetisi)',
                     default => ucfirst($r->name),
                 },
             ]);

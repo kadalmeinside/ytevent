@@ -165,20 +165,33 @@ const resetFilters = () => {
                                 </span>
                             </div>
 
-                            <!-- Manager & WhatsApp (Col 5-7) -->
+                            <!-- Manager & Contacts (Col 5-7) -->
                             <div class="lg:col-span-3 space-y-1">
                                 <span class="text-[10px] uppercase font-bold text-slate-400 block">Manajer Tim</span>
                                 <p class="font-semibold text-slate-800 truncate">{{ t.manager_name }}</p>
-                                <a
-                                    :href="`https://wa.me/${t.manager_whatsapp.replace(/[^0-9]/g, '')}`"
-                                    target="_blank"
-                                    class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors"
-                                >
-                                    <svg class="w-3 h-3 text-emerald-600 shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.698c.97.529 1.954.81 3.033.81 3.181 0 5.767-2.586 5.768-5.766 0-3.18-2.587-5.767-5.767-5.767zm7.659 5.766c0 4.225-3.438 7.662-7.66 7.662-1.309 0-2.551-.334-3.649-.927l-4.041 1.06 1.079-3.941c-.672-1.155-1.049-2.482-1.049-3.854 0-4.225 3.438-7.662 7.66-7.662 4.223 0 7.66 3.437 7.66 7.662z"/>
-                                    </svg>
-                                    <span>{{ t.manager_whatsapp }}</span>
-                                </a>
+                                <div class="flex flex-col gap-1">
+                                    <a
+                                        v-if="t.manager_email"
+                                        :href="`mailto:${t.manager_email}`"
+                                        class="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-600 hover:text-orange-600 transition-colors truncate"
+                                    >
+                                        <svg class="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                        </svg>
+                                        <span class="truncate">{{ t.manager_email }}</span>
+                                    </a>
+                                    <a
+                                        v-if="t.manager_whatsapp"
+                                        :href="`https://wa.me/${t.manager_whatsapp.replace(/[^0-9]/g, '')}`"
+                                        target="_blank"
+                                        class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors w-fit"
+                                    >
+                                        <svg class="w-3 h-3 text-emerald-600 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.698c.97.529 1.954.81 3.033.81 3.181 0 5.767-2.586 5.768-5.766 0-3.18-2.587-5.767-5.767-5.767zm7.659 5.766c0 4.225-3.438 7.662-7.66 7.662-1.309 0-2.551-.334-3.649-.927l-4.041 1.06 1.079-3.941c-.672-1.155-1.049-2.482-1.049-3.854 0-4.225 3.438-7.662 7.66-7.662 4.223 0 7.66 3.437 7.66 7.662z"/>
+                                        </svg>
+                                        <span>{{ t.manager_whatsapp }}</span>
+                                    </a>
+                                </div>
                             </div>
 
                             <!-- Invoice & Payment (Col 8-10) -->

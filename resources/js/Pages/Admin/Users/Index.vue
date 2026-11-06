@@ -137,8 +137,8 @@ const executeDelete = () => {
 </script>
 
 <template>
-    <AdminLayout page-title="Manajemen Pengguna &amp; Panitia" subtitle="Kelola hak akses pengguna internal, penetapan role panitia, dan kredensial login.">
-        <Head title="Pengguna Panitia" />
+    <AdminLayout page-title="Manajemen Pengguna &amp; Akun" subtitle="Kelola pengguna internal panitia, akun manajer tim, pembekuan status akun, dan reset kata sandi.">
+        <Head title="Pengguna &amp; Manajer Tim" />
 
         <div class="space-y-5">
             <!-- Filter Bar & Create Button -->
@@ -147,15 +147,13 @@ const executeDelete = () => {
                     <input
                         v-model="filterState.search"
                         type="text"
-                        placeholder="Cari nama, email, atau telepon..."
+                        placeholder="Cari nama, email, nomor WA, atau nama tim..."
                         class="input-field max-w-xs text-xs"
                         @keyup.enter="applyFilters"
                     />
                     <select v-model="filterState.role" class="input-field w-auto text-xs" @change="applyFilters">
                         <option value="">Semua Peran</option>
-                        <option value="superadmin">Superadmin</option>
-                        <option value="finance">Finance</option>
-                        <option value="screening_officer">Screening Officer</option>
+                        <option v-for="r in roles" :key="r.id" :value="r.name">{{ r.label }}</option>
                     </select>
                     <button type="button" class="btn-pitch" @click="applyFilters">Cari</button>
                 </div>
@@ -195,7 +193,7 @@ const executeDelete = () => {
                                         <h4 class="text-sm sm:text-base font-bold text-slate-900 leading-tight">{{ u.name }}</h4>
                                         <span class="text-[11px] text-slate-400 font-mono">#{{ u.id }}</span>
                                     </div>
-                                    <div class="flex items-center gap-2 mt-1">
+                                    <div class="flex flex-wrap items-center gap-2 mt-1">
                                         <span
                                             class="px-2 py-0.5 rounded text-[10px] font-bold uppercase border tracking-wider"
                                             :class="
@@ -204,18 +202,31 @@ const executeDelete = () => {
                                                     : u.role === 'finance'
                                                     ? 'bg-amber-50 text-amber-800 border-amber-300'
                                                     : u.role === 'screening_officer'
+                                                    ? 'bg-blue-50 text-blue-800 border-blue-300'
+                                                    : u.role === 'team_manager'
                                                     ? 'bg-orange-50 text-orange-800 border-orange-300'
                                                     : 'bg-slate-100 text-slate-800 border-slate-300'
                                             "
                                         >
-                                            {{ u.role }}
+                                            {{ u.role === 'team_manager' ? 'Manajer Tim' : u.role }}
                                         </span>
                                         <span
                                             class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
-                                            :class="u.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'"
+                                            :class="u.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800 border border-rose-200'"
                                         >
-                                            {{ u.is_active ? 'AKTIF' : 'NONAKTIF' }}
+                                            {{ u.is_active ? 'AKTIF' : 'DIBEKUKAN' }}
                                         </span>
+
+                                        <!-- Attached Teams for Team Managers -->
+                                        <template v-if="u.teams && u.teams.length">
+                                            <span
+                                                v-for="team in u.teams"
+                                                :key="team.id"
+                                                class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-orange-50 text-orange-800 border border-orange-200"
+                                            >
+                                                Tim: {{ team.name }}
+                                            </span>
+                                        </template>
                                     </div>
                                 </div>
                             </div>
@@ -224,10 +235,10 @@ const executeDelete = () => {
                             <div class="flex items-center gap-1.5 ml-auto sm:ml-0">
                                 <button
                                     type="button"
-                                    class="btn-sm-secondary"
+                                    class="btn-sm-pitch"
                                     @click="openEditModal(u)"
                                 >
-                                    Edit
+                                    Kelola &amp; Reset Password
                                 </button>
                                 <button
                                     type="button"
@@ -252,9 +263,19 @@ const executeDelete = () => {
                             <!-- Phone (Col 6-8) -->
                             <div class="lg:col-span-4 space-y-0.5">
                                 <span class="text-[10px] uppercase font-bold text-slate-400 block">Nomor Telepon / WhatsApp</span>
-                                <span class="text-xs font-mono tabular-data font-semibold text-slate-800 block">
-                                    {{ u.phone || '-' }}
-                                </span>
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-xs font-mono tabular-data font-semibold text-slate-800">
+                                        {{ u.phone || '-' }}
+                                    </span>
+                                    <a
+                                        v-if="u.phone"
+                                        :href="`https://wa.me/${u.phone.replace(/[^0-9]/g, '')}`"
+                                        target="_blank"
+                                        class="text-emerald-600 hover:text-emerald-700 text-[11px] font-semibold"
+                                    >
+                                        [Hubungi WA]
+                                    </a>
+                                </div>
                             </div>
 
                             <!-- Registered Date (Col 9-12) -->
@@ -274,10 +295,15 @@ const executeDelete = () => {
         <div v-if="isModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
             <div class="frosted-card bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-200">
-                    <h2 class="text-base font-bold text-slate-900">
-                        {{ editingUser ? 'Edit Pengguna Panitia' : 'Tambah Pengguna Panitia Baru' }}
-                    </h2>
-                    <button type="button" class="text-slate-400 hover:text-slate-600" @click="closeModal">&times;</button>
+                    <div>
+                        <h2 class="text-base font-bold text-slate-900">
+                            {{ editingUser ? (editingUser.role === 'team_manager' ? 'Kelola Akun Manajer Tim' : 'Edit Pengguna Panitia') : 'Tambah Pengguna Panitia Baru' }}
+                        </h2>
+                        <p v-if="editingUser" class="text-[11px] text-slate-500 mt-0.5">
+                            Ubah kredensial, perbarui profil, atau bekukan akses pengguna #{{ editingUser.id }}
+                        </p>
+                    </div>
+                    <button type="button" class="text-slate-400 hover:text-slate-600 text-lg leading-none" @click="closeModal">&times;</button>
                 </div>
 
                 <FormErrorBanner :errors="form.errors" />
@@ -285,14 +311,14 @@ const executeDelete = () => {
                 <form @submit.prevent="submitForm" novalidate class="space-y-4 text-xs">
                     <div>
                         <label class="block font-semibold text-slate-700 mb-1">Nama Lengkap</label>
-                        <input v-model="form.name" type="text" placeholder="Nama lengkap panitia" class="input-field" />
+                        <input v-model="form.name" type="text" placeholder="Nama lengkap" class="input-field" />
                         <InputError :message="form.errors.name" />
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <label class="block font-semibold text-slate-700 mb-1">Alamat Email</label>
-                            <input v-model="form.email" type="email" placeholder="nama@organizer.id" class="input-field" />
+                            <label class="block font-semibold text-slate-700 mb-1">Alamat Email (Akun Login)</label>
+                            <input v-model="form.email" type="email" placeholder="nama@domain.id" class="input-field" />
                             <InputError :message="form.errors.email" />
                         </div>
                         <div>
@@ -303,39 +329,70 @@ const executeDelete = () => {
                     </div>
 
                     <div>
-                        <label class="block font-semibold text-slate-700 mb-1">Peran Akses (Role Spatie)</label>
+                        <label class="block font-semibold text-slate-700 mb-1">Peran Akses (Role)</label>
                         <select v-model="form.role" class="input-field">
                             <option v-for="r in roles" :key="r.id" :value="r.name">{{ r.label }}</option>
                         </select>
                         <InputError :message="form.errors.role" />
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="p-3.5 rounded-xl bg-orange-50/50 border border-orange-200/80 space-y-3">
                         <div>
-                            <label class="block font-semibold text-slate-700 mb-1">
-                                {{ editingUser ? 'Kata Sandi Baru (Kosongkan jika tetap)' : 'Kata Sandi Awal' }}
+                            <label class="block font-bold text-slate-800 mb-0.5">
+                                {{ editingUser ? 'Reset Kata Sandi Akun' : 'Kata Sandi Awal' }}
                             </label>
-                            <input v-model="form.password" type="password" placeholder="Minimal 8 karakter" class="input-field" />
-                            <InputError :message="form.errors.password" />
+                            <p v-if="editingUser" class="text-[11px] text-slate-500 mb-2">
+                                Kosongkan bidang ini jika Anda tidak ingin mereset kata sandi akun pengguna.
+                            </p>
                         </div>
-                        <div>
-                            <label class="block font-semibold text-slate-700 mb-1">Konfirmasi Kata Sandi</label>
-                            <input v-model="form.password_confirmation" type="password" placeholder="Ulangi kata sandi" class="input-field" />
-                            <InputError :message="form.errors.password_confirmation" />
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block font-medium text-slate-700 mb-1">
+                                    {{ editingUser ? 'Kata Sandi Baru' : 'Kata Sandi' }}
+                                </label>
+                                <input v-model="form.password" type="password" placeholder="Minimal 8 karakter" class="input-field bg-white" />
+                                <InputError :message="form.errors.password" />
+                            </div>
+                            <div>
+                                <label class="block font-medium text-slate-700 mb-1">Konfirmasi Kata Sandi</label>
+                                <input v-model="form.password_confirmation" type="password" placeholder="Ulangi kata sandi" class="input-field bg-white" />
+                                <InputError :message="form.errors.password_confirmation" />
+                            </div>
                         </div>
                     </div>
 
-                    <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                        <label class="flex items-center gap-2 cursor-pointer font-medium text-slate-700">
-                            <input v-model="form.is_active" type="checkbox" class="rounded border-slate-300 text-orange-600 focus:ring-orange-500" />
-                            <span>Akun Aktif (Dapat masuk ke Portal Panitia)</span>
+                    <!-- Account Freezing / Status Checkbox -->
+                    <div
+                        class="p-3.5 rounded-xl border transition-colors"
+                        :class="form.is_active ? 'bg-slate-50 border-slate-200' : 'bg-rose-50 border-rose-300'"
+                    >
+                        <label class="flex items-start gap-2.5 cursor-pointer">
+                            <input
+                                v-model="form.is_active"
+                                type="checkbox"
+                                class="mt-0.5 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                            />
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-slate-900">Status Akun Aktif</span>
+                                    <span
+                                        class="px-2 py-0.5 rounded text-[10px] font-bold"
+                                        :class="form.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-200 text-rose-900'"
+                                    >
+                                        {{ form.is_active ? 'AKTIF' : 'DIBEKUKAN' }}
+                                    </span>
+                                </div>
+                                <span class="text-[11px] text-slate-500 leading-relaxed block mt-1">
+                                    Hapus centang untuk <strong>membekukan akun</strong>. Akun yang dibekukan akan otomatis ditolak saat login ke sistem dan sesi aktifnya langsung terputus.
+                                </span>
+                            </div>
                         </label>
                     </div>
 
                     <div class="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
                         <button type="button" class="btn-secondary" @click="closeModal">Batal</button>
                         <button type="submit" class="btn-pitch" :disabled="form.processing">
-                            {{ form.processing ? 'Menyimpan...' : (editingUser ? 'Perbarui Pengguna' : 'Simpan Pengguna') }}
+                            {{ form.processing ? 'Menyimpan...' : (editingUser ? 'Simpan Perubahan Akun' : 'Simpan Pengguna') }}
                         </button>
                     </div>
                 </form>
@@ -346,7 +403,7 @@ const executeDelete = () => {
         <ConfirmModal
             :show="isDeleteModalOpen"
             title="Konfirmasi Hapus Pengguna"
-            :message="`Apakah Anda yakin ingin menghapus akun panitia ${userToDelete?.name} (${userToDelete?.email})? Tindakan ini tidak dapat dibatalkan.`"
+            :message="`Apakah Anda yakin ingin menghapus akun ${userToDelete?.name} (${userToDelete?.email})? Tindakan ini tidak dapat dibatalkan.`"
             confirm-label="Ya, Hapus Pengguna"
             :danger="true"
             @close="isDeleteModalOpen = false"
