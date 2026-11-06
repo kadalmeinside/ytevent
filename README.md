@@ -39,6 +39,29 @@ Sistem ini dibangun dengan filosofi **High-Density Operational Utility** dipaduk
 
 ---
 
+## ⚡ Kemajuan Fase 2 — Screening Pemain & Siklus Revisi (Milestone 2.1 & 2.2 Selesai)
+
+### 1. Panel Verifikasi & Screening Dokumen Admin (`/admin/screening`)
+- **Dashboard Antrean Tim (`Admin/Screening/Index.vue`)**: Card list view tim-tim aktif dengan progress bar pemeriksaan berkas (`X / Y Pemain Lolos`), filter event & status, serta indikator antrean di sidebar panitia.
+- **Split-View Reviewer (`Admin/Screening/TeamReview.vue`)**:
+  - *Panel Kiri*: Biodata pemain, pas foto resmi, nomor punggung, posisi, NIK, NISN, histori log screening, serta **Age Cut-off Check Otomatis** terhadap batas kelahiran resmi turnamen.
+  - *Panel Kanan*: Viewer dokumen scan asli (Akta, KK, KIA/Rapor) dengan verifikasi per berkas (`Dokumen Sah` / `Butuh Revisi`).
+  - *Sticky Decision Bar*: Tombol **"Loloskan Pemain (Sah)"** (dilengkapi proteksi otomatis jika usia tidak lolos atau ada berkas bermasalah) dan **"Tolak / Minta Revisi"** (wajib mengisi alasan penolakan minimal 10 karakter).
+  - *Emergency Unlock*: Mekanisme buka kunci pemain sah jika terjadi kekeliruan panitia.
+
+### 2. Siklus Revisi Terarah di Portal Manajer Tim (*Selective Re-submission*)
+- **Highlight Tegas Pemain Ditolak**: Kartu pemain `rejected` di `Manager/Players.vue` diberi border merah tegas, status badge, dan banner memuat catatan spesifik petugas screening.
+- **Perbaikan Khusus & Proteksi Pemain Sah**: Form edit dan upload berkas HANYA terbuka untuk pemain yang berstatus `rejected` atau `draft`. Pemain yang sudah sah (`passed`) tetap terkunci aman.
+- **Ajukan Ulang Perbaikan**: Tombol *Ajukan Ulang Perbaikan* menyinkronkan kembali status pemain ke `submitted` dan status tim ke `in_review`.
+- **Penghapusan Pemain Ditolak**: Manajer diizinkan menghapus pemain ditolak apabila pemain tersebut permanen tidak memenuhi batas usia agar dapat diganti pemain lain.
+
+### 3. Komponen DocumentViewerModal & Standar Icon SVG
+- **Modal View Terintegrasi (`DocumentViewerModal.vue`)**: Pratinjau berkas gambar (dengan kontrol Zoom In/Out, Reset 1:1, dan Rotasi 90°) serta dokumen PDF (dengan embedded iframe responsif) langsung di dalam modal tanpa perlu meninggalkan halaman.
+- **Penghapusan Total Emoticon Emoji**: Seluruh simbol emoji (jam pasir, centang, silang) dihapus total dan distandarkan menggunakan Heroicons SVG.
+- **Best-Practice Decision Rules**: Penegakan aturan tombol (disable state, form processing spinner, dan informative hover tooltips).
+
+---
+
 ## 🛠️ Tech Stack & Konvensi Arsitektur
 
 - **Backend:** Laravel 11.x (PHP 8.3+)
@@ -48,7 +71,7 @@ Sistem ini dibangun dengan filosofi **High-Density Operational Utility** dipaduk
 - **Database:** MySQL 8.0+ (Strict Mode, InnoDB, Foreign Key Constraints & Composite Indexes)
 - **Authorization:** `spatie/laravel-permission` + Laravel Policies
 - **Form Handling:** Inertia `useForm()` + Composable `useFormValidator.js` (Form selalu `<form novalidate>`)
-- **Testing:** PHPUnit (31 Test Cases, 174 Assertions — 100% PASS)
+- **Testing:** PHPUnit (38 Test Cases, 217 Assertions — 100% PASS)
 
 ---
 

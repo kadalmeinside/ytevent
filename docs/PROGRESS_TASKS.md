@@ -111,6 +111,10 @@ Legenda Status:
 - [x] **2.2.3** Pengajuan Ulang Hasil Perbaikan (*Re-submit*):
   - Manajer mengajukan ulang hanya pemain yang telah diperbaiki.
   - Status pemain kembali ke `submitted` dan status tim kembali menjadi `in_review`.
+- [x] **2.2.4** Standardisasi Icon SVG & Modal View Dokumen Terintegrasi:
+  - Seluruh emoticon/emoji (jam pasir, centang, silang) dihapus total dan digantikan oleh Heroicons SVG terstandar.
+  - Komponen `DocumentViewerModal.vue` untuk pratinjau dokumen scan gambar (zoom & rotasi) dan dokumen PDF terintegrasi langsung di aplikasi tanpa harus pindah tab.
+  - Best-practice rules untuk disable state tombol screening beserta tooltip informatif.
 
 ### 2.3 Validasi Skuad Final & Akreditasi Resmi (`/manager/accreditation`)
 - [ ] **2.3.1** Validasi Kelayakan Roster Final (`AccreditationController.php`):

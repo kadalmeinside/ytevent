@@ -83,13 +83,22 @@ Dokumen ini mendefinisikan alur kerja sistem dari hulu ke hilir, aturan perubaha
    - Selama berstatus `Submitted`, form pengubahan berkas otomatis dikunci demi integritas verifikasi panitia.
    - **Alur Tarik Pengajuan (*Recall to Draft*):** Jika manajer menyadari ada kesalahan data/berkas sebelum panitia memeriksa, manajer dapat menekan tombol **"Tarik Pengajuan"** (`/manager/players/{player}/recall`) untuk mengembalikan pemain ke status `Draft` agar dapat diedit kembali.
 4. **Pemeriksaan oleh Admin (Screening Process — Fase 2):**
-   - Petugas dengan peran `screening_officer` atau `superadmin` membuka menu **Verifikasi & Screening Pemain**, memilih event dan tim terkait, lalu memeriksa data pemain berdampingan dengan pratinjau dokumen asli di layar (*Split-View Reviewer*).
-   - **Keputusan Lolos (`Passed`):** Jika seluruh dokumen sah dan sesuai regulasi, admin menandai pemain sebagai **Lolos**. Status pemain menjadi `Passed` dan data otomatis dikunci permanen (`is_locked = true`).
-   - **Keputusan Gagal (`Rejected`):** Jika ditemukan ketidaksesuaian atau dokumen buram, admin menandai pemain sebagai **Gagal** dan wajib mengisi kolom catatan alasan penolakan.
+   - Petugas dengan peran `screening_officer` atau `superadmin` membuka menu **Verifikasi & Screening Pemain** (`/admin/screening`), memilih event dan tim terkait, lalu memeriksa data pemain berdampingan dengan pratinjau dokumen asli di layar (*Split-View Reviewer* di `/admin/screening/events/{event}/teams/{team}`).
+   - **Pemeriksaan Batas Usia Otomatis (*Age Cut-Off Check*):** Sistem secara instan membandingkan tanggal lahir pemain dengan regulasi cut-off turnamen (`min_birth_date` & `max_birth_date`) dan menampilkan indikator kelayakan berbasis icon SVG.
+   - **Penilaian Dokumen Granular:** Petugas dapat memeriksa berkas scan (Akta Kelahiran, Kartu Keluarga, KIA/Rapor) dan menandai status masing-masing dokumen sebagai `Dokumen Sah` atau `Butuh Revisi`.
+   - **Pratinjau Layar Penuh (*DocumentViewerModal*):** Baik dokumen gambar maupun dokumen PDF dapat diperiksa secara mendalam di modal terintegrasi (dilengkapi kontrol zoom, rotasi 90°, dan iframe PDF tertanam).
+   - **Keputusan Lolos (`Passed`):** Jika seluruh dokumen sah dan sesuai regulasi cut-off usia, petugas menekan tombol **"Loloskan Pemain (Sah)"**. Status pemain menjadi `passed`, data dikunci permanen (`is_locked = true`), diterbitkan kode akreditasi unik (`accreditation_code`), dan status tim diperbarui otomatis. Tombol ini otomatis dinonaktifkan jika ada berkas yang ditandai butuh revisi atau usia pemain tidak memenuhi syarat.
+   - **Keputusan Tolak (`Rejected`):** Jika ditemukan dokumen buram atau tidak absah, petugas menekan **"Tolak / Minta Revisi"** dan wajib mengisi catatan alasan penolakan minimal 10 karakter.
+   - **Penyelamatan Darurat (*Emergency Unlock*):** Jika terjadi kekeliruan panitia pada pemain yang sudah disahkan, petugas dapat menekan tombol **"Buka Kunci (Unlock)"** untuk mengembalikan status ke `draft` agar data/berkas dapat diperbaiki.
 5. **Notifikasi Email Hasil Screening & Siklus Revisi Terarah:**
-   - Saat admin menyelesaikan pemeriksaan, sistem mencatat riwayat ke `screening_logs` dan memasukkan pengiriman **Email Hasil Screening Tim** ke dalam Queue.
-   - Manajer Tim menerima rincian lengkap daftar pemain yang dinyatakan Lolos dan daftar pemain yang Gagal beserta alasan spesifiknya.
-   - Manajer Tim login kembali untuk memperbaiki data atau mengunggah ulang dokumen **hanya pada pemain yang berstatus `Rejected`**, kemudian mengajukannya kembali untuk diperiksa ulang oleh admin (*Selective Re-submission*).
+   - Setiap mutasi status diverifikasi dicatat secara rinci ke tabel audit `screening_logs` (pemeriksa, status lama, status baru, alasan penolakan/buka kunci, waktu).
+   - Status tim otomatis disinkronkan:
+     - `in_review`: Jika ada pemain yang masih dalam antrean submitted.
+     - `partially_rejected`: Jika ada minimal satu pemain yang berstatus rejected.
+     - `all_passed`: Jika seluruh pemain tim telah berstatus sah dan memenuhi kuota minimal.
+   - Manajer Tim melihat highlight merah tegas pada pemain berstatus `rejected` di `Manager/Players.vue` lengkap dengan alasan penolakan dan status per berkas (menggunakan Heroicons SVG tanpa emoji).
+   - Manajer Tim memperbaiki data dan mengunggah dokumen baru **hanya pada pemain yang berstatus `rejected`**, kemudian menekan tombol **"Ajukan Ulang Perbaikan"** (*Selective Re-submission*).
+   - Status pemain kembali ke `submitted` dan status tim kembali menjadi `in_review`.
 
 ---
 

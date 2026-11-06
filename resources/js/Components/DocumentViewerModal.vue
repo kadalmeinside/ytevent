@@ -274,3 +274,4 @@ const formattedSize = computed(() => {
         </div>
     </div>
 </template>
+

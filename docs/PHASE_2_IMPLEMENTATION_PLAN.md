@@ -92,44 +92,50 @@ Fase 2 berfokus pada **operasional pemeriksaan keabsahan data (*screening*)**, v
 
 ## 4. Rincian Langkah Implementasi (Step-by-Step Milestones)
 
-### Milestone 2.1: Panel Antrean & Review Screening Admin (`/admin/screening`)
-- [ ] **2.1.1 Backend - Controller & FormRequests**:
-  - Buat `app/Http/Controllers/Admin/ScreeningController.php`.
-  - Buat `app/Http/Requests/Admin/VerifyPlayerRequest.php` (Validasi aksi `action: passed/rejected`, validasi `rejection_reason` wajib diisi min. 10 karakter saat status `rejected`).
-  - Buat `app/Http/Requests/Admin/VerifyDocumentRequest.php` (Validasi `status: valid/invalid`, `notes`).
-- [ ] **2.1.2 Backend - Service & State Transition**:
-  - Buat `app/Services/ScreeningService.php` untuk merangkum logika:
-    - Verifikasi pemain & penerbitan `screening_code` unik saat `passed`.
+### Milestone 2.1: Panel Antrean & Review Screening Admin (`/admin/screening`) [SELESAI - COMMIT 5cabd5a]
+- [x] **2.1.1 Backend - Controller & FormRequests**:
+  - Telah dibuat `app/Http/Controllers/Admin/ScreeningController.php` dengan aksi `index`, `teamReview`, `verifyPlayer`, `verifyDocument`, dan `unlockPlayer`.
+  - Telah dibuat `app/Http/Requests/Admin/VerifyPlayerRequest.php` (Validasi aksi `action: passed/rejected`, validasi `rejection_reason` wajib diisi min. 10 karakter saat status `rejected`).
+  - Telah dibuat `app/Http/Requests/Admin/VerifyDocumentRequest.php` (Validasi `validation_status: valid/invalid`, `notes`).
+- [x] **2.1.2 Backend - Service & State Transition**:
+  - Telah dibuat `app/Services/ScreeningService.php`:
+    - Verifikasi pemain & penerbitan `accreditation_code` unik acak alfanumerik saat pemain `passed`.
     - Sinkronisasi otomatis `teams.screening_status` (`all_passed` jika semua pemain lolos, `partially_rejected` jika ada pemain gagal, `in_review` jika masih ada yang diperiksa).
-    - Pencatatan transaksi audit ke `screening_logs`.
+    - Pencatatan transaksi audit ke `screening_logs` (actor_id, player_id, from_status, to_status, reason).
     - Fitur `unlockPlayer` (mengembalikan status ke `draft` dan melepas `is_locked = false`).
-- [ ] **2.1.3 Frontend - Halaman Antrean Screening (`Admin/Screening/Index.vue`)**:
+- [x] **2.1.3 Frontend - Halaman Antrean Screening (`Admin/Screening/Index.vue`)**:
   - Filter interaktif per Event dan per Status Tim.
   - Kartu List View Tim berstatus `in_review`, `partially_rejected`, dan `all_passed`.
   - Progres verifikasi per tim (contoh: *"14 / 18 Pemain Telah Diperiksa"*).
-  - Tombol aksi: *"Mulai / Lanjutkan Verifikasi"*.
-- [ ] **2.1.4 Frontend - Antarmuka Split-View Reviewer (`Admin/Screening/TeamReview.vue`)**:
+  - Tombol aksi: *"Periksa Berkas Skuad"*.
+- [x] **2.1.4 Frontend - Antarmuka Split-View Reviewer (`Admin/Screening/TeamReview.vue`)**:
   - **Panel Kiri (Biodata & Validasi Usia)**:
     - Pas foto pemain, Nama Lengkap, Nomor Punggung, Posisi, NIK, NISN, Tempat/Tanggal Lahir.
-    - **Age Cut-off Comparison Badge**: Menghitung usia otomatis terhadap tanggal mulai turnamen dan membandingkan dengan rentang tanggal lahir resmi event (`✓ Usia Sesuai Regulasi U-12` atau `✕ Melebihi Batas Usia`).
-    - Checklist dokumen wajib event dan statusnya.
-  - **Panel Kanan (Document Viewer)**:
+    - **Age Cut-off Comparison Badge**: Menghitung usia otomatis terhadap tanggal mulai turnamen dan membandingkan dengan rentang tanggal lahir resmi event menggunakan SVG icon bersih (bukan unicode).
+    - Histori audit log mini pemain.
+  - **Panel Kanan (Document Viewer & Canvas)**:
     - Pratinjau gambar/PDF interaktif dokumen terpilih (Akta Kelahiran, Kartu Keluarga, KIA/Rapor) yang dimuat via rute privat.
-    - Kontrol viewer: Zoom in/out, Fullscreen modal, dan buka tab baru.
-    - Tombol keputusan per berkas (`Valid` / `Revisi`).
-  - **Panel Bawah (Aksi Keputusan Panitia)**:
-    - Tombol hijau: **"Loloskan Pemain (Sah)"**.
-    - Tombol merah: **"Tolak / Minta Revisi"** dengan textarea alasan penolakan wajib.
+    - Kontrol viewer: Zoom in/out, reset, iframe PDF tertanam, dan tombol *"Modal View"* untuk inspeksi dokumen definisi tinggi.
+    - Tombol penilaian per berkas (`Dokumen Sah` / `Butuh Revisi`) dengan SVG icon dan disable state jika pemain sudah sah.
+  - **Panel Bawah (Sticky Decision Bar)**:
+    - Tombol hijau: **"Loloskan Pemain (Sah)"** (dilengkapi disable rules: tanggal lahir invalid, dokumen berstatus invalid, atau pemain terkunci).
+    - Tombol merah: **"Tolak / Minta Revisi"** (modal alasan penolakan wajib min. 10 karakter).
+    - Tombol abu-abu: **"Buka Kunci (Unlock)"** untuk pemain sah yang membutuhkan perbaikan darurat.
     - Navigasi cepat ke pemain berikutnya/sebelumnya tanpa reload halaman.
 
-### Milestone 2.2: Siklus Revisi Terarah di Portal Manajer
-- [ ] **2.2.1 Frontend - Visualisasi Status Rejected di `Manager/Players.vue`**:
-  - Pemain berstatus `rejected` diberi highlight border Rose-300 yang tegas.
-  - Banner peringatan merah muda memuat alasan spesifik penolakan dari panitia.
-  - Tombol aksi utama pada pemain rejected: *"Perbaiki Biodata & Unggah Ulang Berkas"*.
-- [ ] **2.2.2 Backend & Frontend - Selective Re-submission**:
+### Milestone 2.2: Siklus Revisi Terarah di Portal Manajer [SELESAI - COMMIT 882f98d & 55dc815]
+- [x] **2.2.1 Frontend - Visualisasi Status Rejected di `Manager/Players.vue`**:
+  - Pemain berstatus `rejected` diberi highlight border Rose-400 yang tegas, ring aksen, dan background lembut.
+  - Banner peringatan merah muda memuat alasan spesifik penolakan dari petugas screening.
+  - Chip dokumen menampilkan status granular: `✓ Sah: [Dokumen]`, `✕ Revisi: [Dokumen]`, `⏳ Menunggu`, atau `✕ Belum` menggunakan icon SVG (bebas unicode emoji).
+  - Tombol aksi utama: *"Ajukan Ulang Perbaikan"*.
+- [x] **2.2.2 Backend & Frontend - Selective Re-submission**:
   - Endpoint `manager.players.submit` dimutakhirkan agar dapat mengajukan ulang pemain yang telah direvisi kembali ke status `submitted`.
-  - Notifikasi toast sukses dan perubahan status tim kembali ke `in_review`.
+  - Notifikasi toast sukses dan perubahan status tim kembali ke `in_review` via `ScreeningService::syncTeamScreeningStatus`.
+  - Manajer dapat menghapus pemain rejected jika terbukti tidak lolos cut-off usia untuk digantikan pemain baru.
+- [x] **2.2.3 Komponen Terintegrasi DocumentViewerModal (`DocumentViewerModal.vue`)**:
+  - Viewer modal terpadu untuk berkas scan gambar (JPG/PNG) dengan kontrol zoom & putar 90°, serta berkas dokumen PDF dengan embedded iframe.
+  - Diintegrasikan di Portal Admin Screening dan Portal Manajer Tim.
 
 ### Milestone 2.3: Validasi Skuad Final & Akreditasi Resmi (PDF & QR Code)
 - [ ] **2.3.1 Backend - Validasi Roster Final & Penguncian Tim**:
