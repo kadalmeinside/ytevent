@@ -36,6 +36,7 @@ const { applyValidation, isEmpty, isValidNik, checkFile } = useFormValidator();
 const isModalOpen = ref(false);
 const editingPlayer = ref(null);
 const photoPreview = ref(null);
+const isViewingPlayer = ref(false);
 
 const activeDocPlayer = ref(null);
 const isDocModalOpen = ref(false);
@@ -64,6 +65,7 @@ const playerForm = useForm({
 
 const openCreateModal = () => {
     editingPlayer.value = null;
+    isViewingPlayer.value = false;
     photoPreview.value = null;
     playerForm.reset();
     playerForm.clearErrors();
@@ -77,6 +79,28 @@ const openEditModal = (player) => {
         return;
     }
     editingPlayer.value = player;
+    isViewingPlayer.value = false;
+    photoPreview.value = player.photo_url;
+    playerForm.reset();
+    playerForm.clearErrors();
+    playerForm.full_name = player.full_name;
+    playerForm.jersey_name = player.jersey_name || '';
+    playerForm.jersey_number = player.jersey_number;
+    playerForm.position = player.position;
+    playerForm.dominant_foot = player.dominant_foot;
+    playerForm.birth_place = player.birth_place || '';
+    playerForm.birth_date = player.birth_date;
+    playerForm.nik = player.nik;
+    playerForm.nisn = player.nisn || '';
+    playerForm.height_cm = player.height_cm || '';
+    playerForm.weight_kg = player.weight_kg || '';
+    playerForm.photo = null;
+    isModalOpen.value = true;
+};
+
+const openViewModal = (player) => {
+    editingPlayer.value = player;
+    isViewingPlayer.value = true;
     photoPreview.value = player.photo_url;
     playerForm.reset();
     playerForm.clearErrors();
@@ -108,6 +132,7 @@ const handlePhotoChange = async (rawFile) => {
 };
 
 const savePlayer = () => {
+    if (isViewingPlayer.value) return;
     const ok = applyValidation(playerForm, () => {
         const errs = {};
         if (isEmpty(playerForm.full_name)) errs.full_name = 'Nama lengkap pemain sesuai Akta Kelahiran wajib diisi.';
@@ -410,6 +435,19 @@ const isRosterLocked = computed(() => {
                                         Edit
                                     </button>
                                     <button
+                                        v-else
+                                        type="button"
+                                        class="btn-sm-secondary inline-flex items-center gap-1"
+                                        @click="openViewModal(p)"
+                                        title="Lihat detail data pemain"
+                                    >
+                                        <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                        <span>Lihat Detail</span>
+                                    </button>
+                                    <button
                                         v-if="p.screening_status === 'draft' && !p.is_locked"
                                         type="button"
                                         class="btn-sm-danger"
@@ -482,7 +520,7 @@ const isRosterLocked = computed(() => {
             </div>
         </div>
 
-        <!-- Modal Tambah / Edit Pemain -->
+        <!-- Modal Tambah / Edit / Lihat Pemain -->
         <div
             v-if="isModalOpen"
             class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm overflow-y-auto"
@@ -490,7 +528,7 @@ const isRosterLocked = computed(() => {
             <div class="bg-white/95 backdrop-blur-xl border border-slate-200 rounded-xl shadow-xl max-w-2xl w-full p-6 my-8">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-200">
                     <h3 class="text-base font-bold text-slate-900">
-                        {{ editingPlayer ? `Edit Data Pemain: ${editingPlayer.full_name}` : 'Tambah Pemain Baru' }}
+                        {{ isViewingPlayer ? `Detail Data Pemain: ${editingPlayer?.full_name}` : (editingPlayer ? `Edit Data Pemain: ${editingPlayer.full_name}` : 'Tambah Pemain Baru') }}
                     </h3>
                     <button type="button" class="text-xs text-slate-500 hover:text-slate-900" @click="isModalOpen = false">
                         Tutup
@@ -498,6 +536,37 @@ const isRosterLocked = computed(() => {
                 </div>
 
                 <div class="mt-4">
+                    <!-- Status Alert Banner if in View / Read-Only Mode -->
+                    <div
+                        v-if="isViewingPlayer && editingPlayer?.screening_status === 'submitted'"
+                        class="p-3 mb-4 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-950 flex items-start gap-2.5"
+                    >
+                        <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div>
+                            <span class="font-bold block">Data Pemain Terkunci (Sedang Diperiksa Panitia)</span>
+                            <p class="mt-0.5 text-amber-800 leading-relaxed">
+                                Data pemain ini sedang dalam proses screening. Untuk mengedit nama, nomor punggung, atau pas foto, silakan tutup modal ini lalu tekan tombol <strong class="font-bold underline">Tarik Pengajuan</strong> terlebih dahulu.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div
+                        v-else-if="isViewingPlayer && (editingPlayer?.screening_status === 'passed' || editingPlayer?.is_locked)"
+                        class="p-3 mb-4 rounded-xl bg-emerald-50 border border-emerald-300 text-xs text-emerald-950 flex items-start gap-2.5"
+                    >
+                        <svg class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <div>
+                            <span class="font-bold block">Pemain Sah (Lolos Screening)</span>
+                            <p class="mt-0.5 text-emerald-800 leading-relaxed">
+                                Data pemain telah diverifikasi sah oleh panitia kompetisi dan terkunci permanen.
+                            </p>
+                        </div>
+                    </div>
+
                     <FormErrorBanner :errors="playerForm.errors" />
 
                     <form @submit.prevent="savePlayer" novalidate class="space-y-4">
@@ -509,9 +578,13 @@ const isRosterLocked = computed(() => {
                                 <input
                                     v-model="playerForm.full_name"
                                     type="text"
+                                    :disabled="isViewingPlayer"
                                     placeholder="Contoh: Muhammad Rizky Pratama"
                                     class="input-field"
-                                    :class="{ 'input-field-error': playerForm.errors.full_name }"
+                                    :class="[
+                                        isViewingPlayer ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : '',
+                                        { 'input-field-error': playerForm.errors.full_name }
+                                    ]"
                                     @input="playerForm.clearErrors('full_name')"
                                 />
                                 <InputError :message="playerForm.errors.full_name" />
@@ -522,8 +595,10 @@ const isRosterLocked = computed(() => {
                                 <input
                                     v-model="playerForm.jersey_name"
                                     type="text"
+                                    :disabled="isViewingPlayer"
                                     placeholder="Contoh: RIZKY"
                                     class="input-field uppercase"
+                                    :class="isViewingPlayer ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : ''"
                                 />
                             </div>
 
@@ -534,9 +609,13 @@ const isRosterLocked = computed(() => {
                                     type="number"
                                     min="1"
                                     max="99"
+                                    :disabled="isViewingPlayer"
                                     placeholder="10"
                                     class="input-field tabular-data"
-                                    :class="{ 'input-field-error': playerForm.errors.jersey_number }"
+                                    :class="[
+                                        isViewingPlayer ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : '',
+                                        { 'input-field-error': playerForm.errors.jersey_number }
+                                    ]"
                                     @input="playerForm.clearErrors('jersey_number')"
                                 />
                                 <InputError :message="playerForm.errors.jersey_number" />
@@ -546,8 +625,12 @@ const isRosterLocked = computed(() => {
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Posisi Bermain</label>
                                 <select
                                     v-model="playerForm.position"
+                                    :disabled="isViewingPlayer"
                                     class="input-field"
-                                    :class="{ 'input-field-error': playerForm.errors.position }"
+                                    :class="[
+                                        isViewingPlayer ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : '',
+                                        { 'input-field-error': playerForm.errors.position }
+                                    ]"
                                     @change="playerForm.clearErrors('position')"
                                 >
                                     <option v-for="(label, code) in positions" :key="code" :value="code">
@@ -559,7 +642,12 @@ const isRosterLocked = computed(() => {
 
                             <div data-field="dominant_foot">
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Kaki Dominan</label>
-                                <select v-model="playerForm.dominant_foot" class="input-field">
+                                <select
+                                    v-model="playerForm.dominant_foot"
+                                    :disabled="isViewingPlayer"
+                                    class="input-field"
+                                    :class="isViewingPlayer ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : ''"
+                                >
                                     <option value="Right">Kanan (Right)</option>
                                     <option value="Left">Kiri (Left)</option>
                                     <option value="Both">Kedua Kaki (Both)</option>
@@ -571,8 +659,12 @@ const isRosterLocked = computed(() => {
                                 <input
                                     v-model="playerForm.birth_date"
                                     type="date"
+                                    :disabled="isViewingPlayer"
                                     class="input-field tabular-data"
-                                    :class="{ 'input-field-error': playerForm.errors.birth_date }"
+                                    :class="[
+                                        isViewingPlayer ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : '',
+                                        { 'input-field-error': playerForm.errors.birth_date }
+                                    ]"
                                     @input="playerForm.clearErrors('birth_date')"
                                 />
                                 <InputError :message="playerForm.errors.birth_date" />
@@ -583,8 +675,10 @@ const isRosterLocked = computed(() => {
                                 <input
                                     v-model="playerForm.birth_place"
                                     type="text"
+                                    :disabled="isViewingPlayer"
                                     placeholder="Kota Kelahiran"
                                     class="input-field"
+                                    :class="isViewingPlayer ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : ''"
                                 />
                             </div>
 
@@ -594,9 +688,13 @@ const isRosterLocked = computed(() => {
                                     v-model="playerForm.nik"
                                     type="text"
                                     maxlength="16"
+                                    :disabled="isViewingPlayer"
                                     placeholder="3201xxxxxxxxxxxx"
                                     class="input-field tabular-data"
-                                    :class="{ 'input-field-error': playerForm.errors.nik }"
+                                    :class="[
+                                        isViewingPlayer ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : '',
+                                        { 'input-field-error': playerForm.errors.nik }
+                                    ]"
                                     @input="playerForm.clearErrors('nik')"
                                 />
                                 <InputError :message="playerForm.errors.nik" />
@@ -607,19 +705,22 @@ const isRosterLocked = computed(() => {
                                 <input
                                     v-model="playerForm.nisn"
                                     type="text"
+                                    :disabled="isViewingPlayer"
                                     placeholder="Nomor Induk Siswa Nasional"
                                     class="input-field tabular-data"
+                                    :class="isViewingPlayer ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : ''"
                                 />
                             </div>
 
                             <div data-field="photo" class="sm:col-span-2">
                                 <label class="block text-xs font-bold text-slate-800 mb-1.5">
-                                    Pas Foto Resmi Pemain (JPG/PNG, maks. 2 MB)
+                                    {{ isViewingPlayer ? 'Pas Foto Resmi Pemain' : 'Pas Foto Resmi Pemain (JPG/PNG, maks. 2 MB)' }}
                                 </label>
                                 <FileInput
                                     v-model="playerForm.photo"
                                     accept=".jpg,.jpeg,.png"
                                     :preview-url="photoPreview"
+                                    :disabled="isViewingPlayer"
                                     label="Pilih Foto Pemain"
                                     hint="Pas foto wajah terbaru pemain dengan background polos (Maks 2 MB)"
                                     :error="playerForm.errors.photo"
@@ -629,12 +730,19 @@ const isRosterLocked = computed(() => {
                         </div>
 
                         <div class="mt-6 pt-3 border-t border-slate-200 flex items-center justify-end gap-2.5">
-                            <button type="button" class="btn-secondary" @click="isModalOpen = false">
-                                Batal
-                            </button>
-                            <button type="submit" class="btn-pitch" :disabled="playerForm.processing">
-                                {{ playerForm.processing ? 'Menyimpan...' : (editingPlayer ? 'Perbarui Data Pemain' : 'Simpan Pemain') }}
-                            </button>
+                            <template v-if="!isViewingPlayer">
+                                <button type="button" class="btn-secondary" @click="isModalOpen = false">
+                                    Batal
+                                </button>
+                                <button type="submit" class="btn-pitch" :disabled="playerForm.processing">
+                                    {{ playerForm.processing ? 'Menyimpan...' : (editingPlayer ? 'Perbarui Data Pemain' : 'Simpan Pemain') }}
+                                </button>
+                            </template>
+                            <template v-else>
+                                <button type="button" class="btn-secondary" @click="isModalOpen = false">
+                                    Tutup
+                                </button>
+                            </template>
                         </div>
                     </form>
                 </div>
