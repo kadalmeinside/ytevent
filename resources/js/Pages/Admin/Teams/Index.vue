@@ -23,6 +23,27 @@ const props = defineProps({
 
 const { formatRupiah, formatDateTime, formatDate } = useFormatters();
 
+const isPast = (dateStr) => {
+    if (!dateStr) return false;
+    return new Date(dateStr) < new Date();
+};
+
+const isSyncing = ref(false);
+
+const triggerResync = () => {
+    isSyncing.value = true;
+    const url = filterState.event_id
+        ? route('admin.events.resync-event-slots', { event: filterState.event_id })
+        : route('admin.events.resync-slots');
+
+    router.post(url, {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            isSyncing.value = false;
+        },
+    });
+};
+
 const filterState = reactive({
     event_id: props.filters.event_id || '',
     status: props.filters.status || '',
@@ -115,6 +136,35 @@ const resetFilters = () => {
                 </div>
             </form>
 
+            <!-- Action & Summary Bar with Resync Button -->
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3.5 bg-slate-100/80 rounded-xl border border-slate-200">
+                <div class="text-xs text-slate-600 font-medium">
+                    Menampilkan <strong class="text-slate-900 font-bold tabular-data">{{ teams.length }} tim</strong>
+                    <span v-if="filterState.event_id && eventsFilter.find(e => e.id == filterState.event_id)">
+                        pada kompetisi <strong class="text-slate-900">{{ eventsFilter.find(e => e.id == filterState.event_id)?.name }}</strong>
+                    </span>.
+                </div>
+
+                <button
+                    type="button"
+                    class="btn-secondary text-xs inline-flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+                    :disabled="isSyncing"
+                    title="Pindai dan lepas pendaftaran tim yang telah melewati batas waktu pembayaran"
+                    @click="triggerResync"
+                >
+                    <svg
+                        class="w-4 h-4 text-orange-600 shrink-0"
+                        :class="{ 'animate-spin': isSyncing }"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>{{ isSyncing ? 'Menyinkronkan Slot...' : (filterState.event_id ? 'Cek & Resync Slot Event Ini' : 'Cek & Resync Semua Slot') }}</span>
+                </button>
+            </div>
+
             <!-- Teams Container (Responsive Card List View) -->
             <div class="space-y-3.5">
                 <div v-if="teams.length === 0" class="frosted-card p-12 text-center text-xs text-slate-500">
@@ -149,7 +199,13 @@ const resetFilters = () => {
                                 </div>
                             </div>
 
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span
+                                    v-if="t.status === 'pending_payment' && isPast(t.slot_expires_at || t.latest_payment?.expires_at)"
+                                    class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 uppercase tracking-wider"
+                                >
+                                    Lewat Batas Bayar
+                                </span>
                                 <StatusBadge :status="t.status" />
                             </div>
                         </div>
@@ -194,9 +250,9 @@ const resetFilters = () => {
                                 </div>
                             </div>
 
-                            <!-- Invoice & Payment (Col 8-10) -->
-                            <div class="lg:col-span-3 space-y-1">
-                                <span class="text-[10px] uppercase font-bold text-slate-400 block">Status Pembayaran</span>
+                            <!-- Invoice & Payment & Expiry Info (Col 8-10) -->
+                            <div class="lg:col-span-3 space-y-1.5">
+                                <span class="text-[10px] uppercase font-bold text-slate-400 block">Status Pembayaran &amp; Batas Waktu</span>
                                 <div v-if="t.latest_payment" class="space-y-1">
                                     <div class="flex items-center gap-1.5 flex-wrap">
                                         <span class="font-mono text-xs font-bold text-slate-900">{{ t.latest_payment.invoice_number }}</span>
@@ -207,6 +263,45 @@ const resetFilters = () => {
                                     </span>
                                 </div>
                                 <span v-else class="text-slate-400 text-xs italic block">Belum ada tagihan</span>
+
+                                <!-- Expiry Details (EXP) -->
+                                <div v-if="t.slot_expires_at || t.latest_payment?.expires_at" class="pt-1.5 border-t border-slate-100 text-xs space-y-0.5">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-[10px] uppercase font-bold text-slate-400">Batas Waktu Slot (EXP):</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 flex-wrap">
+                                        <span
+                                            class="font-mono text-[11px] tabular-data px-1.5 py-0.5 rounded border inline-block"
+                                            :class="
+                                                t.status === 'active' || t.status === 'locked_roster'
+                                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                                    : isPast(t.slot_expires_at || t.latest_payment?.expires_at)
+                                                    ? 'bg-rose-50 text-rose-700 border-rose-300 font-bold'
+                                                    : 'bg-amber-50 text-amber-800 border-amber-200 font-medium'
+                                            "
+                                        >
+                                            {{ formatDateTime(t.slot_expires_at || t.latest_payment?.expires_at) }}
+                                        </span>
+                                        <span
+                                            v-if="t.status === 'pending_payment' && isPast(t.slot_expires_at || t.latest_payment?.expires_at)"
+                                            class="text-[10px] font-bold text-rose-600"
+                                        >
+                                            (Lewat Batas)
+                                        </span>
+                                        <span
+                                            v-else-if="t.status === 'expired'"
+                                            class="text-[10px] font-bold text-slate-500"
+                                        >
+                                            (Slot Dilepas)
+                                        </span>
+                                        <span
+                                            v-else-if="t.status === 'active' || t.status === 'locked_roster'"
+                                            class="text-[10px] font-medium text-emerald-600"
+                                        >
+                                            (Terkunci Aman)
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Players count & Actions (Col 11-12) -->

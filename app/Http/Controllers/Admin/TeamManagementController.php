@@ -71,6 +71,7 @@ class TeamManagementController extends Controller
                 'transfer_date' => $team->latestPayment->transfer_date?->toDateString(),
                 'rejection_reason' => $team->latestPayment->rejection_reason,
                 'paid_at' => $team->latestPayment->paid_at?->toIso8601String(),
+                'expires_at' => $team->latestPayment->expires_at?->toIso8601String(),
                 'proof_url' => $team->latestPayment->proof_file_path
                     ? route('private.payment-proof', ['payment' => $team->latestPayment->id])
                     : null,
