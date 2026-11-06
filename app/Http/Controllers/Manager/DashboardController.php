@@ -24,8 +24,10 @@ class DashboardController extends Controller
 
         $summary = null;
         if ($team) {
+            $team->loadMissing('event');
             $latestPayment = $team->latestPayment;
             $players = $team->players()->with('documents')->get();
+            $players->each(fn ($p) => $p->setRelation('event', $team->event));
             $officialsCount = $team->officials()->count();
 
             $summary = [

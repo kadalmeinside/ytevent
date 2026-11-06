@@ -118,7 +118,7 @@ class EventController extends Controller
             'name' => trim($validated['name']),
             'slug' => $slug,
             'banner_path' => $bannerPath,
-            'short_description' => $validated['short_description'] ?? null,
+            'short_description' => $this->sanitizeDescription($validated['short_description'] ?? null),
             'venue_name' => trim($validated['venue_name']),
             'venue_maps_url' => ! empty($validated['venue_maps_url']) ? trim($validated['venue_maps_url']) : null,
             'city' => trim($validated['city']),
@@ -214,7 +214,7 @@ class EventController extends Controller
 
             $updates = [
                 'name' => trim($validated['name']),
-                'short_description' => $validated['short_description'] ?? null,
+                'short_description' => $this->sanitizeDescription($validated['short_description'] ?? null),
                 'venue_name' => trim($validated['venue_name']),
                 'venue_maps_url' => ! empty($validated['venue_maps_url']) ? trim($validated['venue_maps_url']) : null,
                 'city' => trim($validated['city']),
@@ -263,6 +263,19 @@ class EventController extends Controller
 
         return redirect()->route('admin.events.index')
             ->with('success', 'Pengaturan kompetisi dan kuota maksimal tim berhasil diperbarui.');
+    }
+
+    protected function sanitizeDescription(?string $html): ?string
+    {
+        if (! $html) {
+            return null;
+        }
+
+        $cleaned = strip_tags($html, '<p><br><b><strong><i><em><u><ul><ol><li><h1><h2><h3><h4><h5><h6><blockquote><a><span><div><hr>');
+        $cleaned = preg_replace('/(\son[a-zA-Z]+\s*=\s*([\'"][^\'"]*[\'"]|[^\s>]+))/i', '', $cleaned);
+        $cleaned = preg_replace('/href\s*=\s*([\'"])\s*(javascript|data):[^\'"]*([\'"])/i', 'href="#"', $cleaned);
+
+        return trim($cleaned);
     }
 }
 

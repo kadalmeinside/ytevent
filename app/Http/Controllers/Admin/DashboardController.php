@@ -16,11 +16,12 @@ class DashboardController extends Controller
     {
         $events = Event::query()
             ->withOccupiedSlotsCount()
+            ->withSum(['payments as revenue_paid' => function ($q) {
+                $q->where('status', 'paid');
+            }], 'total_amount')
             ->orderByDesc('created_at')
             ->get()
             ->map(function (Event $event) {
-                $paidSum = (float) $event->payments()->where('status', 'paid')->sum('total_amount');
-
                 return [
                     'id' => $event->id,
                     'name' => $event->name,
@@ -32,7 +33,7 @@ class DashboardController extends Controller
                     'occupied_slots' => $event->occupiedSlotsCount(),
                     'active_teams' => (int) ($event->active_teams_count ?? 0),
                     'registration_fee' => (float) $event->registration_fee,
-                    'revenue_paid' => $paidSum,
+                    'revenue_paid' => (float) ($event->revenue_paid ?? 0),
                 ];
             });
 
