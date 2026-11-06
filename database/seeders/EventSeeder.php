@@ -14,13 +14,7 @@ class EventSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Bersihkan semua event lama beserta data terkait
-        Team::query()->forceDelete();
-        Payment::query()->delete();
-        Player::query()->forceDelete();
-        Event::query()->forceDelete();
-
-        // 2. Pastikan file banner poster Young Tiger Cup tersimpan di storage/app/public/events
+        // 1. Pastikan file banner poster Young Tiger Cup tersimpan di storage/app/public/events
         $targetBanner = storage_path('app/public/events/young-tiger-cup-u12-banner.jpg');
         $bundledAsset = database_path('seeders/assets/young-tiger-cup-u12-banner.jpg');
         $altSource = '/Users/macbook/.gemini/antigravity/brain/fdad4be1-49e6-447e-a227-50de012ac19f/.user_uploaded/media_1793868996233_29d232ff.jpg';
@@ -42,10 +36,11 @@ class EventSeeder extends Seeder
         $matchEndDate = (clone $matchStartDate)->addDay();
         $registrationClose = (clone $matchStartDate)->subDays(4)->endOfDay();
 
-        Event::create([
-            'name' => 'Young Tiger Cup U-12',
-            'slug' => 'young-tiger-cup-u12',
-            'banner_path' => 'events/young-tiger-cup-u12-banner.jpg',
+        Event::updateOrCreate(
+            ['slug' => 'young-tiger-cup-u12'],
+            [
+                'name' => 'Young Tiger Cup U-12',
+                'banner_path' => 'events/young-tiger-cup-u12-banner.jpg',
             'short_description' => 'Turnamen resmi Young Tiger Cup Kategori U-12 (Kelahiran 2014-2015) format 7 vs 7 (Bola Ukuran 4, durasi 2x15 menit) di Persija Academy Training Ground. Babak Grup (Grup A, B, C, D) dilanjutkan babak gugur menuju Juara 1, 2, 3, Pemain Terbaik, dan Pelatih Terbaik.',
             'venue_name' => 'Persija Academy Training Ground',
             'city' => 'DKI Jakarta',

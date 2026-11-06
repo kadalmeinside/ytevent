@@ -101,6 +101,10 @@ class PaymentController extends Controller
         Payment $payment,
         PaymentService $paymentService
     ): RedirectResponse {
+        if (! config('payment.sandbox_simulator')) {
+            abort(403, 'Simulator pembayaran dinonaktifkan di lingkungan produksi.');
+        }
+
         $payment->loadMissing('team');
         $this->authorize('pay', $payment);
 

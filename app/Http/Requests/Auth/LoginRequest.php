@@ -61,7 +61,7 @@ class LoginRequest extends FormRequest
             ]);
         }
 
-        if ($requireAdminPortal && ! $user->hasAnyRole(['superadmin', 'finance'])) {
+        if ($requireAdminPortal && ! $user->hasAnyRole(['superadmin', 'finance', 'screening_officer'])) {
             Auth::logout();
             RateLimiter::hit($this->throttleKey(), 60);
 

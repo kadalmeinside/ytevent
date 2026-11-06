@@ -21,8 +21,57 @@ class PaymentService
         protected QuotaExpirationService $quotaExpiration
     ) {}
 
+    /**
+     * Mode pembayaran aktif global: 'manual' atau 'midtrans'.
+     */
+    public static function activeMode(): string
+    {
+        $mode = (string) SystemSetting::get('payment_method_mode', 'manual');
+
+        return in_array($mode, ['manual', 'midtrans'], true) ? $mode : 'manual';
+    }
+
+    /**
+     * Server Key Midtrans: prioritas pengaturan Superadmin (system_settings), fallback ke .env.
+     */
+    public static function midtransServerKey(): string
+    {
+        $fromSettings = (string) SystemSetting::get('midtrans_server_key', '');
+
+        return $fromSettings !== '' ? $fromSettings : (string) config('payment.midtrans.server_key');
+    }
+
+    public static function midtransClientKey(): string
+    {
+        $fromSettings = (string) SystemSetting::get('midtrans_client_key', '');
+
+        return $fromSettings !== '' ? $fromSettings : (string) config('payment.midtrans.client_key');
+    }
+
+    public static function midtransIsProduction(): bool
+    {
+        $fromSettings = SystemSetting::get('midtrans_is_production');
+
+        return $fromSettings === null
+            ? (bool) config('payment.midtrans.is_production')
+            : filter_var($fromSettings, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    public static function midtransSnapUrl(): string
+    {
+        return self::midtransIsProduction()
+            ? (string) config('payment.midtrans.snap_url_production')
+            : (string) config('payment.midtrans.snap_url_sandbox');
+    }
+
     public function initiateGatewayPayment(Payment $payment, string $provider, string $channel): Payment
     {
+        if (self::activeMode() !== 'midtrans') {
+            throw ValidationException::withMessages([
+                'payment' => 'Metode pembayaran payment gateway sedang tidak diaktifkan oleh panitia.',
+            ]);
+        }
+
         $result = DB::transaction(function () use ($payment, $provider, $channel) {
             $lockedEvent = Event::query()->whereKey($payment->event_id)->lockForUpdate()->firstOrFail();
             $this->quotaExpiration->sweepExpiredForEvent($lockedEvent);
@@ -83,9 +132,9 @@ class PaymentService
                     $paymentUrl = route('manager.payments', ['invoice' => $lockedPayment->invoice_number]);
                 }
             } elseif ($provider === 'midtrans') {
-                $response = Http::withBasicAuth(config('payment.midtrans.server_key'), '')
+                $response = Http::withBasicAuth(self::midtransServerKey(), '')
                     ->acceptJson()
-                    ->post(config('payment.midtrans.snap_url'), [
+                    ->post(self::midtransSnapUrl(), [
                         'transaction_details' => [
                             'order_id' => $lockedPayment->invoice_number,
                             'gross_amount' => (int) round($totalAmount),
@@ -185,7 +234,7 @@ class PaymentService
         $orderId = $payment->invoice_number;
         $statusCode = '200';
         $grossAmount = number_format((float) $payment->total_amount, 2, '.', '');
-        $signature = hash('sha512', $orderId . $statusCode . $grossAmount . config('payment.midtrans.server_key'));
+        $signature = hash('sha512', $orderId . $statusCode . $grossAmount . self::midtransServerKey());
 
         return $this->handleMidtransWebhook([
             'order_id' => $orderId,
@@ -208,7 +257,7 @@ class PaymentService
 
         $expectedSignature = hash(
             'sha512',
-            $orderId . $statusCode . $grossAmount . config('payment.midtrans.server_key')
+            $orderId . $statusCode . $grossAmount . self::midtransServerKey()
         );
 
         if ($orderId === '' || $signatureKey === '' || ! hash_equals($expectedSignature, $signatureKey)) {
@@ -371,6 +420,12 @@ class PaymentService
 
     public function uploadManualProof(Payment $payment, array $validated, UploadedFile $proofFile): Payment
     {
+        if (self::activeMode() !== 'manual') {
+            throw ValidationException::withMessages([
+                'payment' => 'Metode transfer bank manual sedang tidak diaktifkan oleh panitia.',
+            ]);
+        }
+
         $storedPath = $proofFile->store('payments/proofs', 'private');
 
         try {

@@ -22,7 +22,7 @@ class SessionController extends Controller
         $user = $request->authenticate(requireAdminPortal: false);
         $request->session()->regenerate();
 
-        if ($user->hasAnyRole(['superadmin', 'finance'])) {
+        if ($user->hasAnyRole(['superadmin', 'finance', 'screening_officer'])) {
             return redirect()->intended(route('admin.dashboard'));
         }
 
@@ -37,7 +37,7 @@ class SessionController extends Controller
             return redirect()->route('admin.login');
         }
 
-        if ($user->hasAnyRole(['superadmin', 'finance'])) {
+        if ($user->hasAnyRole(['superadmin', 'finance', 'screening_officer'])) {
             return redirect()->route('admin.dashboard');
         }
 
@@ -49,7 +49,7 @@ class SessionController extends Controller
     {
         $user = $request->user();
         if ($user) {
-            if ($user->hasAnyRole(['superadmin', 'finance'])) {
+            if ($user->hasAnyRole(['superadmin', 'finance', 'screening_officer'])) {
                 return redirect()->route('admin.dashboard');
             }
 

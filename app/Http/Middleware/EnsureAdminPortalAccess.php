@@ -26,7 +26,7 @@ class EnsureAdminPortalAccess
                 ->with('error', 'Akun Anda saat ini dinonaktifkan oleh administrator.');
         }
 
-        if (! $user->hasAnyRole(['superadmin', 'finance'])) {
+        if (! $user->hasAnyRole(['superadmin', 'finance', 'screening_officer'])) {
             if ($request->isMethodSafe() && $user->hasRole('team_manager')) {
                 return redirect()->route('manager.dashboard')
                     ->with('warning', 'Akses ke portal internal panitia ditolak. Anda dialihkan ke Portal Manajer Tim.');

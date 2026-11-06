@@ -304,4 +304,52 @@ class PaymentFlowTest extends TestCase
             ->has('transactions.0.proof_url')
         );
     }
+
+    public function test_payment_mode_is_enforced_strictly_on_backend(): void
+    {
+        // 1. Saat mode MANUAL aktif, gateway call harus ditolak
+        \App\Models\SystemSetting::set('payment_method_mode', 'manual', 'text', 'payment');
+
+        $resGateway = $this->actingAs($this->manager)
+            ->post(route('manager.payments.gateway', ['payment' => $this->payment->id]), [
+                'provider' => 'midtrans',
+                'payment_channel' => 'bca_va',
+            ]);
+        $resGateway->assertSessionHasErrors('payment');
+
+        // 2. Saat mode MIDTRANS aktif, upload bukti manual harus ditolak
+        \App\Models\SystemSetting::set('payment_method_mode', 'midtrans', 'text', 'payment');
+
+        $file = UploadedFile::fake()->create('bukti.jpg', 500, 'image/jpeg');
+        $resManual = $this->actingAs($this->manager)
+            ->post(route('manager.payments.manual-proof', ['payment' => $this->payment->id]), [
+                'sender_bank_name' => 'BCA',
+                'sender_account_holder' => 'Manajer Klub',
+                'sender_account_number' => '1234567890',
+                'transfer_date' => now()->toDateString(),
+                'proof_file' => $file,
+            ]);
+        $resManual->assertSessionHasErrors('payment');
+    }
+
+    public function test_sandbox_simulator_is_forbidden_when_disabled(): void
+    {
+        config(['payment.sandbox_simulator' => false]);
+
+        $res = $this->actingAs($this->manager)
+            ->post(route('manager.payments.simulate', ['payment' => $this->payment->id]));
+
+        $res->assertForbidden();
+    }
+
+    public function test_screening_officer_can_access_admin_portal(): void
+    {
+        $screeningUser = User::factory()->create();
+        $screeningUser->assignRole('screening_officer');
+
+        $res = $this->actingAs($screeningUser)
+            ->get(route('admin.dashboard'));
+
+        $res->assertOk();
+    }
 }

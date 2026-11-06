@@ -91,69 +91,67 @@ class RolePermissionSeeder extends Seeder
             'manager.players.manage_own',
         ]);
 
+        // Helper untuk membuat user internal tanpa menimpa kata sandi jika sudah ada
+        $seedInternalUser = function (string $email, string $name, string $phone, string $role, string $defaultPassword) {
+            $user = User::firstOrNew(['email' => $email]);
+            if (! $user->exists) {
+                $user->password = Hash::make(env('SEEDER_' . strtoupper($role) . '_PASSWORD', $defaultPassword));
+            }
+            $user->name = $name;
+            $user->phone = $phone;
+            $user->is_active = true;
+            if (! $user->email_verified_at) {
+                $user->email_verified_at = now();
+            }
+            $user->save();
+            $user->syncRoles([$role]);
+
+            return $user;
+        };
+
         // Akun Utama Super Admin Persija Development
-        $superadminPersija = User::updateOrCreate(
-            ['email' => 'superadmin@persijadevelopment.id'],
-            [
-                'name' => 'Superadmin Persija Development',
-                'phone' => '081128021928',
-                'password' => Hash::make('Admin12345'),
-                'is_active' => true,
-                'email_verified_at' => now(),
-            ]
+        $seedInternalUser(
+            email: 'superadmin@persijadevelopment.id',
+            name: 'Superadmin Persija Development',
+            phone: '081128021928',
+            role: 'superadmin',
+            defaultPassword: 'Admin12345'
         );
-        $superadminPersija->syncRoles(['superadmin']);
 
         // Akun Super Admin Standar
-        $superadmin = User::updateOrCreate(
-            ['email' => 'superadmin@ytevent.id'],
-            [
-                'name' => 'Superadmin Persija Development',
-                'phone' => '08111000111',
-                'password' => Hash::make('Admin12345'),
-                'is_active' => true,
-                'email_verified_at' => now(),
-            ]
+        $seedInternalUser(
+            email: 'superadmin@ytevent.id',
+            name: 'Superadmin Persija Development',
+            phone: '08111000111',
+            role: 'superadmin',
+            defaultPassword: 'Admin12345'
         );
-        $superadmin->syncRoles(['superadmin']);
 
         // Akun Finance
-        $financePersija = User::updateOrCreate(
-            ['email' => 'finance@persijadevelopment.id'],
-            [
-                'name' => 'Finance Persija Development',
-                'phone' => '081128021929',
-                'password' => Hash::make('Finance12345'),
-                'is_active' => true,
-                'email_verified_at' => now(),
-            ]
+        $seedInternalUser(
+            email: 'finance@persijadevelopment.id',
+            name: 'Finance Persija Development',
+            phone: '081128021929',
+            role: 'finance',
+            defaultPassword: 'Finance12345'
         );
-        $financePersija->syncRoles(['finance']);
 
-        $finance = User::updateOrCreate(
-            ['email' => 'finance@ytevent.id'],
-            [
-                'name' => 'Staf Finance Persija',
-                'phone' => '08111000222',
-                'password' => Hash::make('Finance12345'),
-                'is_active' => true,
-                'email_verified_at' => now(),
-            ]
+        $seedInternalUser(
+            email: 'finance@ytevent.id',
+            name: 'Staf Finance Persija',
+            phone: '08111000222',
+            role: 'finance',
+            defaultPassword: 'Finance12345'
         );
-        $finance->syncRoles(['finance']);
 
         // Akun Screening Officer
-        $screening = User::updateOrCreate(
-            ['email' => 'screening@persijadevelopment.id'],
-            [
-                'name' => 'Petugas Screening Persija',
-                'phone' => '081128021930',
-                'password' => Hash::make('Screening12345'),
-                'is_active' => true,
-                'email_verified_at' => now(),
-            ]
+        $seedInternalUser(
+            email: 'screening@persijadevelopment.id',
+            name: 'Petugas Screening Persija',
+            phone: '081128021930',
+            role: 'screening_officer',
+            defaultPassword: 'Screening12345'
         );
-        $screening->syncRoles(['screening_officer']);
     }
 }
 

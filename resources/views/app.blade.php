@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title inertia>{{ config('app.name', 'YTEvent Football Competition') }}</title>
+    <title inertia>{{ \App\Models\SystemSetting::get('app_name', config('app.name', 'Persija Development')) }}</title>
 
     @php
         $favicon = \App\Models\SystemSetting::get('app_favicon');
