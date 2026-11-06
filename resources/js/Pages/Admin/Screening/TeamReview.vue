@@ -37,6 +37,14 @@ const activeDoc = computed(() => {
 const imageZoom = ref(1);
 const isDocViewerOpen = ref(false);
 
+// Quick Verification Wizard & Confirmation State
+const isWizardModalOpen = ref(false);
+const wizardDocIndex = ref(0);
+const wizardNotes = ref('');
+const isSubmittingDoc = ref(false);
+const wizardZoom = ref(1);
+const isApproveConfirmModalOpen = ref(false);
+
 const zoomIn = () => {
     if (imageZoom.value < 2.5) imageZoom.value += 0.25;
 };
@@ -45,6 +53,16 @@ const zoomOut = () => {
 };
 const resetZoom = () => {
     imageZoom.value = 1;
+};
+
+const wizardZoomIn = () => {
+    if (wizardZoom.value < 2.5) wizardZoom.value += 0.25;
+};
+const wizardZoomOut = () => {
+    if (wizardZoom.value > 0.75) wizardZoom.value -= 0.25;
+};
+const resetWizardZoom = () => {
+    wizardZoom.value = 1;
 };
 
 // Select player handler
@@ -77,6 +95,22 @@ const isAgeEligible = computed(() => {
 
 const hasInvalidDocument = computed(() => {
     return Boolean(activePlayer.value?.documents?.some((d) => d.validation_status === 'invalid'));
+});
+
+const hasPendingDocuments = computed(() => {
+    return Boolean(activePlayer.value?.documents?.some((d) => d.validation_status === 'pending'));
+});
+
+const allDocumentsValid = computed(() => {
+    return Boolean(
+        activePlayer.value?.documents &&
+        activePlayer.value.documents.length > 0 &&
+        activePlayer.value.documents.every((d) => d.validation_status === 'valid')
+    );
+});
+
+const invalidDocuments = computed(() => {
+    return activePlayer.value?.documents?.filter((d) => d.validation_status === 'invalid') || [];
 });
 
 const hasDocuments = computed(() => {
@@ -128,20 +162,104 @@ const unlockForm = useForm({
     reason: '',
 });
 
-// Approve Player (Loloskan Sah)
-const handleApprove = () => {
+const activeWizardDoc = computed(() => {
+    if (!activePlayer.value?.documents?.length) return null;
+    return activePlayer.value.documents[wizardDocIndex.value] || null;
+});
+
+const openWizard = (startDocIndex = 0) => {
+    if (isPlayerLocked.value || !activePlayer.value?.documents?.length) return;
+    let initialIndex = startDocIndex;
+    if (startDocIndex === 0) {
+        const pendingIdx = activePlayer.value.documents.findIndex((d) => d.validation_status === 'pending');
+        if (pendingIdx !== -1) {
+            initialIndex = pendingIdx;
+        }
+    }
+    wizardDocIndex.value = Math.max(0, Math.min(initialIndex, activePlayer.value.documents.length - 1));
+    wizardNotes.value = activePlayer.value.documents[wizardDocIndex.value]?.notes || '';
+    resetWizardZoom();
+    isWizardModalOpen.value = true;
+};
+
+const closeWizard = () => {
+    isWizardModalOpen.value = false;
+    resetWizardZoom();
+};
+
+const selectWizardDoc = (index) => {
+    wizardDocIndex.value = index;
+    if (activePlayer.value?.documents?.[index]) {
+        wizardNotes.value = activePlayer.value.documents[index].notes || '';
+    }
+    resetWizardZoom();
+};
+
+const submitWizardDocStatus = (status) => {
+    if (!activeWizardDoc.value || isSubmittingDoc.value) return;
+
+    isSubmittingDoc.value = true;
+    const doc = activeWizardDoc.value;
+    const notes = status === 'invalid' ? (wizardNotes.value || 'Dokumen memerlukan perbaikan.') : null;
+
+    router.post(
+        route('admin.screening.document.verify', { document: doc.id }),
+        {
+            validation_status: status,
+            notes: notes,
+        },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onFinish: () => {
+                isSubmittingDoc.value = false;
+                // Auto advance ke dokumen berikutnya
+                if (wizardDocIndex.value < activePlayer.value.documents.length - 1) {
+                    wizardDocIndex.value++;
+                    wizardNotes.value = activePlayer.value.documents[wizardDocIndex.value]?.notes || '';
+                    resetWizardZoom();
+                } else {
+                    // Berada di dokumen terakhir, alihkan ke langkah review final
+                    wizardDocIndex.value = activePlayer.value.documents.length;
+                }
+            },
+        }
+    );
+};
+
+// Tombol Loloskan Pemain (Sah) - Memicu Wizard jika ada dokumen pending, atau Modal Konfirmasi jika sudah sah semua
+const handleApproveClick = () => {
     if (!canApprovePlayer.value) return;
+
+    // Jika masih ada dokumen yang belum diverifikasi (status pending), buka wizard verifikasi cepat
+    if (hasPendingDocuments.value) {
+        openWizard();
+        return;
+    }
+
+    // Jika seluruh dokumen sudah sah (valid), buka modal konfirmasi
+    if (allDocumentsValid.value) {
+        isApproveConfirmModalOpen.value = true;
+        return;
+    }
+};
+
+// Eksekusi Loloskan Pemain Sah
+const submitFinalApprove = () => {
+    if (!canApprovePlayer.value || verifyForm.processing) return;
     verifyForm.action = 'passed';
     verifyForm.rejection_reason = '';
     verifyForm.documents = activePlayer.value.documents.map((d) => ({
         id: d.id,
-        validation_status: d.validation_status === 'invalid' ? 'valid' : d.validation_status,
+        validation_status: 'valid',
         notes: d.notes,
     }));
 
     verifyForm.post(route('admin.screening.player.verify', { player: activePlayer.value.id }), {
         preserveScroll: true,
         onSuccess: () => {
+            isWizardModalOpen.value = false;
+            isApproveConfirmModalOpen.value = false;
             const nextIdx = props.players.findIndex(
                 (p, idx) => idx > activePlayerIndex.value && p.screening_status === 'submitted'
             );
@@ -150,6 +268,18 @@ const handleApprove = () => {
             }
         },
     });
+};
+
+const goToRejectFromWizard = () => {
+    isWizardModalOpen.value = false;
+    const invalidList = invalidDocuments.value;
+    if (invalidList.length > 0) {
+        const reasons = invalidList
+            .map((d) => `${d.label}: ${d.notes || 'Berkas tidak sesuai / tidak terbaca'}`)
+            .join('; ');
+        verifyForm.rejection_reason = `Mohon perbaiki berkas: ${reasons}`;
+    }
+    openRejectModal();
 };
 
 // Open Reject Modal
@@ -471,33 +601,49 @@ const setDocumentStatus = (doc, status) => {
                                 <p class="text-[11px] text-slate-500">Pilih dokumen untuk memeriksa scan asli</p>
                             </div>
 
-                            <!-- Document Tab Selector Pills -->
-                            <div class="flex flex-wrap items-center gap-1.5">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <!-- Quick Wizard Trigger Button -->
                                 <button
-                                    v-for="(doc, dIdx) in activePlayer.documents"
-                                    :key="doc.id"
+                                    v-if="!isPlayerLocked && activePlayer.documents && activePlayer.documents.length > 0"
                                     type="button"
-                                    class="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition-all"
-                                    :class="
-                                        selectedDocIndex === dIdx
-                                            ? 'bg-orange-600 text-white border-orange-600 shadow-2xs'
-                                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                                    "
-                                    @click="selectedDocIndex = dIdx"
+                                    class="px-2.5 py-1 rounded-lg text-xs font-bold bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 transition-all flex items-center gap-1.5 shadow-2xs"
+                                    title="Verifikasi cepat semua dokumen satu per satu secara berurutan"
+                                    @click="openWizard(0)"
                                 >
-                                    <span>{{ doc.label }}</span>
-                                    <span class="inline-flex items-center">
-                                        <svg v-if="doc.validation_status === 'valid'" class="w-3.5 h-3.5 shrink-0" :class="selectedDocIndex === dIdx ? 'text-white' : 'text-emerald-600'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
-                                        </svg>
-                                        <svg v-else-if="doc.validation_status === 'invalid'" class="w-3.5 h-3.5 shrink-0" :class="selectedDocIndex === dIdx ? 'text-white' : 'text-rose-600'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                        <svg v-else class="w-3.5 h-3.5 shrink-0" :class="selectedDocIndex === dIdx ? 'text-white' : 'text-amber-500'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                    </span>
+                                    <svg class="w-3.5 h-3.5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                    </svg>
+                                    <span>Verifikasi Cepat Semua Berkas</span>
                                 </button>
+
+                                <!-- Document Tab Selector Pills -->
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    <button
+                                        v-for="(doc, dIdx) in activePlayer.documents"
+                                        :key="doc.id"
+                                        type="button"
+                                        class="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition-all"
+                                        :class="
+                                            selectedDocIndex === dIdx
+                                                ? 'bg-orange-600 text-white border-orange-600 shadow-2xs'
+                                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                                        "
+                                        @click="selectedDocIndex = dIdx"
+                                    >
+                                        <span>{{ doc.label }}</span>
+                                        <span class="inline-flex items-center">
+                                            <svg v-if="doc.validation_status === 'valid'" class="w-3.5 h-3.5 shrink-0" :class="selectedDocIndex === dIdx ? 'text-white' : 'text-emerald-600'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                            <svg v-else-if="doc.validation_status === 'invalid'" class="w-3.5 h-3.5 shrink-0" :class="selectedDocIndex === dIdx ? 'text-white' : 'text-rose-600'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                            <svg v-else class="w-3.5 h-3.5 shrink-0" :class="selectedDocIndex === dIdx ? 'text-white' : 'text-amber-500'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -713,7 +859,7 @@ const setDocumentStatus = (doc, status) => {
                                         : 'bg-slate-700 text-slate-400 opacity-60 cursor-not-allowed'
                                 ]"
                                 :disabled="!canApprovePlayer"
-                                @click="handleApprove"
+                                @click="handleApproveClick"
                             >
                                 <svg v-if="verifyForm.processing" class="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -726,7 +872,11 @@ const setDocumentStatus = (doc, status) => {
                                     {{
                                         verifyForm.processing
                                             ? 'Menyimpan...'
-                                            : (isPlayerLocked ? 'Pemain Sudah Sah' : 'Loloskan Pemain (Sah)')
+                                            : (isPlayerLocked
+                                                ? 'Pemain Sudah Sah'
+                                                : (hasPendingDocuments
+                                                    ? 'Verifikasi Berkas & Sahkan'
+                                                    : 'Loloskan Pemain (Sah)'))
                                     }}
                                 </span>
                             </button>
@@ -833,6 +983,419 @@ const setDocumentStatus = (doc, status) => {
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+
+            <!-- Quick Document Verification Wizard Modal -->
+            <div
+                v-if="isWizardModalOpen && activePlayer"
+                class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/80 backdrop-blur-md overflow-y-auto"
+            >
+                <div class="frosted-card bg-white rounded-2xl max-w-4xl w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[92vh] flex flex-col">
+                    <!-- Modal Header -->
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-orange-100 text-orange-800 border border-orange-200">
+                                    Verifikasi Cepat Dokumen
+                                </span>
+                                <span class="text-xs text-slate-400">&bull;</span>
+                                <span class="text-xs font-semibold text-slate-600">
+                                    #{{ activePlayer.jersey_number }} {{ activePlayer.full_name }} ({{ activePlayer.position }})
+                                </span>
+                            </div>
+                            <h3 class="text-base font-bold text-slate-900 mt-0.5">
+                                {{
+                                    wizardDocIndex < activePlayer.documents.length
+                                        ? `Langkah ${wizardDocIndex + 1} dari ${activePlayer.documents.length}: ${activeWizardDoc?.label}`
+                                        : 'Langkah Terakhir: Pengesahan Kelolosan Pemain'
+                                }}
+                            </h3>
+                        </div>
+
+                        <button
+                            type="button"
+                            class="text-slate-400 hover:text-slate-600 text-2xl leading-none p-1"
+                            title="Tutup Wizard"
+                            @click="closeWizard"
+                        >
+                            &times;
+                        </button>
+                    </div>
+
+                    <!-- Step Stepper Pills -->
+                    <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                        <button
+                            v-for="(doc, sIdx) in activePlayer.documents"
+                            :key="doc.id"
+                            type="button"
+                            class="px-3 py-1.5 rounded-xl font-semibold whitespace-nowrap flex items-center gap-1.5 border transition-all shrink-0 cursor-pointer"
+                            :class="[
+                                wizardDocIndex === sIdx
+                                    ? 'bg-orange-600 text-white border-orange-600 shadow-sm ring-2 ring-orange-500/30'
+                                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                            ]"
+                            @click="selectWizardDoc(sIdx)"
+                        >
+                            <span class="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-mono font-bold" :class="wizardDocIndex === sIdx ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'">
+                                {{ sIdx + 1 }}
+                            </span>
+                            <span>{{ doc.label }}</span>
+                            <span class="inline-flex items-center">
+                                <svg v-if="doc.validation_status === 'valid'" class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <svg v-else-if="doc.validation_status === 'invalid'" class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                <svg v-else class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </span>
+                        </button>
+
+                        <!-- Final Step Pill -->
+                        <button
+                            type="button"
+                            class="px-3 py-1.5 rounded-xl font-semibold whitespace-nowrap flex items-center gap-1.5 border transition-all shrink-0 cursor-pointer"
+                            :class="[
+                                wizardDocIndex === activePlayer.documents.length
+                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm ring-2 ring-emerald-500/30'
+                                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                            ]"
+                            @click="wizardDocIndex = activePlayer.documents.length"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>Pengesahan Selesai</span>
+                        </button>
+                    </div>
+
+                    <!-- Step Content: Document Inspection -->
+                    <div v-if="wizardDocIndex < activePlayer.documents.length && activeWizardDoc" class="flex-1 flex flex-col space-y-3 min-h-0 overflow-y-auto">
+                        <!-- Doc Meta Bar -->
+                        <div class="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-slate-800">{{ activeWizardDoc.original_name || activeWizardDoc.label }}</span>
+                                <span v-if="activeWizardDoc.document_number" class="font-mono text-slate-500 text-[11px]">
+                                    (No: {{ activeWizardDoc.document_number }})
+                                </span>
+                            </div>
+
+                            <!-- Current Status Badge -->
+                            <div>
+                                <span
+                                    class="px-2.5 py-0.5 rounded-lg text-[11px] font-bold uppercase tracking-wider inline-flex items-center gap-1"
+                                    :class="[
+                                        activeWizardDoc.validation_status === 'valid'
+                                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                            : activeWizardDoc.validation_status === 'invalid'
+                                            ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                                            : 'bg-amber-100 text-amber-800 border border-amber-200'
+                                    ]"
+                                >
+                                    <svg v-if="activeWizardDoc.validation_status === 'valid'" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    <svg v-else-if="activeWizardDoc.validation_status === 'invalid'" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                    <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span>{{ activeWizardDoc.validation_status === 'valid' ? 'Sah' : (activeWizardDoc.validation_status === 'invalid' ? 'Butuh Revisi' : 'Belum Diverifikasi') }}</span>
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Viewer Canvas -->
+                        <div class="relative bg-slate-900/5 rounded-2xl border border-slate-200/80 p-3 h-[340px] sm:h-[390px] flex items-center justify-center overflow-hidden">
+                            <!-- PDF View -->
+                            <div v-if="activeWizardDoc.is_pdf" class="w-full h-full flex flex-col items-center justify-center p-2">
+                                <iframe
+                                    :src="activeWizardDoc.preview_url"
+                                    class="w-full h-full rounded-xl border border-slate-200 bg-white"
+                                    title="Pratinjau PDF"
+                                ></iframe>
+                            </div>
+
+                            <!-- Image View -->
+                            <div v-else class="relative w-full h-full flex items-center justify-center overflow-auto">
+                                <img
+                                    :src="activeWizardDoc.preview_url"
+                                    :alt="activeWizardDoc.label"
+                                    class="max-w-full max-h-full object-contain rounded-lg shadow-sm transition-transform duration-200"
+                                    :style="{ transform: `scale(${wizardZoom})` }"
+                                />
+
+                                <!-- Floating Toolbar -->
+                                <div class="absolute bottom-3 right-3 bg-slate-900/85 backdrop-blur-md rounded-xl p-1.5 flex items-center gap-1 shadow-md text-white text-xs border border-white/10">
+                                    <button type="button" class="px-2 py-1 hover:bg-white/20 rounded font-bold cursor-pointer" title="Zoom Out" @click="wizardZoomOut">-</button>
+                                    <span class="font-mono text-[10px] px-1 font-semibold">{{ Math.round(wizardZoom * 100) }}%</span>
+                                    <button type="button" class="px-2 py-1 hover:bg-white/20 rounded font-bold cursor-pointer" title="Zoom In" @click="wizardZoomIn">+</button>
+                                    <button type="button" class="px-2 py-1 hover:bg-white/20 rounded text-[11px] cursor-pointer" title="Reset Zoom" @click="resetWizardZoom">1:1</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Optional Revision Note Input (Inline) -->
+                        <div>
+                            <input
+                                v-model="wizardNotes"
+                                type="text"
+                                placeholder="Tuliskan catatan revisi (wajib diisi jika berkas butuh perbaikan manajer, misal: foto buram / NIK terpotong)"
+                                class="input-field text-xs"
+                            />
+                        </div>
+
+                        <!-- Wizard Step Actions -->
+                        <div class="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200">
+                            <div class="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    class="btn-secondary text-xs px-3 py-2 cursor-pointer"
+                                    :disabled="wizardDocIndex === 0"
+                                    @click="selectWizardDoc(wizardDocIndex - 1)"
+                                >
+                                    &larr; Sebelumnya
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn-secondary text-xs px-3 py-2 text-slate-500 cursor-pointer"
+                                    @click="selectWizardDoc(wizardDocIndex + 1)"
+                                >
+                                    Lewati &rarr;
+                                </button>
+                            </div>
+
+                            <div class="flex items-center gap-2.5">
+                                <button
+                                    type="button"
+                                    class="btn-danger text-xs px-4 py-2 font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
+                                    :disabled="isSubmittingDoc"
+                                    @click="submitWizardDocStatus('invalid')"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                    <span>Tolak / Butuh Revisi &rarr;</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    class="btn-pitch text-xs px-5 py-2 font-bold flex items-center gap-1.5 shadow-md bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-700 hover:to-teal-700 cursor-pointer"
+                                    :disabled="isSubmittingDoc"
+                                    @click="submitWizardDocStatus('valid')"
+                                >
+                                    <svg v-if="isSubmittingDoc" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    <span>Sahkan Dokumen Ini &rarr;</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step Content: Final Confirmation / Summary Screen -->
+                    <div v-else class="flex-1 flex flex-col space-y-4 min-h-0 overflow-y-auto py-2">
+                        <!-- Case A: All Documents Valid -->
+                        <div v-if="allDocumentsValid" class="space-y-4">
+                            <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-bold text-emerald-950">Seluruh Berkas Dokumen Telah Sah!</h4>
+                                    <p class="text-xs text-emerald-800 mt-0.5">
+                                        Semua {{ activePlayer.documents.length }} dokumen pemain telah diperiksa dan dinyatakan valid. Usia pemain juga telah lolos verifikasi cut-off usia kompetisi.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Player Summary Card -->
+                            <div class="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row items-center gap-4">
+                                <div class="w-20 h-24 rounded-xl bg-slate-200 overflow-hidden shrink-0 border border-slate-300">
+                                    <img v-if="activePlayer.photo_url" :src="activePlayer.photo_url" :alt="activePlayer.full_name" class="w-full h-full object-cover" />
+                                </div>
+                                <div class="space-y-1 text-center sm:text-left flex-1 min-w-0">
+                                    <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                                        <span class="w-6 h-6 rounded bg-orange-600 text-white font-mono font-bold text-xs flex items-center justify-center">
+                                            #{{ activePlayer.jersey_number }}
+                                        </span>
+                                        <span class="font-bold text-slate-900 text-sm">{{ activePlayer.full_name }}</span>
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-700 uppercase">
+                                            {{ activePlayer.position }}
+                                        </span>
+                                    </div>
+                                    <p class="text-xs text-slate-600">
+                                        Lahir: <strong>{{ activePlayer.birth_date }}</strong> (Usia {{ activePlayer.age }} thn) &bull; NIK: <strong class="font-mono">{{ activePlayer.nik }}</strong>
+                                    </p>
+                                    <div class="pt-2 flex flex-wrap gap-2 text-[11px]">
+                                        <span v-for="doc in activePlayer.documents" :key="doc.id" class="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                                            <svg class="w-3 h-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                            <span>{{ doc.label }}</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Final Actions -->
+                            <div class="pt-3 border-t border-slate-200 flex items-center justify-between gap-3">
+                                <button type="button" class="btn-secondary text-xs cursor-pointer" @click="selectWizardDoc(0)">
+                                    &larr; Periksa Kembali Berkas
+                                </button>
+
+                                <div class="flex items-center gap-2">
+                                    <button type="button" class="btn-secondary text-xs cursor-pointer" @click="closeWizard">Batal</button>
+                                    <button
+                                        type="button"
+                                        class="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-md flex items-center gap-1.5 cursor-pointer"
+                                        :disabled="verifyForm.processing"
+                                        @click="submitFinalApprove"
+                                    >
+                                        <svg v-if="verifyForm.processing" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        <span>Konfirmasi Loloskan Pemain (Sah)</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Case B: There are Invalid Documents -->
+                        <div v-else class="space-y-4">
+                            <div class="p-4 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-bold text-rose-950">Pemeriksaan Selesai: Berkas Butuh Revisi</h4>
+                                    <p class="text-xs text-rose-800 mt-0.5">
+                                        Pemain tidak dapat diloloskan karena terdapat berkas yang dinyatakan tidak valid atau memerlukan perbaikan oleh manajer tim.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- List of Invalid Docs -->
+                            <div class="space-y-2">
+                                <h5 class="text-xs font-bold text-slate-800">Daftar Berkas Bermasalah:</h5>
+                                <div
+                                    v-for="inv in invalidDocuments"
+                                    :key="inv.id"
+                                    class="p-3 rounded-xl border border-rose-200 bg-rose-50/50 text-xs text-rose-900 space-y-0.5"
+                                >
+                                    <div class="font-bold flex items-center gap-1.5">
+                                        <svg class="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                        <span>{{ inv.label }}</span>
+                                    </div>
+                                    <p class="text-[11px] text-rose-700 pl-5">
+                                        Catatan: {{ inv.notes || 'Berkas tidak sesuai regulasi atau foto buram.' }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="pt-3 border-t border-slate-200 flex items-center justify-between gap-3">
+                                <button type="button" class="btn-secondary text-xs cursor-pointer" @click="selectWizardDoc(0)">
+                                    &larr; Periksa Kembali Berkas
+                                </button>
+
+                                <div class="flex items-center gap-2">
+                                    <button type="button" class="btn-secondary text-xs cursor-pointer" @click="closeWizard">Tutup</button>
+                                    <button
+                                        type="button"
+                                        class="btn-danger text-xs px-4 py-2 font-bold flex items-center gap-1.5 cursor-pointer"
+                                        @click="goToRejectFromWizard"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                        <span>Lanjutkan Tolak Pemain untuk Revisi</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Approve Confirmation Modal (When all documents are already valid) -->
+            <div
+                v-if="isApproveConfirmModalOpen && activePlayer"
+                class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+            >
+                <div class="frosted-card bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-900">Konfirmasi Kelolosan Pemain</h3>
+                            <p class="text-xs text-slate-500">Pemain: {{ activePlayer.full_name }} (#{{ activePlayer.jersey_number }})</p>
+                        </div>
+                        <button type="button" class="text-slate-400 hover:text-slate-600 text-lg leading-none cursor-pointer" @click="isApproveConfirmModalOpen = false">&times;</button>
+                    </div>
+
+                    <div class="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 space-y-2">
+                        <div class="font-bold flex items-center gap-2">
+                            <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span>Seluruh Berkas Telah Terverifikasi Sah</span>
+                        </div>
+                        <p class="text-[11px] text-emerald-800 leading-relaxed">
+                            Pemain ini akan dinyatakan <strong>SAH (Lolos Verifikasi)</strong>, data akan dikunci resmi (*locked*), dan kode akreditasi digital pertandingan akan diterbitkan.
+                        </p>
+                    </div>
+
+                    <div class="text-xs space-y-1.5 p-3 rounded-xl bg-slate-50 border border-slate-200">
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">Nomor Punggung / Posisi:</span>
+                            <span class="font-bold text-slate-800">#{{ activePlayer.jersey_number }} / {{ activePlayer.position }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">Tanggal Lahir:</span>
+                            <span class="font-bold text-slate-800">{{ activePlayer.birth_date }} (Usia {{ activePlayer.age }} thn)</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">Status Kelayakan Usia:</span>
+                            <span class="font-bold text-emerald-600">Lolos Regulasi Usia U-12</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">Dokumen Sah:</span>
+                            <span class="font-bold text-slate-800">{{ activePlayer.documents.length }} Dokumen Sah</span>
+                        </div>
+                    </div>
+
+                    <div class="pt-3 border-t border-slate-200 flex items-center justify-end gap-2 text-xs">
+                        <button type="button" class="btn-secondary cursor-pointer" @click="isApproveConfirmModalOpen = false">Batal</button>
+                        <button
+                            type="button"
+                            class="px-4 py-2 rounded-xl text-white font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-sm flex items-center gap-1.5 cursor-pointer"
+                            :disabled="verifyForm.processing"
+                            @click="submitFinalApprove"
+                        >
+                            <svg v-if="verifyForm.processing" class="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span>{{ verifyForm.processing ? 'Menyimpan...' : 'Ya, Loloskan Pemain (Sah)' }}</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
