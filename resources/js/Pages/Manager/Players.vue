@@ -200,9 +200,13 @@ const executeDelete = () => {
     });
 };
 
+const activeExistingDoc = computed(() => {
+    if (!activeDocPlayer.value || !selectedDocType.value) return null;
+    return activeDocPlayer.value.documents?.[selectedDocType.value] || null;
+});
+
 const existingDocPreview = computed(() => {
-    if (!activeDocPlayer.value || !selectedDocType.value) return '';
-    return activeDocPlayer.value.documents?.[selectedDocType.value]?.preview_url || '';
+    return activeExistingDoc.value?.preview_url || '';
 });
 
 const isDocModalReadOnly = computed(() => {
@@ -832,9 +836,81 @@ const isRosterLocked = computed(() => {
                             />
                         </div>
 
-                        <div data-field="file">
+                        <!-- Berkas yang telah diunggah -->
+                        <div
+                            v-if="activeExistingDoc"
+                            class="p-3.5 rounded-xl border bg-orange-50/50 border-orange-200 text-xs space-y-2.5"
+                        >
+                            <div class="flex items-center justify-between gap-3">
+                                <div class="flex items-center gap-2.5 min-w-0">
+                                    <div class="w-9 h-9 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center shrink-0 border border-orange-200">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Berkas Terunggah Saat Ini</span>
+                                        <p class="font-bold text-slate-900 truncate text-xs">{{ activeExistingDoc.original_name || 'Dokumen Terlampir' }}</p>
+                                    </div>
+                                </div>
+
+                                <!-- Button View Berkas -->
+                                <a
+                                    :href="activeExistingDoc.preview_url"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="btn-sm-pitch shrink-0 flex items-center gap-1.5 shadow-2xs"
+                                    title="Buka / Pratinjau berkas di tab baru"
+                                >
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                    <span>Lihat Berkas</span>
+                                </a>
+                            </div>
+
+                            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-600 pt-2 border-t border-orange-200/60">
+                                <span v-if="activeExistingDoc.document_number">
+                                    No. Dokumen: <strong class="text-slate-800 font-mono">{{ activeExistingDoc.document_number }}</strong>
+                                </span>
+                                <span v-if="activeExistingDoc.file_size">
+                                    Ukuran: <span class="font-mono text-slate-700">{{ (activeExistingDoc.file_size / 1024).toFixed(0) }} KB</span>
+                                </span>
+                                <span
+                                    class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ml-auto"
+                                    :class="
+                                        activeExistingDoc.validation_status === 'valid'
+                                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                            : activeExistingDoc.validation_status === 'invalid'
+                                            ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                                            : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                    "
+                                >
+                                    {{ activeExistingDoc.validation_status === 'valid' ? 'Lolos Verifikasi' : activeExistingDoc.validation_status === 'invalid' ? 'Ditolak' : 'Menunggu Verifikasi' }}
+                                </span>
+                            </div>
+
+                            <div v-if="activeExistingDoc.notes" class="text-[11px] text-rose-800 bg-rose-50 p-2 rounded-lg border border-rose-200">
+                                <strong>Catatan Petugas Screening:</strong> {{ activeExistingDoc.notes }}
+                            </div>
+                        </div>
+
+                        <!-- Jika belum ada berkas dan sedang mode readonly / pratinjau -->
+                        <div
+                            v-else-if="isDocModalReadOnly"
+                            class="p-4 rounded-xl border border-slate-200 bg-slate-50 text-center text-xs text-slate-500"
+                        >
+                            <svg class="w-8 h-8 text-slate-300 mx-auto mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <p class="font-bold text-slate-700">Belum Ada Berkas Diunggah</p>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Dokumen ini belum pernah diunggah untuk pemain {{ activeDocPlayer?.full_name }}.</p>
+                        </div>
+
+                        <div v-if="!isDocModalReadOnly" data-field="file">
                             <label class="block text-xs font-bold text-slate-800 mb-1.5">
-                                {{ isDocModalReadOnly ? 'Berkas Dokumen Terlampir' : 'Pilih Berkas Scan / Foto Dokumen (JPG, PNG, atau PDF — Maks. 2 MB)' }}
+                                {{ activeExistingDoc ? 'Ganti Berkas Scan / Foto Baru (Opsional)' : 'Pilih Berkas Scan / Foto Dokumen (JPG, PNG, atau PDF — Maks. 2 MB)' }}
                             </label>
                             <FileInput
                                 v-model="docForm.file"

@@ -157,7 +157,21 @@ const clearFile = (e) => {
             <div v-if="displayFileName" class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-orange-50/70 border border-orange-200 text-xs text-orange-950 font-medium min-w-0">
                 <span class="truncate max-w-[180px]">{{ displayFileName }}</span>
                 <span v-if="displayFileSize" class="text-[10px] text-slate-500 font-mono">({{ displayFileSize }})</span>
+                <a
+                    v-if="localPreview"
+                    :href="localPreview"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-orange-600 hover:text-orange-800 ml-1 p-0.5 rounded transition-colors inline-flex items-center"
+                    title="Lihat berkas"
+                >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                </a>
                 <button
+                    v-if="!disabled"
                     type="button"
                     class="text-slate-400 hover:text-rose-600 ml-1 p-0.5 rounded transition-colors"
                     title="Hapus berkas"
@@ -225,7 +239,22 @@ const clearFile = (e) => {
 
                 <!-- Action Button in Pill -->
                 <div class="flex items-center gap-1.5 shrink-0" @click.stop>
+                    <a
+                        v-if="localPreview"
+                        :href="localPreview"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="btn-sm-pitch text-xs flex items-center gap-1.5 shadow-2xs"
+                        title="Buka / Pratinjau berkas di tab baru"
+                    >
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        <span>Lihat Berkas</span>
+                    </a>
                     <button
+                        v-if="!disabled"
                         type="button"
                         class="btn-sm-secondary text-xs"
                         @click="openPicker"
@@ -233,6 +262,7 @@ const clearFile = (e) => {
                         Ganti
                     </button>
                     <button
+                        v-if="!disabled"
                         type="button"
                         class="btn-sm-danger p-1.5"
                         title="Hapus berkas"
