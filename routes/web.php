@@ -9,11 +9,13 @@ use App\Http\Controllers\Admin\RolePermissionController as AdminRolePermissionCo
 use App\Http\Controllers\Admin\ScreeningController as AdminScreeningController;
 use App\Http\Controllers\Admin\SystemSettingController as AdminSystemSettingController;
 use App\Http\Controllers\Auth\SessionController;
+use App\Http\Controllers\Manager\AccreditationController as ManagerAccreditationController;
 use App\Http\Controllers\Manager\DashboardController as ManagerDashboardController;
 use App\Http\Controllers\Manager\OfficialController as ManagerOfficialController;
 use App\Http\Controllers\Manager\PaymentController as ManagerPaymentController;
 use App\Http\Controllers\Manager\PlayerController as ManagerPlayerController;
 use App\Http\Controllers\PrivateMediaController;
+use App\Http\Controllers\Public\PlayerVerificationController;
 use App\Http\Controllers\PublicEventController;
 use Illuminate\Support\Facades\Route;
 
@@ -24,6 +26,8 @@ Route::get('/events/{event:slug}/register', [PublicEventController::class, 'show
 Route::post('/events/{event:slug}/register', [PublicEventController::class, 'register'])
     ->middleware('throttle:team-registration')
     ->name('events.register.store');
+Route::get('/verify/player/{code}', [PlayerVerificationController::class, 'verify'])->name('public.player.verify');
+Route::get('/verify/player/{code}/photo', [PlayerVerificationController::class, 'photo'])->name('public.player.verify.photo');
 
 // Autentikasi Manajer Tim
 Route::middleware('guest')->group(function () {
@@ -74,6 +78,12 @@ Route::middleware(['auth', 'manager.portal'])->prefix('manager')->name('manager.
     Route::post('/teams/{team}/officials', [ManagerOfficialController::class, 'store'])->name('officials.store');
     Route::post('/teams/{team}/officials/{official}/update', [ManagerOfficialController::class, 'update'])->name('officials.update');
     Route::delete('/teams/{team}/officials/{official}', [ManagerOfficialController::class, 'destroy'])->name('officials.destroy');
+
+    // Akreditasi Skuad Resmi & Penguncian Roster Final
+    Route::get('/accreditation', [ManagerAccreditationController::class, 'index'])->name('accreditation.index');
+    Route::post('/teams/{team}/lock-roster', [ManagerAccreditationController::class, 'lockRoster'])->name('teams.lock-roster');
+    Route::get('/teams/{team}/accreditation/roster-sheet', [ManagerAccreditationController::class, 'downloadRosterSheet'])->name('accreditation.roster-sheet');
+    Route::get('/teams/{team}/accreditation/id-cards', [ManagerAccreditationController::class, 'downloadIdCards'])->name('accreditation.id-cards');
 });
 
 // Area Operasional Admin & Finance
@@ -95,6 +105,14 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
     Route::get('/teams', [AdminTeamManagementController::class, 'index'])
         ->middleware('permission:teams.view_all')
         ->name('teams.index');
+
+    Route::get('/teams/{team}/accreditation/roster-sheet', [ManagerAccreditationController::class, 'downloadRosterSheet'])
+        ->middleware('permission:teams.view_all')
+        ->name('teams.accreditation.roster-sheet');
+
+    Route::get('/teams/{team}/accreditation/id-cards', [ManagerAccreditationController::class, 'downloadIdCards'])
+        ->middleware('permission:teams.view_all')
+        ->name('teams.accreditation.id-cards');
 
     // Area Operasional Screening Berkas Pemain
     Route::middleware('permission:screening.view_queue')->group(function () {

@@ -74,6 +74,11 @@ class Player extends Model
         return $this->belongsTo(User::class, 'verified_by');
     }
 
+    public function verifiedBy(): BelongsTo
+    {
+        return $this->verifier();
+    }
+
     public function screeningLogs(): HasMany
     {
         return $this->hasMany(ScreeningLog::class);

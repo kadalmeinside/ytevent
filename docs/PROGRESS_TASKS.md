@@ -117,19 +117,26 @@ Legenda Status:
   - Best-practice rules untuk disable state tombol screening beserta tooltip informatif.
 
 ### 2.3 Validasi Skuad Final & Akreditasi Resmi (`/manager/accreditation`)
-- [ ] **2.3.1** Validasi Kelayakan Roster Final (`AccreditationController.php`):
+- [x] **2.3.1** Validasi Kelayakan Roster Final (`AccreditationService.php` & `AccreditationController.php`):
   - Pengecekan syarat kuota minimal pemain per event (contoh: min. 14 pemain lolos).
   - Pengecekan syarat minimal 2 Penjaga Gawang (`GK`) sah.
   - Pengecekan seluruh ofisial terdaftar.
-- [ ] **2.3.2** Aksi Kunci Skuad Permanen (*Lock Roster*):
-  - Tombol **Kunci Skuad Final** di portal manajer untuk mengakhiri masa pengisian berkas sebelum *Technical Meeting* (mengubah status tim menjadi `locked_roster`).
-- [ ] **2.3.3** Generator PDF Resmi - Album Pemain (*Team Roster Sheet*):
-  - Desain PDF landscape/portrait resmi turnamen berlogo Persija Development.
-  - Memuat kisi foto seluruh pemain & ofisial sah, nomor punggung, posisi, NIK, tanggal lahir, dan Kode QR verifikasi untuk pemeriksaan wasit di lapangan.
-- [ ] **2.3.4** Generator PDF Resmi - Kartu Akreditasi (*ID Card*):
-  - Desain kartu akreditasi lanyard turnamen siap cetak untuk seluruh pemain dan ofisial.
-- [ ] **2.3.5** Halaman Publik Pemindaian QR Code (`/verify/player/{code}`):
-  - Halaman publik ringan untuk verifikasi keabsahan pemain digital saat wasit/pengawas pertandingan memindai QR Code di lapangan.
+  - Validasi penolakan penguncian skuad jika masih ada pemain dalam antrean pemeriksaan (`submitted`).
+- [x] **2.3.2** Aksi Kunci Skuad Permanen (*Lock Roster*):
+  - Tombol **Kunci Skuad Final** di portal manajer dengan modal konfirmasi dan aturan disable state best practice.
+  - Mengubah status tim menjadi `locked_roster`, mengisi timestamp `roster_locked_at`, dan menyinkronkan status screening menjadi `all_passed`.
+  - Mengunci akses modifikasi data pemain dan ofisial secara permanen (`Team::canManageRoster()` -> `false`).
+- [x] **2.3.3** Generator PDF Resmi - Album Pemain (*Team Roster Sheet*):
+  - Template PDF landscape resmi turnamen berlogo Persija Development (`resources/views/pdf/team_roster_sheet.blade.php`).
+  - Kisi foto seluruh pemain sah, nomor punggung, posisi, tanggal lahir, NIK, NISN, QR code verifikasi per pemain, dan tanda tangan pengesahan wasit/match commissioner.
+  - Embed gambar lokal/base64 yang cepat, aman, dan tanpa ketergantungan jaringan eksternal.
+- [x] **2.3.4** Generator PDF Resmi - Kartu Akreditasi (*ID Card*):
+  - Template PDF portrait lanyard turnamen siap cetak (`resources/views/pdf/id_cards.blade.php`) dengan layout 4 kartu per halaman A4 dan garis potong putus-putus.
+  - Memuat logo turnamen, pas foto, nomor punggung menonjol, nama, tim, posisi/jabatan, dan QR code keabsahan digital.
+- [x] **2.3.5** Halaman Publik Pemindaian QR Code (`/verify/player/{code}`):
+  - Halaman publik responsif ringan (`Public/PlayerVerification.vue`) untuk verifikasi keabsahan pemain digital saat wasit/pengawas pertandingan memindai QR Code di lapangan.
+  - Menampilkan badge keabsahan resmi, foto pemain, detail tim, event, umur, NIK tersensor sebagian, serta informasi verifikator panitia.
+  - Tampilan informatif khusus untuk kode QR yang tidak valid atau pemain yang belum disahkan.
 
 ### 2.4 Antrean Notifikasi Email (*Email Queue*) & Audit Logs
 - [ ] **2.4.1** Implementasi Mailable Latar Belakang (`ShouldQueue`):
@@ -148,8 +155,17 @@ Legenda Status:
   - Pengujian pembukaan kunci darurat (*Unlock Player*) beserta pencatatan riwayat di `screening_logs`.
   - Pengujian perbaikan dan unggah ulang berkas oleh manajer untuk pemain yang ditolak (*selective re-submission*).
   - Pengujian proteksi integritas data pemain berstatus `passed` / terkunci dari modifikasi manajer.
-  - Total test suite bertambah menjadi **38 Feature & Unit Tests** dengan **217 assertions** lulus 100% `PASS`.
-- [ ] **2.5.2** Penulisan Feature Tests Akreditasi & Roster Lock (`AccreditationTest.php` — Dijadwalkan pada Milestone 2.3):
-  - Pengujian validasi kunci skuad (penolakan jika kurang dari 2 GK atau kuota minimal).
-  - Pengujian akses cetak akreditasi PDF dan verifikasi Kode QR publik.
+- [x] **2.5.2** Penulisan Feature Tests Akreditasi & Roster Lock (`AccreditationTest.php`):
+  - Pengujian checklist kelayakan roster pada halaman akreditasi manajer.
+  - Pengujian penolakan kunci skuad jika kuota minimal pemain belum tercapai.
+  - Pengujian penolakan kunci skuad jika syarat minimal 2 GK sah belum terpenuhi.
+  - Pengujian penolakan kunci skuad jika belum ada ofisial terdaftar.
+  - Pengujian penolakan kunci skuad jika masih ada pemain dalam antrean pemeriksaan.
+  - Pengujian keberhasilan kunci skuad, transisi `locked_roster`, dan pencatatan `roster_locked_at`.
+  - Pengujian pemblokiran mutasi pemain setelah skuad terkunci permanen.
+  - Pengujian unduh dokumen PDF Roster Sheet dan ID Cards untuk tim yang terkunci.
+  - Pengujian hak akses unduh PDF oleh Superadmin tanpa batasan status terkunci.
+  - Pengujian endpoint publik pemindaian QR Code `/verify/player/{code}` dan streaming foto.
+  - Pengujian tampilan tidak valid untuk kode acak atau pemain non-passed.
+  - Total test suite bertambah menjadi **50 Feature & Unit Tests** dengan **312 assertions** lulus 100% `PASS`.
 - [x] **2.5.3** Build produksi frontend (`npm run build`) & verifikasi zero regression (Vite build sukses tanpa error).

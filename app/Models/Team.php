@@ -30,6 +30,7 @@ class Team extends Model
         'head_coach_license',
         'terms_accepted_at',
         'status',
+        'roster_locked_at',
         'slot_reserved_at',
         'slot_expires_at',
         'screening_status',
@@ -40,6 +41,7 @@ class Team extends Model
     {
         return [
             'terms_accepted_at' => 'datetime',
+            'roster_locked_at' => 'datetime',
             'slot_reserved_at' => 'datetime',
             'slot_expires_at' => 'datetime',
         ];
@@ -95,6 +97,11 @@ class Team extends Model
                         });
                 });
         });
+    }
+
+    public function isRosterLocked(): bool
+    {
+        return $this->status === 'locked_roster';
     }
 
     public function canManageRoster(): bool

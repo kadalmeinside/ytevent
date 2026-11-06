@@ -137,19 +137,30 @@ Fase 2 berfokus pada **operasional pemeriksaan keabsahan data (*screening*)**, v
   - Viewer modal terpadu untuk berkas scan gambar (JPG/PNG) dengan kontrol zoom & putar 90°, serta berkas dokumen PDF dengan embedded iframe.
   - Diintegrasikan di Portal Admin Screening dan Portal Manajer Tim.
 
-### Milestone 2.3: Validasi Skuad Final & Akreditasi Resmi (PDF & QR Code)
-- [ ] **2.3.1 Backend - Validasi Roster Final & Penguncian Tim**:
-  - Buat `app/Http/Controllers/Manager/AccreditationController.php`.
+### Milestone 2.3: Validasi Skuad Final & Akreditasi Resmi (PDF & QR Code) [SELESAI]
+- [x] **2.3.1 Backend - Validasi Roster Final & Penguncian Tim**:
+  - Dibuat `app/Services/AccreditationService.php` dan `app/Http/Controllers/Manager/AccreditationController.php`.
   - Pemeriksaan syarat sebelum penguncian skuad:
     - Minimal jumlah pemain lolos (`passed >= event.min_players_per_team`).
     - Minimal 2 pemain lolos berposisi Penjaga Gawang (`GK`).
     - Seluruh ofisial terdaftar lengkap.
-  - Endpoint `POST /manager/teams/{team}/lock-roster` mengunci tim secara permanen (`roster_locked_at = now()`).
-- [ ] **2.3.2 Backend - Engine Generator PDF (DomPDF / Snappy)**:
-  - Template PDF **Team Roster Sheet**: Lembar album pengesahan wasit (Logo tim, nama manajer & pelatih, daftar foto pemain lolos, nomor punggung, tanggal lahir, NIK, dan QR Code).
-  - Template PDF **ID Card**: Kartu akreditasi turnamen standar lanyard (Foto, Nama, Tim, Peran, Nomor Punggung, dan QR Code verifikasi).
-- [ ] **2.3.3 Halaman Publik Verifikasi QR Code (`/verify/player/{code}`)**:
-  - Halaman publik ringan yang dapat dibuka oleh wasit/pengawas pertandingan di pinggir lapangan saat memindai QR Code di ID Card / Roster Sheet untuk memastikan data pemain benar-benar terdaftar di database resmi Persija Development.
+    - Penolakan jika masih ada pemain dalam antrean pemeriksaan panitia.
+  - Endpoint `POST /manager/teams/{team}/lock-roster` mengunci tim secara permanen (`status = 'locked_roster'`, `roster_locked_at = now()`, `screening_status = 'all_passed'`).
+  - Mengunci akses modifikasi data pemain dan ofisial (`canManageRoster()` -> `false`).
+- [x] **2.3.2 Backend - Engine Generator PDF (DomPDF & QR Code)**:
+  - Instalasi paket `barryvdh/laravel-dompdf` dan `simplesoftwareio/simple-qrcode`.
+  - Template PDF **Team Roster Sheet** (`resources/views/pdf/team_roster_sheet.blade.php`): Lembar album pengesahan wasit berlogo Persija Development, kisi foto pemain & ofisial sah, NIK, tanggal lahir, dan QR Code verifikasi.
+  - Template PDF **ID Card** (`resources/views/pdf/id_cards.blade.php`): Kartu akreditasi turnamen standar lanyard (layout 4 kartu per lembar A4 dengan garis potong putus-putus).
+  - Mekanisme render offline-resilient dengan embedding foto dan QR code sebagai base64 Data URI.
+- [x] **2.3.3 Halaman Publik Verifikasi QR Code (`/verify/player/{code}`)**:
+  - Endpoint `GET /verify/player/{code}` (`public.player.verify`) dan `GET /verify/player/{code}/photo` (`public.player.verify.photo`).
+  - Halaman publik responsif ringan `resources/js/Pages/Public/PlayerVerification.vue` yang menampilkan keabsahan digital resmi pemain saat wasit/pengawas pertandingan memindai QR Code di lapangan.
+  - Sensor privasi NIK parsial (`3175**********12`) dan kartu peringatan khusus untuk kode tidak valid.
+- [x] **2.3.4 Frontend Portal Manajer (`Manager/Accreditation/Index.vue`)**:
+  - Dashboard checklist kelayakan skuad (Pemain Sah, Kiper Sah, Ofisial, Antrean Screening).
+  - Tombol aksi **Kunci Skuad Final** dengan modal dialog konfirmasi dan aturan disable state.
+  - Tombol unduh resmi **Unduh Album Roster (PDF)** dan **Unduh ID Cards Lanyard (PDF)**.
+  - Modal pratinjau QR Code verifikasi digital per pemain.
 
 ### Milestone 2.4: Antrean Notifikasi Email & Audit Logs
 - [ ] **2.4.1 Mailable Transaksional Latar Belakang (`ShouldQueue`)**:
@@ -163,14 +174,14 @@ Fase 2 berfokus pada **operasional pemeriksaan keabsahan data (*screening*)**, v
 
 ## 5. Rencana Pengujian Otomatis (Testing Strategy)
 
-Target: Memperluas cakupan test suite dari 31 tests menjadi **minimal 40+ tests** mencakup:
-1. `ScreeningQueueTest`: Petugas screening dan superadmin dapat mengakses `/admin/screening`, manajer tim ditolak (`403 Forbidden`).
-2. `PlayerVerificationTest`: Verifikasi lolos mengubah status ke `passed`, mengunci `is_locked`, dan menghasilkan `screening_code`.
-3. `PlayerRejectionTest`: Verifikasi tolak mewajibkan alasan penolakan, mengubah status ke `rejected`, dan membuka kembali hak edit manajer.
-4. `EmergencyUnlockTest`: Superadmin dapat membuka kunci pemain yang salah lolos menggunakan tombol *Unlock*.
-5. `RosterLockValidationTest`: Penguncian skuad tim ditolak jika kuota minimal pemain atau minimal 2 GK belum terpenuhi.
-6. `AccreditationAccessTest`: Akreditasi dan cetak PDF hanya dapat diakses untuk tim yang pembayarannya lunas dan skuadnya sah.
-7. `QrVerificationTest`: Endpoint verifikasi publik mengembalikan data pemain yang sah sesuai kode acak.
+Target: Memperluas cakupan test suite dari 31 tests menjadi **50 tests dengan 312 assertions (100% PASS)**:
+1. [x] `ScreeningQueueTest`: Petugas screening dan superadmin dapat mengakses `/admin/screening`, manajer tim ditolak (`403 Forbidden` / redirect).
+2. [x] `PlayerVerificationTest`: Verifikasi lolos mengubah status ke `passed`, mengunci `is_locked`, dan menghasilkan `screening_code`.
+3. [x] `PlayerRejectionTest`: Verifikasi tolak mewajibkan alasan penolakan, mengubah status ke `rejected`, dan membuka kembali hak edit manajer.
+4. [x] `EmergencyUnlockTest`: Superadmin dapat membuka kunci pemain yang salah lolos menggunakan tombol *Unlock*.
+5. [x] `RosterLockValidationTest`: Penguncian skuad tim ditolak jika kuota minimal pemain, minimal 2 GK, atau ofisial belum terpenuhi.
+6. [x] `AccreditationAccessTest`: Akreditasi dan cetak PDF hanya dapat diakses untuk tim yang pembayarannya lunas dan skuadnya telah dikunci resmi.
+7. [x] `QrVerificationTest`: Endpoint verifikasi publik `/verify/player/{code}` mengembalikan data pemain sah sesuai kode acak.
 
 ---
 

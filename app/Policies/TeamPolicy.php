@@ -38,5 +38,25 @@ class TeamPolicy
             && (int) $team->user_id === (int) $user->id
             && $team->canManageRoster();
     }
+
+    public function lockRoster(User $user, Team $team): bool
+    {
+        if ($user->can('teams.manage_status')) {
+            return true;
+        }
+
+        return $user->can('manager.team.update_own')
+            && (int) $team->user_id === (int) $user->id
+            && $team->status === 'active';
+    }
+
+    public function viewAccreditation(User $user, Team $team): bool
+    {
+        if ($user->can('teams.view_all')) {
+            return true;
+        }
+
+        return $user->can('manager.portal.access') && (int) $team->user_id === (int) $user->id;
+    }
 }
 

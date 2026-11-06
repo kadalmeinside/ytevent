@@ -39,7 +39,7 @@ Sistem ini dibangun dengan filosofi **High-Density Operational Utility** dipaduk
 
 ---
 
-## ⚡ Kemajuan Fase 2 — Screening Pemain & Siklus Revisi (Milestone 2.1 & 2.2 Selesai)
+## ⚡ Kemajuan Fase 2 — Screening Pemain, Siklus Revisi & Akreditasi Resmi (Milestone 2.1, 2.2, 2.3 Selesai)
 
 ### 1. Panel Verifikasi & Screening Dokumen Admin (`/admin/screening`)
 - **Dashboard Antrean Tim (`Admin/Screening/Index.vue`)**: Card list view tim-tim aktif dengan progress bar pemeriksaan berkas (`X / Y Pemain Lolos`), filter event & status, serta indikator antrean di sidebar panitia.
@@ -60,6 +60,13 @@ Sistem ini dibangun dengan filosofi **High-Density Operational Utility** dipaduk
 - **Penghapusan Total Emoticon Emoji**: Seluruh simbol emoji (jam pasir, centang, silang) dihapus total dan distandarkan menggunakan Heroicons SVG.
 - **Best-Practice Decision Rules**: Penegakan aturan tombol (disable state, form processing spinner, dan informative hover tooltips).
 
+### 4. Validasi Skuad Final & Akreditasi Resmi (`/manager/accreditation`)
+- **Portal Akreditasi Manajer (`Manager/Accreditation/Index.vue`)**: Checklist kelayakan skuad (minimal kuota pemain, minimal 2 GK lolos, ofisial terdaftar, bebas antrean pending).
+- **Aksi Penguncian Skuad Final (*Lock Roster*)**: Dialog konfirmasi penguncian permanen (`status = 'locked_roster'`), mengisi `roster_locked_at`, dan menutup akses edit skuad.
+- **Generator PDF Team Roster Sheet**: Lembar album pengesahan wasit landscape A4 memuat logo tim, identitas ofisial, kisi foto pemain, nomor punggung, TTL, NIK, dan Kode QR verifikasi digital.
+- **Generator PDF ID Cards**: Kartu lanyard turnamen portrait A4 (layout 4 kartu per halaman siap cetak dengan garis potong putus-putus).
+- **Pemindaian QR Code Publik Lapangan (`/verify/player/{code}`)**: Halaman publik verifikasi instan untuk wasit/match commissioner di pinggir lapangan dengan sensor NIK parsial dan streaming foto pemain.
+
 ---
 
 ## 🛠️ Tech Stack & Konvensi Arsitektur
@@ -71,7 +78,8 @@ Sistem ini dibangun dengan filosofi **High-Density Operational Utility** dipaduk
 - **Database:** MySQL 8.0+ (Strict Mode, InnoDB, Foreign Key Constraints & Composite Indexes)
 - **Authorization:** `spatie/laravel-permission` + Laravel Policies
 - **Form Handling:** Inertia `useForm()` + Composable `useFormValidator.js` (Form selalu `<form novalidate>`)
-- **Testing:** PHPUnit (38 Test Cases, 217 Assertions — 100% PASS)
+- **PDF & QR Code:** `barryvdh/laravel-dompdf` & `simplesoftwareio/simple-qrcode`
+- **Testing:** PHPUnit (50 Test Cases, 312 Assertions — 100% PASS)
 
 ---
 
