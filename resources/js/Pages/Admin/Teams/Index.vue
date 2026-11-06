@@ -47,6 +47,7 @@ const triggerResync = () => {
 const filterState = reactive({
     event_id: props.filters.event_id || '',
     status: props.filters.status || '',
+    screening_status: props.filters.screening_status || '',
     search: props.filters.search || '',
 });
 
@@ -75,6 +76,7 @@ const applyFilters = () => {
         {
             event_id: filterState.event_id || undefined,
             status: filterState.status || undefined,
+            screening_status: filterState.screening_status || undefined,
             search: filterState.search || undefined,
         },
         { preserveState: true, preserveScroll: true }
@@ -84,6 +86,7 @@ const applyFilters = () => {
 const resetFilters = () => {
     filterState.event_id = '';
     filterState.status = '';
+    filterState.screening_status = '';
     filterState.search = '';
     router.get(route('admin.teams.index'), {}, { preserveState: true, preserveScroll: true });
 };
@@ -96,7 +99,7 @@ const resetFilters = () => {
         <div class="space-y-5">
             <!-- Filter Bar -->
             <form @submit.prevent="applyFilters" novalidate class="frosted-card p-4 sm:p-5">
-                <div class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 text-xs">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 text-xs">
                     <div>
                         <label class="block font-semibold text-slate-700 mb-1.5">Pilih Kompetisi</label>
                         <select v-model="filterState.event_id" class="input-field" @change="applyFilters">
@@ -108,14 +111,25 @@ const resetFilters = () => {
                     </div>
 
                     <div>
-                        <label class="block font-semibold text-slate-700 mb-1.5">Status Tim</label>
+                        <label class="block font-semibold text-slate-700 mb-1.5">Status Pendaftaran</label>
                         <select v-model="filterState.status" class="input-field" @change="applyFilters">
                             <option value="">Semua Status</option>
                             <option value="pending_payment">Menunggu Bayar (Slot Ditahan)</option>
                             <option value="active">Aktif / Lunas</option>
-                            <option value="locked_roster">Roster Dikunci</option>
+                            <option value="locked_roster">Roster Dikunci (Terakreditasi)</option>
                             <option value="expired">Kedaluwarsa (Slot Dilepas)</option>
                             <option value="disqualified">Didiskualifikasi</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1.5">Status Screening Skuad</label>
+                        <select v-model="filterState.screening_status" class="input-field" @change="applyFilters">
+                            <option value="">Semua Screening</option>
+                            <option value="all_passed">Semua Pemain Sah (All Passed)</option>
+                            <option value="in_review">Dalam Pemeriksaan (In Review)</option>
+                            <option value="has_rejection">Ada Penolakan / Revisi</option>
+                            <option value="not_started">Belum Mengajukan</option>
                         </select>
                     </div>
 
@@ -194,7 +208,11 @@ const resetFilters = () => {
                                     {{ t.name.charAt(0) }}
                                 </div>
                                 <div>
-                                    <h4 class="text-sm sm:text-base font-bold text-slate-900 leading-tight">{{ t.name }}</h4>
+                                    <h4 class="text-sm sm:text-base font-bold text-slate-900 leading-tight">
+                                        <Link :href="route('admin.teams.show', { team: t.id })" class="hover:text-orange-600 transition-colors">
+                                            {{ t.name }}
+                                        </Link>
+                                    </h4>
                                     <p class="text-xs text-slate-500 font-medium">{{ t.origin_association }}</p>
                                 </div>
                             </div>
@@ -206,19 +224,55 @@ const resetFilters = () => {
                                 >
                                     Lewat Batas Bayar
                                 </span>
+                                <span
+                                    v-if="t.status === 'active' && t.screening_status === 'all_passed'"
+                                    class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wider"
+                                >
+                                    Siap Kunci Skuad
+                                </span>
                                 <StatusBadge :status="t.status" />
                             </div>
                         </div>
 
                         <!-- Card Body Grid -->
                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 text-xs items-center">
-                            <!-- Event (Col 1-4) -->
-                            <div class="lg:col-span-4 space-y-1">
-                                <span class="text-[10px] uppercase font-bold text-slate-400 block">Kompetisi Terdaftar</span>
-                                <p class="font-bold text-slate-900 text-xs sm:text-sm truncate">{{ t.event?.name }}</p>
-                                <span class="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                                    {{ t.event?.age_category }}
-                                </span>
+                            <!-- Event & Squad Progress (Col 1-4) -->
+                            <div class="lg:col-span-4 space-y-2">
+                                <div>
+                                    <span class="text-[10px] uppercase font-bold text-slate-400 block">Kompetisi Terdaftar</span>
+                                    <p class="font-bold text-slate-900 text-xs sm:text-sm truncate">{{ t.event?.name }}</p>
+                                    <span class="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                        {{ t.event?.age_category }}
+                                    </span>
+                                </div>
+
+                                <!-- Squad & Screening Breakdown Pills -->
+                                <div class="pt-1.5 border-t border-slate-100 flex flex-wrap items-center gap-1.5">
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800 border border-slate-200 tabular-data">
+                                        {{ t.players_count }}/{{ t.event?.min_players_per_team || 11 }} Pemain
+                                    </span>
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 tabular-data">
+                                        {{ t.officials_count || 0 }} Ofisial
+                                    </span>
+                                    <span
+                                        v-if="t.players_passed_count > 0"
+                                        class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 tabular-data"
+                                    >
+                                        {{ t.players_passed_count }} Sah
+                                    </span>
+                                    <span
+                                        v-if="t.players_submitted_count > 0"
+                                        class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200 tabular-data"
+                                    >
+                                        {{ t.players_submitted_count }} Antrean
+                                    </span>
+                                    <span
+                                        v-if="t.players_rejected_count > 0"
+                                        class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200 tabular-data"
+                                    >
+                                        {{ t.players_rejected_count }} Revisi
+                                    </span>
+                                </div>
                             </div>
 
                             <!-- Manager & Contacts (Col 5-7) -->
@@ -304,22 +358,32 @@ const resetFilters = () => {
                                 </div>
                             </div>
 
-                            <!-- Players count & Actions (Col 11-12) -->
-                            <div class="lg:col-span-2 flex flex-col sm:items-end justify-center gap-2">
-                                <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold">
-                                    {{ t.players_count }} Pemain
-                                </span>
+                            <!-- Actions (Col 11-12) -->
+                            <div class="lg:col-span-2 flex flex-col sm:items-end justify-center gap-1.5">
+                                <Link
+                                    :href="route('admin.teams.show', { team: t.id })"
+                                    class="btn-sm-pitch w-full sm:w-auto justify-center text-center inline-flex items-center gap-1"
+                                >
+                                    <span>Detail Tim &amp; Skuad</span>
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                    </svg>
+                                </Link>
+
+                                <Link
+                                    v-if="t.players_count > 0 && t.event?.id"
+                                    :href="route('admin.screening.team', { event: t.event.id, team: t.id })"
+                                    class="btn-sm-secondary w-full sm:w-auto justify-center text-center"
+                                >
+                                    Screening ({{ t.players_submitted_count > 0 ? `${t.players_submitted_count} Antrean` : `${t.players_passed_count}/${t.players_count}` }})
+                                </Link>
 
                                 <button
                                     v-if="t.latest_payment?.proof_url"
                                     type="button"
-                                    class="btn-sm-pitch w-full sm:w-auto justify-center"
+                                    class="btn-sm-secondary w-full sm:w-auto justify-center"
                                     @click="openProofModal(t.latest_payment)"
                                 >
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                    </svg>
                                     <span>Bukti Bayar</span>
                                 </button>
                                 <button

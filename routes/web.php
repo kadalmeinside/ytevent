@@ -107,6 +107,10 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
         ->middleware('permission:teams.view_all')
         ->name('teams.index');
 
+    Route::get('/teams/{team}', [AdminTeamManagementController::class, 'show'])
+        ->middleware('permission:teams.view_all')
+        ->name('teams.show');
+
     Route::get('/teams/{team}/accreditation/roster-sheet', [ManagerAccreditationController::class, 'downloadRosterSheet'])
         ->middleware('permission:teams.view_all')
         ->name('teams.accreditation.roster-sheet');

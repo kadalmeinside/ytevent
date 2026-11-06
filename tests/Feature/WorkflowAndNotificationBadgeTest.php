@@ -281,4 +281,36 @@ class WorkflowAndNotificationBadgeTest extends TestCase
             'validation_status' => 'valid',
         ]);
     }
+
+    public function test_admin_can_view_full_team_dossier_page_with_players_officials_and_workflow(): void
+    {
+        $env = $this->createEnvironment(3);
+        $team = $env['team'];
+        $team->update(['status' => 'active', 'screening_status' => 'in_review']);
+
+        $this->seedPlayer($team, 1, 'GK', 'passed');
+        $this->seedPlayer($team, 10, 'FW', 'submitted');
+
+        TeamOfficial::create([
+            'team_id' => $team->id,
+            'event_id' => $team->event_id,
+            'full_name' => 'Coach Thomas Doll',
+            'role' => 'Head Coach',
+            'license_number' => 'UEFA-PRO-01',
+            'phone' => '081299990000',
+        ]);
+
+        $this->actingAs($env['superadmin'])
+            ->get(route('admin.teams.show', ['team' => $team->id]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Admin/Teams/Show')
+                ->where('team.id', $team->id)
+                ->where('team.workflow.counts.players_total', 2)
+                ->where('team.workflow.counts.players_passed', 1)
+                ->where('team.workflow.counts.players_submitted', 1)
+                ->has('players', 2)
+                ->has('officials', 1)
+            );
+    }
 }

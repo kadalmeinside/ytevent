@@ -20,8 +20,21 @@ const props = defineProps({
     },
 });
 
-// Active Player State
-const activePlayerIndex = ref(0);
+// Active Player State (supports ?player_id= query parameter or defaults to first submitted player)
+const resolveInitialPlayerIndex = () => {
+    if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const requestedId = Number(params.get('player_id'));
+        if (requestedId) {
+            const idx = props.players.findIndex((p) => Number(p.id) === requestedId);
+            if (idx !== -1) return idx;
+        }
+    }
+    const firstSubmittedIdx = props.players.findIndex((p) => p.screening_status === 'submitted');
+    return firstSubmittedIdx !== -1 ? firstSubmittedIdx : 0;
+};
+
+const activePlayerIndex = ref(resolveInitialPlayerIndex());
 const activePlayer = computed(() => props.players[activePlayerIndex.value] || null);
 
 // Active Document State

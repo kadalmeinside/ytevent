@@ -235,6 +235,9 @@ Legenda Status:
   - Menambahkan strip 4 indikator syarat skuad real-time di halaman pemain (Kuota Min. Pemain, Min. 2 GK, Status Pengajuan, dan Lolos Screening).
 - [x] **3.3.3** **Banner Penyelesaian Screening Tim pada Workspace Admin (`Admin/Screening/TeamReview.vue` & `Admin/Dashboard.vue`)**:
   - Menampilkan banner status penyelesaian screening tim ketika seluruh pemain dalam tim telah disahkan (`all_passed`) beserta tombol unduh PDF Roster & ID Card bagi panitia.
+- [x] **3.3.4** **Halaman Dossier 360° Detail Tim untuk Panitia (`Admin/Teams/Show.vue` & `TeamManagementController::show`)**:
+  - Menambahkan halaman khusus `/admin/teams/{team}` (`admin.teams.show`) yang menampilkan profil 360° tim bagi Admin: Stepper 5 Tahap Kesiapan Tim, Tab Daftar Pemain & Berkas (dengan filter status, pencarian, dan pratinjau langsung dokumen/pas foto via `DocumentViewerModal`), Tab Pelatih & Ofisial (beserta pratinjau berkas lisensi), serta Tab Profil Klub & Riwayat Tagihan.
+  - Memperkaya kartu tim pada `Admin/Teams/Index.vue` dengan filter `screening_status`, rincian jumlah pemain (`Sah`, `Antrean`, `Revisi`, `Ofisial`), serta tombol aksi langsung **Detail Tim & Skuad** dan **Screening**.
 
 ### 3.4 Automated Testing & Verifikasi Fase 3
 - [x] **3.4.1** Penulisan Feature Tests Fase 3 (`WorkflowAndNotificationBadgeTest.php`):

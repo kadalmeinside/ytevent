@@ -160,3 +160,4 @@ Dibagikan melalui `ResolvesActiveTeam::formatTeamForManager()` sehingga selalu t
   - Transisi otomatis `team.workflow` dari tahap 1 (belum bayar) $\rightarrow$ tahap 2 (kurang pemain/GK/ofisial/draft) $\rightarrow$ tahap 3 (sedang screening) $\rightarrow$ tahap 4 (`is_ready_to_lock = true` + peringatan akreditasi) $\rightarrow$ tahap 5 (`locked_roster`).
   - Akses halaman `Manager/Players` saat `locked_roster` tetap merender daftar pemain secara utuh.
 - [x] **3.4.2** Eksekusi seluruh test suite (`php artisan test`) dan kompilasi produksi (`npm run build`).
+
