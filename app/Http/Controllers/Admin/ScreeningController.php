@@ -11,6 +11,7 @@ use App\Models\PlayerDocument;
 use App\Models\Team;
 use App\Services\ScreeningService;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -246,7 +247,7 @@ class ScreeningController extends Controller
     /**
      * Memverifikasi satu berkas dokumen pemain.
      */
-    public function verifyDocument(VerifyDocumentRequest $request, PlayerDocument $document): RedirectResponse
+    public function verifyDocument(VerifyDocumentRequest $request, PlayerDocument $document): JsonResponse|RedirectResponse
     {
         $status = $request->input('validation_status');
         $notes = $request->input('notes');
@@ -257,6 +258,18 @@ class ScreeningController extends Controller
             $status,
             $notes
         );
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Status dokumen {$document->label} berhasil diperbarui.",
+                'document' => [
+                    'id' => $document->id,
+                    'validation_status' => $status,
+                    'notes' => $notes,
+                ],
+            ]);
+        }
 
         return redirect()->back()->with('success', "Status dokumen {$document->label} berhasil diperbarui.");
     }

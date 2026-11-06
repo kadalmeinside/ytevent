@@ -195,36 +195,37 @@ const selectWizardDoc = (index) => {
     resetWizardZoom();
 };
 
-const submitWizardDocStatus = (status) => {
+const submitWizardDocStatus = async (status) => {
     if (!activeWizardDoc.value || isSubmittingDoc.value) return;
 
     isSubmittingDoc.value = true;
     const doc = activeWizardDoc.value;
     const notes = status === 'invalid' ? (wizardNotes.value || 'Dokumen memerlukan perbaikan.') : null;
 
-    router.post(
-        route('admin.screening.document.verify', { document: doc.id }),
-        {
+    try {
+        await window.axios.post(route('admin.screening.document.verify', { document: doc.id }), {
             validation_status: status,
             notes: notes,
-        },
-        {
-            preserveScroll: true,
-            preserveState: true,
-            onFinish: () => {
-                isSubmittingDoc.value = false;
-                // Auto advance ke dokumen berikutnya
-                if (wizardDocIndex.value < activePlayer.value.documents.length - 1) {
-                    wizardDocIndex.value++;
-                    wizardNotes.value = activePlayer.value.documents[wizardDocIndex.value]?.notes || '';
-                    resetWizardZoom();
-                } else {
-                    // Berada di dokumen terakhir, alihkan ke langkah review final
-                    wizardDocIndex.value = activePlayer.value.documents.length;
-                }
-            },
+        });
+
+        // Update status dokumen lokal langsung secara reaktif
+        doc.validation_status = status;
+        doc.notes = notes;
+
+        // Auto advance ke dokumen berikutnya TANPA reload halaman dan TANPA menutup modal
+        if (wizardDocIndex.value < activePlayer.value.documents.length - 1) {
+            wizardDocIndex.value++;
+            wizardNotes.value = activePlayer.value.documents[wizardDocIndex.value]?.notes || '';
+            resetWizardZoom();
+        } else {
+            // Berada di dokumen terakhir, alihkan ke langkah review final di dalam modal
+            wizardDocIndex.value = activePlayer.value.documents.length;
         }
-    );
+    } catch (error) {
+        console.error('Gagal memperbarui status dokumen:', error);
+    } finally {
+        isSubmittingDoc.value = false;
+    }
 };
 
 // Tombol Loloskan Pemain (Sah) - Memicu Wizard jika ada dokumen pending, atau Modal Konfirmasi jika sudah sah semua
@@ -315,16 +316,17 @@ const submitUnlock = () => {
 };
 
 // Granular Verify Single Document
-const setDocumentStatus = (doc, status) => {
+const setDocumentStatus = async (doc, status) => {
     if (isPlayerLocked.value || doc.validation_status === status) return;
-    router.post(
-        route('admin.screening.document.verify', { document: doc.id }),
-        {
+    try {
+        await window.axios.post(route('admin.screening.document.verify', { document: doc.id }), {
             validation_status: status,
             notes: doc.notes || null,
-        },
-        { preserveScroll: true }
-    );
+        });
+        doc.validation_status = status;
+    } catch (error) {
+        console.error('Gagal memperbarui status dokumen:', error);
+    }
 };
 </script>
 
