@@ -50,7 +50,7 @@ class EmailLogController extends Controller
                 'mailable_type' => $log->mailable_type,
                 'type_label' => EmailNotificationLog::MAILABLE_LABELS[$log->mailable_type] ?? $log->mailable_type,
                 'recipient_email' => $log->recipient_email,
-                'subject' => $log->subject,
+                'subject' => $log->subject ?: (EmailNotificationLog::MAILABLE_LABELS[$log->mailable_type] ?? $log->mailable_type),
                 'status' => $log->status,
                 'attempts' => $log->attempts,
                 'error_message' => $log->error_message,

@@ -111,6 +111,10 @@ class EmailNotificationService
             // Subjek bersifat informatif saja.
         }
 
+        if (empty($subject)) {
+            $subject = EmailNotificationLog::MAILABLE_LABELS[class_basename($mailable)] ?? class_basename($mailable);
+        }
+
         $log = EmailNotificationLog::create([
             'event_id' => $eventId,
             'team_id' => $teamId,
