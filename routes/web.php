@@ -82,6 +82,8 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
 
     Route::middleware('permission:events.view')->group(function () {
         Route::get('/events', [AdminEventController::class, 'index'])->name('events.index');
+        Route::post('/events/resync-slots', [AdminEventController::class, 'resyncSlots'])->name('events.resync-slots');
+        Route::post('/events/{event}/resync-slots', [AdminEventController::class, 'resyncEventSlots'])->name('events.resync-event-slots');
         Route::get('/events/create', [AdminEventController::class, 'create'])->name('events.create');
         Route::post('/events', [AdminEventController::class, 'store'])->name('events.store');
         Route::get('/events/{event}/edit', [AdminEventController::class, 'edit'])->name('events.edit');

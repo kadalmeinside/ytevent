@@ -303,4 +303,49 @@ class TeamRegistrationAndQuotaTest extends TestCase
             ->where('event.venue_maps_url', 'https://maps.google.com/?q=Persija+Training+Ground')
         );
     }
+
+    public function test_admin_can_resync_all_slots_and_specific_event_slots(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('superadmin');
+
+        $manager = User::factory()->create();
+        $manager->assignRole('team_manager');
+
+        $team = Team::create([
+            'event_id' => $this->event->id,
+            'user_id' => $manager->id,
+            'name' => 'Persikabo Muda',
+            'slug' => 'persikabo-muda',
+            'logo_path' => 'logos/dummy.png',
+            'origin_association' => 'PSSI',
+            'manager_name' => 'Manager A',
+            'manager_email' => 'manager.a@test.id',
+            'manager_whatsapp' => '081234567899',
+            'head_coach_name' => 'Coach Dedi',
+            'terms_accepted_at' => now(),
+            'status' => 'pending_payment',
+            'slot_expires_at' => now()->subMinute(),
+        ]);
+
+        Payment::create([
+            'team_id' => $team->id,
+            'event_id' => $this->event->id,
+            'invoice_number' => 'INV-TEST-RESYNC-01',
+            'amount' => 1000000,
+            'fee_amount' => 0,
+            'total_amount' => 1000000,
+            'status' => 'unpaid',
+            'expires_at' => now()->subMinute(),
+        ]);
+
+        // Resync specific event
+        $resEvent = $this->actingAs($admin)->post(route('admin.events.resync-event-slots', ['event' => $this->event->id]));
+        $resEvent->assertSessionHas('success');
+        $this->assertEquals('expired', $team->fresh()->status);
+
+        // Resync all events
+        $resAll = $this->actingAs($admin)->post(route('admin.events.resync-slots'));
+        $resAll->assertSessionHas('info');
+    }
 }

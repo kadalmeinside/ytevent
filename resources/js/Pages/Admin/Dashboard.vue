@@ -1,6 +1,6 @@
 <script setup>
-import { computed } from 'vue';
-import { Link, Head } from '@inertiajs/vue3';
+import { ref } from 'vue';
+import { Link, Head, router } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import { useFormatters } from '@/Composables/useFormatters';
@@ -17,6 +17,18 @@ const props = defineProps({
 });
 
 const { formatRupiah, formatDate } = useFormatters();
+
+const isSyncing = ref(false);
+
+const triggerResync = () => {
+    isSyncing.value = true;
+    router.post(route('admin.events.resync-slots'), {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            isSyncing.value = false;
+        },
+    });
+};
 </script>
 
 <template>
@@ -89,8 +101,19 @@ const { formatRupiah, formatDate } = useFormatters();
                         </p>
                     </div>
                     <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                        <span class="text-slate-500">Klub Aktif / Lunas:</span>
-                        <strong class="text-slate-900 font-bold tabular-data">{{ metrics.active_teams_total }} tim</strong>
+                        <span class="text-slate-500">Klub Lunas: <strong class="text-slate-900 font-bold tabular-data">{{ metrics.active_teams_total }}</strong></span>
+                        <button
+                            type="button"
+                            class="font-bold text-orange-600 hover:text-orange-700 inline-flex items-center gap-1 transition-colors cursor-pointer"
+                            :disabled="isSyncing"
+                            title="Pindai dan lepas pendaftaran yang telat bayar"
+                            @click="triggerResync"
+                        >
+                            <svg class="w-3 h-3 text-orange-600 shrink-0" :class="{ 'animate-spin': isSyncing }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            <span>{{ isSyncing ? 'Sinkron...' : 'Cek Slot' }}</span>
+                        </button>
                     </div>
                 </div>
 
@@ -133,6 +156,24 @@ const { formatRupiah, formatDate } = useFormatters();
             <div class="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-slate-100/80 rounded-xl border border-slate-200">
                 <span class="text-xs font-bold text-slate-700 uppercase tracking-wide">Pintas Operasional</span>
                 <div class="flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        class="btn-sm-secondary inline-flex items-center gap-1.5 cursor-pointer"
+                        :disabled="isSyncing"
+                        title="Pindai dan lepas seluruh pendaftaran yang telah melewati batas waktu pembayaran"
+                        @click="triggerResync"
+                    >
+                        <svg
+                            class="w-3.5 h-3.5 text-orange-600 shrink-0"
+                            :class="{ 'animate-spin': isSyncing }"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        <span>{{ isSyncing ? 'Menyinkronkan...' : 'Cek & Resync Slot' }}</span>
+                    </button>
                     <Link :href="route('admin.events.create')" class="btn-sm-pitch">
                         + Buat Kompetisi Baru
                     </Link>
@@ -153,11 +194,29 @@ const { formatRupiah, formatDate } = useFormatters();
 
             <!-- Events Quota & Revenue Overview Container (Responsive Card List View) -->
             <div class="space-y-3">
-                <div class="flex items-center justify-between">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div>
                         <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wide">Pemantauan Kuota &amp; Arus Kas per Kompetisi</h2>
                         <p class="text-xs text-slate-500">Kapasitas kuota maksimal terlindungi dari *race condition* dengan penguncian baris database.</p>
                     </div>
+                    <button
+                        type="button"
+                        class="btn-sm-secondary inline-flex items-center gap-1.5 shrink-0 w-fit cursor-pointer"
+                        :disabled="isSyncing"
+                        title="Pindai pendaftaran kedaluwarsa dan perbarui status kuota event"
+                        @click="triggerResync"
+                    >
+                        <svg
+                            class="w-3.5 h-3.5 text-orange-600 shrink-0"
+                            :class="{ 'animate-spin': isSyncing }"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        <span>{{ isSyncing ? 'Memeriksa...' : 'Cek Slot Sekarang' }}</span>
+                    </button>
                 </div>
 
                 <div v-if="eventsOverview.length === 0" class="frosted-card p-12 text-center text-xs text-slate-500">

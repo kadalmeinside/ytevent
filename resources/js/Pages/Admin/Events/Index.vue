@@ -1,5 +1,6 @@
 <script setup>
-import { Link } from '@inertiajs/vue3';
+import { ref } from 'vue';
+import { Link, router } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import { useFormatters } from '@/Composables/useFormatters';
@@ -12,6 +13,29 @@ defineProps({
 });
 
 const { formatRupiah, formatDate } = useFormatters();
+
+const isSyncingAll = ref(false);
+const syncingEventId = ref(null);
+
+const triggerResyncAll = () => {
+    isSyncingAll.value = true;
+    router.post(route('admin.events.resync-slots'), {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            isSyncingAll.value = false;
+        },
+    });
+};
+
+const triggerResyncEvent = (evt) => {
+    syncingEventId.value = evt.id;
+    router.post(route('admin.events.resync-event-slots', { event: evt.id }), {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            syncingEventId.value = null;
+        },
+    });
+};
 </script>
 
 <template>
@@ -22,12 +46,32 @@ const { formatRupiah, formatDate } = useFormatters();
             <!-- Action Bar -->
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <p class="text-xs text-slate-500 font-medium">Total terdaftar {{ events.length }} event kompetisi.</p>
-                <Link :href="route('admin.events.create')" class="btn-pitch">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    <span>Buat Kompetisi Baru</span>
-                </Link>
+                <div class="flex items-center gap-2">
+                    <button
+                        type="button"
+                        class="btn-secondary text-xs inline-flex items-center gap-1.5"
+                        :disabled="isSyncingAll"
+                        title="Pindai seluruh pendaftaran yang telah melewati batas waktu pembayaran untuk melepas kuota slot"
+                        @click="triggerResyncAll"
+                    >
+                        <svg
+                            class="w-4 h-4 text-orange-600 shrink-0"
+                            :class="{ 'animate-spin': isSyncingAll }"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        <span>{{ isSyncingAll ? 'Menyinkronkan Slot...' : 'Cek & Resync Semua Slot' }}</span>
+                    </button>
+                    <Link :href="route('admin.events.create')" class="btn-pitch">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span>Buat Kompetisi Baru</span>
+                    </Link>
+                </div>
             </div>
 
             <!-- Content Container (Responsive Card List View) -->
@@ -126,12 +170,32 @@ const { formatRupiah, formatDate } = useFormatters();
 
                             <!-- Actions (Col 11-12) -->
                             <div class="lg:col-span-2 flex flex-col sm:items-end justify-center gap-2">
-                                <Link
-                                    :href="route('admin.teams.index', { event_id: evt.id })"
-                                    class="btn-sm-secondary w-full sm:w-auto justify-center"
-                                >
-                                    Daftar Tim ({{ evt.occupied_slots }})
-                                </Link>
+                                <div class="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+                                    <Link
+                                        :href="route('admin.teams.index', { event_id: evt.id })"
+                                        class="btn-sm-secondary flex-1 sm:flex-initial justify-center"
+                                    >
+                                        Daftar Tim ({{ evt.occupied_slots }})
+                                    </Link>
+                                    <button
+                                        type="button"
+                                        class="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-orange-600 hover:border-orange-300 transition-colors bg-white shrink-0"
+                                        :class="{ 'opacity-50 cursor-not-allowed': syncingEventId === evt.id }"
+                                        :disabled="syncingEventId === evt.id"
+                                        title="Cek & resync slot kedaluwarsa khusus event ini"
+                                        @click="triggerResyncEvent(evt)"
+                                    >
+                                        <svg
+                                            class="w-4 h-4 text-orange-600"
+                                            :class="{ 'animate-spin': syncingEventId === evt.id }"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                        </svg>
+                                    </button>
+                                </div>
                                 <div class="flex items-center gap-1.5 w-full sm:w-auto justify-end">
                                     <Link
                                         :href="route('events.show', { event: evt.slug })"

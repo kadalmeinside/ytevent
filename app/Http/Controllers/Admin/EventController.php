@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreEventRequest;
 use App\Http\Requests\Admin\UpdateEventRequest;
 use App\Models\Event;
+use App\Services\QuotaExpirationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -46,6 +47,38 @@ class EventController extends Controller
         return Inertia::render('Admin/Events/Index', [
             'events' => $events,
         ]);
+    }
+
+    public function resyncSlots(QuotaExpirationService $quotaExpiration): RedirectResponse
+    {
+        $this->authorize('viewAny', Event::class);
+
+        $expiredCount = $quotaExpiration->sweepAllEvents();
+
+        Event::query()->get()->each(fn (Event $event) => $event->syncQuotaStatus());
+
+        if ($expiredCount > 0) {
+            return back()->with('success', "Sinkronisasi selesai. Berhasil melepas {$expiredCount} slot kedaluwarsa & memperbarui status kuota event.");
+        }
+
+        return back()->with('info', 'Sinkronisasi selesai. Seluruh slot tim masih aktif atau telah lunas.');
+    }
+
+    public function resyncEventSlots(Event $event, QuotaExpirationService $quotaExpiration): RedirectResponse
+    {
+        $this->authorize('view', $event);
+
+        $expiredCount = DB::transaction(function () use ($event, $quotaExpiration) {
+            $lockedEvent = Event::query()->whereKey($event->id)->lockForUpdate()->first();
+
+            return $lockedEvent ? $quotaExpiration->sweepExpiredForEvent($lockedEvent) : 0;
+        });
+
+        if ($expiredCount > 0) {
+            return back()->with('success', "Sinkronisasi berhasil: {$expiredCount} slot kedaluwarsa pada event {$event->name} telah dilepas.");
+        }
+
+        return back()->with('info', "Kapasitas slot event {$event->name} sudah sesuai. Tidak ada pendaftaran kedaluwarsa.");
     }
 
     public function create(): Response
