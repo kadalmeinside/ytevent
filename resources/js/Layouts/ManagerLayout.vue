@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { usePage, useForm, router } from '@inertiajs/vue3';
 import FlashAlert from '@/Components/FlashAlert.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
+import WorkflowStepBanner from '@/Components/WorkflowStepBanner.vue';
 
 const props = defineProps({
     team: {
@@ -26,10 +27,30 @@ const mobileMenuOpen = ref(false);
 
 const currentPath = computed(() => page.url.split('?')[0]);
 
-const isRosterLocked = computed(() => {
+const isUnpaidLocked = computed(() => {
     if (!props.team) return false;
-    return !props.team.can_manage_roster;
+    return !props.team.can_manage_roster && props.team.status !== 'locked_roster';
 });
+
+const workflowBadges = computed(() => props.team?.workflow?.badges || {});
+
+const badgeColorClass = (badge) => {
+    if (!badge) return '';
+    switch (badge.variant) {
+        case 'orange':
+            return 'bg-gradient-to-r from-orange-600 to-red-600 text-white border-orange-600 shadow-2xs';
+        case 'red':
+            return 'bg-red-100 text-red-800 border-red-200';
+        case 'amber':
+            return 'bg-amber-100 text-amber-900 border-amber-200';
+        case 'blue':
+            return 'bg-blue-100 text-blue-800 border-blue-200';
+        case 'emerald':
+            return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+        default:
+            return 'bg-slate-100 text-slate-600 border-slate-200';
+    }
+};
 
 const navItems = computed(() => [
     {
@@ -37,38 +58,53 @@ const navItems = computed(() => [
         href: route('manager.dashboard'),
         match: '/manager/dashboard',
         icon: 'dashboard',
+        badge: props.team?.workflow
+            ? {
+                  text: `${props.team.workflow.current_step}/${props.team.workflow.total_steps}`,
+                  variant: props.team.workflow.is_roster_locked
+                      ? 'emerald'
+                      : props.team.workflow.is_ready_to_lock
+                        ? 'orange'
+                        : 'slate',
+              }
+            : null,
     },
     {
         label: 'Pembayaran Pendaftaran',
         href: route('manager.payments'),
         match: '/manager/payments',
         icon: 'payment',
+        badge: workflowBadges.value.payment || null,
     },
     {
         label: 'Daftar Pemain & Berkas',
         href: route('manager.players'),
         match: '/manager/players',
-        locked: isRosterLocked.value,
+        locked: isUnpaidLocked.value,
         icon: 'players',
+        badge: workflowBadges.value.players || null,
     },
     {
         label: 'Pelatih & Ofisial',
         href: route('manager.officials'),
         match: '/manager/officials',
-        locked: isRosterLocked.value,
+        locked: isUnpaidLocked.value,
         icon: 'officials',
+        badge: workflowBadges.value.officials || null,
     },
     {
         label: 'Akreditasi & Skuad',
         href: route('manager.accreditation.index'),
         match: '/manager/accreditation',
         icon: 'accreditation',
+        badge: workflowBadges.value.accreditation || null,
     },
     {
         label: 'Profil Tim',
         href: route('manager.team-profile'),
         match: '/manager/team-profile',
         icon: 'profile',
+        badge: null,
     },
 ]);
 
@@ -255,7 +291,16 @@ const logout = () => {
                         <!-- Menu Label -->
                         <span class="truncate flex-1">{{ item.label }}</span>
 
-                        <!-- Subtle Padlock Icon for Locked State -->
+                        <!-- Live Counter / Status Badge -->
+                        <span
+                            v-if="item.badge && !item.locked"
+                            class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-tight border shrink-0"
+                            :class="badgeColorClass(item.badge)"
+                        >
+                            {{ item.badge.text }}
+                        </span>
+
+                        <!-- Subtle Padlock Icon for Unpaid Locked State -->
                         <span
                             v-if="item.locked"
                             class="text-slate-400 group-hover:text-slate-500 shrink-0 ml-1 transition-colors"
@@ -305,6 +350,11 @@ const logout = () => {
 
             <main class="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
                 <FlashAlert />
+                <WorkflowStepBanner
+                    v-if="team?.workflow?.banner"
+                    :banner="team.workflow.banner"
+                    :team="team"
+                />
                 <slot />
             </main>
         </div>

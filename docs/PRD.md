@@ -141,3 +141,20 @@ Semua pengiriman email wajib di-dispatch ke background queue (`implements Should
 4. **`ScreeningResultMail`:** Dikirim ketika admin menyelesaikan verifikasi satu batch tim atau per pemain:
    - Daftar pemain yang **Lolos Screening (`Passed`)**.
    - Daftar pemain yang **Gagal / Perlu Revisi (`Rejected`)** beserta catatan spesifik dari verifikator dan tautan langsung untuk perbaikan berkas.
+5. **`RosterLockedMail`:** Dikirim otomatis ketika Manajer Tim menekan tombol **Kunci Skuad Final** setelah seluruh syarat akreditasi terpenuhi.
+
+---
+
+## 8. Notifikasi In-Web, Badge Counter Real-Time & Alur Kesiapan Tim 5 Tahap (Fase 3)
+1. **Live Sidebar Counter Badges:**
+   - **Portal Admin & Panitia:** Menampilkan badge angka antrean aktif secara real-time pada menu `Screening Pemain` (jumlah pemain `submitted`), `Verifikasi Transfer` (jumlah bukti transfer `waiting_verification`), `Daftar Tim` (jumlah tim `all_passed` yang siap mengunci skuad final), `Riwayat Transaksi` (jumlah `refund_required`), dan `Antrean Email` (jumlah email `failed`).
+   - **Portal Manajer Tim:** Menampilkan indikator progres tahap (`1/5` s/d `5/5`) serta badge status dinamis pada menu `Pembayaran Pendaftaran`, `Daftar Pemain & Berkas`, `Pelatih & Ofisial`, dan `Akreditasi & Skuad`.
+2. **Peringatan Akreditasi & Banner Panduan Kontekstual (`WorkflowStepBanner`):**
+   - Setiap kali 1 syarat utama terpenuhi, sistem otomatis memperbarui banner panduan di bagian atas Portal Manajer Tim untuk mengarahkan manajer ke syarat berikutnya.
+   - **Peringatan Akreditasi Prioritas Tinggi:** Saat seluruh pemain yang didaftarkan telah disahkan (`passed`) oleh Panitia Screening serta memenuhi kuota minimal pemain, minimal 2 Penjaga Gawang (`GK`), dan minimal 1 Ofisial, sistem menampilkan banner peringatan mencolok (`SIAP KUNCI!`) agar manajer segera melakukan **Kunci Skuad Final** dan mengunduh **ID Card Pertandingan** serta **Album Roster Sheet (PDF)**.
+3. **Alur 5 Tahap Kesiapan Tim Sampai Utuh Terdaftar (`locked_roster`):**
+   - **Tahap 1:** Pelunasan Pembayaran Pendaftaran (`paid`).
+   - **Tahap 2:** Pemenuhan Kuota Skuad Minimal, Minimal 2 Kiper (`GK`), Unggah Berkas Wajib, dan Pengajuan Screening (`submitted`).
+   - **Tahap 3:** Pendaftaran Minimal 1 Pelatih Kepala / Ofisial Pendamping Resmi.
+   - **Tahap 4:** Verifikasi & Pengesahan Seluruh Berkas Pemain oleh Panitia Screening (`all_passed`) via *Quick Document Verification Wizard*.
+   - **Tahap 5:** Penguncian Skuad Final (`locked_roster`) oleh Manajer Tim dan Pengunduhan Dokumen Akreditasi Resmi (Album Roster PDF & ID Card QR PDF).

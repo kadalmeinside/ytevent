@@ -17,6 +17,7 @@ defineProps({
 const page = usePage();
 const user = computed(() => page.props.auth?.user);
 const systemSettings = computed(() => page.props.systemSettings || {});
+const adminNotifications = computed(() => page.props.adminNotifications || {});
 const mobileMenuOpen = ref(false);
 const currentPath = computed(() => page.url.split('?')[0]);
 
@@ -26,7 +27,23 @@ const can = (permission) => {
     return user.value.permissions?.includes(permission) || false;
 };
 
+const badgeColorClass = (variant) => {
+    switch (variant) {
+        case 'orange':
+            return 'bg-gradient-to-r from-orange-600 to-red-600 text-white border-orange-600 shadow-2xs';
+        case 'red':
+            return 'bg-red-100 text-red-800 border-red-200';
+        case 'amber':
+            return 'bg-amber-100 text-amber-900 border-amber-200';
+        case 'emerald':
+            return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+        default:
+            return 'bg-slate-100 text-slate-700 border-slate-200';
+    }
+};
+
 const navSections = computed(() => {
+    const notif = adminNotifications.value || {};
     const sections = [
         {
             title: 'Operasional',
@@ -37,6 +54,9 @@ const navSections = computed(() => {
                     match: '/admin/dashboard',
                     icon: 'dashboard',
                     show: can('dashboard.admin.view'),
+                    badge: notif.total_actionable > 0
+                        ? { text: String(notif.total_actionable), variant: 'orange', title: 'Total antrean operasional aktif' }
+                        : null,
                 },
                 {
                     label: 'Kompetisi',
@@ -44,6 +64,7 @@ const navSections = computed(() => {
                     match: '/admin/events',
                     icon: 'trophy',
                     show: can('events.view'),
+                    badge: null,
                 },
                 {
                     label: 'Daftar Tim',
@@ -51,6 +72,11 @@ const navSections = computed(() => {
                     match: '/admin/teams',
                     icon: 'teams',
                     show: can('teams.view_all'),
+                    badge: notif.ready_to_lock_teams_count > 0
+                        ? { text: `${notif.ready_to_lock_teams_count} SIAP`, variant: 'amber', title: 'Tim lolos screening menunggu kunci skuad final' }
+                        : notif.locked_teams_count > 0
+                          ? { text: `${notif.locked_teams_count} FINAL`, variant: 'emerald', title: 'Tim telah kunci skuad final' }
+                          : null,
                 },
                 {
                     label: 'Screening Pemain',
@@ -58,6 +84,9 @@ const navSections = computed(() => {
                     match: '/admin/screening',
                     icon: 'screening',
                     show: can('screening.view_queue'),
+                    badge: notif.pending_screening_players_count > 0
+                        ? { text: String(notif.pending_screening_players_count), variant: 'orange', title: 'Pemain menunggu verifikasi screening' }
+                        : null,
                 },
             ],
         },
@@ -70,6 +99,9 @@ const navSections = computed(() => {
                     match: '/admin/payments/manual-verification',
                     icon: 'verify',
                     show: can('payments.verify_manual'),
+                    badge: notif.pending_payments_count > 0
+                        ? { text: String(notif.pending_payments_count), variant: 'amber', title: 'Bukti transfer menunggu verifikasi' }
+                        : null,
                 },
                 {
                     label: 'Riwayat Transaksi',
@@ -77,6 +109,9 @@ const navSections = computed(() => {
                     match: '/admin/payments/transactions',
                     icon: 'transactions',
                     show: can('payments.view_all'),
+                    badge: notif.refund_required_count > 0
+                        ? { text: `${notif.refund_required_count} REFUND`, variant: 'red', title: 'Transaksi memerlukan tindak lanjut refund' }
+                        : null,
                 },
             ],
         },
@@ -89,6 +124,7 @@ const navSections = computed(() => {
                     match: '/admin/users',
                     icon: 'users',
                     show: user.value?.roles?.includes('superadmin'),
+                    badge: null,
                 },
                 {
                     label: 'Hak Akses & Role',
@@ -96,6 +132,7 @@ const navSections = computed(() => {
                     match: '/admin/roles',
                     icon: 'roles',
                     show: user.value?.roles?.includes('superadmin'),
+                    badge: null,
                 },
                 {
                     label: 'Antrean Email',
@@ -103,6 +140,9 @@ const navSections = computed(() => {
                     match: '/admin/system/email-logs',
                     icon: 'mail',
                     show: can('email_logs.manage'),
+                    badge: notif.failed_emails_count > 0
+                        ? { text: String(notif.failed_emails_count), variant: 'red', title: 'Pengiriman email gagal' }
+                        : null,
                 },
                 {
                     label: 'Pengaturan Global',
@@ -110,6 +150,7 @@ const navSections = computed(() => {
                     match: '/admin/settings',
                     icon: 'settings',
                     show: user.value?.roles?.includes('superadmin'),
+                    badge: null,
                 },
             ],
         },
@@ -273,7 +314,15 @@ const logout = () => {
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
                                     </svg>
                                 </span>
-                                <span class="truncate">{{ item.label }}</span>
+                                <span class="truncate flex-1">{{ item.label }}</span>
+                                <span
+                                    v-if="item.badge"
+                                    :title="item.badge.title || ''"
+                                    class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-tight border shrink-0"
+                                    :class="badgeColorClass(item.badge.variant)"
+                                >
+                                    {{ item.badge.text }}
+                                </span>
                             </Link>
                         </div>
                     </div>
@@ -311,7 +360,37 @@ const logout = () => {
                     <h1 class="text-base font-bold text-slate-900">{{ pageTitle }}</h1>
                     <p v-if="subtitle" class="text-xs text-slate-500">{{ subtitle }}</p>
                 </div>
-                <slot name="headerActions" />
+                <div class="flex items-center gap-3">
+                    <!-- Quick Operational Queue Pills -->
+                    <div
+                        v-if="adminNotifications.pending_screening_players_count > 0 || adminNotifications.pending_payments_count > 0 || adminNotifications.ready_to_lock_teams_count > 0"
+                        class="flex items-center gap-2"
+                    >
+                        <Link
+                            v-if="adminNotifications.pending_screening_players_count > 0 && can('screening.view_queue')"
+                            :href="route('admin.screening.index')"
+                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-orange-50 text-orange-800 border border-orange-200 hover:bg-orange-100 transition-colors"
+                        >
+                            <span>Screening: {{ adminNotifications.pending_screening_players_count }} Pemain</span>
+                        </Link>
+                        <Link
+                            v-if="adminNotifications.pending_payments_count > 0 && can('payments.verify_manual')"
+                            :href="route('admin.payments.manual-verification')"
+                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100 transition-colors"
+                        >
+                            <span>Transfer: {{ adminNotifications.pending_payments_count }} Antrean</span>
+                        </Link>
+                        <Link
+                            v-if="adminNotifications.ready_to_lock_teams_count > 0 && can('teams.view_all')"
+                            :href="route('admin.teams.index')"
+                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                            title="Tim yang sudah lolos screening semua pemain dan tinggal mengunci skuad final"
+                        >
+                            <span>Siap Akreditasi: {{ adminNotifications.ready_to_lock_teams_count }} Tim</span>
+                        </Link>
+                    </div>
+                    <slot name="headerActions" />
+                </div>
             </header>
 
             <main class="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">

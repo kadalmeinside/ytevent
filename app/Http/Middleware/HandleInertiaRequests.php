@@ -2,7 +2,11 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\EmailNotificationLog;
+use App\Models\Payment;
+use App\Models\Player;
 use App\Models\SystemSetting;
+use App\Models\Team;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Middleware;
@@ -57,6 +61,36 @@ class HandleInertiaRequests extends Middleware
                 'warning' => fn () => $request->session()->get('warning'),
                 'info' => fn () => $request->session()->get('info'),
             ],
+            'adminNotifications' => fn () => $user && $user->hasAnyRole(['superadmin', 'finance', 'screening_officer']) ? (function () {
+                $pendingPayments = Payment::query()->where('status', 'waiting_verification')->count();
+                $refundRequired = Payment::query()->where('status', 'refund_required')->count();
+                $pendingScreeningPlayers = Player::query()->where('screening_status', 'submitted')->count();
+                $pendingScreeningTeams = Team::query()
+                    ->where('status', 'active')
+                    ->whereHas('players', fn ($q) => $q->where('screening_status', 'submitted'))
+                    ->count();
+                $readyToLockTeams = Team::query()
+                    ->where('status', 'active')
+                    ->where('screening_status', 'all_passed')
+                    ->count();
+                $lockedTeams = Team::query()
+                    ->where('status', 'locked_roster')
+                    ->count();
+                $failedEmails = EmailNotificationLog::query()
+                    ->where('status', 'failed')
+                    ->count();
+
+                return [
+                    'pending_payments_count' => $pendingPayments,
+                    'refund_required_count' => $refundRequired,
+                    'pending_screening_players_count' => $pendingScreeningPlayers,
+                    'pending_screening_teams_count' => $pendingScreeningTeams,
+                    'ready_to_lock_teams_count' => $readyToLockTeams,
+                    'locked_teams_count' => $lockedTeams,
+                    'failed_emails_count' => $failedEmails,
+                    'total_actionable' => $pendingPayments + $refundRequired + $pendingScreeningPlayers + $failedEmails,
+                ];
+            })() : null,
             'systemSettings' => fn () => [
                 'app_name' => SystemSetting::get('app_name', config('app.name', 'YTEvent Football')),
                 'app_tagline' => SystemSetting::get('app_tagline', 'Multi-Event Competition Portal'),

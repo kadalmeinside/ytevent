@@ -168,9 +168,17 @@ Fase 2 berfokus pada **operasional pemeriksaan keabsahan data (*screening*)**, v
   - `RosterLockedMail`: Notifikasi resmi saat skuad dikunci final beserta konfirmasi bahwa Album Roster dan ID Cards siap diunduh.
   - Fail-safe serialization: Menyimpan salinan payload mailable ke tabel `email_notification_logs` agar dapat di-retry kapan saja.
 - [x] **2.4.2 Portal Pemantauan Email Panitia (`/admin/system/email-logs`)**:
-  - Tampilan responsif Card List View dari tabel `email_notification_logs`.
+  - Tampilan responsif Card List View dari tabel `email_notification_logs` dengan fallback otomatis label subjek email (`EmailNotificationLog::MAILABLE_LABELS`).
   - Kartu metrik: Total Notifikasi, Berhasil Terkirim (`sent`), Antrean (`queued`), dan Gagal (`failed`).
   - Fitur **Kirim Ulang (*Retry*)**: Tombol retry per email dan tombol *Retry All Failed* dengan modal dialog konfirmasi.
+
+### Milestone 2.5: Penyempurnaan UX Verifikasi Cepat & Idempotensi [SELESAI]
+- [x] **2.5.1 Modal Wizard Verifikasi Dokumen Cepat (`TeamReview.vue` & `ScreeningController.php`)**:
+  - Mencegah petugas meloloskan pemain ketika berkas dokumen masih berstatus `pending`.
+  - Menghadirkan **Quick Document Verification Wizard Modal** yang memandu petugas memverifikasi berkas satu per satu secara asinkron (`axios.post` JSON response) dengan fitur *auto-advance* ke dokumen berikutnya tanpa menutup modal hingga langkah konfirmasi pengesahan akhir.
+- [x] **2.5.2 Guard Idempotensi Audit Log (`ScreeningService.php`) & Demo Seeder (`PlayerDemoSeeder.php`)**:
+  - Mencegah duplikasi baris `passed -> passed` pada tabel `screening_logs`.
+  - Menyediakan `PlayerDemoSeeder` untuk membangkitkan skuad lengkap berstatus `submitted` guna pengujian end-to-end.
 
 ---
 

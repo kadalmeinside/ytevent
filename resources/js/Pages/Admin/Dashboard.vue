@@ -133,8 +133,16 @@ const triggerResync = () => {
                         </p>
                     </div>
                     <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                        <span class="text-slate-500">Status Berkas:</span>
-                        <span class="text-indigo-700 font-bold">Menunggu screening</span>
+                        <span class="text-slate-500">
+                            Siap Kunci: <strong class="text-amber-700 font-bold tabular-data">{{ metrics.ready_to_lock_teams_count || 0 }}</strong>
+                            &bull; Final: <strong class="text-emerald-700 font-bold tabular-data">{{ metrics.locked_teams_count || 0 }}</strong>
+                        </span>
+                        <Link
+                            :href="route('admin.screening.index')"
+                            class="font-bold text-orange-600 hover:text-orange-700 inline-flex items-center gap-1 transition-colors"
+                        >
+                            <span>Screening &rarr;</span>
+                        </Link>
                     </div>
                 </div>
             </div>
@@ -234,7 +242,9 @@ const triggerResync = () => {
                         <div class="flex flex-wrap items-center justify-between gap-3 pb-3 mb-3 border-b border-slate-100">
                             <div class="flex items-center gap-3">
                                 <div class="w-10 h-10 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center font-bold text-base shadow-2xs shrink-0 border border-orange-200">
-                                    🏆
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.45 1-1 1H8c-.55 0-1 .45-1 1v1h10v-1c0-.55-.45-1-1-1h-1c-.55 0-1-.45-1-1v-2.34c3.27-.47 5.76-3.23 5.76-6.66V4H5.24v4c0 3.43 2.49 6.19 5.76 6.66z" />
+                                    </svg>
                                 </div>
                                 <div>
                                     <h4 class="text-sm sm:text-base font-bold text-slate-900 leading-tight">

@@ -27,3 +27,8 @@ Dokumen ini adalah instruksi sistem wajib untuk AI Coding Agent saat menulis, me
    - **DILARANG KERAS** menggunakan elemen titik bulat (`dot indicator` seperti `<span class="w-2 h-2 rounded-full ..."></span>`) baik yang berdiri sendiri maupun berdampingan dengan badge teks. Status wajib disajikan sebagai teks badge pill solid/terstruktur yang kontras tinggi dan tegas tanpa bulatan hiasan.
 3. **Larangan Validasi Bawaan Browser:**
    - Formulir selalu menggunakan `<form novalidate>` dan validasi reaktif via composable / form error banner. Dilarang menggunakan HTML5 browser tooltips.
+4. **Larangan Emoticon / Emoji Unicode:**
+   - **DILARANG KERAS** menggunakan karakter emoji/emoticon Unicode mentah di seluruh template Vue, badge, banner notifikasi, maupun pesan flash. Gunakan selalu ikon SVG terstandar (Heroicons).
+5. **Standar Badge Counter & Banner Panduan Alur (Fase 3):**
+   - Semua badge counter di sidebar Admin (`adminNotifications`) dan Manajer (`team.workflow.badges`) wajib berupa pill teks/angka terstruktur yang kontras tinggi tanpa titik bulat (*no circular dots*) dan tanpa animasi kedip (*no pulse/ping*).
+   - Portal Manajer wajib selalu menyertakan objek `team.workflow` melalui trait `ResolvesActiveTeam` agar banner panduan 5 tahap (`WorkflowStepBanner`) dan status kesiapan akreditasi selalu sinkron di setiap halaman.

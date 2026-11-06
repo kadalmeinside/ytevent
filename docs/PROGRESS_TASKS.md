@@ -179,5 +179,66 @@ Legenda Status:
   - Pengujian mekanisme kirim ulang (*retry*) email gagal dan transisi ke `sent`.
   - Pengujian mekanisme *bulk retry* seluruh email gagal.
   - Pengujian penolakan retry untuk email yang sudah sukses terkirim.
-  - Total test suite bertambah menjadi **57 Feature & Unit Tests** dengan **349 assertions** lulus 100% `PASS`.
+  - Total test suite Fase 2 awal bertambah menjadi **57 Feature & Unit Tests** dengan **349 assertions** lulus 100% `PASS`.
 - [x] **2.5.4** Build produksi frontend (`npm run build`) & verifikasi zero regression (Vite build sukses tanpa error).
+
+### 2.6 Penyempurnaan Operasional Fase 2 (Quick Document Wizard, Idempotency & Seeder)
+- [x] **2.6.1** **Guard Idempotensi Audit Log Screening (`ScreeningService.php`)**:
+  - Mencegah duplikasi pencatatan `screening_logs` (`passed -> passed`) apabila petugas menekan tombol verifikasi berulang kali pada pemain yang sudah berstatus `passed`.
+- [x] **2.6.2** **Fallback Subjek Email Transaksional (`EmailLogController.php` & `EmailNotificationService.php`)**:
+  - Memastikan kolom `subject` pada `/admin/system/email-logs` selalu terisi dan memiliki fallback otomatis ke `EmailNotificationLog::MAILABLE_LABELS` untuk data historis.
+- [x] **2.6.3** **Seeder Skuad Pemain Demo (`PlayerDemoSeeder.php`)**:
+  - Menyediakan seeder 11 pemain tambahan berstatus `submitted` (lengkap dengan 4 dokumen wajib & pas foto di private disk) untuk mempercepat pengujian manual alur screening hingga akreditasi.
+- [x] **2.6.4** **Modal Wizard Verifikasi Dokumen Cepat (`TeamReview.vue` & `ScreeningController.php`)**:
+  - Saat petugas klik **Loloskan Pemain (Sah)** tetapi masih ada berkas berstatus `pending`, sistem menampilkan **Modal Wizard Verifikasi Cepat** dengan pratinjau dokumen dan *auto-advance* ke berkas berikutnya secara asinkron (`axios.post` JSON response tanpa menutup modal / reload halaman) hingga langkah konfirmasi pengesahan akhir.
+  - Apabila seluruh berkas sudah berstatus `valid`, tombol **Loloskan Pemain (Sah)** menampilkan **Modal Konfirmasi Pengesahan Pemain** sebelum mengunci status `passed`.
+
+---
+
+## FASE 3: In-Web Notifications, Live Counter Badges & Guided End-to-End Team Readiness Workflow
+
+> **Dokumen Rencana Implementasi:** [`docs/PHASE_3_IMPLEMENTATION_PLAN.md`](./PHASE_3_IMPLEMENTATION_PLAN.md)
+
+### 3.1 Backend Shared Notification Counters & Team Workflow State Engine
+- [x] **3.1.1** **State Machine Kesiapan Tim 5 Tahap (`ResolvesActiveTeam.php`)**:
+  - Menambahkan metode `buildTeamWorkflow(Team $team)` yang menyuntikkan objek `team.workflow` ke seluruh halaman Portal Manajer Tim (`current_step`, `total_steps`, boolean pemenuhan syarat, `counts`, `badges`, dan `banner` kontekstual).
+  - Menyelaraskan `AccreditationController.php` agar menggunakan trait `ResolvesActiveTeam` sehingga perpindahan tim aktif (`active_manager_team_id`), properti `can_manage_roster`, dan `team.workflow` konsisten 100%.
+- [x] **3.1.2** **Shared Admin Operational Counter Badges (`HandleInertiaRequests.php` & `Admin/DashboardController.php`)**:
+  - Membagikan prop `adminNotifications` secara global untuk peran internal panitia (`superadmin`, `finance`, `screening_officer`) yang memuat jumlah antrean real-time:
+    - `pending_screening_players_count` (pemain `submitted` menunggu verifikasi).
+    - `pending_payments_count` (bukti transfer `waiting_verification`).
+    - `refund_required_count` (transaksi `refund_required`).
+    - `ready_to_lock_teams_count` (tim `all_passed` yang siap mengunci skuad final).
+    - `locked_teams_count` (tim `locked_roster` yang telah terakreditasi resmi).
+    - `failed_emails_count` (log email berstatus `failed`).
+
+### 3.2 In-Web Notification Banner & Live Sidebar Counter Badges
+- [x] **3.2.1** **Komponen Global `WorkflowStepBanner.vue` pada `ManagerLayout.vue`**:
+  - Menampilkan banner peringatan kontekstual di bagian atas seluruh halaman Portal Manajer Tim sesuai tahap kesiapan tim saat ini (Tahap 1 s/d Tahap 5).
+  - Menampilkan **Peringatan Akreditasi Prioritas Tinggi** (`PERINGATAN AKREDITASI — LANGKAH TERAKHIR WAJIB`) begitu seluruh pemain tim telah disahkan (`all_passed`), lengkap dengan tombol CTA langsung menuju penguncian skuad final dan penerbitan ID Card.
+  - Menampilkan pintasan langsung **Unduh Roster PDF** dan **Unduh ID Card PDF** ketika skuad telah berstatus `locked_roster`.
+- [x] **3.2.2** **Live Counter & Status Badges pada Sidebar Manajer (`ManagerLayout.vue`)**:
+  - Menampilkan badge dinamis di samping menu navigasi manajer:
+    - `Ringkasan Tim`: Progres tahap (`1/5` s/d `5/5`).
+    - `Pembayaran Pendaftaran`: `WAJIB` / `VERIFIKASI` / `LUNAS`.
+    - `Daftar Pemain & Berkas`: `X REVISI` / `X/Min` / `X DRAFT` / `X PROSES` / `X SAH`.
+    - `Pelatih & Ofisial`: `WAJIB 1+` / `X/Max`.
+    - `Akreditasi & Skuad`: `BELUM SIAP` / `SIAP KUNCI` (aksen oranye-merah Persija) / `FINAL`.
+- [x] **3.2.3** **Live Counter Badges & Quick Queue Pills pada Portal Panitia (`AdminLayout.vue`)**:
+  - Menampilkan badge angka antrean pada menu sidebar Admin (`Dashboard`, `Daftar Tim`, `Screening Pemain`, `Verifikasi Transfer`, `Riwayat Transaksi`, `Antrean Email`) serta *Quick Operational Queue Pills* di header atas.
+
+### 3.3 Guided 5-Stage End-to-End Team Readiness Flow
+- [x] **3.3.1** **5-Stage Team Readiness Stepper (`Manager/Dashboard.vue`)**:
+  - Memperbarui alur persiapan tim menjadi 5 kartu tahapan terstruktur: (1) Pembayaran Pendaftaran, (2) Skuad & Min. 2 Kiper (GK), (3) Pelatih & Ofisial Tim, (4) Verifikasi Screening Panitia, dan (5) Akreditasi & ID Card.
+- [x] **3.3.2** **Real-Time Squad Requirement Checklist & Perbaikan Read-Only `locked_roster` (`Manager/Players.vue` & `Manager/Officials.vue`)**:
+  - Memperbaiki logika `isUnpaidLocked` vs `isFinalRosterLocked` pada `Manager/Players.vue` sehingga saat tim telah mengunci skuad final (`locked_roster`), daftar pemain tetap tampil utuh dalam mode *read-only* (tidak tertukar dengan pesan belum bayar).
+  - Menambahkan strip 4 indikator syarat skuad real-time di halaman pemain (Kuota Min. Pemain, Min. 2 GK, Status Pengajuan, dan Lolos Screening).
+- [x] **3.3.3** **Banner Penyelesaian Screening Tim pada Workspace Admin (`Admin/Screening/TeamReview.vue` & `Admin/Dashboard.vue`)**:
+  - Menampilkan banner status penyelesaian screening tim ketika seluruh pemain dalam tim telah disahkan (`all_passed`) beserta tombol unduh PDF Roster & ID Card bagi panitia.
+
+### 3.4 Automated Testing & Verifikasi Fase 3
+- [x] **3.4.1** Penulisan Feature Tests Fase 3 (`WorkflowAndNotificationBadgeTest.php`):
+  - Pengujian akurasi counter `adminNotifications` untuk panitia.
+  - Pengujian transisi `team.workflow` dari Tahap 1 hingga Tahap 5 (`is_ready_to_lock` -> peringatan akreditasi, dan `locked_roster` -> terakreditasi resmi).
+  - Pengujian visibilitas daftar pemain *read-only* pada `Manager/Players` saat tim berstatus `locked_roster`.
+- [x] **3.4.2** Eksekusi penuh `php artisan test` dan `npm run build` dengan hasil 100% lulus tanpa regresi.

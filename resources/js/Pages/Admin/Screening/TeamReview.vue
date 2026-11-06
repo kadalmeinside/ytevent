@@ -338,6 +338,58 @@ const setDocumentStatus = async (doc, status) => {
         <Head :title="`Screening - ${team.name}`" />
 
         <div class="space-y-4">
+            <!-- Team All Passed / Accreditation Readiness Banner -->
+            <div
+                v-if="team.screening_status === 'all_passed' || (players.length > 0 && players.every((p) => p.screening_status === 'passed'))"
+                class="rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                :class="
+                    team.status === 'locked_roster'
+                        ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950'
+                        : 'bg-amber-50/90 border-amber-300 text-amber-950'
+                "
+            >
+                <div class="flex items-start gap-3">
+                    <div
+                        class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 text-white"
+                        :class="team.status === 'locked_roster' ? 'bg-emerald-600' : 'bg-amber-600'"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-xs sm:text-sm font-extrabold">
+                            {{
+                                team.status === 'locked_roster'
+                                    ? 'Seluruh Pemain Lolos & Skuad Final Telah Dikunci Manajer'
+                                    : 'Seluruh Pemain Tim Ini Telah Disahkan (Lolos Screening 100%)'
+                            }}
+                        </h3>
+                        <p class="text-xs mt-0.5 leading-relaxed opacity-90">
+                            {{
+                                team.status === 'locked_roster'
+                                    ? 'Tim telah menyelesaikan proses akreditasi. Panitia dapat mengunduh salinan Album Roster dan ID Card resmi di bawah ini.'
+                                    : 'Portal Manajer Tim saat ini menampilkan peringatan akreditasi agar manajer segera menekan tombol Kunci Skuad Final.'
+                            }}
+                        </p>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 shrink-0">
+                    <a
+                        :href="route('admin.teams.accreditation.roster-sheet', { team: team.id })"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-800 border border-slate-300 hover:bg-slate-50 transition-colors"
+                    >
+                        <span>Unduh Roster PDF</span>
+                    </a>
+                    <a
+                        :href="route('admin.teams.accreditation.id-cards', { team: team.id })"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                    >
+                        <span>Unduh ID Card PDF</span>
+                    </a>
+                </div>
+            </div>
+
             <!-- Breadcrumbs & Quick Back Nav -->
             <div class="flex items-center justify-between text-xs">
                 <div class="flex items-center gap-1.5 text-slate-500">

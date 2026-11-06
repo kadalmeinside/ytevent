@@ -190,33 +190,57 @@ const calculatePercent = (current, total) => {
                 </div>
             </div>
 
-            <!-- Next Step Checklist: Alur Persiapan Tim Menuju Pertandingan -->
+            <!-- 5-Stage End-to-End Team Readiness Stepper -->
             <div class="frosted-card p-6">
-                <div class="flex items-center justify-between mb-5 pb-3 border-b border-slate-100">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 pb-3 border-b border-slate-100">
                     <div>
-                        <h2 class="text-sm font-bold text-slate-900">Alur Persiapan Tim Menuju Pertandingan</h2>
-                        <p class="text-xs text-slate-500 mt-0.5">Ikuti tahapan wajib administrasi turnamen secara berurutan.</p>
+                        <h2 class="text-sm font-bold text-slate-900">Alur 5 Tahap Kesiapan Tim Sampai Terakreditasi Resmi</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">
+                            Setiap 1 syarat terpenuhi, sistem akan memandu Anda ke tahap berikutnya hingga ID Card siap diunduh.
+                        </p>
+                    </div>
+                    <div v-if="team.workflow" class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-xs font-bold text-orange-800 shrink-0">
+                        <span>Tahap Aktif: {{ team.workflow.current_step }} dari {{ team.workflow.total_steps }}</span>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3.5">
                     <!-- Step 1: Pembayaran -->
-                    <div class="p-4 rounded-2xl border border-slate-200/90 bg-white/70 backdrop-blur-md flex flex-col justify-between space-y-3 hover:border-orange-200 transition-colors shadow-sm">
+                    <div
+                        class="p-4 rounded-2xl border flex flex-col justify-between space-y-3 transition-all"
+                        :class="
+                            team.workflow?.is_paid
+                                ? 'border-emerald-200 bg-emerald-50/35'
+                                : 'border-orange-300 bg-orange-50/50 ring-1 ring-orange-300/60 shadow-sm'
+                        "
+                    >
                         <div class="space-y-2">
                             <div class="flex items-center justify-between gap-2">
-                                <div class="flex items-center gap-2">
-                                    <span class="w-6 h-6 rounded-lg bg-orange-100 text-orange-700 font-black text-xs flex items-center justify-center">1</span>
-                                    <span class="font-bold text-xs sm:text-sm text-slate-900">Pembayaran</span>
-                                </div>
-                                <StatusBadge :status="summary?.latest_payment?.status || 'unpaid'" class="scale-90 origin-right" />
+                                <span
+                                    class="w-6 h-6 rounded-lg font-black text-xs flex items-center justify-center shrink-0"
+                                    :class="team.workflow?.is_paid ? 'bg-emerald-600 text-white' : 'bg-orange-600 text-white'"
+                                >
+                                    1
+                                </span>
+                                <span
+                                    class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider border"
+                                    :class="
+                                        team.workflow?.is_paid
+                                            ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                            : 'bg-orange-100 text-orange-800 border-orange-200'
+                                    "
+                                >
+                                    {{ team.workflow?.is_paid ? 'LUNAS' : 'TAHAP AKTIF' }}
+                                </span>
                             </div>
+                            <h3 class="font-bold text-xs sm:text-sm text-slate-900">Pembayaran Pendaftaran</h3>
                             <p class="text-xs text-slate-600 leading-relaxed">
-                                Selesaikan biaya pendaftaran via Virtual Account, QRIS otomatis, atau konfirmasi transfer bank manual.
+                                Selesaikan pembayaran tagihan pendaftaran agar kuota tim terkunci dan menu skuad terbuka.
                             </p>
                         </div>
-                        <div class="pt-2 border-t border-slate-100">
-                            <Link :href="route('manager.payments')" class="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 hover:text-orange-700 transition-colors">
-                                <span>Buka Halaman Pembayaran</span>
+                        <div class="pt-2 border-t border-slate-200/70">
+                            <Link :href="route('manager.payments')" class="inline-flex items-center gap-1 text-xs font-bold text-orange-600 hover:text-orange-700">
+                                <span>{{ team.workflow?.is_paid ? 'Lihat Bukti Lunas' : 'Bayar Sekarang' }}</span>
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                                 </svg>
@@ -224,74 +248,254 @@ const calculatePercent = (current, total) => {
                         </div>
                     </div>
 
-                    <!-- Step 2: Biodata & Dokumen Pemain -->
-                    <div class="p-4 rounded-2xl border border-slate-200/90 bg-white/70 backdrop-blur-md flex flex-col justify-between space-y-3 hover:border-orange-200 transition-colors shadow-sm">
+                    <!-- Step 2: Kuota Pemain & Min 2 GK -->
+                    <div
+                        class="p-4 rounded-2xl border flex flex-col justify-between space-y-3 transition-all"
+                        :class="
+                            team.workflow?.is_all_players_submitted_or_passed && team.workflow?.is_gk_met
+                                ? 'border-emerald-200 bg-emerald-50/35'
+                                : team.workflow?.counts?.players_rejected > 0
+                                  ? 'border-rose-300 bg-rose-50/50 ring-1 ring-rose-300/60 shadow-sm'
+                                  : team.workflow?.current_step === 2
+                                    ? 'border-orange-300 bg-orange-50/50 ring-1 ring-orange-300/60 shadow-sm'
+                                    : 'border-slate-200/90 bg-white/70'
+                        "
+                    >
                         <div class="space-y-2">
                             <div class="flex items-center justify-between gap-2">
-                                <div class="flex items-center gap-2">
-                                    <span class="w-6 h-6 rounded-lg bg-slate-100 text-slate-700 font-black text-xs flex items-center justify-center">2</span>
-                                    <span class="font-bold text-xs sm:text-sm text-slate-900">Biodata &amp; Berkas</span>
-                                </div>
-                                <StatusBadge :status="team.can_manage_roster ? 'open' : 'draft'" :label="team.can_manage_roster ? 'TERBUKA' : 'TERKUNCI'" class="scale-90 origin-right" />
+                                <span
+                                    class="w-6 h-6 rounded-lg font-black text-xs flex items-center justify-center shrink-0"
+                                    :class="
+                                        team.workflow?.is_all_players_submitted_or_passed && team.workflow?.is_gk_met
+                                            ? 'bg-emerald-600 text-white'
+                                            : team.workflow?.counts?.players_rejected > 0
+                                              ? 'bg-rose-600 text-white'
+                                              : team.workflow?.current_step === 2
+                                                ? 'bg-orange-600 text-white'
+                                                : 'bg-slate-200 text-slate-700'
+                                    "
+                                >
+                                    2
+                                </span>
+                                <span
+                                    class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider border tabular-data"
+                                    :class="
+                                        team.workflow?.is_all_players_submitted_or_passed && team.workflow?.is_gk_met
+                                            ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                            : team.workflow?.counts?.players_rejected > 0
+                                              ? 'bg-rose-100 text-rose-800 border-rose-200'
+                                              : 'bg-amber-100 text-amber-900 border-amber-200'
+                                    "
+                                >
+                                    {{
+                                        team.workflow?.counts?.players_rejected > 0
+                                            ? `${team.workflow.counts.players_rejected} REVISI`
+                                            : `${team.workflow?.counts?.players_total || 0}/${team.workflow?.counts?.min_players_required || 11} PEMAIN`
+                                    }}
+                                </span>
                             </div>
+                            <h3 class="font-bold text-xs sm:text-sm text-slate-900">Skuad &amp; Min. 2 Kiper (GK)</h3>
                             <p class="text-xs text-slate-600 leading-relaxed">
-                                Input nama pemain, nomor punggung, NIK, tanggal lahir, pas foto, serta berkas wajib screening.
+                                Wajib min. {{ team.workflow?.counts?.min_players_required || 11 }} pemain, min. 2 GK (saat ini {{ team.workflow?.counts?.gk_total || 0 }} GK), dan diajukan ke panitia.
                             </p>
                         </div>
-                        <div class="pt-2 border-t border-slate-100">
+                        <div class="pt-2 border-t border-slate-200/70">
                             <Link
-                                v-if="team.can_manage_roster"
+                                v-if="team.workflow?.is_paid"
                                 :href="route('manager.players')"
-                                class="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 hover:text-orange-700 transition-colors"
+                                class="inline-flex items-center gap-1 text-xs font-bold text-orange-600 hover:text-orange-700"
                             >
                                 <span>Kelola Daftar Pemain</span>
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                                 </svg>
                             </Link>
-                            <span v-else class="text-xs text-slate-400 font-medium inline-flex items-center gap-1">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                </svg>
-                                Terbuka setelah pembayaran lunas
-                            </span>
+                            <span v-else class="text-[11px] text-slate-400 font-medium">Menunggu pelunasan</span>
                         </div>
                     </div>
 
-                    <!-- Step 3: Data Pelatih & Ofisial -->
-                    <div class="p-4 rounded-2xl border border-slate-200/90 bg-white/70 backdrop-blur-md flex flex-col justify-between space-y-3 hover:border-orange-200 transition-colors shadow-sm">
+                    <!-- Step 3: Pelatih & Ofisial -->
+                    <div
+                        class="p-4 rounded-2xl border flex flex-col justify-between space-y-3 transition-all"
+                        :class="
+                            team.workflow?.is_officials_met
+                                ? 'border-emerald-200 bg-emerald-50/35'
+                                : team.workflow?.current_step === 3
+                                  ? 'border-orange-300 bg-orange-50/50 ring-1 ring-orange-300/60 shadow-sm'
+                                  : 'border-slate-200/90 bg-white/70'
+                        "
+                    >
                         <div class="space-y-2">
                             <div class="flex items-center justify-between gap-2">
-                                <div class="flex items-center gap-2">
-                                    <span class="w-6 h-6 rounded-lg bg-slate-100 text-slate-700 font-black text-xs flex items-center justify-center">3</span>
-                                    <span class="font-bold text-xs sm:text-sm text-slate-900">Pelatih &amp; Ofisial</span>
-                                </div>
-                                <!-- Micro-Pill Terpisah & Proporsional -->
-                                <span class="tabular-data text-[11px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200/80">
-                                    {{ summary?.officials_total || 0 }} Orang
+                                <span
+                                    class="w-6 h-6 rounded-lg font-black text-xs flex items-center justify-center shrink-0"
+                                    :class="
+                                        team.workflow?.is_officials_met
+                                            ? 'bg-emerald-600 text-white'
+                                            : team.workflow?.current_step === 3
+                                              ? 'bg-orange-600 text-white'
+                                              : 'bg-slate-200 text-slate-700'
+                                    "
+                                >
+                                    3
+                                </span>
+                                <span
+                                    class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider border tabular-data"
+                                    :class="
+                                        team.workflow?.is_officials_met
+                                            ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                            : 'bg-amber-100 text-amber-900 border-amber-200'
+                                    "
+                                >
+                                    {{ team.workflow?.is_officials_met ? `${team.workflow.counts.officials_total} OFISIAL` : 'WAJIB 1+' }}
                                 </span>
                             </div>
+                            <h3 class="font-bold text-xs sm:text-sm text-slate-900">Pelatih &amp; Ofisial Tim</h3>
                             <p class="text-xs text-slate-600 leading-relaxed">
-                                Lengkapi lisensi kepelatihan Head Coach beserta staf medis/ofisial pendamping di bangku cadangan.
+                                Daftarkan minimal 1 Pelatih Kepala / Ofisial pendamping resmi beserta foto &amp; lisensi.
                             </p>
                         </div>
-                        <div class="pt-2 border-t border-slate-100">
+                        <div class="pt-2 border-t border-slate-200/70">
                             <Link
-                                v-if="team.can_manage_roster"
+                                v-if="team.workflow?.is_paid"
                                 :href="route('manager.officials')"
-                                class="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 hover:text-orange-700 transition-colors"
+                                class="inline-flex items-center gap-1 text-xs font-bold text-orange-600 hover:text-orange-700"
                             >
                                 <span>Kelola Ofisial Tim</span>
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                                 </svg>
                             </Link>
-                            <span v-else class="text-xs text-slate-400 font-medium inline-flex items-center gap-1">
+                            <span v-else class="text-[11px] text-slate-400 font-medium">Menunggu pelunasan</span>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Verifikasi Screening Panitia -->
+                    <div
+                        class="p-4 rounded-2xl border flex flex-col justify-between space-y-3 transition-all"
+                        :class="
+                            team.workflow?.is_all_players_passed && team.workflow?.is_gk_passed_met
+                                ? 'border-emerald-200 bg-emerald-50/35'
+                                : team.workflow?.counts?.players_submitted > 0
+                                  ? 'border-blue-300 bg-blue-50/40'
+                                  : 'border-slate-200/90 bg-white/70'
+                        "
+                    >
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between gap-2">
+                                <span
+                                    class="w-6 h-6 rounded-lg font-black text-xs flex items-center justify-center shrink-0"
+                                    :class="
+                                        team.workflow?.is_all_players_passed && team.workflow?.is_gk_passed_met
+                                            ? 'bg-emerald-600 text-white'
+                                            : team.workflow?.counts?.players_submitted > 0
+                                              ? 'bg-blue-600 text-white'
+                                              : 'bg-slate-200 text-slate-700'
+                                    "
+                                >
+                                    4
+                                </span>
+                                <span
+                                    class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider border tabular-data"
+                                    :class="
+                                        team.workflow?.is_all_players_passed && team.workflow?.is_gk_passed_met
+                                            ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                            : team.workflow?.counts?.players_submitted > 0
+                                              ? 'bg-blue-100 text-blue-800 border-blue-200'
+                                              : 'bg-slate-100 text-slate-600 border-slate-200'
+                                    "
+                                >
+                                    {{
+                                        team.workflow?.is_all_players_passed && team.workflow?.is_gk_passed_met
+                                            ? 'SEMUA SAH'
+                                            : `${team.workflow?.counts?.players_passed || 0}/${team.workflow?.counts?.players_total || 0} SAH`
+                                    }}
+                                </span>
+                            </div>
+                            <h3 class="font-bold text-xs sm:text-sm text-slate-900">Verifikasi Screening</h3>
+                            <p class="text-xs text-slate-600 leading-relaxed">
+                                Pemeriksaan keabsahan dokumen wajib seluruh pemain oleh Panitia Screening.
+                            </p>
+                        </div>
+                        <div class="pt-2 border-t border-slate-200/70">
+                            <Link
+                                v-if="team.workflow?.is_paid"
+                                :href="route('manager.players')"
+                                class="inline-flex items-center gap-1 text-xs font-bold text-orange-600 hover:text-orange-700"
+                            >
+                                <span>Pantau Status Berkas</span>
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                                 </svg>
-                                Terbuka setelah pembayaran lunas
-                            </span>
+                            </Link>
+                            <span v-else class="text-[11px] text-slate-400 font-medium">Menunggu pengajuan</span>
+                        </div>
+                    </div>
+
+                    <!-- Step 5: Kunci Skuad Final & Cetak ID Card -->
+                    <div
+                        class="p-4 rounded-2xl border flex flex-col justify-between space-y-3 transition-all"
+                        :class="
+                            team.workflow?.is_roster_locked
+                                ? 'border-emerald-300 bg-emerald-50/50 shadow-sm'
+                                : team.workflow?.is_ready_to_lock
+                                  ? 'border-orange-400 bg-gradient-to-br from-orange-50 via-amber-50 to-red-50 ring-2 ring-orange-400/60 shadow-md'
+                                  : 'border-slate-200/90 bg-white/70'
+                        "
+                    >
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between gap-2">
+                                <span
+                                    class="w-6 h-6 rounded-lg font-black text-xs flex items-center justify-center shrink-0"
+                                    :class="
+                                        team.workflow?.is_roster_locked
+                                            ? 'bg-emerald-600 text-white'
+                                            : team.workflow?.is_ready_to_lock
+                                              ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white'
+                                              : 'bg-slate-200 text-slate-700'
+                                    "
+                                >
+                                    5
+                                </span>
+                                <span
+                                    class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider border"
+                                    :class="
+                                        team.workflow?.is_roster_locked
+                                            ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                            : team.workflow?.is_ready_to_lock
+                                              ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white border-orange-600'
+                                              : 'bg-slate-100 text-slate-600 border-slate-200'
+                                    "
+                                >
+                                    {{
+                                        team.workflow?.is_roster_locked
+                                            ? 'FINAL'
+                                            : team.workflow?.is_ready_to_lock
+                                              ? 'SIAP KUNCI!'
+                                              : 'BELUM SIAP'
+                                    }}
+                                </span>
+                            </div>
+                            <h3 class="font-bold text-xs sm:text-sm text-slate-900">Akreditasi &amp; ID Card</h3>
+                            <p class="text-xs text-slate-600 leading-relaxed">
+                                Kunci skuad final setelah seluruh pemain lolos untuk menerbitkan Album Roster &amp; ID Card QR.
+                            </p>
+                        </div>
+                        <div class="pt-2 border-t border-slate-200/70">
+                            <Link
+                                :href="route('manager.accreditation.index')"
+                                class="inline-flex items-center gap-1 text-xs font-bold"
+                                :class="
+                                    team.workflow?.is_ready_to_lock
+                                        ? 'text-orange-700 hover:text-orange-800 underline'
+                                        : 'text-orange-600 hover:text-orange-700'
+                                "
+                            >
+                                <span>{{ team.workflow?.is_roster_locked ? 'Unduh ID Card & Roster' : (team.workflow?.is_ready_to_lock ? 'Kunci Skuad Sekarang' : 'Cek Syarat Akreditasi') }}</span>
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                </svg>
+                            </Link>
                         </div>
                     </div>
                 </div>

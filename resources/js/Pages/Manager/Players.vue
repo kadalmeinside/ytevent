@@ -306,8 +306,12 @@ const recallPlayer = (player) => {
     });
 };
 
-const isRosterLocked = computed(() => {
-    return !props.team?.can_manage_roster;
+const isUnpaidLocked = computed(() => {
+    return !props.team?.can_manage_roster && props.team?.status !== 'locked_roster';
+});
+
+const isFinalRosterLocked = computed(() => {
+    return props.team?.status === 'locked_roster';
 });
 </script>
 
@@ -318,7 +322,7 @@ const isRosterLocked = computed(() => {
         <div v-if="team" class="space-y-6">
             <!-- Lock Notification if Unpaid -->
             <div
-                v-if="isRosterLocked"
+                v-if="isUnpaidLocked"
                 class="frosted-card p-6 border-amber-300 bg-amber-50/75 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
             >
                 <div>
@@ -334,29 +338,81 @@ const isRosterLocked = computed(() => {
 
             <div v-else class="space-y-5">
                 <!-- Header Actions & Quota Counter -->
-                <div class="frosted-card p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                        <h2 class="text-base font-bold text-slate-900">Daftar Skuad Pemain Resmi</h2>
-                        <p class="text-xs text-slate-600 mt-0.5">
-                            Batas kelahiran kompetisi: <strong class="tabular-data">{{ formatDate(team.event?.min_birth_date) }} &ndash; {{ formatDate(team.event?.max_birth_date) }}</strong>
-                        </p>
-                    </div>
+                <div class="frosted-card p-4 sm:p-5 space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <h2 class="text-base font-bold text-slate-900">Daftar Skuad Pemain Resmi</h2>
+                            <p class="text-xs text-slate-600 mt-0.5">
+                                Batas kelahiran kompetisi: <strong class="tabular-data">{{ formatDate(team.event?.min_birth_date) }} &ndash; {{ formatDate(team.event?.max_birth_date) }}</strong>
+                            </p>
+                        </div>
 
-                    <div class="flex items-center gap-3">
-                        <div class="text-right">
-                            <span class="text-[11px] text-slate-500 block">Kuota Skuad Terisi</span>
-                            <span class="text-sm font-bold tabular-data" :class="players.length >= team.event?.max_players_per_team ? 'text-rose-700' : 'text-slate-900'">
-                                {{ players.length }} / {{ team.event?.max_players_per_team }} Pemain
+                        <div class="flex items-center gap-3">
+                            <div class="text-right">
+                                <span class="text-[11px] text-slate-500 block">Kuota Skuad Terisi</span>
+                                <span class="text-sm font-bold tabular-data" :class="players.length >= team.event?.max_players_per_team ? 'text-rose-700' : 'text-slate-900'">
+                                    {{ players.length }} / {{ team.event?.max_players_per_team }} Pemain
+                                </span>
+                            </div>
+                            <button
+                                v-if="!isFinalRosterLocked"
+                                type="button"
+                                class="btn-pitch"
+                                :disabled="players.length >= team.event?.max_players_per_team"
+                                @click="openCreateModal"
+                            >
+                                + Tambah Pemain Baru
+                            </button>
+                            <span
+                                v-else
+                                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                                Skuad Final Terkunci
                             </span>
                         </div>
-                        <button
-                            type="button"
-                            class="btn-pitch"
-                            :disabled="players.length >= team.event?.max_players_per_team"
-                            @click="openCreateModal"
+                    </div>
+
+                    <!-- Real-Time Squad Requirement Checklist Strip -->
+                    <div v-if="team.workflow" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-3 border-t border-slate-100">
+                        <div
+                            class="p-2.5 rounded-xl border flex items-center justify-between text-xs"
+                            :class="team.workflow.is_min_players_met ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900' : 'bg-amber-50/70 border-amber-200 text-amber-900'"
                         >
-                            + Tambah Pemain Baru
-                        </button>
+                            <span class="font-semibold">1. Kuota Min. Pemain</span>
+                            <span class="font-extrabold tabular-data px-1.5 py-0.5 rounded text-[11px]" :class="team.workflow.is_min_players_met ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'">
+                                {{ team.workflow.counts.players_total }}/{{ team.workflow.counts.min_players_required }}
+                            </span>
+                        </div>
+                        <div
+                            class="p-2.5 rounded-xl border flex items-center justify-between text-xs"
+                            :class="team.workflow.is_gk_met ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900' : 'bg-amber-50/70 border-amber-200 text-amber-900'"
+                        >
+                            <span class="font-semibold">2. Min. 2 Kiper (GK)</span>
+                            <span class="font-extrabold tabular-data px-1.5 py-0.5 rounded text-[11px]" :class="team.workflow.is_gk_met ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'">
+                                {{ team.workflow.counts.gk_total }}/{{ team.workflow.counts.min_gk_required }} GK
+                            </span>
+                        </div>
+                        <div
+                            class="p-2.5 rounded-xl border flex items-center justify-between text-xs"
+                            :class="team.workflow.counts.players_draft === 0 && team.workflow.counts.players_rejected === 0 && team.workflow.counts.players_total > 0 ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900' : 'bg-amber-50/70 border-amber-200 text-amber-900'"
+                        >
+                            <span class="font-semibold">3. Status Pengajuan</span>
+                            <span class="font-extrabold tabular-data px-1.5 py-0.5 rounded text-[11px]" :class="team.workflow.counts.players_draft === 0 && team.workflow.counts.players_rejected === 0 && team.workflow.counts.players_total > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'">
+                                {{ team.workflow.counts.players_draft > 0 ? `${team.workflow.counts.players_draft} Draft` : (team.workflow.counts.players_rejected > 0 ? `${team.workflow.counts.players_rejected} Revisi` : 'Semua Diajukan') }}
+                            </span>
+                        </div>
+                        <div
+                            class="p-2.5 rounded-xl border flex items-center justify-between text-xs"
+                            :class="team.workflow.is_all_players_passed ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900' : 'bg-blue-50/70 border-blue-200 text-blue-900'"
+                        >
+                            <span class="font-semibold">4. Lolos Screening</span>
+                            <span class="font-extrabold tabular-data px-1.5 py-0.5 rounded text-[11px]" :class="team.workflow.is_all_players_passed ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'">
+                                {{ team.workflow.counts.players_passed }}/{{ team.workflow.counts.players_total }} SAH
+                            </span>
+                        </div>
                     </div>
                 </div>
 

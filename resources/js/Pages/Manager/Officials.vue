@@ -154,6 +154,7 @@ const executeDelete = () => {
                         {{ officials.length }} / {{ team.event?.max_officials_per_team }} Ofisial
                     </span>
                     <button
+                        v-if="team.status !== 'locked_roster'"
                         type="button"
                         class="btn-pitch"
                         :disabled="officials.length >= team.event?.max_officials_per_team || !team.can_manage_roster"
@@ -161,6 +162,12 @@ const executeDelete = () => {
                     >
                         + Tambah Ofisial
                     </button>
+                    <span
+                        v-else
+                        class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300"
+                    >
+                        Skuad Final Terkunci
+                    </span>
                 </div>
             </div>
 

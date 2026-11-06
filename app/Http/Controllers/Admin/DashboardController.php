@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\EmailNotificationLog;
 use App\Models\Event;
 use App\Models\Payment;
 use App\Models\Player;
@@ -46,6 +47,9 @@ class DashboardController extends Controller
                 'refund_required_count' => Payment::query()->where('status', 'refund_required')->count(),
                 'total_paid_revenue' => (float) Payment::query()->where('status', 'paid')->sum('total_amount'),
                 'players_submitted_count' => Player::query()->where('screening_status', 'submitted')->count(),
+                'ready_to_lock_teams_count' => Team::query()->where('status', 'active')->where('screening_status', 'all_passed')->count(),
+                'locked_teams_count' => Team::query()->where('status', 'locked_roster')->count(),
+                'failed_emails_count' => EmailNotificationLog::query()->where('status', 'failed')->count(),
             ],
             'eventsOverview' => $events,
         ]);
