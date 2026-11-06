@@ -67,6 +67,7 @@ Route::middleware(['auth', 'manager.portal'])->prefix('manager')->name('manager.
     Route::delete('/players/{player}', [ManagerPlayerController::class, 'destroy'])->name('players.destroy');
     Route::post('/players/{player}/documents', [ManagerPlayerController::class, 'uploadDocument'])->name('players.documents.store');
     Route::post('/players/{player}/submit', [ManagerPlayerController::class, 'submitPlayer'])->name('players.submit');
+    Route::post('/players/{player}/recall', [ManagerPlayerController::class, 'recallPlayer'])->name('players.recall');
 
     Route::get('/officials', [ManagerOfficialController::class, 'index'])->name('officials');
     Route::post('/teams/{team}/officials', [ManagerOfficialController::class, 'store'])->name('officials.store');

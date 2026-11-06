@@ -314,6 +314,18 @@ class PlayerManagementTest extends TestCase
             'document_number' => 'AKTA-REVISI-FINAL',
             'original_name' => 'akta_lahir_revisi.pdf',
         ]);
+
+        // Manajer menarik pengajuan pemain (Recall to Draft)
+        $recallResponse = $this->actingAs($this->managerB)->post(
+            route('manager.players.recall', ['player' => $player->id])
+        );
+        $recallResponse->assertSessionHas('success');
+        $this->assertEquals('draft', $player->fresh()->screening_status);
+        $this->assertDatabaseHas('screening_logs', [
+            'player_id' => $player->id,
+            'from_status' => 'submitted',
+            'to_status' => 'draft',
+        ]);
     }
 
     public function test_manager_cannot_access_or_tamper_with_other_teams_players(): void

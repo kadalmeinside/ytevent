@@ -239,6 +239,14 @@ const submitForScreening = (player) => {
     });
 };
 
+const recallPlayerForm = useForm({});
+const recallPlayer = (player) => {
+    if (!confirm(`Tarik pengajuan ${player.full_name} kembali ke status draft untuk perbaikan berkas/data?`)) return;
+    recallPlayerForm.post(route('manager.players.recall', { player: player.id }), {
+        preserveScroll: true,
+    });
+};
+
 const isRosterLocked = computed(() => {
     return !props.team?.can_manage_roster;
 });
@@ -351,14 +359,27 @@ const isRosterLocked = computed(() => {
                                     <button
                                         v-if="['draft', 'rejected'].includes(p.screening_status) && p.is_complete_for_submission"
                                         type="button"
-                                        class="btn-sm-pitch inline-flex items-center gap-1"
+                                        class="btn-sm-pitch inline-flex items-center gap-1 shadow-2xs"
                                         :disabled="submitPlayerForm.processing"
                                         @click="submitForScreening(p)"
                                     >
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
-                                        <span>Ajukan Screening</span>
+                                        <span>{{ p.screening_status === 'rejected' ? 'Ajukan Ulang' : 'Ajukan Screening' }}</span>
+                                    </button>
+                                    <button
+                                        v-if="p.screening_status === 'submitted' && !p.is_locked"
+                                        type="button"
+                                        class="btn-sm-secondary inline-flex items-center gap-1 text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300"
+                                        :disabled="recallPlayerForm.processing"
+                                        @click="recallPlayer(p)"
+                                        title="Tarik pengajuan kembali ke draft untuk perbaikan berkas/data"
+                                    >
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a5 5 0 015 5v2m-15-7l4-4m-4 4l4 4" />
+                                        </svg>
+                                        <span>Tarik Pengajuan</span>
                                     </button>
                                     <button
                                         v-if="!p.is_locked"

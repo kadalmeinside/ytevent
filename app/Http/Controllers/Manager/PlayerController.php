@@ -270,6 +270,36 @@ class PlayerController extends Controller
             ->with('success', "Berkas pemain {$player->full_name} berhasil diajukan ke antrean screening panitia.");
     }
 
+    public function recallPlayer(Request $request, Player $player): RedirectResponse
+    {
+        $player->loadMissing('team');
+        $this->authorize('update', $player);
+
+        if ($player->screening_status !== 'submitted') {
+            return redirect()->back()->with('error', "Pengajuan pemain {$player->full_name} tidak dapat ditarik karena statusnya bukan Menunggu Screening.");
+        }
+
+        if ($player->is_locked || $player->screening_status === 'passed') {
+            return redirect()->back()->with('error', "Pemain {$player->full_name} sudah berstatus sah/terkunci dan tidak dapat ditarik.");
+        }
+
+        DB::transaction(function () use ($player, $request) {
+            $player->update([
+                'screening_status' => 'draft',
+            ]);
+
+            ScreeningLog::create([
+                'player_id' => $player->id,
+                'actor_id' => $request->user()->id,
+                'from_status' => 'submitted',
+                'to_status' => 'draft',
+                'reason' => 'Pengajuan ditarik kembali ke draft oleh Manajer Tim untuk perbaikan data/berkas.',
+            ]);
+        });
+
+        return redirect()->back()->with('success', "Pengajuan screening pemain {$player->full_name} berhasil ditarik ke draft. Anda dapat mengoreksi data atau berkas sebelum diajukan kembali.");
+    }
+
     protected function persistPlayerDocument(
         Player $player,
         string $documentType,
