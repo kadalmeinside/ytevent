@@ -73,98 +73,96 @@ const stripHtml = (html) => {
     <PublicLayout>
         <Head title="Katalog Kompetisi Sepak Bola" />
 
-        <!-- Subtle Enterprise Frosted Hero -->
-        <section class="bg-gradient-to-b from-orange-100/40 via-white/80 to-slate-50/50 border-b border-slate-200/80 backdrop-blur-md">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-                <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-                    <div class="max-w-2xl">
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-orange-100/80 text-orange-800 border border-orange-300/80 mb-3 shadow-sm">
-                            Multi-Event Football Management
-                        </span>
-                        <h1 class="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
-                            Portal Resmi Pendaftaran Turnamen &amp; Liga Sepak Bola
-                        </h1>
-                        <p class="mt-3 text-xs sm:text-sm text-slate-600 leading-relaxed">
-                            Sistem pendaftaran tim terintegrasi dengan reservasi kuota real-time bebas race-condition, pembayaran instan maupun manual, serta kelengkapan berkas screening pemain berbasis kelompok usia.
-                        </p>
+        <!-- Hero Section (Seamless with Page Canvas, Identical to EventDetail) -->
+        <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-4 sm:pt-6 sm:pb-6">
+            <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+                <div class="max-w-2xl">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-orange-100/80 text-orange-800 border border-orange-300/80 mb-3 shadow-2xs">
+                        Multi-Event Football Management
+                    </span>
+                    <h1 class="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
+                        Portal Resmi Pendaftaran Turnamen &amp; Liga Sepak Bola
+                    </h1>
+                    <p class="mt-3 text-xs sm:text-sm text-slate-600 leading-relaxed">
+                        Sistem pendaftaran tim terintegrasi dengan reservasi kuota real-time bebas race-condition, pembayaran instan maupun manual, serta kelengkapan berkas screening pemain berbasis kelompok usia.
+                    </p>
+                </div>
+
+                <!-- Platform Stats -->
+                <div class="grid grid-cols-3 gap-3 sm:gap-4 shrink-0">
+                    <div class="frosted-card px-4 py-3">
+                        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Kompetisi</p>
+                        <p class="text-xl sm:text-2xl font-black text-slate-900 tabular-data mt-0.5">{{ stats.total_events || 0 }}</p>
+                    </div>
+                    <div class="frosted-card px-4 py-3 border-orange-200/80 bg-orange-50/30">
+                        <p class="text-[11px] font-bold text-orange-600/80 uppercase tracking-wider">Slot Terisi</p>
+                        <p class="text-xl sm:text-2xl font-black text-orange-600 tabular-data mt-0.5">{{ stats.total_teams || 0 }}</p>
+                    </div>
+                    <div class="frosted-card px-4 py-3">
+                        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Pemain Sah</p>
+                        <p class="text-xl sm:text-2xl font-black text-slate-900 tabular-data mt-0.5">{{ stats.total_verified_players || 0 }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter Bar -->
+            <form @submit.prevent="applyFilters" novalidate class="mt-6 frosted-card p-4 sm:p-5">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                    <div class="lg:col-span-2">
+                        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Cari Nama Event / Kota</label>
+                        <input
+                            v-model="filterState.search"
+                            type="text"
+                            placeholder="Contoh: Youth Cup, Jakarta, Bandung..."
+                            class="input-field"
+                        />
                     </div>
 
-                    <!-- Platform Stats -->
-                    <div class="grid grid-cols-3 gap-3 sm:gap-4 shrink-0">
-                        <div class="frosted-card px-4 py-3">
-                            <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Kompetisi</p>
-                            <p class="text-xl sm:text-2xl font-black text-slate-900 tabular-data mt-0.5">{{ stats.total_events || 0 }}</p>
-                        </div>
-                        <div class="frosted-card px-4 py-3 border-orange-200/80 bg-orange-50/30">
-                            <p class="text-[11px] font-bold text-orange-600/80 uppercase tracking-wider">Slot Terisi</p>
-                            <p class="text-xl sm:text-2xl font-black text-orange-600 tabular-data mt-0.5">{{ stats.total_teams || 0 }}</p>
-                        </div>
-                        <div class="frosted-card px-4 py-3">
-                            <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Pemain Sah</p>
-                            <p class="text-xl sm:text-2xl font-black text-slate-900 tabular-data mt-0.5">{{ stats.total_verified_players || 0 }}</p>
+                    <div>
+                        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Format Kompetisi</label>
+                        <select v-model="filterState.format" class="input-field" @change="applyFilters">
+                            <option value="">Semua Format</option>
+                            <option v-for="(label, key) in formats" :key="key" :value="key">
+                                {{ label }}
+                            </option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Kelompok Usia</label>
+                        <select v-model="filterState.age_category" class="input-field" @change="applyFilters">
+                            <option value="">Semua Usia</option>
+                            <option v-for="cat in ageCategories" :key="cat" :value="cat">
+                                {{ cat }}
+                            </option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Status Kuota</label>
+                        <div class="flex items-center gap-2">
+                            <select v-model="filterState.status" class="input-field" @change="applyFilters">
+                                <option value="">Semua Status</option>
+                                <option value="open">Dibuka (Open)</option>
+                                <option value="quota_full">Kuota Penuh</option>
+                                <option value="ongoing">Sedang Berjalan</option>
+                                <option value="completed">Selesai</option>
+                            </select>
+                            <button type="submit" class="btn-pitch px-4 py-2.5 shrink-0">Cari</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Filter Bar -->
-                <form @submit.prevent="applyFilters" novalidate class="mt-8 frosted-card p-4 sm:p-5">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                        <div class="lg:col-span-2">
-                            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Cari Nama Event / Kota</label>
-                            <input
-                                v-model="filterState.search"
-                                type="text"
-                                placeholder="Contoh: Youth Cup, Jakarta, Bandung..."
-                                class="input-field"
-                            />
-                        </div>
-
-                        <div>
-                            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Format Kompetisi</label>
-                            <select v-model="filterState.format" class="input-field" @change="applyFilters">
-                                <option value="">Semua Format</option>
-                                <option v-for="(label, key) in formats" :key="key" :value="key">
-                                    {{ label }}
-                                </option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Kelompok Usia</label>
-                            <select v-model="filterState.age_category" class="input-field" @change="applyFilters">
-                                <option value="">Semua Usia</option>
-                                <option v-for="cat in ageCategories" :key="cat" :value="cat">
-                                    {{ cat }}
-                                </option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Status Kuota</label>
-                            <div class="flex items-center gap-2">
-                                <select v-model="filterState.status" class="input-field" @change="applyFilters">
-                                    <option value="">Semua Status</option>
-                                    <option value="open">Dibuka (Open)</option>
-                                    <option value="quota_full">Kuota Penuh</option>
-                                    <option value="ongoing">Sedang Berjalan</option>
-                                    <option value="completed">Selesai</option>
-                                </select>
-                                <button type="submit" class="btn-pitch px-4 py-2.5 shrink-0">Cari</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div
-                        v-if="filterState.search || filterState.format || filterState.age_category || filterState.status"
-                        class="mt-3 pt-2.5 border-t border-slate-200/70 flex items-center justify-between text-xs text-slate-500"
-                    >
-                        <span>Menampilkan {{ events.length }} kompetisi sesuai filter</span>
-                        <button type="button" class="text-orange-600 font-semibold hover:text-orange-700 hover:underline" @click="resetFilters">
-                            Reset Filter
-                        </button>
-                    </div>
-                </form>
-            </div>
+                <div
+                    v-if="filterState.search || filterState.format || filterState.age_category || filterState.status"
+                    class="mt-3 pt-2.5 border-t border-slate-200/70 flex items-center justify-between text-xs text-slate-500"
+                >
+                    <span>Menampilkan {{ events.length }} kompetisi sesuai filter</span>
+                    <button type="button" class="text-orange-600 font-semibold hover:text-orange-700 hover:underline" @click="resetFilters">
+                        Reset Filter
+                    </button>
+                </div>
+            </form>
         </section>
 
         <!-- Event Cards Grid -->
