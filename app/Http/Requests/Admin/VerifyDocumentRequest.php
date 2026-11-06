@@ -29,3 +29,4 @@ class VerifyDocumentRequest extends FormRequest
         ];
     }
 }
+

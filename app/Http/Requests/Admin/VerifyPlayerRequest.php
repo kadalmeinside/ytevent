@@ -42,3 +42,4 @@ class VerifyPlayerRequest extends FormRequest
         ];
     }
 }
+

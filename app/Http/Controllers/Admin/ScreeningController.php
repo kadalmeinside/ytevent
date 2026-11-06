@@ -175,7 +175,7 @@ class ScreeningController extends Controller
                         'original_name' => $doc->original_name,
                         'file_size' => $doc->file_size,
                         'mime_type' => $doc->mime_type,
-                        'is_pdf' => $doc->mime_type === 'application/pdf',
+                        'is_pdf' => $doc->mime_type === 'application/pdf' || str_ends_with(strtolower($doc->original_name ?? ''), '.pdf'),
                         'validation_status' => $doc->validation_status,
                         'notes' => $doc->notes,
                         'preview_url' => route('private.player-document', ['document' => $doc->id]),

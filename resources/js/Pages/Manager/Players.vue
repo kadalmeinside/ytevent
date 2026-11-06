@@ -7,6 +7,7 @@ import InputError from '@/Components/InputError.vue';
 import FormErrorBanner from '@/Components/FormErrorBanner.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
 import FileInput from '@/Components/FileInput.vue';
+import DocumentViewerModal from '@/Components/DocumentViewerModal.vue';
 import { useFormValidator } from '@/Composables/useFormValidator';
 import { useFormatters } from '@/Composables/useFormatters';
 import { compressImage } from '@/Utils/imageCompressor';
@@ -40,6 +41,15 @@ const isViewingPlayer = ref(false);
 
 const activeDocPlayer = ref(null);
 const isDocModalOpen = ref(false);
+const isPreviewModalOpen = ref(false);
+const previewDoc = ref(null);
+const previewDocSubtitle = ref('');
+
+const previewDocument = (doc, player = null) => {
+    previewDoc.value = doc;
+    previewDocSubtitle.value = player ? `Pemain: ${player.full_name} (#${player.jersey_number})` : '';
+    isPreviewModalOpen.value = true;
+};
 const selectedDocType = ref('');
 const docNumber = ref('');
 const docForm = useForm({
@@ -519,25 +529,55 @@ const isRosterLocked = computed(() => {
                                         </button>
                                     </div>
                                     <div class="flex flex-wrap gap-1.5">
-                                        <span
+                                        <button
                                             v-for="doc in team.event?.required_documents"
                                             :key="doc.type"
-                                            class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-colors"
+                                            type="button"
+                                            class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold border transition-all text-left"
                                             :class="[
                                                 !p.documents[doc.type]
-                                                    ? 'bg-rose-50 text-rose-800 border-rose-200'
+                                                    ? 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100'
                                                     : (p.documents[doc.type].validation_status === 'invalid'
-                                                        ? 'bg-rose-100 text-rose-950 border-rose-400 font-extrabold shadow-2xs'
+                                                        ? 'bg-rose-100 text-rose-950 border-rose-400 font-extrabold shadow-2xs hover:bg-rose-200'
                                                         : (p.documents[doc.type].validation_status === 'valid'
-                                                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                                                            : 'bg-amber-50 text-amber-800 border-amber-300'))
+                                                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                                                            : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'))
                                             ]"
+                                            @click="p.documents[doc.type] ? previewDocument(p.documents[doc.type], p) : openDocModal(p, doc.type)"
+                                            :title="p.documents[doc.type] ? 'Klik untuk melihat dokumen di modal view' : 'Klik untuk mengunggah dokumen'"
                                         >
-                                            <span v-if="!p.documents[doc.type]">✕ Belum: {{ doc.label }}</span>
-                                            <span v-else-if="p.documents[doc.type].validation_status === 'invalid'">✕ Revisi: {{ doc.label }}</span>
-                                            <span v-else-if="p.documents[doc.type].validation_status === 'valid'">✓ Sah: {{ doc.label }}</span>
-                                            <span v-else>⏳ Menunggu: {{ doc.label }}</span>
-                                        </span>
+                                            <!-- Belum Diunggah -->
+                                            <template v-if="!p.documents[doc.type]">
+                                                <svg class="w-3 h-3 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                                <span>Belum: {{ doc.label }}</span>
+                                            </template>
+
+                                            <!-- Butuh Revisi -->
+                                            <template v-else-if="p.documents[doc.type].validation_status === 'invalid'">
+                                                <svg class="w-3 h-3 text-rose-700 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                                </svg>
+                                                <span>Revisi: {{ doc.label }}</span>
+                                            </template>
+
+                                            <!-- Sah / Valid -->
+                                            <template v-else-if="p.documents[doc.type].validation_status === 'valid'">
+                                                <svg class="w-3 h-3 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                                                </svg>
+                                                <span>Sah: {{ doc.label }}</span>
+                                            </template>
+
+                                            <!-- Menunggu Verifikasi -->
+                                            <template v-else>
+                                                <svg class="w-3 h-3 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                <span>Menunggu: {{ doc.label }}</span>
+                                            </template>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -934,20 +974,19 @@ const isRosterLocked = computed(() => {
                                     </div>
                                 </div>
 
-                                <!-- Button View Berkas -->
-                                <a
-                                    :href="activeExistingDoc.preview_url"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                <!-- Button View Berkas (Modal View) -->
+                                <button
+                                    type="button"
                                     class="btn-sm-pitch shrink-0 flex items-center gap-1.5 shadow-2xs"
-                                    title="Buka / Pratinjau berkas di tab baru"
+                                    title="Pratinjau berkas gambar atau PDF langsung di modal view"
+                                    @click="previewDocument(activeExistingDoc, activeDocPlayer)"
                                 >
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                     </svg>
-                                    <span>Lihat Berkas</span>
-                                </a>
+                                    <span>Pratinjau Berkas</span>
+                                </button>
                             </div>
 
                             <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-600 pt-2 border-t border-orange-200/60">
@@ -1034,6 +1073,21 @@ const isRosterLocked = computed(() => {
             :processing="deleteForm.processing"
             @confirm="executeDelete"
             @close="playerToDelete = null"
+        />
+
+        <!-- Document Viewer Modal (Image & PDF) -->
+        <DocumentViewerModal
+            :is-open="isPreviewModalOpen"
+            :title="previewDoc?.label || 'Pratinjau Dokumen'"
+            :subtitle="previewDocSubtitle"
+            :file-url="previewDoc?.preview_url || ''"
+            :is-pdf="Boolean(previewDoc?.is_pdf)"
+            :original-name="previewDoc?.original_name || ''"
+            :document-number="previewDoc?.document_number || ''"
+            :file-size="previewDoc?.file_size || 0"
+            :validation-status="previewDoc?.validation_status || ''"
+            :notes="previewDoc?.notes || ''"
+            @close="isPreviewModalOpen = false"
         />
     </ManagerLayout>
 </template>

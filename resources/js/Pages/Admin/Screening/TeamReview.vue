@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import InputError from '@/Components/InputError.vue';
+import DocumentViewerModal from '@/Components/DocumentViewerModal.vue';
 
 const props = defineProps({
     event: {
@@ -34,7 +35,7 @@ const activeDoc = computed(() => {
 
 // Image Zoom & Viewer State
 const imageZoom = ref(1);
-const isFullscreenModalOpen = ref(false);
+const isDocViewerOpen = ref(false);
 
 const zoomIn = () => {
     if (imageZoom.value < 2.5) imageZoom.value += 0.25;
@@ -65,6 +66,55 @@ const prevPlayer = () => {
     }
 };
 
+// Operational Rules & Permissions
+const isPlayerLocked = computed(() => {
+    return Boolean(activePlayer.value?.is_locked || activePlayer.value?.screening_status === 'passed');
+});
+
+const isAgeEligible = computed(() => {
+    return Boolean(activePlayer.value?.is_age_valid);
+});
+
+const hasInvalidDocument = computed(() => {
+    return Boolean(activePlayer.value?.documents?.some((d) => d.validation_status === 'invalid'));
+});
+
+const hasDocuments = computed(() => {
+    return Boolean(activePlayer.value?.documents && activePlayer.value.documents.length > 0);
+});
+
+const canApprovePlayer = computed(() => {
+    if (!activePlayer.value) return false;
+    if (isPlayerLocked.value) return false;
+    if (!isAgeEligible.value) return false;
+    if (hasInvalidDocument.value) return false;
+    if (!hasDocuments.value) return false;
+    if (verifyForm.processing) return false;
+    return true;
+});
+
+const approveDisabledTooltip = computed(() => {
+    if (!activePlayer.value) return '';
+    if (isPlayerLocked.value) return 'Pemain sudah berstatus Sah dan terkunci permanen.';
+    if (!isAgeEligible.value) return 'Tidak dapat disahkan: Tanggal lahir di luar batas regulasi kompetisi.';
+    if (hasInvalidDocument.value) return 'Ada berkas berstatus Butuh Revisi. Berkas harus Sah sebelum pemain disahkan.';
+    if (!hasDocuments.value) return 'Belum ada berkas dokumen yang diunggah untuk pemain ini.';
+    return '';
+});
+
+const canRejectPlayer = computed(() => {
+    if (!activePlayer.value) return false;
+    if (isPlayerLocked.value) return false;
+    if (verifyForm.processing) return false;
+    return true;
+});
+
+const rejectDisabledTooltip = computed(() => {
+    if (!activePlayer.value) return '';
+    if (isPlayerLocked.value) return 'Pemain sudah berstatus Sah. Buka kunci pemain terlebih dahulu untuk merevisi.';
+    return '';
+});
+
 // Verification Form
 const verifyForm = useForm({
     action: 'passed',
@@ -80,7 +130,7 @@ const unlockForm = useForm({
 
 // Approve Player (Loloskan Sah)
 const handleApprove = () => {
-    if (!activePlayer.value) return;
+    if (!canApprovePlayer.value) return;
     verifyForm.action = 'passed';
     verifyForm.rejection_reason = '';
     verifyForm.documents = activePlayer.value.documents.map((d) => ({
@@ -92,7 +142,6 @@ const handleApprove = () => {
     verifyForm.post(route('admin.screening.player.verify', { player: activePlayer.value.id }), {
         preserveScroll: true,
         onSuccess: () => {
-            // Jika ada pemain berikutnya yang masih submitted, lompat ke sana
             const nextIdx = props.players.findIndex(
                 (p, idx) => idx > activePlayerIndex.value && p.screening_status === 'submitted'
             );
@@ -105,6 +154,7 @@ const handleApprove = () => {
 
 // Open Reject Modal
 const openRejectModal = () => {
+    if (!canRejectPlayer.value) return;
     verifyForm.action = 'rejected';
     verifyForm.rejection_reason = activePlayer.value?.rejection_reason || '';
     isRejectModalOpen.value = true;
@@ -112,7 +162,7 @@ const openRejectModal = () => {
 
 // Submit Rejection
 const submitRejection = () => {
-    if (!activePlayer.value) return;
+    if (!activePlayer.value || verifyForm.processing) return;
     verifyForm.post(route('admin.screening.player.verify', { player: activePlayer.value.id }), {
         preserveScroll: true,
         onSuccess: () => {
@@ -124,7 +174,7 @@ const submitRejection = () => {
 
 // Emergency Unlock
 const submitUnlock = () => {
-    if (!activePlayer.value) return;
+    if (!activePlayer.value || unlockForm.processing) return;
     unlockForm.post(route('admin.screening.player.unlock', { player: activePlayer.value.id }), {
         preserveScroll: true,
         onSuccess: () => {
@@ -136,6 +186,7 @@ const submitUnlock = () => {
 
 // Granular Verify Single Document
 const setDocumentStatus = (doc, status) => {
+    if (isPlayerLocked.value || doc.validation_status === status) return;
     router.post(
         route('admin.screening.document.verify', { document: doc.id }),
         {
@@ -335,8 +386,12 @@ const setDocumentStatus = (doc, status) => {
                         >
                             <div class="flex items-center justify-between">
                                 <span class="font-bold flex items-center gap-1.5">
-                                    <span v-if="activePlayer.is_age_valid" class="text-emerald-700 font-black">✓</span>
-                                    <span v-else class="text-rose-600 font-black">✕</span>
+                                    <svg v-if="activePlayer.is_age_valid" class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    <svg v-else class="w-4 h-4 text-rose-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
                                     <span>Pemeriksaan Batas Kelahiran (Usia)</span>
                                 </span>
                                 <span
@@ -431,17 +486,16 @@ const setDocumentStatus = (doc, status) => {
                                     @click="selectedDocIndex = dIdx"
                                 >
                                     <span>{{ doc.label }}</span>
-                                    <span
-                                        class="text-[10px] font-bold"
-                                        :class="
-                                            doc.validation_status === 'valid'
-                                                ? (selectedDocIndex === dIdx ? 'text-emerald-200' : 'text-emerald-600')
-                                                : doc.validation_status === 'invalid'
-                                                ? (selectedDocIndex === dIdx ? 'text-rose-200' : 'text-rose-600')
-                                                : (selectedDocIndex === dIdx ? 'text-amber-200' : 'text-amber-600')
-                                        "
-                                    >
-                                        {{ doc.validation_status === 'valid' ? '✓' : doc.validation_status === 'invalid' ? '✕' : '⏳' }}
+                                    <span class="inline-flex items-center">
+                                        <svg v-if="doc.validation_status === 'valid'" class="w-3.5 h-3.5 shrink-0" :class="selectedDocIndex === dIdx ? 'text-white' : 'text-emerald-600'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        <svg v-else-if="doc.validation_status === 'invalid'" class="w-3.5 h-3.5 shrink-0" :class="selectedDocIndex === dIdx ? 'text-white' : 'text-rose-600'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                        <svg v-else class="w-3.5 h-3.5 shrink-0" :class="selectedDocIndex === dIdx ? 'text-white' : 'text-amber-500'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
                                     </span>
                                 </button>
                             </div>
@@ -465,19 +519,40 @@ const setDocumentStatus = (doc, status) => {
                                 <div class="flex items-center gap-2">
                                     <button
                                         type="button"
-                                        class="px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors flex items-center gap-1"
-                                        :class="activeDoc.validation_status === 'valid' ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs' : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50'"
+                                        class="px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors flex items-center gap-1.5"
+                                        :class="[
+                                            activeDoc.validation_status === 'valid'
+                                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                                                : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50',
+                                            isPlayerLocked ? 'opacity-50 cursor-not-allowed' : ''
+                                        ]"
+                                        :disabled="isPlayerLocked || activeDoc.validation_status === 'valid'"
+                                        :title="isPlayerLocked ? 'Pemain sudah terkunci sah' : (activeDoc.validation_status === 'valid' ? 'Dokumen sudah berstatus sah' : 'Tandai dokumen sah')"
                                         @click="setDocumentStatus(activeDoc, 'valid')"
                                     >
-                                        ✓ Dokumen Sah
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        <span>Dokumen Sah</span>
                                     </button>
+
                                     <button
                                         type="button"
-                                        class="px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors flex items-center gap-1"
-                                        :class="activeDoc.validation_status === 'invalid' ? 'bg-rose-600 text-white border-rose-600 shadow-2xs' : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50'"
+                                        class="px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors flex items-center gap-1.5"
+                                        :class="[
+                                            activeDoc.validation_status === 'invalid'
+                                                ? 'bg-rose-600 text-white border-rose-600 shadow-2xs'
+                                                : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50',
+                                            isPlayerLocked ? 'opacity-50 cursor-not-allowed' : ''
+                                        ]"
+                                        :disabled="isPlayerLocked || activeDoc.validation_status === 'invalid'"
+                                        :title="isPlayerLocked ? 'Pemain sudah terkunci sah' : (activeDoc.validation_status === 'invalid' ? 'Dokumen sudah ditandai perlu revisi' : 'Tandai dokumen butuh revisi')"
                                         @click="setDocumentStatus(activeDoc, 'invalid')"
                                     >
-                                        ✕ Butuh Revisi
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                        <span>Butuh Revisi</span>
                                     </button>
                                 </div>
                             </div>
@@ -485,25 +560,37 @@ const setDocumentStatus = (doc, status) => {
                             <!-- Document Inspection Canvas (PDF / Image) -->
                             <div class="relative bg-slate-900/5 rounded-2xl border border-slate-200/80 p-3 min-h-[380px] max-h-[520px] flex items-center justify-center overflow-hidden">
                                 <!-- PDF Document View -->
-                                <div v-if="activeDoc.is_pdf" class="text-center p-8 space-y-3">
-                                    <svg class="w-16 h-16 text-rose-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                    </svg>
-                                    <div>
-                                        <h4 class="text-sm font-bold text-slate-800">Dokumen PDF Terlampir</h4>
-                                        <p class="text-xs text-slate-500 mt-0.5">{{ activeDoc.original_name }}</p>
+                                <div v-if="activeDoc.is_pdf" class="w-full h-full flex flex-col items-center justify-center space-y-3 p-2">
+                                    <iframe
+                                        :src="activeDoc.preview_url"
+                                        class="w-full h-[400px] rounded-xl border border-slate-200 bg-white shadow-inner"
+                                        title="Pratinjau PDF"
+                                    ></iframe>
+
+                                    <div class="flex items-center gap-2 text-xs">
+                                        <button
+                                            type="button"
+                                            class="btn-sm-pitch inline-flex items-center gap-1.5 shadow-2xs"
+                                            @click="isDocViewerOpen = true"
+                                        >
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                                            </svg>
+                                            <span>Perbesar di Modal View</span>
+                                        </button>
+
+                                        <a
+                                            :href="activeDoc.preview_url"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="btn-sm-secondary inline-flex items-center gap-1.5"
+                                        >
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                            </svg>
+                                            <span>Tab Baru</span>
+                                        </a>
                                     </div>
-                                    <a
-                                        :href="activeDoc.preview_url"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        class="btn-sm-pitch inline-flex items-center gap-1.5 shadow-2xs"
-                                    >
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                        </svg>
-                                        <span>Buka &amp; Periksa PDF Lengkap di Tab Baru</span>
-                                    </a>
                                 </div>
 
                                 <!-- Image Document View -->
@@ -513,17 +600,24 @@ const setDocumentStatus = (doc, status) => {
                                         :alt="activeDoc.label"
                                         class="max-w-full max-h-[460px] object-contain rounded-lg shadow-sm transition-transform duration-200 cursor-zoom-in"
                                         :style="{ transform: `scale(${imageZoom})` }"
-                                        @click="isFullscreenModalOpen = true"
+                                        @click="isDocViewerOpen = true"
                                     />
 
                                     <!-- Floating Image Zoom Toolbar -->
-                                    <div class="absolute bottom-3 right-3 bg-slate-900/80 backdrop-blur-md rounded-xl p-1.5 flex items-center gap-1 shadow-md text-white text-xs">
+                                    <div class="absolute bottom-3 right-3 bg-slate-900/85 backdrop-blur-md rounded-xl p-1.5 flex items-center gap-1 shadow-md text-white text-xs border border-white/10">
                                         <button type="button" class="px-2 py-1 hover:bg-white/20 rounded" title="Zoom Out" @click="zoomOut">-</button>
-                                        <span class="font-mono text-[10px] px-1">{{ Math.round(imageZoom * 100) }}%</span>
+                                        <span class="font-mono text-[10px] px-1 font-semibold">{{ Math.round(imageZoom * 100) }}%</span>
                                         <button type="button" class="px-2 py-1 hover:bg-white/20 rounded" title="Zoom In" @click="zoomIn">+</button>
-                                        <button type="button" class="px-2 py-1 hover:bg-white/20 rounded" title="Reset Zoom" @click="resetZoom">1:1</button>
-                                        <button type="button" class="px-2 py-1 bg-orange-600 hover:bg-orange-700 rounded font-semibold ml-1" @click="isFullscreenModalOpen = true">
-                                            Perbesar
+                                        <button type="button" class="px-2 py-1 hover:bg-white/20 rounded text-[11px]" title="Reset Zoom" @click="resetZoom">1:1</button>
+                                        <button
+                                            type="button"
+                                            class="px-2 py-1 bg-orange-600 hover:bg-orange-700 rounded font-semibold ml-1 inline-flex items-center gap-1 shadow-2xs"
+                                            @click="isDocViewerOpen = true"
+                                        >
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                                            </svg>
+                                            <span>Modal View</span>
                                         </button>
                                     </div>
                                 </div>
@@ -575,61 +669,92 @@ const setDocumentStatus = (doc, status) => {
                     <div class="flex items-center gap-2.5">
                         <!-- Emergency Unlock if already passed -->
                         <button
-                            v-if="activePlayer.screening_status === 'passed'"
+                            v-if="isPlayerLocked"
                             type="button"
-                            class="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 border border-slate-700 transition-colors"
+                            class="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 border border-slate-700 transition-colors flex items-center gap-1.5"
                             @click="isUnlockModalOpen = true"
                         >
-                            Buka Kunci (Unlock)
+                            <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                            </svg>
+                            <span>Buka Kunci (Unlock)</span>
                         </button>
 
                         <!-- Reject Button -->
-                        <button
-                            type="button"
-                            class="btn-sm-danger px-4 py-2 text-xs font-bold shadow-md"
-                            :disabled="verifyForm.processing"
-                            @click="openRejectModal"
-                        >
-                            ✕ Tolak / Minta Revisi
-                        </button>
+                        <div class="relative group">
+                            <button
+                                type="button"
+                                class="btn-sm-danger px-4 py-2 text-xs font-bold shadow-md flex items-center gap-1.5"
+                                :class="{ 'opacity-50 cursor-not-allowed': !canRejectPlayer }"
+                                :disabled="!canRejectPlayer"
+                                @click="openRejectModal"
+                            >
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                <span>{{ activePlayer.screening_status === 'rejected' ? 'Ubah Catatan Penolakan' : 'Tolak / Minta Revisi' }}</span>
+                            </button>
+                            <div
+                                v-if="rejectDisabledTooltip"
+                                class="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block bg-slate-950 text-white text-[11px] px-2.5 py-1 rounded-lg shadow-xl whitespace-nowrap z-50 border border-slate-700 pointer-events-none"
+                            >
+                                {{ rejectDisabledTooltip }}
+                            </div>
+                        </div>
 
                         <!-- Approve Button -->
-                        <button
-                            type="button"
-                            class="px-5 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-md shadow-emerald-600/30 transition-all flex items-center gap-1.5"
-                            :disabled="verifyForm.processing"
-                            @click="handleApprove"
-                        >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
-                            </svg>
-                            <span>{{ verifyForm.processing ? 'Menyimpan...' : 'Loloskan Pemain (Sah)' }}</span>
-                        </button>
+                        <div class="relative group">
+                            <button
+                                type="button"
+                                class="px-5 py-2 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-1.5 shadow-md"
+                                :class="[
+                                    canApprovePlayer
+                                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-emerald-600/30 cursor-pointer'
+                                        : 'bg-slate-700 text-slate-400 opacity-60 cursor-not-allowed'
+                                ]"
+                                :disabled="!canApprovePlayer"
+                                @click="handleApprove"
+                            >
+                                <svg v-if="verifyForm.processing" class="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <span>
+                                    {{
+                                        verifyForm.processing
+                                            ? 'Menyimpan...'
+                                            : (isPlayerLocked ? 'Pemain Sudah Sah' : 'Loloskan Pemain (Sah)')
+                                    }}
+                                </span>
+                            </button>
+                            <div
+                                v-if="approveDisabledTooltip"
+                                class="absolute bottom-full mb-2 right-0 hidden group-hover:block bg-slate-950 text-white text-[11px] px-2.5 py-1 rounded-lg shadow-xl whitespace-nowrap z-50 border border-slate-700 pointer-events-none"
+                            >
+                                {{ approveDisabledTooltip }}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Fullscreen Lightbox Modal -->
-            <div
-                v-if="isFullscreenModalOpen && activeDoc && !activeDoc.is_pdf"
-                class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out"
-                @click="isFullscreenModalOpen = false"
-            >
-                <div class="relative max-w-5xl max-h-[92vh] flex items-center justify-center">
-                    <img
-                        :src="activeDoc.preview_url"
-                        :alt="activeDoc.label"
-                        class="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
-                    />
-                    <button
-                        type="button"
-                        class="absolute top-2 right-2 bg-slate-900/80 text-white text-xs px-3 py-1.5 rounded-lg border border-white/20"
-                        @click.stop="isFullscreenModalOpen = false"
-                    >
-                        Tutup [ESC]
-                    </button>
-                </div>
-            </div>
+            <!-- Document Viewer Modal (Replaces old image-only lightbox) -->
+            <DocumentViewerModal
+                :is-open="isDocViewerOpen"
+                :title="activeDoc?.label || 'Pratinjau Dokumen'"
+                :subtitle="`Pemain: ${activePlayer?.full_name} (#${activePlayer?.jersey_number})`"
+                :file-url="activeDoc?.preview_url || ''"
+                :is-pdf="Boolean(activeDoc?.is_pdf)"
+                :original-name="activeDoc?.original_name || ''"
+                :document-number="activeDoc?.document_number || ''"
+                :file-size="activeDoc?.file_size || 0"
+                :validation-status="activeDoc?.validation_status || ''"
+                :notes="activeDoc?.notes || ''"
+                @close="isDocViewerOpen = false"
+            />
 
             <!-- Rejection Modal -->
             <div
@@ -713,3 +838,4 @@ const setDocumentStatus = (doc, status) => {
         </div>
     </AdminLayout>
 </template>
+

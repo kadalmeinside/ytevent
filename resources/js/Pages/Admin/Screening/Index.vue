@@ -351,3 +351,4 @@ const getStatusBadge = (status) => {
         </div>
     </AdminLayout>
 </template>
+

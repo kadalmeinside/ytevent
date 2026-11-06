@@ -75,6 +75,7 @@ class PlayerController extends Controller
                                 'file_size' => $doc->file_size,
                                 'validation_status' => $doc->validation_status,
                                 'notes' => $doc->notes,
+                                'is_pdf' => $doc->mime_type === 'application/pdf' || str_ends_with(strtolower($doc->original_name ?? ''), '.pdf'),
                                 'preview_url' => route('private.player-document', ['document' => $doc->id]),
                             ],
                         ]),
