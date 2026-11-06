@@ -111,6 +111,8 @@ class AccreditationService
                 'screening_status' => 'all_passed',
             ]);
         });
+
+        app(EmailNotificationService::class)->sendRosterLocked($team->fresh());
     }
 
     /**
@@ -277,3 +279,4 @@ class AccreditationService
             ]);
     }
 }
+

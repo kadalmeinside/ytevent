@@ -162,19 +162,21 @@ Fase 2 berfokus pada **operasional pemeriksaan keabsahan data (*screening*)**, v
   - Tombol unduh resmi **Unduh Album Roster (PDF)** dan **Unduh ID Cards Lanyard (PDF)**.
   - Modal pratinjau QR Code verifikasi digital per pemain.
 
-### Milestone 2.4: Antrean Notifikasi Email & Audit Logs
-- [ ] **2.4.1 Mailable Transaksional Latar Belakang (`ShouldQueue`)**:
-  - `ScreeningResultMail`: Dikirim otomatis saat panitia menyelesaikan verifikasi tim (berisi daftar pemain lolos vs daftar pemain rejected beserta catatannya).
-  - `RosterLockedMail`: Notifikasi skuad terkunci dan link unduh akreditasi.
-- [ ] **2.4.2 Portal Pemantauan Email Panitia (`/admin/system/email-logs`)**:
-  - Tampilan Card List riwayat pengiriman email dari tabel `email_notification_logs`.
-  - Aksi *Retry* pengiriman jika status `failed`.
+### Milestone 2.4: Antrean Notifikasi Email & Audit Logs [SELESAI]
+- [x] **2.4.1 Mailable Transaksional Latar Belakang & Fail-Safe Queue (`SendLoggedEmailJob.php`)**:
+  - `ScreeningResultMail`: Dikirim otomatis ke manajer tim saat antrean pemeriksaan berkas tim telah tuntas (memuat rekap pemain sah vs perlu revisi beserta catatan verifikator).
+  - `RosterLockedMail`: Notifikasi resmi saat skuad dikunci final beserta konfirmasi bahwa Album Roster dan ID Cards siap diunduh.
+  - Fail-safe serialization: Menyimpan salinan payload mailable ke tabel `email_notification_logs` agar dapat di-retry kapan saja.
+- [x] **2.4.2 Portal Pemantauan Email Panitia (`/admin/system/email-logs`)**:
+  - Tampilan responsif Card List View dari tabel `email_notification_logs`.
+  - Kartu metrik: Total Notifikasi, Berhasil Terkirim (`sent`), Antrean (`queued`), dan Gagal (`failed`).
+  - Fitur **Kirim Ulang (*Retry*)**: Tombol retry per email dan tombol *Retry All Failed* dengan modal dialog konfirmasi.
 
 ---
 
 ## 5. Rencana Pengujian Otomatis (Testing Strategy)
 
-Target: Memperluas cakupan test suite dari 31 tests menjadi **50 tests dengan 312 assertions (100% PASS)**:
+Target tercapai penuh: **57 tests dengan 348 assertions (100% PASS)**:
 1. [x] `ScreeningQueueTest`: Petugas screening dan superadmin dapat mengakses `/admin/screening`, manajer tim ditolak (`403 Forbidden` / redirect).
 2. [x] `PlayerVerificationTest`: Verifikasi lolos mengubah status ke `passed`, mengunci `is_locked`, dan menghasilkan `screening_code`.
 3. [x] `PlayerRejectionTest`: Verifikasi tolak mewajibkan alasan penolakan, mengubah status ke `rejected`, dan membuka kembali hak edit manajer.
@@ -182,6 +184,7 @@ Target: Memperluas cakupan test suite dari 31 tests menjadi **50 tests dengan 31
 5. [x] `RosterLockValidationTest`: Penguncian skuad tim ditolak jika kuota minimal pemain, minimal 2 GK, atau ofisial belum terpenuhi.
 6. [x] `AccreditationAccessTest`: Akreditasi dan cetak PDF hanya dapat diakses untuk tim yang pembayarannya lunas dan skuadnya telah dikunci resmi.
 7. [x] `QrVerificationTest`: Endpoint verifikasi publik `/verify/player/{code}` mengembalikan data pemain sah sesuai kode acak.
+8. [x] `EmailLogsAndRetryTest`: Pemantauan log antrean email, mailable screening result, mailable roster lock, dan mekanisme retry email gagal.
 
 ---
 

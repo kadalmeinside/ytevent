@@ -21,6 +21,25 @@ class ScreeningService
         ?string $reason = null,
         array $documentUpdates = []
     ): Player {
+        $wasInQueue = $player->screening_status === 'submitted';
+
+        $verified = $this->performVerification($player, $officer, $action, $reason, $documentUpdates);
+
+        // Kirim rekap hasil screening sekali saat antrean pemeriksaan tim telah tuntas.
+        if ($wasInQueue && $verified->team && ! $verified->team->players()->where('screening_status', 'submitted')->exists()) {
+            app(EmailNotificationService::class)->sendScreeningResult($verified->team);
+        }
+
+        return $verified;
+    }
+
+    protected function performVerification(
+        Player $player,
+        User $officer,
+        string $action,
+        ?string $reason,
+        array $documentUpdates
+    ): Player {
         return DB::transaction(function () use ($player, $officer, $action, $reason, $documentUpdates) {
             $fromStatus = $player->screening_status;
 

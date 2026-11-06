@@ -39,7 +39,7 @@ Sistem ini dibangun dengan filosofi **High-Density Operational Utility** dipaduk
 
 ---
 
-## ⚡ Kemajuan Fase 2 — Screening Pemain, Siklus Revisi & Akreditasi Resmi (Milestone 2.1, 2.2, 2.3 Selesai)
+## ⚡ Kemajuan Fase 2 — Screening Pemain, Siklus Revisi, Akreditasi & Antrean Email (Milestone 2.1, 2.2, 2.3, 2.4 Selesai)
 
 ### 1. Panel Verifikasi & Screening Dokumen Admin (`/admin/screening`)
 - **Dashboard Antrean Tim (`Admin/Screening/Index.vue`)**: Card list view tim-tim aktif dengan progress bar pemeriksaan berkas (`X / Y Pemain Lolos`), filter event & status, serta indikator antrean di sidebar panitia.
@@ -67,6 +67,13 @@ Sistem ini dibangun dengan filosofi **High-Density Operational Utility** dipaduk
 - **Generator PDF ID Cards**: Kartu lanyard turnamen portrait A4 (layout 4 kartu per halaman siap cetak dengan garis potong putus-putus).
 - **Pemindaian QR Code Publik Lapangan (`/verify/player/{code}`)**: Halaman publik verifikasi instan untuk wasit/match commissioner di pinggir lapangan dengan sensor NIK parsial dan streaming foto pemain.
 
+### 5. Antrean Notifikasi Email Transaksional & Audit Logs (`/admin/system/email-logs`)
+- **Antrean Latar Belakang Fail-Safe (`SendLoggedEmailJob.php`)**: Seluruh email transaksional dicatat ke tabel `email_notification_logs` dengan payload terserialisasi sebelum dikirim via queue worker, menjamin kegagalan koneksi email tidak memutus proses pendaftaran atau verifikasi.
+- **Mailable Otomatis**:
+  - `ScreeningResultMail`: Rekapitulasi otomatis hasil screening pemain sah vs pemain revisi yang dikirimkan saat panitia menuntaskan review tim.
+  - `RosterLockedMail`: Konfirmasi skuad terkunci resmi dan akreditasi turnamen siap diunduh.
+- **Panel Monitoring & Retry Admin (`Admin/EmailLogs/Index.vue`)**: Pemantauan status email (`sent`, `queued`, `failed`), pencarian penerima, filter jenis mailable & event, tombol kirim ulang per email (*retry*), serta tombol *Bulk Retry* seluruh email gagal.
+
 ---
 
 ## 🛠️ Tech Stack & Konvensi Arsitektur
@@ -79,7 +86,7 @@ Sistem ini dibangun dengan filosofi **High-Density Operational Utility** dipaduk
 - **Authorization:** `spatie/laravel-permission` + Laravel Policies
 - **Form Handling:** Inertia `useForm()` + Composable `useFormValidator.js` (Form selalu `<form novalidate>`)
 - **PDF & QR Code:** `barryvdh/laravel-dompdf` & `simplesoftwareio/simple-qrcode`
-- **Testing:** PHPUnit (50 Test Cases, 312 Assertions — 100% PASS)
+- **Testing:** PHPUnit (57 Test Cases, 348 Assertions — 100% PASS)
 
 ---
 

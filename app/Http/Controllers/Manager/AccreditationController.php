@@ -144,3 +144,4 @@ class AccreditationController extends Controller
         return $pdf->download("ID-Cards-{$team->slug}.pdf");
     }
 }
+

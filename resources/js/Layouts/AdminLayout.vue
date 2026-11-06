@@ -98,6 +98,13 @@ const navSections = computed(() => {
                     show: user.value?.roles?.includes('superadmin'),
                 },
                 {
+                    label: 'Antrean Email',
+                    href: route('admin.email-logs.index'),
+                    match: '/admin/system/email-logs',
+                    icon: 'mail',
+                    show: can('email_logs.manage'),
+                },
+                {
                     label: 'Pengaturan Global',
                     href: route('admin.settings.index'),
                     match: '/admin/settings',
@@ -255,6 +262,10 @@ const logout = () => {
                                     <!-- Roles Icon -->
                                     <svg v-else-if="item.icon === 'roles'" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 2l-2 2m-1.5 6.5l3-3m-3.5 3.5L12 16l-4 4-4-4 4-4 5-5m0 0a4 4 0 1 1 5.66 5.66L17 9.5z" />
+                                    </svg>
+                                    <!-- Mail Icon -->
+                                    <svg v-else-if="item.icon === 'mail'" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                     </svg>
                                     <!-- Settings Icon -->
                                     <svg v-else fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4">

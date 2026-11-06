@@ -2,15 +2,17 @@
 
 namespace App\Services;
 
+use App\Jobs\SendLoggedEmailJob;
 use App\Mail\PaymentConfirmedMail;
 use App\Mail\PaymentProofRejectedMail;
+use App\Mail\RosterLockedMail;
+use App\Mail\ScreeningResultMail;
 use App\Mail\SlotExpiredMail;
 use App\Mail\TeamRegisteredMail;
 use App\Models\EmailNotificationLog;
 use App\Models\Payment;
 use App\Models\Team;
 use Illuminate\Mail\Mailable;
-use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 class EmailNotificationService
@@ -20,11 +22,7 @@ class EmailNotificationService
      */
     public function sendTeamRegistered(Team $team, Payment $payment): ?EmailNotificationLog
     {
-        $recipientEmail = $team->manager_email ?: $team->user?->email;
-        if (!$recipientEmail) return null;
-
-        $mailable = new TeamRegisteredMail($team, $payment);
-        return $this->sendAndLog($recipientEmail, $mailable, $team->event_id, $team->id);
+        return $this->queueForTeam($team, new TeamRegisteredMail($team, $payment));
     }
 
     /**
@@ -32,11 +30,7 @@ class EmailNotificationService
      */
     public function sendPaymentConfirmed(Team $team, Payment $payment): ?EmailNotificationLog
     {
-        $recipientEmail = $team->manager_email ?: $team->user?->email;
-        if (!$recipientEmail) return null;
-
-        $mailable = new PaymentConfirmedMail($team, $payment);
-        return $this->sendAndLog($recipientEmail, $mailable, $team->event_id, $team->id);
+        return $this->queueForTeam($team, new PaymentConfirmedMail($team, $payment));
     }
 
     /**
@@ -44,11 +38,7 @@ class EmailNotificationService
      */
     public function sendPaymentRejected(Team $team, Payment $payment, string $reason): ?EmailNotificationLog
     {
-        $recipientEmail = $team->manager_email ?: $team->user?->email;
-        if (!$recipientEmail) return null;
-
-        $mailable = new PaymentProofRejectedMail($team, $payment, $reason);
-        return $this->sendAndLog($recipientEmail, $mailable, $team->event_id, $team->id);
+        return $this->queueForTeam($team, new PaymentProofRejectedMail($team, $payment, $reason));
     }
 
     /**
@@ -56,49 +46,91 @@ class EmailNotificationService
      */
     public function sendSlotExpired(Team $team): ?EmailNotificationLog
     {
-        $recipientEmail = $team->manager_email ?: $team->user?->email;
-        if (!$recipientEmail) return null;
-
-        $mailable = new SlotExpiredMail($team);
-        return $this->sendAndLog($recipientEmail, $mailable, $team->event_id, $team->id);
+        return $this->queueForTeam($team, new SlotExpiredMail($team));
     }
 
     /**
-     * Eksekusi pengiriman email dan catat ke email_notification_logs dengan fail-safe.
+     * Kirim rekapitulasi hasil screening (pemain sah vs perlu revisi) ke manajer tim.
      */
-    protected function sendAndLog(
+    public function sendScreeningResult(Team $team): ?EmailNotificationLog
+    {
+        return $this->queueForTeam($team, new ScreeningResultMail($team));
+    }
+
+    /**
+     * Kirim notifikasi skuad terkunci resmi & dokumen akreditasi siap diunduh.
+     */
+    public function sendRosterLocked(Team $team): ?EmailNotificationLog
+    {
+        return $this->queueForTeam($team, new RosterLockedMail($team));
+    }
+
+    /**
+     * Kirim ulang email yang gagal. Mengembalikan log yang telah diperbarui.
+     */
+    public function retry(EmailNotificationLog $log): EmailNotificationLog
+    {
+        if (! $log->isRetryable()) {
+            return $log;
+        }
+
+        $log->update([
+            'status' => EmailNotificationLog::STATUS_QUEUED,
+            'error_message' => null,
+        ]);
+
+        SendLoggedEmailJob::dispatch($log->id);
+
+        return $log->fresh();
+    }
+
+    protected function queueForTeam(Team $team, Mailable $mailable): ?EmailNotificationLog
+    {
+        $recipientEmail = $team->manager_email ?: $team->user?->email;
+        if (! $recipientEmail) {
+            return null;
+        }
+
+        return $this->queueAndLog($recipientEmail, $mailable, $team->event_id, $team->id);
+    }
+
+    /**
+     * Catat email ke email_notification_logs (status queued) lalu kirim melalui antrean latar belakang.
+     * Bersifat fail-safe: kegagalan pencatatan/antrean tidak menggagalkan alur bisnis utama.
+     */
+    protected function queueAndLog(
         string $recipientEmail,
         Mailable $mailable,
         ?int $eventId = null,
         ?int $teamId = null
     ): EmailNotificationLog {
-        $mailableClass = get_class($mailable);
+        $subject = null;
+        try {
+            $subject = $mailable->envelope()->subject ?? null;
+        } catch (Throwable) {
+            // Subjek bersifat informatif saja.
+        }
 
         $log = EmailNotificationLog::create([
             'event_id' => $eventId,
             'team_id' => $teamId,
-            'mailable_type' => class_basename($mailableClass),
+            'mailable_type' => class_basename($mailable),
             'recipient_email' => $recipientEmail,
-            'status' => 'pending',
+            'subject' => $subject,
+            'payload' => serialize($mailable),
+            'status' => EmailNotificationLog::STATUS_QUEUED,
         ]);
 
         try {
-            Mail::to($recipientEmail)->send($mailable);
-
-            $log->update([
-                'status' => 'sent',
-                'sent_at' => now(),
-                'error_message' => null,
-            ]);
+            SendLoggedEmailJob::dispatch($log->id);
         } catch (Throwable $e) {
             report($e);
-
             $log->update([
-                'status' => 'failed',
-                'error_message' => $e->getMessage(),
+                'status' => EmailNotificationLog::STATUS_FAILED,
+                'error_message' => 'Gagal memasukkan email ke antrean: ' . mb_substr($e->getMessage(), 0, 1900),
             ]);
         }
 
-        return $log;
+        return $log->fresh();
     }
 }

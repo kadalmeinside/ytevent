@@ -494,3 +494,4 @@ const closeQrModal = () => {
         </div>
     </ManagerLayout>
 </template>
+

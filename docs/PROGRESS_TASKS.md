@@ -139,12 +139,15 @@ Legenda Status:
   - Tampilan informatif khusus untuk kode QR yang tidak valid atau pemain yang belum disahkan.
 
 ### 2.4 Antrean Notifikasi Email (*Email Queue*) & Audit Logs
-- [ ] **2.4.1** Implementasi Mailable Latar Belakang (`ShouldQueue`):
-  - `ScreeningResultMail`: Notifikasi rekapitulasi verifikasi (daftar pemain lolos vs rejected beserta catatannya) otomatis ke manajer.
-  - `RosterLockedMail`: Notifikasi skuad terkunci resmi dan akreditasi turnamen siap diunduh.
-- [ ] **2.4.2** Modul Pemantauan Antrean Email Panitia (`/admin/system/email-logs`):
-  - Riwayat pengiriman email transaksional (`recipient_email`, `status` [queued, sent, failed], `sent_at`, `error_message`).
-  - Tombol **Kirim Ulang (*Retry*)** untuk email yang mengalami kegagalan transmisi.
+- [x] **2.4.1** Implementasi Mailable Latar Belakang & Job Transaksional (`SendLoggedEmailJob.php` & `EmailNotificationService.php`):
+  - `ScreeningResultMail`: Notifikasi rekapitulasi verifikasi (daftar pemain lolos vs rejected beserta catatannya) otomatis ke manajer saat antrean pemeriksaan tim selesai.
+  - `RosterLockedMail`: Notifikasi skuad terkunci resmi dan akreditasi turnamen siap diunduh saat manajer mengunci skuad final.
+  - Arsitektur antrean fail-safe: Setiap pengiriman dicatat terlebih dahulu ke `email_notification_logs` dengan payload terserialisasi, dieksekusi via `SendLoggedEmailJob`, dan tidak menggagalkan proses bisnis utama jika koneksi SMTP mengalami gangguan.
+- [x] **2.4.2** Modul Pemantauan Antrean Email Panitia (`/admin/system/email-logs` & `EmailLogController.php`):
+  - Halaman pemantauan visual responsif Card List View dari tabel `email_notification_logs`.
+  - Kartu metrik: Total Notifikasi, Berhasil Terkirim (`sent`), Dalam Antrean (`queued`), dan Gagal (`failed`).
+  - Filter pencarian berbasis teks (email penerima, subjek, nama tim), filter status, filter jenis mailable, dan filter kompetisi.
+  - Fitur **Kirim Ulang (*Retry*)**: Tombol retry per email gagal serta tombol **Kirim Ulang Semua (*Bulk Retry*)** dengan modal dialog konfirmasi.
 
 ### 2.5 Automated Testing & Verifikasi Fase 2
 - [x] **2.5.1** Penulisan Feature Tests Screening Fase 2 (`ScreeningFlowTest.php`):
@@ -167,5 +170,13 @@ Legenda Status:
   - Pengujian hak akses unduh PDF oleh Superadmin tanpa batasan status terkunci.
   - Pengujian endpoint publik pemindaian QR Code `/verify/player/{code}` dan streaming foto.
   - Pengujian tampilan tidak valid untuk kode acak atau pemain non-passed.
-  - Total test suite bertambah menjadi **50 Feature & Unit Tests** dengan **312 assertions** lulus 100% `PASS`.
-- [x] **2.5.3** Build produksi frontend (`npm run build`) & verifikasi zero regression (Vite build sukses tanpa error).
+- [x] **2.5.3** Penulisan Feature Tests Antrean Email & Audit Logs (`EmailLogsAndQueueTest.php`):
+  - Pengujian otorisasi akses pemantauan log email (`permission:email_logs.manage`).
+  - Pengujian penolakan akses untuk peran tanpa izin (`403 Forbidden` / redirect).
+  - Pengujian dispatch otomatis email rekapitulasi screening (`ScreeningResultMail`).
+  - Pengujian dispatch otomatis email pengesahan skuad terkunci (`RosterLockedMail`).
+  - Pengujian mekanisme kirim ulang (*retry*) email gagal dan transisi ke `sent`.
+  - Pengujian mekanisme *bulk retry* seluruh email gagal.
+  - Pengujian penolakan retry untuk email yang sudah sukses terkirim.
+  - Total test suite bertambah menjadi **57 Feature & Unit Tests** dengan **348 assertions** lulus 100% `PASS`.
+- [x] **2.5.4** Build produksi frontend (`npm run build`) & verifikasi zero regression (Vite build sukses tanpa error).

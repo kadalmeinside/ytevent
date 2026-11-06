@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\EmailLogController as AdminEmailLogController;
 use App\Http\Controllers\Admin\EventController as AdminEventController;
 use App\Http\Controllers\Admin\PaymentVerificationController as AdminPaymentVerificationController;
 use App\Http\Controllers\Admin\TeamManagementController as AdminTeamManagementController;
@@ -143,6 +144,13 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
     Route::get('/payments/transactions', [AdminPaymentVerificationController::class, 'transactions'])
         ->middleware('permission:payments.view_all')
         ->name('payments.transactions');
+
+    // Pemantauan Antrean Email Transaksional
+    Route::middleware('permission:email_logs.manage')->group(function () {
+        Route::get('/system/email-logs', [AdminEmailLogController::class, 'index'])->name('email-logs.index');
+        Route::post('/system/email-logs/retry-failed', [AdminEmailLogController::class, 'retryAllFailed'])->name('email-logs.retry-failed');
+        Route::post('/system/email-logs/{log}/retry', [AdminEmailLogController::class, 'retry'])->name('email-logs.retry');
+    });
 
     // Area Khusus Super Administrator
     Route::middleware('role:superadmin')->group(function () {
