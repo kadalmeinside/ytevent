@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { usePage, useForm, Link } from '@inertiajs/vue3';
 import FlashAlert from '@/Components/FlashAlert.vue';
 
@@ -10,6 +10,21 @@ const isAdmin = computed(() =>
     user.value?.roles?.some((r) => ['superadmin', 'finance'].includes(r))
 );
 
+const isScrolled = ref(false);
+
+const handleScroll = () => {
+    isScrolled.value = window.scrollY > 15;
+};
+
+onMounted(() => {
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+});
+
+onUnmounted(() => {
+    window.removeEventListener('scroll', handleScroll);
+});
+
 const logoutForm = useForm({});
 const logout = () => {
     logoutForm.post(route('logout'));
@@ -18,7 +33,14 @@ const logout = () => {
 
 <template>
     <div class="min-h-screen flex flex-col bg-transparent">
-        <header class="sticky top-0 z-40 frosted-header">
+        <header
+            class="sticky top-0 z-40 transition-all duration-300"
+            :class="[
+                isScrolled
+                    ? 'bg-white/95 backdrop-blur-xl border-b border-slate-200/90 shadow-sm py-0'
+                    : 'bg-transparent border-b border-transparent shadow-none py-1 sm:py-2'
+            ]"
+        >
             <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
                 <!-- Brand / Logo Area -->
                 <Link :href="route('home')" class="flex items-center min-w-0 group shrink-0">

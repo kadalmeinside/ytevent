@@ -62,6 +62,11 @@ const quotaPercentage = (event) => {
     if (!event.max_teams) return 0;
     return Math.min(100, Math.round((event.occupied_slots / event.max_teams) * 100));
 };
+
+const stripHtml = (html) => {
+    if (!html) return '';
+    return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+};
 </script>
 
 <template>
@@ -198,25 +203,30 @@ const quotaPercentage = (event) => {
                                 </h2>
                             </Link>
 
-                            <p class="mt-1.5 text-xs text-slate-600 line-clamp-2">
-                                {{ event.short_description }}
+                            <p class="mt-1.5 text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                                {{ stripHtml(event.short_description) }}
                             </p>
 
-                        <dl class="mt-4 space-y-1.5 text-xs border-t border-slate-200/70 pt-3">
-                            <div class="flex items-center justify-between gap-2">
-                                <dt class="text-slate-500">Lokasi / Kota</dt>
-                                <dd class="font-medium text-slate-800 text-right truncate">
-                                    {{ event.venue_name }}, {{ event.city }}
+                        <dl class="mt-4 space-y-2 text-xs border-t border-slate-200/70 pt-3">
+                            <div class="flex items-start justify-between gap-3">
+                                <dt class="text-slate-500 shrink-0 whitespace-nowrap pt-0.5">Lokasi / Kota</dt>
+                                <dd class="text-right min-w-0">
+                                    <span class="block font-semibold text-slate-900 truncate" :title="event.venue_name">
+                                        {{ event.venue_name }}
+                                    </span>
+                                    <span class="block text-[11px] text-slate-500 truncate" :title="event.city">
+                                        {{ event.city }}
+                                    </span>
                                 </dd>
                             </div>
                             <div class="flex items-center justify-between gap-2">
-                                <dt class="text-slate-500">Pelaksanaan</dt>
+                                <dt class="text-slate-500 shrink-0 whitespace-nowrap">Pelaksanaan</dt>
                                 <dd class="font-medium text-slate-800 tabular-data">
                                     {{ formatDate(event.match_start_date) }}
                                 </dd>
                             </div>
                             <div class="flex items-center justify-between gap-2">
-                                <dt class="text-slate-500">Biaya Pendaftaran</dt>
+                                <dt class="text-slate-500 shrink-0 whitespace-nowrap">Biaya Pendaftaran</dt>
                                 <dd class="font-bold text-slate-900 tabular-data">
                                     {{ formatRupiah(event.registration_fee) }}
                                 </dd>
