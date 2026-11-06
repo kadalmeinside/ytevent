@@ -115,9 +115,9 @@ const resetFilters = () => {
                 </div>
             </form>
 
-            <!-- Teams Container (Dual View: Desktop Table + Mobile High-Density List) -->
-            <div class="frosted-card overflow-hidden">
-                <div v-if="teams.length === 0" class="p-12 text-center text-xs text-slate-500">
+            <!-- Teams Container (Responsive Card List View) -->
+            <div class="space-y-3.5">
+                <div v-if="teams.length === 0" class="frosted-card p-12 text-center text-xs text-slate-500">
                     <svg class="w-10 h-10 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
@@ -125,176 +125,87 @@ const resetFilters = () => {
                     <p class="mt-0.5 text-slate-400">Silakan sesuaikan kriteria pencarian di atas.</p>
                 </div>
 
-                <div v-else>
-                    <!-- DESKTOP TABLE VIEW -->
-                    <div class="hidden md:block overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr>
-                                    <th class="table-th">Tim &amp; Asosiasi</th>
-                                    <th class="table-th">Kompetisi</th>
-                                    <th class="table-th">Manajer &amp; WhatsApp</th>
-                                    <th class="table-th">Tagihan &amp; Invoice</th>
-                                    <th class="table-th">Pemain</th>
-                                    <th class="table-th">Status Tim</th>
-                                    <th class="table-th text-right">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 bg-white">
-                                <tr v-for="t in teams" :key="t.id" class="hover:bg-orange-50/25 transition-colors">
-                                    <td class="table-td font-bold text-slate-900">
-                                        <div class="flex items-center gap-2.5">
-                                            <img
-                                                v-if="t.logo_url"
-                                                :src="t.logo_url"
-                                                :alt="t.name"
-                                                class="w-8 h-8 rounded-lg object-cover border border-slate-200 bg-white shadow-xs shrink-0"
-                                            />
-                                            <div v-else class="w-8 h-8 rounded-lg bg-orange-100 text-orange-700 font-bold flex items-center justify-center text-xs shrink-0">
-                                                {{ t.name.charAt(0) }}
-                                            </div>
-                                            <div>
-                                                <p class="text-sm font-bold text-slate-900 leading-tight">{{ t.name }}</p>
-                                                <p class="text-[11px] text-slate-500 font-normal">{{ t.origin_association }}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="table-td text-slate-800">
-                                        <p class="font-semibold text-xs">{{ t.event?.name }}</p>
-                                        <span class="text-[10px] text-slate-500 font-mono">{{ t.event?.age_category }}</span>
-                                    </td>
-                                    <td class="table-td text-slate-700">
-                                        <p class="font-medium text-xs">{{ t.manager_name }}</p>
-                                        <a
-                                            :href="`https://wa.me/${t.manager_whatsapp.replace(/[^0-9]/g, '')}`"
-                                            target="_blank"
-                                            class="text-[11px] tabular-data text-emerald-600 hover:text-emerald-700 font-medium inline-flex items-center gap-1"
-                                        >
-                                            <span>{{ t.manager_whatsapp }}</span>
-                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                            </svg>
-                                        </a>
-                                    </td>
-                                    <td class="table-td">
-                                        <div v-if="t.latest_payment" class="space-y-0.5">
-                                            <span class="tabular-data font-mono font-bold text-slate-900 block text-xs">
-                                                {{ t.latest_payment.invoice_number }}
-                                            </span>
-                                            <div class="flex items-center gap-1.5">
-                                                <span class="tabular-data text-[11px] text-slate-600 font-semibold">
-                                                    {{ formatRupiah(t.latest_payment.total_amount) }}
-                                                </span>
-                                                <StatusBadge :status="t.latest_payment.status" />
-                                            </div>
-                                        </div>
-                                        <span v-else class="text-slate-400 text-xs">-</span>
-                                    </td>
-                                    <td class="table-td tabular-data font-semibold text-slate-800 text-xs">
-                                        <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                                            {{ t.players_count }} Pemain
-                                        </span>
-                                    </td>
-                                    <td class="table-td">
-                                        <StatusBadge :status="t.status" />
-                                    </td>
-                                    <td class="table-td text-right">
-                                        <button
-                                            v-if="t.latest_payment?.proof_url"
-                                            type="button"
-                                            class="btn-sm-pitch"
-                                            @click="openProofModal(t.latest_payment)"
-                                        >
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                            </svg>
-                                            <span>Bukti Bayar</span>
-                                        </button>
-                                        <button
-                                            v-else-if="t.latest_payment"
-                                            type="button"
-                                            class="btn-sm-secondary"
-                                            @click="openProofModal(t.latest_payment)"
-                                        >
-                                            Detail Tagihan
-                                        </button>
-                                        <span v-else class="text-slate-400 text-xs">-</span>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- MOBILE HIGH-DENSITY CARD LIST VIEW -->
-                    <div class="md:hidden divide-y divide-slate-100">
-                        <div
-                            v-for="t in teams"
-                            :key="t.id"
-                            class="p-4 hover:bg-orange-50/20 transition-colors space-y-3"
-                        >
-                            <!-- Top row: Crest, Name & Team Status -->
-                            <div class="flex items-start justify-between gap-2.5">
-                                <div class="flex items-center gap-2.5">
-                                    <img
-                                        v-if="t.logo_url"
-                                        :src="t.logo_url"
-                                        :alt="t.name"
-                                        class="w-10 h-10 rounded-lg object-cover border border-slate-200 bg-white shrink-0"
-                                    />
-                                    <div v-else class="w-10 h-10 rounded-lg bg-orange-100 text-orange-700 font-bold flex items-center justify-center text-sm shrink-0">
-                                        {{ t.name.charAt(0) }}
-                                    </div>
-                                    <div>
-                                        <h4 class="text-sm font-bold text-slate-900 leading-snug">{{ t.name }}</h4>
-                                        <p class="text-xs text-slate-500">{{ t.origin_association }}</p>
-                                    </div>
+                <div v-else class="space-y-3">
+                    <div
+                        v-for="t in teams"
+                        :key="t.id"
+                        class="frosted-card p-4 sm:p-5 hover:border-orange-300/80 hover:shadow-md transition-all duration-150 bg-white"
+                    >
+                        <!-- Top Header: Crest, Name, Association & Status -->
+                        <div class="flex flex-wrap items-center justify-between gap-3 pb-3 mb-3 border-b border-slate-100">
+                            <div class="flex items-center gap-3">
+                                <img
+                                    v-if="t.logo_url"
+                                    :src="t.logo_url"
+                                    :alt="t.name"
+                                    class="w-10 h-10 rounded-xl object-cover border border-slate-200 bg-white shadow-2xs shrink-0"
+                                />
+                                <div v-else class="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-100 to-amber-100 text-orange-700 font-extrabold flex items-center justify-center text-sm shadow-2xs shrink-0 border border-orange-200">
+                                    {{ t.name.charAt(0) }}
                                 </div>
-                                <StatusBadge :status="t.status" />
+                                <div>
+                                    <h4 class="text-sm sm:text-base font-bold text-slate-900 leading-tight">{{ t.name }}</h4>
+                                    <p class="text-xs text-slate-500 font-medium">{{ t.origin_association }}</p>
+                                </div>
                             </div>
 
-                            <!-- Event & Roster Info -->
-                            <div class="flex items-center justify-between text-xs text-slate-600 bg-slate-50/80 rounded-lg px-3 py-2 border border-slate-200/60">
-                                <div>
-                                    <span class="font-semibold text-slate-800">{{ t.event?.name }}</span>
-                                    <span class="text-[11px] text-slate-500 block font-mono">{{ t.event?.age_category }}</span>
-                                </div>
-                                <span class="font-mono text-xs font-bold text-slate-700 px-2 py-0.5 rounded bg-white border border-slate-200">
-                                    {{ t.players_count }} Pemain
+                            <div class="flex items-center gap-2">
+                                <StatusBadge :status="t.status" />
+                            </div>
+                        </div>
+
+                        <!-- Card Body Grid -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 text-xs items-center">
+                            <!-- Event (Col 1-4) -->
+                            <div class="lg:col-span-4 space-y-1">
+                                <span class="text-[10px] uppercase font-bold text-slate-400 block">Kompetisi Terdaftar</span>
+                                <p class="font-bold text-slate-900 text-xs sm:text-sm truncate">{{ t.event?.name }}</p>
+                                <span class="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                    {{ t.event?.age_category }}
                                 </span>
                             </div>
 
-                            <!-- Manager & WhatsApp -->
-                            <div class="flex items-center justify-between text-xs">
-                                <div class="text-slate-600">
-                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Manajer</span>
-                                    <span class="font-medium text-slate-900">{{ t.manager_name }}</span>
-                                </div>
+                            <!-- Manager & WhatsApp (Col 5-7) -->
+                            <div class="lg:col-span-3 space-y-1">
+                                <span class="text-[10px] uppercase font-bold text-slate-400 block">Manajer Tim</span>
+                                <p class="font-semibold text-slate-800 truncate">{{ t.manager_name }}</p>
                                 <a
                                     :href="`https://wa.me/${t.manager_whatsapp.replace(/[^0-9]/g, '')}`"
                                     target="_blank"
-                                    class="text-xs text-emerald-700 hover:text-emerald-800 font-medium inline-flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200"
+                                    class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors"
                                 >
-                                    <span>WA: {{ t.manager_whatsapp }}</span>
+                                    <svg class="w-3 h-3 text-emerald-600 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.698c.97.529 1.954.81 3.033.81 3.181 0 5.767-2.586 5.768-5.766 0-3.18-2.587-5.767-5.767-5.767zm7.659 5.766c0 4.225-3.438 7.662-7.66 7.662-1.309 0-2.551-.334-3.649-.927l-4.041 1.06 1.079-3.941c-.672-1.155-1.049-2.482-1.049-3.854 0-4.225 3.438-7.662 7.66-7.662 4.223 0 7.66 3.437 7.66 7.662z"/>
+                                    </svg>
+                                    <span>{{ t.manager_whatsapp }}</span>
                                 </a>
                             </div>
 
-                            <!-- Latest Payment Box & Action -->
-                            <div v-if="t.latest_payment" class="flex items-center justify-between pt-2 border-t border-slate-100">
-                                <div>
-                                    <div class="flex items-center gap-1.5">
+                            <!-- Invoice & Payment (Col 8-10) -->
+                            <div class="lg:col-span-3 space-y-1">
+                                <span class="text-[10px] uppercase font-bold text-slate-400 block">Status Pembayaran</span>
+                                <div v-if="t.latest_payment" class="space-y-1">
+                                    <div class="flex items-center gap-1.5 flex-wrap">
                                         <span class="font-mono text-xs font-bold text-slate-900">{{ t.latest_payment.invoice_number }}</span>
                                         <StatusBadge :status="t.latest_payment.status" />
                                     </div>
-                                    <span class="font-mono tabular-data text-xs text-slate-600 block mt-0.5">
+                                    <span class="font-mono tabular-data font-bold text-slate-900 block text-xs">
                                         {{ formatRupiah(t.latest_payment.total_amount) }}
                                     </span>
                                 </div>
+                                <span v-else class="text-slate-400 text-xs italic block">Belum ada tagihan</span>
+                            </div>
+
+                            <!-- Players count & Actions (Col 11-12) -->
+                            <div class="lg:col-span-2 flex flex-col sm:items-end justify-center gap-2">
+                                <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold">
+                                    {{ t.players_count }} Pemain
+                                </span>
 
                                 <button
-                                    v-if="t.latest_payment.proof_url"
+                                    v-if="t.latest_payment?.proof_url"
                                     type="button"
-                                    class="btn-sm-pitch"
+                                    class="btn-sm-pitch w-full sm:w-auto justify-center"
                                     @click="openProofModal(t.latest_payment)"
                                 >
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -304,9 +215,9 @@ const resetFilters = () => {
                                     <span>Bukti Bayar</span>
                                 </button>
                                 <button
-                                    v-else
+                                    v-else-if="t.latest_payment"
                                     type="button"
-                                    class="btn-sm-secondary"
+                                    class="btn-sm-secondary w-full sm:w-auto justify-center"
                                     @click="openProofModal(t.latest_payment)"
                                 >
                                     Detail Tagihan

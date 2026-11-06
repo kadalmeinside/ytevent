@@ -13,6 +13,14 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    totalManualEver: {
+        type: Number,
+        default: 0,
+    },
+    totalVerified: {
+        type: Number,
+        default: 0,
+    },
 });
 
 const { formatRupiah, formatDateTime, formatDate } = useFormatters();
@@ -84,12 +92,30 @@ const executeReject = () => {
     <AdminLayout page-title="Antrean Verifikasi Pembayaran Manual" subtitle="Periksa bukti transfer mutasi bank Manajer Tim berdampingan dengan nominal tagihan.">
         <Head title="Verifikasi Transfer Manual" />
 
-        <div v-if="queue.length === 0" class="frosted-card p-12 text-center text-xs text-slate-500">
-            <svg class="w-10 h-10 text-emerald-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p class="text-sm font-bold text-slate-900">Seluruh Bukti Transfer Telah Diverifikasi</p>
-            <p class="mt-1 text-slate-500">Tidak ada pembayaran manual yang sedang menunggu pemeriksaan saat ini.</p>
+        <!-- Empty State: Seluruh bukti transfer selesai diverifikasi -->
+        <div v-if="queue.length === 0 && totalManualEver > 0" class="frosted-card p-12 text-center text-xs text-slate-500">
+            <div class="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-3 text-emerald-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                </svg>
+            </div>
+            <p class="text-base font-bold text-slate-900">Seluruh Bukti Transfer Telah Selesai Diverifikasi</p>
+            <p class="mt-1.5 text-xs text-slate-600 max-w-md mx-auto">
+                Semua tagihan transfer manual yang masuk telah tuntas diperiksa oleh panitia (Total {{ totalVerified }} transaksi diproses). Tidak ada antrean pembayaran tertunda saat ini.
+            </p>
+        </div>
+
+        <!-- Empty State: Belum ada sama sekali bukti transfer masuk -->
+        <div v-else-if="queue.length === 0" class="frosted-card p-12 text-center text-xs text-slate-500">
+            <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                </svg>
+            </div>
+            <p class="text-base font-bold text-slate-900">Belum Ada Bukti Transfer Masuk</p>
+            <p class="mt-1.5 text-xs text-slate-500 max-w-md mx-auto">
+                Saat ini belum ada manajer tim yang mengunggah bukti pembayaran manual. Antrean verifikasi baru akan otomatis muncul di sini begitu bukti transfer berhasil diunggah.
+            </p>
         </div>
 
         <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-5">

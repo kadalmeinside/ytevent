@@ -22,14 +22,23 @@ const quotaPercentage = computed(() => {
     if (!props.event.max_teams) return 0;
     return Math.min(100, Math.round((props.event.occupied_slots / props.event.max_teams) * 100));
 });
+
+const formattedDescription = computed(() => {
+    const desc = props.event?.short_description || '';
+    if (!desc) return '';
+    if (/<[a-z][\s\S]*>/i.test(desc)) {
+        return desc;
+    }
+    return desc.replace(/\n/g, '<br>');
+});
 </script>
 
 <template>
     <PublicLayout>
         <Head :title="event.name" />
 
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div class="mb-4">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-8 sm:pt-3 sm:pb-12">
+            <div class="mb-2.5">
                 <Link :href="route('home')" class="text-xs font-semibold text-slate-600 hover:text-orange-600 transition-colors">
                     &larr; Kembali ke Katalog Kompetisi
                 </Link>
@@ -55,12 +64,28 @@ const quotaPercentage = computed(() => {
                         </div>
 
                         <h1 class="text-xl sm:text-2xl font-bold text-slate-900">{{ event.name }}</h1>
-                        <p class="mt-2 text-sm text-slate-600 leading-relaxed">{{ event.short_description }}</p>
+                        <div v-if="event.short_description" class="mt-2.5 text-sm text-slate-700 leading-relaxed prose prose-sm max-w-none break-words" v-html="formattedDescription" />
 
                         <div class="mt-5 pt-4 border-t border-slate-200/80 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
                             <div>
                                 <span class="block text-slate-500">Stadion / Venue</span>
-                                <span class="font-semibold text-slate-900 mt-0.5 block">{{ event.venue_name }}</span>
+                                <div class="mt-0.5 flex flex-wrap items-center gap-1.5">
+                                    <span class="font-semibold text-slate-900">{{ event.venue_name }}</span>
+                                    <a
+                                        v-if="event.venue_maps_url"
+                                        :href="event.venue_maps_url"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 transition-colors shadow-2xs"
+                                        title="Buka Lokasi di Google Maps"
+                                    >
+                                        <svg class="w-3 h-3 text-orange-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                        Maps &nearr;
+                                    </a>
+                                </div>
                             </div>
                             <div>
                                 <span class="block text-slate-500">Kota</span>

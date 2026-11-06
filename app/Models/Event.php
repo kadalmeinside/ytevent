@@ -50,6 +50,7 @@ class Event extends Model
         'banner_path',
         'short_description',
         'venue_name',
+        'venue_maps_url',
         'city',
         'format',
         'age_category',

@@ -130,9 +130,9 @@ const resetFilters = () => {
                 </div>
             </form>
 
-            <!-- Transactions Container (Dual View: Desktop Table + Mobile High-Density List) -->
-            <div class="frosted-card overflow-hidden">
-                <div v-if="transactions.length === 0" class="p-12 text-center text-xs text-slate-500">
+            <!-- Transactions Container (Responsive Card List View) -->
+            <div class="space-y-3.5">
+                <div v-if="transactions.length === 0" class="frosted-card p-12 text-center text-xs text-slate-500">
                     <svg class="w-10 h-10 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
@@ -140,148 +140,99 @@ const resetFilters = () => {
                     <p class="mt-0.5 text-slate-400">Silakan sesuaikan filter pencarian di atas.</p>
                 </div>
 
-                <div v-else>
-                    <!-- DESKTOP TABLE VIEW -->
-                    <div class="hidden md:block overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr>
-                                    <th class="table-th">No. Invoice</th>
-                                    <th class="table-th">Tim &amp; Kompetisi</th>
-                                    <th class="table-th">Kanal Metode</th>
-                                    <th class="table-th">Nominal Tagihan</th>
-                                    <th class="table-th">Status</th>
-                                    <th class="table-th">Waktu Lunas / Kedaluwarsa</th>
-                                    <th class="table-th text-right">Aksi &amp; Bukti</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 bg-white">
-                                <tr
-                                    v-for="tx in transactions"
-                                    :key="tx.id"
-                                    class="hover:bg-orange-50/25 transition-colors cursor-pointer"
-                                    @click="openProofModal(tx)"
-                                >
-                                    <td class="table-td font-bold font-mono tabular-data text-slate-900">
-                                        {{ tx.invoice_number }}
-                                    </td>
-                                    <td class="table-td font-medium text-slate-800">
-                                        <p class="font-bold text-slate-900">{{ tx.team?.name }}</p>
-                                        <p class="text-[11px] text-slate-500">{{ tx.event?.name }}</p>
-                                    </td>
-                                    <td class="table-td text-slate-700">
-                                        <span class="font-semibold uppercase text-xs">{{ tx.method || 'Manual' }}</span>
-                                        <span v-if="tx.payment_channel" class="text-[11px] text-slate-500 block uppercase">{{ tx.payment_channel }}</span>
-                                    </td>
-                                    <td class="table-td tabular-data font-bold text-slate-900">
-                                        {{ formatRupiah(tx.total_amount) }}
-                                    </td>
-                                    <td class="table-td">
-                                        <div class="space-y-0.5">
-                                            <StatusBadge :status="tx.status" />
-                                            <p v-if="tx.rejection_reason" class="text-[10px] text-rose-700 font-medium">
-                                                Ditolak: {{ tx.rejection_reason }}
-                                            </p>
-                                        </div>
-                                    </td>
-                                    <td class="table-td tabular-data text-slate-600">
-                                        <span v-if="tx.paid_at" class="text-emerald-700 font-semibold block">
-                                            Lunas: {{ formatDateTime(tx.paid_at) }}
-                                        </span>
-                                        <span v-else class="text-slate-500 block">
-                                            Expired: {{ formatDateTime(tx.expires_at) }}
-                                        </span>
-                                    </td>
-                                    <td class="table-td text-right" @click.stop>
-                                        <button
-                                            v-if="tx.proof_url"
-                                            type="button"
-                                            class="btn-sm-pitch"
-                                            @click="openProofModal(tx)"
-                                        >
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                            </svg>
-                                            <span>Bukti Bayar</span>
-                                        </button>
-                                        <button
-                                            v-else
-                                            type="button"
-                                            class="btn-sm-secondary"
-                                            @click="openProofModal(tx)"
-                                        >
-                                            Detail
-                                        </button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- MOBILE HIGH-DENSITY CARD LIST VIEW -->
-                    <div class="md:hidden divide-y divide-slate-100">
-                        <div
-                            v-for="tx in transactions"
-                            :key="tx.id"
-                            class="p-4 hover:bg-orange-50/20 transition-colors space-y-3"
-                            @click="openProofModal(tx)"
-                        >
-                            <!-- Top row: Invoice & Status -->
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="font-mono text-xs font-bold text-slate-900 px-2 py-0.5 rounded bg-slate-100 border border-slate-200">
+                <div v-else class="space-y-3">
+                    <div
+                        v-for="tx in transactions"
+                        :key="tx.id"
+                        class="frosted-card p-4 sm:p-5 hover:border-orange-300/80 hover:shadow-md transition-all duration-150 cursor-pointer bg-white"
+                        @click="openProofModal(tx)"
+                    >
+                        <!-- Card Header -->
+                        <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100 text-xs">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="font-mono text-xs font-bold text-slate-900 px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200">
                                     {{ tx.invoice_number }}
                                 </span>
+                                <span class="text-slate-400">&bull;</span>
+                                <span class="text-slate-500 font-medium">
+                                    Dibuat: {{ formatDateTime(tx.created_at) }}
+                                </span>
+                            </div>
+                            <div class="flex items-center gap-2">
                                 <StatusBadge :status="tx.status" />
                             </div>
+                        </div>
 
-                            <!-- Team & Event -->
-                            <div>
-                                <h4 class="text-sm font-bold text-slate-900 leading-snug">{{ tx.team?.name }}</h4>
-                                <p class="text-xs text-slate-500">{{ tx.event?.name }}</p>
-                            </div>
-
-                            <!-- Amount & Method Info -->
-                            <div class="grid grid-cols-2 gap-2 bg-slate-50/90 rounded-xl p-2.5 border border-slate-200/70 text-xs">
-                                <div>
-                                    <span class="text-[10px] uppercase font-bold text-slate-500 block">Nominal</span>
-                                    <span class="font-mono tabular-data font-bold text-slate-900">{{ formatRupiah(tx.total_amount) }}</span>
-                                </div>
-                                <div>
-                                    <span class="text-[10px] uppercase font-bold text-slate-500 block">Metode</span>
-                                    <span class="font-semibold text-slate-800 uppercase">{{ tx.method || 'Manual' }}</span>
-                                    <span v-if="tx.payment_channel" class="text-[10px] text-slate-500 block">{{ tx.payment_channel }}</span>
+                        <!-- Card Body Grid -->
+                        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 text-xs items-center">
+                            <!-- Team & Event (Col 1-5) -->
+                            <div class="md:col-span-5 space-y-1">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-9 h-9 rounded-lg bg-orange-50 border border-orange-200 text-orange-700 flex items-center justify-center font-bold text-sm shrink-0">
+                                        {{ tx.team?.name?.charAt(0) || 'T' }}
+                                    </div>
+                                    <div class="min-w-0">
+                                        <h4 class="font-bold text-slate-900 text-sm truncate">{{ tx.team?.name }}</h4>
+                                        <p class="text-slate-500 text-xs truncate">{{ tx.event?.name }}</p>
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- Rejection Reason if any -->
-                            <div v-if="tx.rejection_reason" class="p-2 rounded-lg bg-rose-50 border border-rose-200 text-[11px] text-rose-800">
-                                <span class="font-bold">Alasan Ditolak:</span> {{ tx.rejection_reason }}
-                            </div>
-
-                            <!-- Timing & Action Button -->
-                            <div class="flex items-center justify-between pt-1 text-xs" @click.stop>
-                                <div class="text-[11px] text-slate-500">
-                                    <span v-if="tx.paid_at" class="text-emerald-700 font-semibold">
-                                        Lunas: {{ formatDateTime(tx.paid_at) }}
-                                    </span>
-                                    <span v-else>
-                                        Expired: {{ formatDateTime(tx.expires_at) }}
+                            <!-- Payment Channel & Method (Col 6-8) -->
+                            <div class="md:col-span-3 space-y-1 bg-slate-50/80 p-2.5 rounded-lg border border-slate-200/60">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[10px] uppercase font-bold text-slate-500">Kanal &amp; Metode</span>
+                                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-white border border-slate-200 text-slate-700">
+                                        {{ tx.method || 'Manual' }}
                                     </span>
                                 </div>
+                                <p class="text-slate-800 font-semibold truncate uppercase">
+                                    {{ tx.payment_channel || (tx.method === 'manual' ? 'Transfer Bank BCA' : 'Online Payment') }}
+                                </p>
+                            </div>
 
+                            <!-- Amount & Timestamps (Col 9-10) -->
+                            <div class="md:col-span-2 space-y-1">
+                                <span class="text-[10px] uppercase font-bold text-slate-500 block">Total Tagihan</span>
+                                <span class="text-sm font-bold text-slate-900 tabular-data block font-mono">
+                                    {{ formatRupiah(tx.total_amount) }}
+                                </span>
+                                <span v-if="tx.paid_at" class="text-[11px] text-emerald-700 font-semibold block">
+                                    Lunas: {{ formatDate(tx.paid_at) }}
+                                </span>
+                                <span v-else class="text-[11px] text-slate-500 block">
+                                    Batas: {{ formatDate(tx.expires_at) }}
+                                </span>
+                            </div>
+
+                            <!-- Actions (Col 11-12) -->
+                            <div class="md:col-span-2 flex items-center justify-end gap-2" @click.stop>
                                 <button
+                                    v-if="tx.proof_url"
                                     type="button"
-                                    :class="tx.proof_url ? 'btn-sm-pitch' : 'btn-sm-secondary'"
+                                    class="btn-sm-pitch w-full sm:w-auto justify-center"
                                     @click="openProofModal(tx)"
                                 >
-                                    <svg v-if="tx.proof_url" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                     </svg>
-                                    <span>{{ tx.proof_url ? 'Bukti Bayar' : 'Lihat Detail' }}</span>
+                                    <span>Bukti Bayar</span>
+                                </button>
+                                <button
+                                    v-else
+                                    type="button"
+                                    class="btn-sm-secondary w-full sm:w-auto justify-center"
+                                    @click="openProofModal(tx)"
+                                >
+                                    Detail
                                 </button>
                             </div>
+                        </div>
+
+                        <!-- Rejection note if applicable -->
+                        <div v-if="tx.rejection_reason" class="mt-3 p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-800">
+                            <span class="font-bold">Alasan Ditolak:</span> {{ tx.rejection_reason }}
                         </div>
                     </div>
                 </div>

@@ -17,8 +17,9 @@ class StoreEventRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'min:3', 'max:160'],
-            'short_description' => ['nullable', 'string', 'max:1500'],
+            'short_description' => ['nullable', 'string', 'max:20000'],
             'venue_name' => ['required', 'string', 'min:3', 'max:160'],
+            'venue_maps_url' => ['nullable', 'url', 'max:500'],
             'city' => ['required', 'string', 'min:2', 'max:120'],
             'format' => ['required', Rule::in(array_keys(Event::FORMATS))],
             'age_category' => ['required', 'string', 'max:32'],

@@ -5,6 +5,7 @@ import AdminLayout from '@/Layouts/AdminLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import FormErrorBanner from '@/Components/FormErrorBanner.vue';
 import FileInput from '@/Components/FileInput.vue';
+import RichTextEditor from '@/Components/RichTextEditor.vue';
 import { useFormValidator } from '@/Composables/useFormValidator';
 import { compressImage } from '@/Utils/imageCompressor';
 
@@ -35,6 +36,7 @@ const form = useForm({
     name: props.event?.name || '',
     short_description: props.event?.short_description || '',
     venue_name: props.event?.venue_name || '',
+    venue_maps_url: props.event?.venue_maps_url || '',
     city: props.event?.city || '',
     format: props.event?.format || 'cup',
     age_category: props.event?.age_category || 'U-15',
@@ -190,13 +192,30 @@ const submit = () => {
                                 <InputError :message="form.errors.city" />
                             </div>
 
-                            <div class="sm:col-span-2">
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">Deskripsi Singkat</label>
-                                <textarea
-                                    v-model="form.short_description"
-                                    rows="2"
-                                    placeholder="Uraian singkat mengenai kejuaraan, peserta yang disasar, dan sistem pertandingan..."
+                            <div data-field="venue_maps_url" class="sm:col-span-2">
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">
+                                    Link Google Maps Lokasi Stadion <span class="text-slate-400 font-normal">(Opsional)</span>
+                                </label>
+                                <input
+                                    v-model="form.venue_maps_url"
+                                    type="url"
+                                    placeholder="https://maps.google.com/?q=..."
                                     class="input-field"
+                                    :class="{ 'input-field-error': form.errors.venue_maps_url }"
+                                    @input="form.clearErrors('venue_maps_url')"
+                                />
+                                <p class="text-[11px] text-slate-500 mt-1">
+                                    Masukkan URL lengkap Google Maps agar calon peserta / manajer tim dapat langsung menavigasi ke stadion melalui tombol Maps di halaman detail.
+                                </p>
+                                <InputError :message="form.errors.venue_maps_url" />
+                            </div>
+
+                            <div class="sm:col-span-2">
+                                <RichTextEditor
+                                    v-model="form.short_description"
+                                    label="Deskripsi &amp; Informasi Kompetisi"
+                                    placeholder="Uraian lengkap mengenai kejuaraan, peserta yang disasar, babak turnamen, dan informasi teknis..."
+                                    :error="form.errors.short_description"
                                 />
                             </div>
                         </div>

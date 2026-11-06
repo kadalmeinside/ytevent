@@ -99,7 +99,10 @@ const logout = () => {
         </header>
 
         <main class="flex-1">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+            <div
+                v-if="$page.props.flash?.success || $page.props.flash?.error || $page.props.flash?.warning || $page.props.flash?.info"
+                class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2"
+            >
                 <FlashAlert />
             </div>
             <slot />

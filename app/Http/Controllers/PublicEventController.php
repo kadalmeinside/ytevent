@@ -172,6 +172,7 @@ class PublicEventController extends Controller
             'slug' => $event->slug,
             'short_description' => $event->short_description,
             'venue_name' => $event->venue_name,
+            'venue_maps_url' => $event->venue_maps_url,
             'city' => $event->city,
             'format' => $event->format,
             'format_label' => Event::FORMATS[$event->format] ?? $event->format,

@@ -30,9 +30,9 @@ const { formatRupiah, formatDate } = useFormatters();
                 </Link>
             </div>
 
-            <!-- Content Container (Desktop Table + Mobile Cards) -->
-            <div class="frosted-card overflow-hidden">
-                <div v-if="events.length === 0" class="p-12 text-center text-xs text-slate-500">
+            <!-- Content Container (Responsive Card List View) -->
+            <div class="space-y-3.5">
+                <div v-if="events.length === 0" class="frosted-card p-12 text-center text-xs text-slate-500">
                     <svg class="w-12 h-12 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
@@ -40,167 +40,114 @@ const { formatRupiah, formatDate } = useFormatters();
                     <p class="mt-0.5 text-slate-400">Klik tombol di atas untuk membuat kompetisi pertama Anda.</p>
                 </div>
 
-                <div v-else>
-                    <!-- DESKTOP TABLE VIEW -->
-                    <div class="hidden md:block overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr>
-                                    <th class="table-th">Nama Kompetisi</th>
-                                    <th class="table-th">Lokasi &amp; Kota</th>
-                                    <th class="table-th">Kategori Usia</th>
-                                    <th class="table-th">Kapasitas Kuota</th>
-                                    <th class="table-th">Biaya Pendaftaran</th>
-                                    <th class="table-th">Kick-Off</th>
-                                    <th class="table-th">Status</th>
-                                    <th class="table-th text-right">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 bg-white">
-                                <tr v-for="evt in events" :key="evt.id" class="hover:bg-orange-50/25 transition-colors">
-                                    <td class="table-td font-bold text-slate-900">
-                                        <div class="flex items-center gap-2.5">
-                                            <div class="w-8 h-8 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center font-bold text-xs shrink-0">
-                                                🏆
-                                            </div>
-                                            <div>
-                                                <p class="text-sm font-bold text-slate-900">{{ evt.name }}</p>
-                                                <p class="text-[11px] text-slate-500 font-normal">{{ evt.format_label }}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="table-td text-slate-700">
-                                        <p class="font-medium text-xs">{{ evt.venue_name }}</p>
-                                        <p class="text-[11px] text-slate-500">{{ evt.city }}</p>
-                                    </td>
-                                    <td class="table-td font-semibold text-slate-800">
-                                        <span class="font-mono text-xs px-2 py-0.5 rounded bg-slate-100 border border-slate-200">
-                                            {{ evt.age_category }}
-                                        </span>
-                                    </td>
-                                    <td class="table-td">
-                                        <div class="space-y-1">
-                                            <div class="flex items-center justify-between text-xs">
-                                                <span class="font-bold tabular-data text-slate-900">
-                                                    {{ evt.occupied_slots }} / {{ evt.max_teams }} Tim
-                                                </span>
-                                                <span class="text-[10px] text-slate-500">
-                                                    {{ Math.round((evt.occupied_slots / evt.max_teams) * 100) }}%
-                                                </span>
-                                            </div>
-                                            <!-- Mini Progress Bar -->
-                                            <div class="w-28 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                                <div
-                                                    class="h-full bg-gradient-to-r from-orange-500 to-red-600 rounded-full"
-                                                    :style="{ width: `${Math.min(100, (evt.occupied_slots / evt.max_teams) * 100)}%` }"
-                                                ></div>
-                                            </div>
-                                            <p class="text-[10px] text-slate-500 tabular-data">
-                                                Lunas: {{ evt.active_teams }} tim &bull; Hold: {{ evt.payment_deadline_hours }}j
-                                            </p>
-                                        </div>
-                                    </td>
-                                    <td class="table-td font-bold tabular-data text-slate-900">
-                                        {{ formatRupiah(evt.registration_fee) }}
-                                    </td>
-                                    <td class="table-td tabular-data text-slate-700">
-                                        {{ formatDate(evt.match_start_date) }}
-                                    </td>
-                                    <td class="table-td">
-                                        <StatusBadge :status="evt.status" />
-                                    </td>
-                                    <td class="table-td text-right">
-                                        <div class="flex items-center justify-end gap-1.5">
-                                            <Link
-                                                :href="route('admin.teams.index', { event_id: evt.id })"
-                                                class="btn-sm-secondary"
-                                                title="Lihat Tim Terdaftar"
-                                            >
-                                                Tim ({{ evt.occupied_slots }})
-                                            </Link>
-                                            <Link
-                                                :href="route('admin.events.edit', { event: evt.id })"
-                                                class="btn-sm-pitch"
-                                            >
-                                                Edit
-                                            </Link>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- MOBILE HIGH-DENSITY CARD LIST VIEW -->
-                    <div class="md:hidden divide-y divide-slate-100">
-                        <div
-                            v-for="evt in events"
-                            :key="evt.id"
-                            class="p-4 hover:bg-orange-50/20 transition-colors space-y-3"
-                        >
-                            <!-- Top: Name, Age Category & Status -->
-                            <div class="flex items-start justify-between gap-2">
-                                <div>
-                                    <div class="flex items-center gap-1.5">
-                                        <span class="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-100 text-orange-800">
-                                            {{ evt.age_category }}
-                                        </span>
-                                        <span class="text-xs text-slate-500">{{ evt.format_label }}</span>
-                                    </div>
-                                    <h4 class="text-sm font-bold text-slate-900 mt-1">{{ evt.name }}</h4>
+                <div v-else class="space-y-3">
+                    <div
+                        v-for="evt in events"
+                        :key="evt.id"
+                        class="frosted-card p-4 sm:p-5 hover:border-orange-300/80 hover:shadow-md transition-all duration-150 bg-white"
+                    >
+                        <!-- Card Header -->
+                        <div class="flex flex-wrap items-center justify-between gap-3 pb-3 mb-3 border-b border-slate-100">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center font-bold text-base shadow-2xs shrink-0 border border-orange-200">
+                                    🏆
                                 </div>
+                                <div>
+                                    <h4 class="text-sm sm:text-base font-bold text-slate-900 leading-tight">{{ evt.name }}</h4>
+                                    <div class="flex items-center gap-2 mt-0.5 text-xs">
+                                        <span class="font-semibold text-slate-600">{{ evt.format_label }}</span>
+                                        <span class="text-slate-300">&bull;</span>
+                                        <span class="font-mono text-[11px] font-bold px-1.5 py-0.2 rounded bg-orange-50 text-orange-800 border border-orange-200">
+                                            {{ evt.age_category }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-2">
                                 <StatusBadge :status="evt.status" />
                             </div>
+                        </div>
 
-                            <!-- Venue & Kick-off -->
-                            <div class="text-xs text-slate-600 bg-slate-50/80 rounded-lg p-2.5 border border-slate-200/60 space-y-1">
-                                <div class="flex items-center justify-between">
-                                    <span class="text-slate-500">Stadion / Venue:</span>
-                                    <span class="font-semibold text-slate-900">{{ evt.venue_name }}, {{ evt.city }}</span>
+                        <!-- Card Body Grid -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 text-xs items-center">
+                            <!-- Venue & Location (Col 1-4) -->
+                            <div class="lg:col-span-4 space-y-1">
+                                <span class="text-[10px] uppercase font-bold text-slate-400 block">Stadion &amp; Kota</span>
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    <p class="font-bold text-slate-900 text-xs sm:text-sm">{{ evt.venue_name }}</p>
+                                    <a
+                                        v-if="evt.venue_maps_url"
+                                        :href="evt.venue_maps_url"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 transition-colors shadow-2xs"
+                                        title="Buka di Google Maps"
+                                    >
+                                        <svg class="w-2.5 h-2.5 text-orange-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                        Maps &nearr;
+                                    </a>
                                 </div>
-                                <div class="flex items-center justify-between">
-                                    <span class="text-slate-500">Kick-Off:</span>
-                                    <span class="font-mono tabular-data font-medium text-slate-800">{{ formatDate(evt.match_start_date) }}</span>
-                                </div>
+                                <p class="text-slate-500 text-xs">{{ evt.city }}</p>
                             </div>
 
-                            <!-- Quota Progress & Fee -->
-                            <div class="space-y-1.5">
+                            <!-- Quota Slot Progress (Col 5-7) -->
+                            <div class="lg:col-span-4 space-y-1.5">
                                 <div class="flex items-center justify-between text-xs">
-                                    <span class="text-slate-500">Kuota Terisi:</span>
-                                    <span class="font-mono font-bold text-slate-900 tabular-data">
-                                        {{ evt.occupied_slots }} / {{ evt.max_teams }} Tim ({{ evt.active_teams }} Lunas)
+                                    <span class="text-[10px] uppercase font-bold text-slate-400">Kuota Terisi</span>
+                                    <span class="font-bold tabular-data text-slate-900 font-mono">
+                                        {{ evt.occupied_slots }} / {{ evt.max_teams }} Tim ({{ Math.round((evt.occupied_slots / evt.max_teams) * 100) }}%)
                                     </span>
                                 </div>
                                 <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                                     <div
-                                        class="h-full bg-gradient-to-r from-orange-500 to-red-600 rounded-full"
+                                        class="h-full bg-gradient-to-r from-orange-500 to-red-600 rounded-full transition-all duration-300"
                                         :style="{ width: `${Math.min(100, (evt.occupied_slots / evt.max_teams) * 100)}%` }"
                                     ></div>
                                 </div>
+                                <p class="text-[11px] text-slate-500 tabular-data">
+                                    Lunas: <strong class="text-slate-800">{{ evt.active_teams }} tim</strong> &bull; Batas bayar: {{ evt.payment_deadline_hours }} jam
+                                </p>
                             </div>
 
-                            <!-- Bottom: Fee & Actions -->
-                            <div class="flex items-center justify-between pt-2 border-t border-slate-100">
-                                <div>
-                                    <span class="text-[10px] text-slate-400 block uppercase font-bold">Biaya Pendaftaran</span>
-                                    <span class="font-mono tabular-data font-bold text-slate-900 text-sm">
-                                        {{ formatRupiah(evt.registration_fee) }}
-                                    </span>
-                                </div>
+                            <!-- Fee & Kick-off (Col 8-10) -->
+                            <div class="lg:col-span-2 space-y-1">
+                                <span class="text-[10px] uppercase font-bold text-slate-400 block">Biaya &amp; Kick-Off</span>
+                                <span class="font-bold text-slate-900 tabular-data font-mono block text-xs sm:text-sm">
+                                    {{ formatRupiah(evt.registration_fee) }}
+                                </span>
+                                <span class="text-[11px] text-slate-500 block">
+                                    {{ formatDate(evt.match_start_date) }}
+                                </span>
+                            </div>
 
-                                <div class="flex items-center gap-1.5">
+                            <!-- Actions (Col 11-12) -->
+                            <div class="lg:col-span-2 flex flex-col sm:items-end justify-center gap-2">
+                                <Link
+                                    :href="route('admin.teams.index', { event_id: evt.id })"
+                                    class="btn-sm-secondary w-full sm:w-auto justify-center"
+                                >
+                                    Daftar Tim ({{ evt.occupied_slots }})
+                                </Link>
+                                <div class="flex items-center gap-1.5 w-full sm:w-auto justify-end">
                                     <Link
-                                        :href="route('admin.teams.index', { event_id: evt.id })"
-                                        class="btn-sm-secondary"
+                                        :href="route('events.show', { event: evt.slug })"
+                                        target="_blank"
+                                        class="p-1.5 text-slate-500 hover:text-orange-600 transition-colors"
+                                        title="Buka Halaman Publik"
                                     >
-                                        Daftar Tim
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                        </svg>
                                     </Link>
                                     <Link
                                         :href="route('admin.events.edit', { event: evt.id })"
-                                        class="btn-sm-pitch"
+                                        class="btn-sm-pitch w-full sm:w-auto justify-center"
                                     >
-                                        Edit
+                                        Edit Kompetisi
                                     </Link>
                                 </div>
                             </div>

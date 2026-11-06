@@ -47,13 +47,20 @@ Legenda Status:
 - [x] **1.5.4** Pengelolaan Data Pelatih Kepala & Ofisial Tim (`/manager/officials`) beserta unggahan lisensi via `FileInput.vue`.
 
 ### 1.6 Pengaturan Global, Manajemen Pengguna & Hak Akses (`/admin/settings`, `/admin/users`, `/admin/roles`)
-- [x] **1.6.1** Manajemen Pengguna Admin (`/admin/users`): Tambah, edit, aktif/nonaktifkan akun panitia, serta penetapan peran (`superadmin`, `finance`, `screening_officer`).
+- [x] **1.6.1** Manajemen Pengguna Admin (`/admin/users`): Tambah, edit, aktif/nonaktifkan akun panitia, penetapan peran (`superadmin`, `finance`, `screening_officer`), dan tampilan **Card List View** responsif bebas himpitan kolom data.
 - [x] **1.6.2** Matriks Peran & Izin Spatie (`/admin/roles`): Super Admin dapat menyesuaikan checkbox permission untuk setiap peran panitia.
 - [x] **1.6.3** Pengaturan Branding Global (`/admin/settings`): Upload logo web, favicon, nama situs, tagline, opsi gaya logo header (`logo_only` landscape memanjang kesamping tanpa teks nama vs `logo_and_text`), dan footer copyright dengan cache flushing otomatis.
 
-### 1.7 Verifikasi & Automated Testing Fase 1
-- [x] **1.7.1** Penulisan dan eksekusi Feature Tests: 28 test cases (130 assertions) lulus 100% (kuota & anti-race `lockForUpdate`, lazy/scheduled expiration, penegakan mode pembayaran manual vs midtrans, proteksi sandbox simulator, akses login screening officer, validasi NIK ganda & umur pemain, dokumen privat, serta otorisasi Policy `403 Forbidden`).
-- [x] **1.7.2** Build aset produksi (`npm run build`) & kompilasi siap Shared Hosting.
+### 1.7 UI/UX Refinements, Visual Editor, & Card List Views
+- [x] **1.7.1** Pengurangan Jarak Header: Penyesuaian padding `PublicLayout.vue` dan `EventDetail.vue` (merapatkan jarak vertikal dengan navbar frosted glass, kondisional pembungkus flash alert).
+- [x] **1.7.2** WYSIWYG / Rich Text Editor (`RichTextEditor.vue`): Format blok (H2, H3, P), tebal, miring, garis bawah, list (bullet/nomor), alignment, tautan web, dan toggle kode sumber HTML visual untuk deskripsi event pada `Admin/Events/Form.vue` serta rendering aman `v-html` dengan Tailwind Typography di `EventDetail.vue`.
+- [x] **1.7.3** Integrasi Google Maps Stadion: Migrasi database kolom `venue_maps_url` pada tabel `events`, validasi URL di form admin, seeder Young Tiger Cup, dan tombol navigasi langsung `Maps ↗` pada detail event dan card list admin.
+- [x] **1.7.4** Antrean Verifikasi Transfer Manual Dual Empty State (`/admin/payments/manual-verification`): Membedakan kondisi *Seluruh Bukti Transfer Telah Selesai Diverifikasi* (semua antrean tuntas diperiksa panitia) vs *Belum Ada Bukti Transfer Masuk* (belum ada manajer yang mengunggah bukti).
+- [x] **1.7.5** Transformasi Seluruh Tabel Admin ke **Card List View** Responsif: Mengganti tabel kaku multi-kolom yang rawan tergencet pada `Transactions.vue`, `Teams/Index.vue`, `Events/Index.vue`, dan `Users/Index.vue` menjadi layout card list modern, proporsional, dan nyaman dibaca di desktop maupun ponsel.
+
+### 1.8 Verifikasi & Automated Testing Fase 1
+- [x] **1.8.1** Penulisan dan eksekusi Feature Tests: 29 test cases (143 assertions) lulus 100% (kuota & anti-race `lockForUpdate`, lazy/scheduled expiration, penegakan mode pembayaran manual vs midtrans, proteksi sandbox simulator, akses login screening officer, validasi NIK ganda & umur pemain, dokumen privat, otorisasi Policy `403 Forbidden`, serta verifikasi `venue_maps_url` & deskripsi HTML).
+- [x] **1.8.2** Build aset produksi (`npm run build`) & kompilasi siap Shared Hosting.
 
 ---
 

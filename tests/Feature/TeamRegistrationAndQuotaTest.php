@@ -285,4 +285,22 @@ class TeamRegistrationAndQuotaTest extends TestCase
             'status' => 'unpaid',
         ]);
     }
+
+    public function test_event_can_store_and_display_venue_maps_url_and_rich_description(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('superadmin');
+
+        $this->event->update([
+            'short_description' => '<p><strong>Panduan Resmi:</strong> Syarat pendaftaran wajib ditaati.</p>',
+            'venue_maps_url' => 'https://maps.google.com/?q=Persija+Training+Ground',
+        ]);
+
+        $response = $this->get(route('events.show', ['event' => $this->event->slug]));
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('Public/EventDetail')
+            ->where('event.venue_maps_url', 'https://maps.google.com/?q=Persija+Training+Ground')
+        );
+    }
 }

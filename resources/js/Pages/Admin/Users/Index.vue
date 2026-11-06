@@ -168,9 +168,9 @@ const executeDelete = () => {
                 </button>
             </div>
 
-            <!-- Users Container (Desktop Table + Mobile Cards) -->
-            <div class="frosted-card overflow-hidden">
-                <div v-if="users.data.length === 0" class="p-12 text-center text-xs text-slate-500">
+            <!-- Users Container (Responsive Card List View) -->
+            <div class="space-y-3.5">
+                <div v-if="users.data.length === 0" class="frosted-card p-12 text-center text-xs text-slate-500">
                     <svg class="w-10 h-10 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                     </svg>
@@ -178,153 +178,91 @@ const executeDelete = () => {
                     <p class="mt-0.5 text-slate-400">Silakan sesuaikan kriteria pencarian di atas.</p>
                 </div>
 
-                <div v-else>
-                    <!-- DESKTOP TABLE VIEW -->
-                    <div class="hidden md:block overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr>
-                                    <th class="table-th">Nama Pengguna</th>
-                                    <th class="table-th">Email &amp; Kontak</th>
-                                    <th class="table-th">Peran (Role)</th>
-                                    <th class="table-th">Status Akun</th>
-                                    <th class="table-th">Terdaftar</th>
-                                    <th class="table-th text-right">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 bg-white">
-                                <tr v-for="u in users.data" :key="u.id" class="hover:bg-orange-50/25 transition-colors">
-                                    <td class="table-td font-bold text-slate-900">
-                                        <div class="flex items-center gap-2.5">
-                                            <div class="w-8 h-8 rounded-lg bg-orange-100 text-orange-800 flex items-center justify-center font-bold text-xs uppercase shrink-0">
-                                                {{ u.name.charAt(0) }}
-                                            </div>
-                                            <div>
-                                                <p class="text-sm font-bold text-slate-900">{{ u.name }}</p>
-                                                <p class="text-[11px] text-slate-400 font-normal">ID: #{{ u.id }}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="table-td text-slate-600">
-                                        <div class="font-medium text-slate-900 text-xs">{{ u.email }}</div>
-                                        <div class="text-[11px] text-slate-500 tabular-data">{{ u.phone || '-' }}</div>
-                                    </td>
-                                    <td class="table-td">
+                <div v-else class="space-y-3">
+                    <div
+                        v-for="u in users.data"
+                        :key="u.id"
+                        class="frosted-card p-4 sm:p-5 hover:border-orange-300/80 hover:shadow-md transition-all duration-150 bg-white"
+                    >
+                        <!-- Top Header: Avatar, Name, Role & Status -->
+                        <div class="flex flex-wrap items-center justify-between gap-3 pb-3 mb-3 border-b border-slate-100">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-100 to-amber-100 text-orange-800 flex items-center justify-center font-extrabold text-sm uppercase shadow-2xs shrink-0 border border-orange-200">
+                                    {{ u.name.charAt(0) }}
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <h4 class="text-sm sm:text-base font-bold text-slate-900 leading-tight">{{ u.name }}</h4>
+                                        <span class="text-[11px] text-slate-400 font-mono">#{{ u.id }}</span>
+                                    </div>
+                                    <div class="flex items-center gap-2 mt-1">
                                         <span
-                                            class="px-2.5 py-0.5 rounded-md text-[11px] font-bold uppercase border"
+                                            class="px-2 py-0.5 rounded text-[10px] font-bold uppercase border tracking-wider"
                                             :class="
                                                 u.role === 'superadmin'
                                                     ? 'bg-rose-50 text-rose-800 border-rose-300'
                                                     : u.role === 'finance'
                                                     ? 'bg-amber-50 text-amber-800 border-amber-300'
-                                                    : 'bg-orange-50 text-orange-800 border-orange-300'
+                                                    : u.role === 'screening_officer'
+                                                    ? 'bg-orange-50 text-orange-800 border-orange-300'
+                                                    : 'bg-slate-100 text-slate-800 border-slate-300'
                                             "
                                         >
                                             {{ u.role }}
                                         </span>
-                                    </td>
-                                    <td class="table-td">
                                         <span
                                             class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
                                             :class="u.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'"
                                         >
                                             {{ u.is_active ? 'AKTIF' : 'NONAKTIF' }}
                                         </span>
-                                    </td>
-                                    <td class="table-td tabular-data text-slate-500 text-xs">
-                                        {{ u.created_at }}
-                                    </td>
-                                    <td class="table-td text-right">
-                                        <div class="flex items-center justify-end gap-1.5">
-                                            <button
-                                                type="button"
-                                                class="btn-sm-secondary"
-                                                @click="openEditModal(u)"
-                                            >
-                                                Edit
-                                            </button>
-                                            <button
-                                                type="button"
-                                                class="btn-sm-danger"
-                                                @click="confirmDelete(u)"
-                                            >
-                                                Hapus
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- MOBILE HIGH-DENSITY CARD LIST VIEW -->
-                    <div class="md:hidden divide-y divide-slate-100">
-                        <div
-                            v-for="u in users.data"
-                            :key="u.id"
-                            class="p-4 hover:bg-orange-50/20 transition-colors space-y-3"
-                        >
-                            <!-- Top: Avatar, Name & Status -->
-                            <div class="flex items-start justify-between gap-2.5">
-                                <div class="flex items-center gap-2.5">
-                                    <div class="w-9 h-9 rounded-lg bg-orange-100 text-orange-800 flex items-center justify-center font-bold text-sm uppercase shrink-0">
-                                        {{ u.name.charAt(0) }}
-                                    </div>
-                                    <div>
-                                        <h4 class="text-sm font-bold text-slate-900 leading-snug">{{ u.name }}</h4>
-                                        <p class="text-xs text-slate-500">{{ u.email }}</p>
                                     </div>
                                 </div>
-                                <span
-                                    class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0"
-                                    :class="u.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'"
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex items-center gap-1.5 ml-auto sm:ml-0">
+                                <button
+                                    type="button"
+                                    class="btn-sm-secondary"
+                                    @click="openEditModal(u)"
                                 >
-                                    {{ u.is_active ? 'AKTIF' : 'NONAKTIF' }}
+                                    Edit
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn-sm-danger"
+                                    @click="confirmDelete(u)"
+                                >
+                                    Hapus
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Card Body Grid -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 text-xs items-center">
+                            <!-- Email (Col 1-5) -->
+                            <div class="lg:col-span-5 space-y-0.5">
+                                <span class="text-[10px] uppercase font-bold text-slate-400 block">Alamat Email</span>
+                                <a :href="`mailto:${u.email}`" class="text-xs font-semibold text-slate-800 hover:text-orange-600 transition-colors truncate block">
+                                    {{ u.email }}
+                                </a>
+                            </div>
+
+                            <!-- Phone (Col 6-8) -->
+                            <div class="lg:col-span-4 space-y-0.5">
+                                <span class="text-[10px] uppercase font-bold text-slate-400 block">Nomor Telepon / WhatsApp</span>
+                                <span class="text-xs font-mono tabular-data font-semibold text-slate-800 block">
+                                    {{ u.phone || '-' }}
                                 </span>
                             </div>
 
-                            <!-- Role & Phone Details -->
-                            <div class="flex items-center justify-between text-xs bg-slate-50/80 rounded-lg p-2.5 border border-slate-200/60">
-                                <div>
-                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Peran Akses</span>
-                                    <span
-                                        class="px-2 py-0.5 rounded text-[10px] font-bold uppercase inline-block mt-0.5 border"
-                                        :class="
-                                            u.role === 'superadmin'
-                                                ? 'bg-rose-50 text-rose-800 border-rose-300'
-                                                : u.role === 'finance'
-                                                ? 'bg-amber-50 text-amber-800 border-amber-300'
-                                                : 'bg-orange-50 text-orange-800 border-orange-300'
-                                        "
-                                    >
-                                        {{ u.role }}
-                                    </span>
-                                </div>
-                                <div class="text-right">
-                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Telepon / WA</span>
-                                    <span class="font-mono text-slate-700 tabular-data font-medium">{{ u.phone || '-' }}</span>
-                                </div>
-                            </div>
-
-                            <!-- Footer Actions -->
-                            <div class="flex items-center justify-between pt-1">
-                                <span class="text-[11px] text-slate-400 tabular-data">Terdaftar: {{ u.created_at }}</span>
-                                <div class="flex items-center gap-1.5">
-                                    <button
-                                        type="button"
-                                        class="btn-sm-secondary"
-                                        @click="openEditModal(u)"
-                                    >
-                                        Edit
-                                    </button>
-                                    <button
-                                        type="button"
-                                        class="btn-sm-danger"
-                                        @click="confirmDelete(u)"
-                                    >
-                                        Hapus
-                                    </button>
-                                </div>
+                            <!-- Registered Date (Col 9-12) -->
+                            <div class="lg:col-span-3 space-y-0.5 sm:text-right">
+                                <span class="text-[10px] uppercase font-bold text-slate-400 block">Tanggal Registrasi</span>
+                                <span class="text-xs text-slate-500 tabular-data font-medium block">
+                                    {{ u.created_at }}
+                                </span>
                             </div>
                         </div>
                     </div>

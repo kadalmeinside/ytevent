@@ -26,8 +26,16 @@ class PaymentVerificationController extends Controller
             ->get()
             ->map(fn (Payment $p) => $this->transformPayment($p));
 
+        $totalManualEver = Payment::query()->whereNotNull('proof_of_payment_path')->count();
+        $totalVerified = Payment::query()
+            ->whereIn('status', ['paid', 'rejected'])
+            ->whereNotNull('proof_of_payment_path')
+            ->count();
+
         return Inertia::render('Admin/Payments/ManualVerification', [
             'queue' => $queue,
+            'totalManualEver' => $totalManualEver,
+            'totalVerified' => $totalVerified,
         ]);
     }
 
