@@ -26,14 +26,25 @@ class PlayerPolicy
 
     public function update(User $user, Player $player): bool
     {
-        if ($player->is_locked || $player->screening_status === 'passed') {
+        if ($player->is_locked || in_array($player->screening_status, ['submitted', 'passed'], true)) {
             return false;
         }
 
         return $user->can('manager.players.manage_own')
             && (int) $player->team?->user_id === (int) $user->id
             && $player->team->canManageRoster()
-            && in_array($player->screening_status, ['draft', 'submitted', 'rejected'], true);
+            && in_array($player->screening_status, ['draft', 'rejected'], true);
+    }
+
+    public function recall(User $user, Player $player): bool
+    {
+        if ($player->is_locked || $player->screening_status !== 'submitted') {
+            return false;
+        }
+
+        return $user->can('manager.players.manage_own')
+            && (int) $player->team?->user_id === (int) $user->id
+            && $player->team->canManageRoster();
     }
 
     public function delete(User $user, Player $player): bool

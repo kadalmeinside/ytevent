@@ -73,6 +73,9 @@ const openCreateModal = () => {
 };
 
 const openEditModal = (player) => {
+    if (player.screening_status === 'submitted' || player.screening_status === 'passed' || player.is_locked) {
+        return;
+    }
     editingPlayer.value = player;
     photoPreview.value = player.photo_url;
     playerForm.reset();
@@ -177,6 +180,13 @@ const existingDocPreview = computed(() => {
     return activeDocPlayer.value.documents?.[selectedDocType.value]?.preview_url || '';
 });
 
+const isDocModalReadOnly = computed(() => {
+    if (!activeDocPlayer.value) return false;
+    return activeDocPlayer.value.screening_status === 'submitted'
+        || activeDocPlayer.value.screening_status === 'passed'
+        || Boolean(activeDocPlayer.value.is_locked);
+});
+
 // Document Upload Modal
 const openDocModal = (player, docType = '') => {
     activeDocPlayer.value = player;
@@ -202,7 +212,7 @@ watch(selectedDocType, (newType) => {
 });
 
 const saveDocument = () => {
-    if (!activeDocPlayer.value) return;
+    if (!activeDocPlayer.value || isDocModalReadOnly.value) return;
     docForm.document_type = selectedDocType.value;
     docForm.document_number = docNumber.value;
 
@@ -382,7 +392,6 @@ const isRosterLocked = computed(() => {
                                         <span>Tarik Pengajuan</span>
                                     </button>
                                     <button
-                                        v-if="!p.is_locked"
                                         type="button"
                                         class="btn-sm-secondary inline-flex items-center gap-1"
                                         @click="openDocModal(p)"
@@ -390,10 +399,10 @@ const isRosterLocked = computed(() => {
                                         <svg class="w-3.5 h-3.5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                                         </svg>
-                                        <span>Berkas Dokumen</span>
+                                        <span>{{ ['draft', 'rejected'].includes(p.screening_status) && !p.is_locked ? 'Berkas Dokumen' : 'Lihat Berkas' }}</span>
                                     </button>
                                     <button
-                                        v-if="!p.is_locked"
+                                        v-if="['draft', 'rejected'].includes(p.screening_status) && !p.is_locked"
                                         type="button"
                                         class="btn-sm-secondary"
                                         @click="openEditModal(p)"
@@ -440,12 +449,11 @@ const isRosterLocked = computed(() => {
                                     <div class="flex items-center justify-between">
                                         <span class="text-[10px] uppercase font-bold text-slate-400 block">Kelengkapan Dokumen Wajib</span>
                                         <button
-                                            v-if="!p.is_locked"
                                             type="button"
                                             class="text-[11px] font-semibold text-orange-600 hover:text-orange-700 hover:underline"
                                             @click="openDocModal(p)"
                                         >
-                                            + Unggah / Ganti
+                                            {{ ['draft', 'rejected'].includes(p.screening_status) && !p.is_locked ? '+ Unggah / Ganti' : 'Lihat Berkas' }}
                                         </button>
                                     </div>
                                     <div class="flex flex-wrap gap-1">
@@ -641,7 +649,9 @@ const isRosterLocked = computed(() => {
             <div class="bg-white/95 backdrop-blur-xl border border-slate-200 rounded-xl shadow-xl max-w-lg w-full p-6">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-200">
                     <div>
-                        <h3 class="text-sm font-bold text-slate-900">Unggah Berkas Screening</h3>
+                        <h3 class="text-sm font-bold text-slate-900">
+                            {{ isDocModalReadOnly ? 'Pratinjau Berkas Screening' : 'Unggah Berkas Screening' }}
+                        </h3>
                         <p class="text-xs text-slate-500">Pemain: {{ activeDocPlayer.full_name }} (#{{ activeDocPlayer.jersey_number }})</p>
                     </div>
                     <button type="button" class="text-xs text-slate-500 hover:text-slate-900" @click="isDocModalOpen = false">
@@ -650,6 +660,37 @@ const isRosterLocked = computed(() => {
                 </div>
 
                 <div class="mt-4">
+                    <!-- Status Alert Banner if in submitted/passed status -->
+                    <div
+                        v-if="activeDocPlayer.screening_status === 'submitted'"
+                        class="p-3 mb-3.5 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-950 flex items-start gap-2.5"
+                    >
+                        <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div>
+                            <span class="font-bold block">Pengajuan Berkas Terkunci (Sedang Diperiksa Panitia)</span>
+                            <p class="mt-0.5 text-amber-800 leading-relaxed">
+                                Berkas ini terkunci karena pemain sudah diajukan ke antrean screening panitia. Untuk mengganti berkas atau mengoreksi data, silakan tutup modal ini lalu tekan tombol <strong class="font-bold underline">Tarik Pengajuan</strong> terlebih dahulu.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div
+                        v-else-if="activeDocPlayer.screening_status === 'passed'"
+                        class="p-3 mb-3.5 rounded-xl bg-emerald-50 border border-emerald-300 text-xs text-emerald-950 flex items-start gap-2.5"
+                    >
+                        <svg class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <div>
+                            <span class="font-bold block">Pemain Sah (Lolos Screening)</span>
+                            <p class="mt-0.5 text-emerald-800 leading-relaxed">
+                                Berkas telah diverifikasi sah oleh panitia kompetisi dan terkunci permanen.
+                            </p>
+                        </div>
+                    </div>
+
                     <FormErrorBanner :errors="docForm.errors" />
 
                     <form @submit.prevent="saveDocument" novalidate class="space-y-4">
@@ -676,19 +717,22 @@ const isRosterLocked = computed(() => {
                             <input
                                 v-model="docNumber"
                                 type="text"
+                                :disabled="isDocModalReadOnly"
                                 placeholder="Contoh: No Akta / No Kartu Keluarga"
                                 class="input-field"
+                                :class="{ 'bg-slate-100 text-slate-500 cursor-not-allowed': isDocModalReadOnly }"
                             />
                         </div>
 
                         <div data-field="file">
                             <label class="block text-xs font-bold text-slate-800 mb-1.5">
-                                Pilih Berkas Scan / Foto Dokumen (JPG, PNG, atau PDF &mdash; Maks. 2 MB)
+                                {{ isDocModalReadOnly ? 'Berkas Dokumen Terlampir' : 'Pilih Berkas Scan / Foto Dokumen (JPG, PNG, atau PDF — Maks. 2 MB)' }}
                             </label>
                             <FileInput
                                 v-model="docForm.file"
                                 accept=".jpg,.jpeg,.png,.pdf"
                                 :preview-url="existingDocPreview"
+                                :disabled="isDocModalReadOnly"
                                 label="Pilih Berkas Dokumen"
                                 hint="Format: JPG, PNG, atau PDF (maksimal 2 MB)"
                                 :error="docForm.errors.file"
@@ -697,12 +741,19 @@ const isRosterLocked = computed(() => {
                         </div>
 
                         <div class="pt-3 flex justify-end gap-2.5">
-                            <button type="button" class="btn-secondary" @click="isDocModalOpen = false">
-                                Batal
-                            </button>
-                            <button type="submit" class="btn-pitch" :disabled="docForm.processing">
-                                {{ docForm.processing ? 'Mengunggah Berkas...' : 'Simpan Berkas' }}
-                            </button>
+                            <template v-if="!isDocModalReadOnly">
+                                <button type="button" class="btn-secondary" @click="isDocModalOpen = false">
+                                    Batal
+                                </button>
+                                <button type="submit" class="btn-pitch" :disabled="docForm.processing">
+                                    {{ docForm.processing ? 'Mengunggah Berkas...' : 'Simpan Berkas' }}
+                                </button>
+                            </template>
+                            <template v-else>
+                                <button type="button" class="btn-secondary" @click="isDocModalOpen = false">
+                                    Tutup
+                                </button>
+                            </template>
                         </div>
                     </form>
                 </div>

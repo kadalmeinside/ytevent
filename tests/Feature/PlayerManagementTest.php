@@ -297,8 +297,31 @@ class PlayerManagementTest extends TestCase
             'to_status' => 'submitted',
         ]);
 
-        // Manajer dapat mengganti/memperbarui berkas saat status sudah 'submitted' tanpa terkena 403 Unauthorized
+        // Saat status 'submitted', form terkunci dari direct update (403 Forbidden jika mencoba bypass UI)
         $aktaBaru = UploadedFile::fake()->create('akta_lahir_revisi.pdf', 600, 'application/pdf');
+        $blockedResponse = $this->actingAs($this->managerB)->post(
+            route('manager.players.documents.store', ['player' => $player->id]),
+            [
+                'document_type' => 'birth_certificate',
+                'document_number' => 'AKTA-REVISI-FINAL',
+                'file' => $aktaBaru,
+            ]
+        );
+        $blockedResponse->assertForbidden();
+
+        // Manajer menarik pengajuan pemain (Recall to Draft) terlebih dahulu
+        $recallResponse = $this->actingAs($this->managerB)->post(
+            route('manager.players.recall', ['player' => $player->id])
+        );
+        $recallResponse->assertSessionHas('success');
+        $this->assertEquals('draft', $player->fresh()->screening_status);
+        $this->assertDatabaseHas('screening_logs', [
+            'player_id' => $player->id,
+            'from_status' => 'submitted',
+            'to_status' => 'draft',
+        ]);
+
+        // Setelah ditarik ke draft, berkas baru dapat diperbarui dengan sukses
         $replaceResponse = $this->actingAs($this->managerB)->post(
             route('manager.players.documents.store', ['player' => $player->id]),
             [
@@ -313,18 +336,6 @@ class PlayerManagementTest extends TestCase
             'document_type' => 'birth_certificate',
             'document_number' => 'AKTA-REVISI-FINAL',
             'original_name' => 'akta_lahir_revisi.pdf',
-        ]);
-
-        // Manajer menarik pengajuan pemain (Recall to Draft)
-        $recallResponse = $this->actingAs($this->managerB)->post(
-            route('manager.players.recall', ['player' => $player->id])
-        );
-        $recallResponse->assertSessionHas('success');
-        $this->assertEquals('draft', $player->fresh()->screening_status);
-        $this->assertDatabaseHas('screening_logs', [
-            'player_id' => $player->id,
-            'from_status' => 'submitted',
-            'to_status' => 'draft',
         ]);
     }
 

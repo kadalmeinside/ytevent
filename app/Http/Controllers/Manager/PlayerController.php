@@ -273,7 +273,7 @@ class PlayerController extends Controller
     public function recallPlayer(Request $request, Player $player): RedirectResponse
     {
         $player->loadMissing('team');
-        $this->authorize('update', $player);
+        $this->authorize('recall', $player);
 
         if ($player->screening_status !== 'submitted') {
             return redirect()->back()->with('error', "Pengajuan pemain {$player->full_name} tidak dapat ditarik karena statusnya bukan Menunggu Screening.");
