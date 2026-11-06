@@ -54,10 +54,22 @@ Setiap kartu pada ringkasan tim wajib memiliki 3 tingkatan visual vertikal yang 
 
 ---
 
-## 4. Larangan Desain Visual Wajib (Strict Prohibitions)
+## 4. Larangan Desain Visual Wajib & Standardisasi Komponen (Strict Prohibitions)
 1. **DILARANG menggunakan Animasi `pulse`, `ping`, atau efek berkedip (*blinking*):**
    - Tidak boleh menggunakan `animate-pulse`, `animate-ping`, atau animasi kedap-kedip pada ikon, status badge, tombol, maupun kartu metrik. Antarmuka harus tenang, kokoh, dan berstandar utilitas operasional enterprise.
 2. **DILARANG menggunakan Dot Indicator / Titik Bulat Status:**
    - Tidak boleh menaruh elemen dot bulat hiasan (`rounded-full w-2 h-2` dsb.) baik standalone maupun di dalam pill badge. Status selalu dinyatakan secara eksplisit dengan teks badge yang jelas.
 3. **DILARANG menggunakan Validasi Bawaan Browser:**
    - Semua form wajib `<form novalidate>`. Pesan error disajikan melalui composable reaktif dan `FormErrorBanner`.
+4. **DILARANG menggunakan Emoticon / Emoji Karakter Unicode (Strict Unicode Emoji Ban):**
+   - Tidak boleh menggunakan karakter emoticon/emoji unicode mentah seperti jam pasir (`⏳`), centang (`✓`), tanda silang (`✕`), kertas dokumen (`📄`), atau peringatan (`⚠️`) di status badge, tombol, teks notifikasi, maupun label berkas.
+   - **Wajib menggunakan Icon SVG Terstandar (Heroicons):** Seluruh status, ikon dokumen, indikator jam/waktu, dan aksi wajib menggunakan SVG vektor murni yang terdefinisi ukurannya (`w-4 h-4` / `w-5 h-5`) dengan stroke/fill yang selaras dengan palet tema Persija Red-Orange dan varian status semantic (Emerald, Amber, Rose, Slate).
+5. **Standardisasi Modal Viewer Berkas (`DocumentViewerModal`):**
+   - Komponen modal inspeksi berkas wajib terintegrasi in-app tanpa memaksa pengguna membuka tab baru untuk alur pemeriksaan rutin.
+   - **Mendukung Multi-Format:**
+     - **File Gambar (JPG, PNG, WEBP):** Dilengkapi kontrol manipulasi visual terpadu: Zoom In (`+`), Zoom Out (`-`), Reset Skala 1:1, dan Putar/Rotasi 90 Derajat (`Rotate 90°`).
+     - **File Dokumen PDF:** Dilengkapi *Embedded Responsive Iframe Viewer* sehingga dokumen multi-halaman dapat dibaca langsung di dalam modal, disertai tombol alternatif *"Buka di Tab Baru / Unduh"* jika verifikator membutuhkan inspeksi eksternal.
+6. **Aturan Best Practice Tombol Aksi & Disable State (Operational UX Rules):**
+   - **Disable State Transparan dengan Tooltip Informatif:** Tombol aksi operasional (seperti *"Loloskan Pemain (Sah)"*, *"Tolak Berkas"*, *"Kunci Skuad"*) tidak boleh sekadar dinonaktifkan (`disabled`) tanpa penjelasan. Wajib memberikan indikator visual yang jelas (`opacity-50 cursor-not-allowed`) serta atribut `title` / tooltip yang menjelaskan secara rinci mengapa tombol belum dapat ditekan (contoh: *"Pemain telah terkunci"*, *"Usia pemain tidak memenuhi batas regulasi"*, *"Masih ada berkas yang ditandai butuh revisi"*).
+   - **Pencegahan Double-Submit & Indikator Loading:** Seluruh tombol mutasi wajib mendeteksi status pemrosesan (`form.processing`) dan menampilkan animasi pemintal (*spinner*) halus yang menonaktifkan klik ganda selama request berjalan.
+   - **Konfirmasi Modal untuk Aksi Kritis / Destruktif:** Setiap tindakan yang berpotensi mengubah status data secara permanen atau berdampak besar (misalnya menolak berkas dengan catatan revisi, membuka kunci darurat / *Unlock*, atau mengunci skuad final) wajib melalui dialog konfirmasi modal dengan rincian konsekuensi aksi.

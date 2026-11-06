@@ -140,10 +140,16 @@ Legenda Status:
   - Tombol **Kirim Ulang (*Retry*)** untuk email yang mengalami kegagalan transmisi.
 
 ### 2.5 Automated Testing & Verifikasi Fase 2
-- [ ] **2.5.1** Penulisan Feature Tests Fase 2 (`ScreeningFlowTest.php` & `AccreditationTest.php`):
+- [x] **2.5.1** Penulisan Feature Tests Screening Fase 2 (`ScreeningFlowTest.php`):
   - Pengujian hak akses antrean screening (`screening_officer` & `superadmin`).
-  - Pengujian transisi status `submitted` -> `passed` / `rejected` dan pencatatan `screening_logs`.
-  - Pengujian pembukaan kunci darurat (*Unlock Player*).
+  - Pengujian transisi status `submitted` -> `passed` (penguncian data `is_locked` & pembuatan kode akreditasi unik).
+  - Pengujian transisi status `submitted` -> `rejected` (kewajiban catatan alasan penolakan minimal 10 karakter).
+  - Pengujian verifikasi granular berkas dokumen (`valid` / `invalid`).
+  - Pengujian pembukaan kunci darurat (*Unlock Player*) beserta pencatatan riwayat di `screening_logs`.
+  - Pengujian perbaikan dan unggah ulang berkas oleh manajer untuk pemain yang ditolak (*selective re-submission*).
+  - Pengujian proteksi integritas data pemain berstatus `passed` / terkunci dari modifikasi manajer.
+  - Total test suite bertambah menjadi **38 Feature & Unit Tests** dengan **217 assertions** lulus 100% `PASS`.
+- [ ] **2.5.2** Penulisan Feature Tests Akreditasi & Roster Lock (`AccreditationTest.php` — Dijadwalkan pada Milestone 2.3):
   - Pengujian validasi kunci skuad (penolakan jika kurang dari 2 GK atau kuota minimal).
   - Pengujian akses cetak akreditasi PDF dan verifikasi Kode QR publik.
-- [ ] **2.5.2** Build produksi frontend (`npm run build`) & verifikasi zero regression.
+- [x] **2.5.3** Build produksi frontend (`npm run build`) & verifikasi zero regression (Vite build sukses tanpa error).

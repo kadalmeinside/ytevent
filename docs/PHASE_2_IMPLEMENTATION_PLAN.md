@@ -179,6 +179,9 @@ Target: Memperluas cakupan test suite dari 31 tests menjadi **minimal 40+ tests*
 - Tetap mematuhi aturan strict `GEMINI-2.md` dan `UI_UX.md`:
   - Larangan total penggunaan dot indicator status bulat.
   - Larangan animasi `pulse`, `ping`, atau efek berkedip (*blinking*).
+  - **Larangan total emoticon/emoji unicode:** Tidak boleh menggunakan emoji mentah (seperti ⏳, ✓, ✕, ⚠️, 📄). Wajib menggunakan Icon SVG terstandar (Heroicons).
+  - **Standardisasi Modal Viewer Berkas (`DocumentViewerModal`):** Pratinjau terpadu file gambar (zoom in/out, reset 1:1, putar 90°) dan dokumen PDF (embedded iframe).
+  - **Best Practice Tombol Operasional:** Memberikan indikator disable state yang jelas disertai tooltip alasan penonaktifan tombol, proteksi *double-click*, dan konfirmasi modal untuk aksi destruktif.
   - Komponen form selalu menggunakan `<form novalidate>`.
   - Menggunakan tema warna **Persija Red-Orange Liquid Glass** (`#EA580C`, `#DC2626`).
   - Mengutamakan tata letak **Card List View** responsif bebas tumpukan data.
