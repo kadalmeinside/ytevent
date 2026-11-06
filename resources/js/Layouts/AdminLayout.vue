@@ -52,6 +52,13 @@ const navSections = computed(() => {
                     icon: 'teams',
                     show: can('teams.view_all'),
                 },
+                {
+                    label: 'Screening Pemain',
+                    href: route('admin.screening.index'),
+                    match: '/admin/screening',
+                    icon: 'screening',
+                    show: can('screening.view_queue'),
+                },
             ],
         },
         {
@@ -227,6 +234,10 @@ const logout = () => {
                                     <!-- Teams Icon -->
                                     <svg v-else-if="item.icon === 'teams'" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                    </svg>
+                                    <!-- Screening Icon -->
+                                    <svg v-else-if="item.icon === 'screening'" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                                     </svg>
                                     <!-- Verify Icon -->
                                     <svg v-else-if="item.icon === 'verify'" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4">

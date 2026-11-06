@@ -176,3 +176,4 @@ Target: Memperluas cakupan test suite dari 31 tests menjadi **minimal 40+ tests*
   - Komponen form selalu menggunakan `<form novalidate>`.
   - Menggunakan tema warna **Persija Red-Orange Liquid Glass** (`#EA580C`, `#DC2626`).
   - Mengutamakan tata letak **Card List View** responsif bebas tumpukan data.
+

@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\PaymentVerificationController as AdminPaymentVeri
 use App\Http\Controllers\Admin\TeamManagementController as AdminTeamManagementController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\RolePermissionController as AdminRolePermissionController;
+use App\Http\Controllers\Admin\ScreeningController as AdminScreeningController;
 use App\Http\Controllers\Admin\SystemSettingController as AdminSystemSettingController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Manager\DashboardController as ManagerDashboardController;
@@ -94,6 +95,24 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
     Route::get('/teams', [AdminTeamManagementController::class, 'index'])
         ->middleware('permission:teams.view_all')
         ->name('teams.index');
+
+    // Area Operasional Screening Berkas Pemain
+    Route::middleware('permission:screening.view_queue')->group(function () {
+        Route::get('/screening', [AdminScreeningController::class, 'index'])->name('screening.index');
+        Route::get('/screening/events/{event}/teams/{team}', [AdminScreeningController::class, 'teamReview'])->name('screening.team');
+    });
+
+    Route::post('/screening/players/{player}/verify', [AdminScreeningController::class, 'verifyPlayer'])
+        ->middleware('permission:screening.verify_player')
+        ->name('screening.player.verify');
+
+    Route::post('/screening/documents/{document}/verify', [AdminScreeningController::class, 'verifyDocument'])
+        ->middleware('permission:screening.verify_player')
+        ->name('screening.document.verify');
+
+    Route::post('/screening/players/{player}/unlock', [AdminScreeningController::class, 'unlockPlayer'])
+        ->middleware('permission:screening.unlock_player')
+        ->name('screening.player.unlock');
 
     Route::get('/payments/manual-verification', [AdminPaymentVerificationController::class, 'manualQueue'])
         ->middleware('permission:payments.verify_manual')

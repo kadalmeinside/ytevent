@@ -168,6 +168,29 @@ class Event extends Model
         return $this->availableSlotsCount() > 0;
     }
 
+    public function isBirthDateEligible(?string $birthDate): ?bool
+    {
+        if (empty($birthDate)) {
+            return null;
+        }
+
+        if (!$this->min_birth_date && !$this->max_birth_date) {
+            return true;
+        }
+
+        $date = \Carbon\Carbon::parse($birthDate);
+
+        if ($this->min_birth_date && $date->lt($this->min_birth_date)) {
+            return false;
+        }
+
+        if ($this->max_birth_date && $date->gt($this->max_birth_date)) {
+            return false;
+        }
+
+        return true;
+    }
+
     /**
      * Sinkronisasi status open <-> quota_full. Wajib dipanggil saat baris event dikunci (lockForUpdate).
      */
