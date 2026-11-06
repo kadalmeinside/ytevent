@@ -24,8 +24,18 @@ const quotaPercentage = computed(() => {
 });
 
 const formattedDescription = computed(() => {
-    const desc = props.event?.short_description || '';
+    let desc = props.event?.short_description || '';
     if (!desc) return '';
+    // If the content contains encoded HTML tags like &lt;p&gt; or &lt;ul&gt;, decode them
+    if (desc.includes('&lt;') && desc.includes('&gt;')) {
+        desc = desc
+            .replace(/&lt;/gi, '<')
+            .replace(/&gt;/gi, '>')
+            .replace(/&quot;/gi, '"')
+            .replace(/&#39;/gi, "'")
+            .replace(/&amp;/gi, '&')
+            .replace(/&nbsp;/gi, ' ');
+    }
     if (/<[a-z][\s\S]*>/i.test(desc)) {
         return desc;
     }

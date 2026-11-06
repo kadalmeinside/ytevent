@@ -65,7 +65,23 @@ const quotaPercentage = (event) => {
 
 const stripHtml = (html) => {
     if (!html) return '';
-    return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    let text = String(html);
+    // Decode HTML entities if present (e.g. &lt;ul&gt; -> <ul>, &nbsp; -> space)
+    text = text
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'")
+        .replace(/&amp;/gi, '&')
+        .replace(/&nbsp;/gi, ' ');
+    // Strip HTML tags
+    text = text.replace(/<[^>]*>/g, ' ');
+    // Strip any unclosed tag at the end
+    text = text.replace(/<[^>]*$/g, ' ');
+    // Clean any leaked inline Tailwind/CSS declarations if raw markup was stripped
+    text = text.replace(/--tw-[\w-]+:[^;]+;?/gi, ' ');
+    // Normalize spaces
+    return text.replace(/\s+/g, ' ').trim();
 };
 </script>
 
@@ -201,18 +217,18 @@ const stripHtml = (html) => {
                                 </h2>
                             </Link>
 
-                            <p class="mt-1.5 text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                            <p v-if="stripHtml(event.short_description)" class="mt-1.5 text-xs text-slate-600 line-clamp-2 leading-relaxed">
                                 {{ stripHtml(event.short_description) }}
                             </p>
 
                         <dl class="mt-4 space-y-2 text-xs border-t border-slate-200/70 pt-3">
                             <div class="flex items-start justify-between gap-3">
-                                <dt class="text-slate-500 shrink-0 whitespace-nowrap pt-0.5">Lokasi / Kota</dt>
-                                <dd class="text-right min-w-0">
-                                    <span class="block font-semibold text-slate-900 truncate" :title="event.venue_name">
+                                <dt class="text-slate-500 shrink-0 whitespace-nowrap pt-0.5 font-medium">Lokasi / Kota</dt>
+                                <dd class="text-right min-w-0 max-w-[65%]">
+                                    <span class="block font-semibold text-slate-900 leading-snug line-clamp-2" :title="event.venue_name">
                                         {{ event.venue_name }}
                                     </span>
-                                    <span class="block text-[11px] text-slate-500 truncate" :title="event.city">
+                                    <span class="block text-[11px] text-slate-500 truncate mt-0.5" :title="event.city">
                                         {{ event.city }}
                                     </span>
                                 </dd>
