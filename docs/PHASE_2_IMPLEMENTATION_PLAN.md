@@ -176,7 +176,7 @@ Fase 2 berfokus pada **operasional pemeriksaan keabsahan data (*screening*)**, v
 
 ## 5. Rencana Pengujian Otomatis (Testing Strategy)
 
-Target tercapai penuh: **57 tests dengan 348 assertions (100% PASS)**:
+Target tercapai penuh: **57 tests dengan 349 assertions (100% PASS)**:
 1. [x] `ScreeningQueueTest`: Petugas screening dan superadmin dapat mengakses `/admin/screening`, manajer tim ditolak (`403 Forbidden` / redirect).
 2. [x] `PlayerVerificationTest`: Verifikasi lolos mengubah status ke `passed`, mengunci `is_locked`, dan menghasilkan `screening_code`.
 3. [x] `PlayerRejectionTest`: Verifikasi tolak mewajibkan alasan penolakan, mengubah status ke `rejected`, dan membuka kembali hak edit manajer.

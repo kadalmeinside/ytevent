@@ -91,6 +91,7 @@ Legenda Status:
   - Penguncian data pemain `is_locked = true` saat berstatus `passed`.
   - Sinkronisasi otomatis status tim `teams.screening_status` (`in_review`, `partially_rejected`, `all_passed`).
   - Pencatatan jejak audit ke tabel `screening_logs` (admin pemeriksa, status lama, status baru, alasan, dan waktu).
+  - Proteksi Idempotensi (*Idempotency Guard*) untuk mencegah duplikasi pencatatan log saat tombol diklik berulang kali.
   - Mekanisme *Unlock Player* darurat untuk membuka kunci pemain kembali ke `draft` jika terjadi kekeliruan administrasi panitia.
 - [x] **2.1.4** Dashboard Antrean Screening Panitia (`Admin/Screening/Index.vue`):
   - Tampilan Card List View tim-tim peserta dengan progres pemeriksaan berkas (contoh: *"14 / 18 Pemain Selesai Diperiksa"*).
@@ -178,5 +179,5 @@ Legenda Status:
   - Pengujian mekanisme kirim ulang (*retry*) email gagal dan transisi ke `sent`.
   - Pengujian mekanisme *bulk retry* seluruh email gagal.
   - Pengujian penolakan retry untuk email yang sudah sukses terkirim.
-  - Total test suite bertambah menjadi **57 Feature & Unit Tests** dengan **348 assertions** lulus 100% `PASS`.
+  - Total test suite bertambah menjadi **57 Feature & Unit Tests** dengan **349 assertions** lulus 100% `PASS`.
 - [x] **2.5.4** Build produksi frontend (`npm run build`) & verifikasi zero regression (Vite build sukses tanpa error).
