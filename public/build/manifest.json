@@ -1,77 +1,77 @@
 {
-  "_AdminLayout-C8jlCopk.js": {
-    "file": "assets/AdminLayout-C8jlCopk.js",
+  "_AdminLayout-Bvw6vT2n.js": {
+    "file": "assets/AdminLayout-Bvw6vT2n.js",
     "name": "AdminLayout",
     "imports": [
       "resources/js/app.js",
-      "_FlashAlert-DfwYOq4C.js"
+      "_FlashAlert-C_STMYMt.js"
     ]
   },
-  "_ConfirmModal-CJIupXy2.js": {
-    "file": "assets/ConfirmModal-CJIupXy2.js",
+  "_ConfirmModal-XL7Hu7BO.js": {
+    "file": "assets/ConfirmModal-XL7Hu7BO.js",
     "name": "ConfirmModal",
     "imports": [
       "resources/js/app.js"
     ]
   },
-  "_FileInput-CoTxKPCT.js": {
-    "file": "assets/FileInput-CoTxKPCT.js",
+  "_FileInput-uhfCRJDS.js": {
+    "file": "assets/FileInput-uhfCRJDS.js",
     "name": "FileInput",
     "imports": [
       "resources/js/app.js"
     ]
   },
-  "_FlashAlert-DfwYOq4C.js": {
-    "file": "assets/FlashAlert-DfwYOq4C.js",
+  "_FlashAlert-C_STMYMt.js": {
+    "file": "assets/FlashAlert-C_STMYMt.js",
     "name": "FlashAlert",
     "imports": [
       "resources/js/app.js"
     ]
   },
-  "_FormErrorBanner-cAXQRCBS.js": {
-    "file": "assets/FormErrorBanner-cAXQRCBS.js",
+  "_FormErrorBanner-B7BB0jJt.js": {
+    "file": "assets/FormErrorBanner-B7BB0jJt.js",
     "name": "FormErrorBanner",
     "imports": [
       "resources/js/app.js"
     ]
   },
-  "_InputError-MwHADmGJ.js": {
-    "file": "assets/InputError-MwHADmGJ.js",
+  "_InputError-CWxwvc6j.js": {
+    "file": "assets/InputError-CWxwvc6j.js",
     "name": "InputError",
     "imports": [
       "resources/js/app.js"
     ]
   },
-  "_ManagerLayout-DZEsBlUg.js": {
-    "file": "assets/ManagerLayout-DZEsBlUg.js",
+  "_ManagerLayout-By86Wsbw.js": {
+    "file": "assets/ManagerLayout-By86Wsbw.js",
     "name": "ManagerLayout",
     "imports": [
       "resources/js/app.js",
-      "_FlashAlert-DfwYOq4C.js",
-      "_StatusBadge-DWOIX2kn.js"
+      "_FlashAlert-C_STMYMt.js",
+      "_StatusBadge-DVuxRfkJ.js"
     ]
   },
-  "_PaymentProofModal-D3Mkw2VQ.js": {
-    "file": "assets/PaymentProofModal-D3Mkw2VQ.js",
+  "_PaymentProofModal-wYccZTqA.js": {
+    "file": "assets/PaymentProofModal-wYccZTqA.js",
     "name": "PaymentProofModal",
     "imports": [
       "resources/js/app.js",
-      "_StatusBadge-DWOIX2kn.js",
-      "_InputError-MwHADmGJ.js",
+      "_StatusBadge-DVuxRfkJ.js",
+      "_InputError-CWxwvc6j.js",
       "_useFormatters--jHLtjMb.js",
-      "_useFormValidator-rJCrpm0i.js"
+      "_useFormValidator-CWyFDrbH.js"
     ]
   },
-  "_PublicLayout-BGrvsymJ.js": {
-    "file": "assets/PublicLayout-BGrvsymJ.js",
+  "_PublicLayout-BP7XQRnJ.js": {
+    "file": "assets/PublicLayout-BP7XQRnJ.js",
     "name": "PublicLayout",
     "imports": [
       "resources/js/app.js",
-      "_FlashAlert-DfwYOq4C.js"
+      "_FlashAlert-C_STMYMt.js"
     ]
   },
-  "_StatusBadge-DWOIX2kn.js": {
-    "file": "assets/StatusBadge-DWOIX2kn.js",
+  "_StatusBadge-DVuxRfkJ.js": {
+    "file": "assets/StatusBadge-DVuxRfkJ.js",
     "name": "StatusBadge",
     "imports": [
       "resources/js/app.js"
@@ -81,8 +81,8 @@
     "file": "assets/imageCompressor-CEtKoNcI.js",
     "name": "imageCompressor"
   },
-  "_useFormValidator-rJCrpm0i.js": {
-    "file": "assets/useFormValidator-rJCrpm0i.js",
+  "_useFormValidator-CWyFDrbH.js": {
+    "file": "assets/useFormValidator-CWyFDrbH.js",
     "name": "useFormValidator",
     "imports": [
       "resources/js/app.js"
@@ -93,355 +93,355 @@
     "name": "useFormatters"
   },
   "resources/css/app.css": {
-    "file": "assets/app-CTefciY0.css",
+    "file": "assets/app-DO6-AVx9.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/js/Pages/Admin/Dashboard.vue": {
-    "file": "assets/Dashboard-DmlsnS-p.js",
+    "file": "assets/Dashboard-DBpojkeY.js",
     "name": "Dashboard",
     "src": "resources/js/Pages/Admin/Dashboard.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_AdminLayout-C8jlCopk.js",
-      "_StatusBadge-DWOIX2kn.js",
+      "_AdminLayout-Bvw6vT2n.js",
+      "_StatusBadge-DVuxRfkJ.js",
       "_useFormatters--jHLtjMb.js",
-      "_FlashAlert-DfwYOq4C.js"
+      "_FlashAlert-C_STMYMt.js"
     ],
     "css": [
-      "assets/app-CTefciY0.css"
+      "assets/app-DO6-AVx9.css"
     ]
   },
   "resources/js/Pages/Admin/Events/Form.vue": {
-    "file": "assets/Form-BiAm2GKK.js",
+    "file": "assets/Form-DIe5Jl7m.js",
     "name": "Form",
     "src": "resources/js/Pages/Admin/Events/Form.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_AdminLayout-C8jlCopk.js",
-      "_InputError-MwHADmGJ.js",
-      "_FormErrorBanner-cAXQRCBS.js",
-      "_FileInput-CoTxKPCT.js",
-      "_useFormValidator-rJCrpm0i.js",
+      "_AdminLayout-Bvw6vT2n.js",
+      "_InputError-CWxwvc6j.js",
+      "_FormErrorBanner-B7BB0jJt.js",
+      "_FileInput-uhfCRJDS.js",
+      "_useFormValidator-CWyFDrbH.js",
       "_imageCompressor-CEtKoNcI.js",
-      "_FlashAlert-DfwYOq4C.js"
+      "_FlashAlert-C_STMYMt.js"
     ],
     "css": [
       "assets/Form-CvPGkL6m.css",
-      "assets/app-CTefciY0.css"
+      "assets/app-DO6-AVx9.css"
     ]
   },
   "resources/js/Pages/Admin/Events/Index.vue": {
-    "file": "assets/Index-C1FGJbyE.js",
+    "file": "assets/Index-Bzub-_qn.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Events/Index.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_AdminLayout-C8jlCopk.js",
-      "_StatusBadge-DWOIX2kn.js",
+      "_AdminLayout-Bvw6vT2n.js",
+      "_StatusBadge-DVuxRfkJ.js",
       "_useFormatters--jHLtjMb.js",
-      "_FlashAlert-DfwYOq4C.js"
+      "_FlashAlert-C_STMYMt.js"
     ],
     "css": [
-      "assets/app-CTefciY0.css"
+      "assets/app-DO6-AVx9.css"
     ]
   },
   "resources/js/Pages/Admin/Payments/ManualVerification.vue": {
-    "file": "assets/ManualVerification-DxDoiZka.js",
+    "file": "assets/ManualVerification-BRAegm28.js",
     "name": "ManualVerification",
     "src": "resources/js/Pages/Admin/Payments/ManualVerification.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_AdminLayout-C8jlCopk.js",
-      "_StatusBadge-DWOIX2kn.js",
-      "_InputError-MwHADmGJ.js",
+      "_AdminLayout-Bvw6vT2n.js",
+      "_StatusBadge-DVuxRfkJ.js",
+      "_InputError-CWxwvc6j.js",
       "_useFormatters--jHLtjMb.js",
-      "_useFormValidator-rJCrpm0i.js",
-      "_FlashAlert-DfwYOq4C.js"
+      "_useFormValidator-CWyFDrbH.js",
+      "_FlashAlert-C_STMYMt.js"
     ],
     "css": [
-      "assets/app-CTefciY0.css"
+      "assets/app-DO6-AVx9.css"
     ]
   },
   "resources/js/Pages/Admin/Payments/Transactions.vue": {
-    "file": "assets/Transactions-DudHFHzn.js",
+    "file": "assets/Transactions-DIzJ0cEF.js",
     "name": "Transactions",
     "src": "resources/js/Pages/Admin/Payments/Transactions.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_AdminLayout-C8jlCopk.js",
-      "_StatusBadge-DWOIX2kn.js",
-      "_PaymentProofModal-D3Mkw2VQ.js",
+      "_AdminLayout-Bvw6vT2n.js",
+      "_StatusBadge-DVuxRfkJ.js",
+      "_PaymentProofModal-wYccZTqA.js",
       "_useFormatters--jHLtjMb.js",
-      "_FlashAlert-DfwYOq4C.js",
-      "_InputError-MwHADmGJ.js",
-      "_useFormValidator-rJCrpm0i.js"
+      "_FlashAlert-C_STMYMt.js",
+      "_InputError-CWxwvc6j.js",
+      "_useFormValidator-CWyFDrbH.js"
     ],
     "css": [
-      "assets/app-CTefciY0.css"
+      "assets/app-DO6-AVx9.css"
     ]
   },
   "resources/js/Pages/Admin/Roles/Index.vue": {
-    "file": "assets/Index-CC8i3bSb.js",
+    "file": "assets/Index-BcdozkG-.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Roles/Index.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_AdminLayout-C8jlCopk.js",
-      "_FlashAlert-DfwYOq4C.js"
+      "_AdminLayout-Bvw6vT2n.js",
+      "_FlashAlert-C_STMYMt.js"
     ],
     "css": [
-      "assets/app-CTefciY0.css"
+      "assets/app-DO6-AVx9.css"
     ]
   },
   "resources/js/Pages/Admin/Settings/Index.vue": {
-    "file": "assets/Index-CeGEI9uE.js",
+    "file": "assets/Index-WeCGiosN.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Settings/Index.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_AdminLayout-C8jlCopk.js",
-      "_InputError-MwHADmGJ.js",
-      "_FormErrorBanner-cAXQRCBS.js",
-      "_FileInput-CoTxKPCT.js",
-      "_FlashAlert-DfwYOq4C.js"
+      "_AdminLayout-Bvw6vT2n.js",
+      "_InputError-CWxwvc6j.js",
+      "_FormErrorBanner-B7BB0jJt.js",
+      "_FileInput-uhfCRJDS.js",
+      "_FlashAlert-C_STMYMt.js"
     ],
     "css": [
-      "assets/app-CTefciY0.css"
+      "assets/app-DO6-AVx9.css"
     ]
   },
   "resources/js/Pages/Admin/Teams/Index.vue": {
-    "file": "assets/Index-DCoROceW.js",
+    "file": "assets/Index-D7DW1Zdl.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Teams/Index.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_AdminLayout-C8jlCopk.js",
-      "_StatusBadge-DWOIX2kn.js",
-      "_PaymentProofModal-D3Mkw2VQ.js",
+      "_AdminLayout-Bvw6vT2n.js",
+      "_StatusBadge-DVuxRfkJ.js",
+      "_PaymentProofModal-wYccZTqA.js",
       "_useFormatters--jHLtjMb.js",
-      "_FlashAlert-DfwYOq4C.js",
-      "_InputError-MwHADmGJ.js",
-      "_useFormValidator-rJCrpm0i.js"
+      "_FlashAlert-C_STMYMt.js",
+      "_InputError-CWxwvc6j.js",
+      "_useFormValidator-CWyFDrbH.js"
     ],
     "css": [
-      "assets/app-CTefciY0.css"
+      "assets/app-DO6-AVx9.css"
     ]
   },
   "resources/js/Pages/Admin/Users/Index.vue": {
-    "file": "assets/Index-CHrWZ25P.js",
+    "file": "assets/Index-w0OT5VNL.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Users/Index.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_AdminLayout-C8jlCopk.js",
-      "_InputError-MwHADmGJ.js",
-      "_FormErrorBanner-cAXQRCBS.js",
-      "_ConfirmModal-CJIupXy2.js",
-      "_useFormValidator-rJCrpm0i.js",
-      "_FlashAlert-DfwYOq4C.js"
+      "_AdminLayout-Bvw6vT2n.js",
+      "_InputError-CWxwvc6j.js",
+      "_FormErrorBanner-B7BB0jJt.js",
+      "_ConfirmModal-XL7Hu7BO.js",
+      "_useFormValidator-CWyFDrbH.js",
+      "_FlashAlert-C_STMYMt.js"
     ],
     "css": [
-      "assets/app-CTefciY0.css"
+      "assets/app-DO6-AVx9.css"
     ]
   },
   "resources/js/Pages/Auth/AdminLogin.vue": {
-    "file": "assets/AdminLogin-BBgOwUX5.js",
+    "file": "assets/AdminLogin-BQYklNmI.js",
     "name": "AdminLogin",
     "src": "resources/js/Pages/Auth/AdminLogin.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_InputError-MwHADmGJ.js",
-      "_FormErrorBanner-cAXQRCBS.js",
-      "_FlashAlert-DfwYOq4C.js",
-      "_useFormValidator-rJCrpm0i.js"
+      "_InputError-CWxwvc6j.js",
+      "_FormErrorBanner-B7BB0jJt.js",
+      "_FlashAlert-C_STMYMt.js",
+      "_useFormValidator-CWyFDrbH.js"
     ],
     "css": [
-      "assets/app-CTefciY0.css"
+      "assets/app-DO6-AVx9.css"
     ]
   },
   "resources/js/Pages/Auth/ManagerLogin.vue": {
-    "file": "assets/ManagerLogin-DKBVNv48.js",
+    "file": "assets/ManagerLogin-DtrtQT5_.js",
     "name": "ManagerLogin",
     "src": "resources/js/Pages/Auth/ManagerLogin.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_PublicLayout-BGrvsymJ.js",
-      "_InputError-MwHADmGJ.js",
-      "_FormErrorBanner-cAXQRCBS.js",
-      "_useFormValidator-rJCrpm0i.js",
-      "_FlashAlert-DfwYOq4C.js"
+      "_PublicLayout-BP7XQRnJ.js",
+      "_InputError-CWxwvc6j.js",
+      "_FormErrorBanner-B7BB0jJt.js",
+      "_useFormValidator-CWyFDrbH.js",
+      "_FlashAlert-C_STMYMt.js"
     ],
     "css": [
-      "assets/app-CTefciY0.css"
+      "assets/app-DO6-AVx9.css"
     ]
   },
   "resources/js/Pages/Manager/Dashboard.vue": {
-    "file": "assets/Dashboard-vEvb7eUr.js",
+    "file": "assets/Dashboard-B1zoLSZy.js",
     "name": "Dashboard",
     "src": "resources/js/Pages/Manager/Dashboard.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_ManagerLayout-DZEsBlUg.js",
-      "_StatusBadge-DWOIX2kn.js",
+      "_ManagerLayout-By86Wsbw.js",
+      "_StatusBadge-DVuxRfkJ.js",
       "_useFormatters--jHLtjMb.js",
       "resources/js/app.js",
-      "_FlashAlert-DfwYOq4C.js"
+      "_FlashAlert-C_STMYMt.js"
     ],
     "css": [
-      "assets/app-CTefciY0.css"
+      "assets/app-DO6-AVx9.css"
     ]
   },
   "resources/js/Pages/Manager/Officials.vue": {
-    "file": "assets/Officials-CeKPPHmY.js",
+    "file": "assets/Officials-Dzl-ccz-.js",
     "name": "Officials",
     "src": "resources/js/Pages/Manager/Officials.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_ManagerLayout-DZEsBlUg.js",
-      "_InputError-MwHADmGJ.js",
-      "_FormErrorBanner-cAXQRCBS.js",
-      "_ConfirmModal-CJIupXy2.js",
-      "_FileInput-CoTxKPCT.js",
-      "_useFormValidator-rJCrpm0i.js",
+      "_ManagerLayout-By86Wsbw.js",
+      "_InputError-CWxwvc6j.js",
+      "_FormErrorBanner-B7BB0jJt.js",
+      "_ConfirmModal-XL7Hu7BO.js",
+      "_FileInput-uhfCRJDS.js",
+      "_useFormValidator-CWyFDrbH.js",
       "_imageCompressor-CEtKoNcI.js",
-      "_FlashAlert-DfwYOq4C.js",
-      "_StatusBadge-DWOIX2kn.js"
+      "_FlashAlert-C_STMYMt.js",
+      "_StatusBadge-DVuxRfkJ.js"
     ],
     "css": [
-      "assets/app-CTefciY0.css"
+      "assets/app-DO6-AVx9.css"
     ]
   },
   "resources/js/Pages/Manager/Payments.vue": {
-    "file": "assets/Payments-ByT5ldn7.js",
+    "file": "assets/Payments-ClL7lUHy.js",
     "name": "Payments",
     "src": "resources/js/Pages/Manager/Payments.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_ManagerLayout-DZEsBlUg.js",
-      "_StatusBadge-DWOIX2kn.js",
-      "_InputError-MwHADmGJ.js",
-      "_FormErrorBanner-cAXQRCBS.js",
-      "_PaymentProofModal-D3Mkw2VQ.js",
-      "_FileInput-CoTxKPCT.js",
-      "_useFormValidator-rJCrpm0i.js",
+      "_ManagerLayout-By86Wsbw.js",
+      "_StatusBadge-DVuxRfkJ.js",
+      "_InputError-CWxwvc6j.js",
+      "_FormErrorBanner-B7BB0jJt.js",
+      "_PaymentProofModal-wYccZTqA.js",
+      "_FileInput-uhfCRJDS.js",
+      "_useFormValidator-CWyFDrbH.js",
       "_useFormatters--jHLtjMb.js",
-      "_FlashAlert-DfwYOq4C.js"
+      "_FlashAlert-C_STMYMt.js"
     ],
     "css": [
-      "assets/app-CTefciY0.css"
+      "assets/app-DO6-AVx9.css"
     ]
   },
   "resources/js/Pages/Manager/Players.vue": {
-    "file": "assets/Players-Bja22MpR.js",
+    "file": "assets/Players-DmPob5sl.js",
     "name": "Players",
     "src": "resources/js/Pages/Manager/Players.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_ManagerLayout-DZEsBlUg.js",
-      "_StatusBadge-DWOIX2kn.js",
-      "_InputError-MwHADmGJ.js",
-      "_FormErrorBanner-cAXQRCBS.js",
-      "_ConfirmModal-CJIupXy2.js",
-      "_FileInput-CoTxKPCT.js",
-      "_useFormValidator-rJCrpm0i.js",
+      "_ManagerLayout-By86Wsbw.js",
+      "_StatusBadge-DVuxRfkJ.js",
+      "_InputError-CWxwvc6j.js",
+      "_FormErrorBanner-B7BB0jJt.js",
+      "_ConfirmModal-XL7Hu7BO.js",
+      "_FileInput-uhfCRJDS.js",
+      "_useFormValidator-CWyFDrbH.js",
       "_useFormatters--jHLtjMb.js",
       "_imageCompressor-CEtKoNcI.js",
-      "_FlashAlert-DfwYOq4C.js"
+      "_FlashAlert-C_STMYMt.js"
     ],
     "css": [
-      "assets/app-CTefciY0.css"
+      "assets/app-DO6-AVx9.css"
     ]
   },
   "resources/js/Pages/Manager/TeamProfile.vue": {
-    "file": "assets/TeamProfile-COwftCGJ.js",
+    "file": "assets/TeamProfile-BRnIOnFp.js",
     "name": "TeamProfile",
     "src": "resources/js/Pages/Manager/TeamProfile.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_ManagerLayout-DZEsBlUg.js",
-      "_InputError-MwHADmGJ.js",
-      "_FormErrorBanner-cAXQRCBS.js",
-      "_FileInput-CoTxKPCT.js",
-      "_useFormValidator-rJCrpm0i.js",
+      "_ManagerLayout-By86Wsbw.js",
+      "_InputError-CWxwvc6j.js",
+      "_FormErrorBanner-B7BB0jJt.js",
+      "_FileInput-uhfCRJDS.js",
+      "_useFormValidator-CWyFDrbH.js",
       "_imageCompressor-CEtKoNcI.js",
-      "_FlashAlert-DfwYOq4C.js",
-      "_StatusBadge-DWOIX2kn.js"
+      "_FlashAlert-C_STMYMt.js",
+      "_StatusBadge-DVuxRfkJ.js"
     ],
     "css": [
-      "assets/app-CTefciY0.css"
+      "assets/app-DO6-AVx9.css"
     ]
   },
   "resources/js/Pages/Public/EventDetail.vue": {
-    "file": "assets/EventDetail-DV2CxBMX.js",
+    "file": "assets/EventDetail-vujzd1Uf.js",
     "name": "EventDetail",
     "src": "resources/js/Pages/Public/EventDetail.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_PublicLayout-BGrvsymJ.js",
-      "_StatusBadge-DWOIX2kn.js",
+      "_PublicLayout-BP7XQRnJ.js",
+      "_StatusBadge-DVuxRfkJ.js",
       "_useFormatters--jHLtjMb.js",
       "resources/js/app.js",
-      "_FlashAlert-DfwYOq4C.js"
+      "_FlashAlert-C_STMYMt.js"
     ],
     "css": [
-      "assets/app-CTefciY0.css"
+      "assets/app-DO6-AVx9.css"
     ]
   },
   "resources/js/Pages/Public/Home.vue": {
-    "file": "assets/Home-BVCIpqgC.js",
+    "file": "assets/Home-Od0jRuJi.js",
     "name": "Home",
     "src": "resources/js/Pages/Public/Home.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_PublicLayout-BGrvsymJ.js",
-      "_StatusBadge-DWOIX2kn.js",
+      "_PublicLayout-BP7XQRnJ.js",
+      "_StatusBadge-DVuxRfkJ.js",
       "_useFormatters--jHLtjMb.js",
-      "_FlashAlert-DfwYOq4C.js"
+      "_FlashAlert-C_STMYMt.js"
     ],
     "css": [
-      "assets/app-CTefciY0.css"
+      "assets/app-DO6-AVx9.css"
     ]
   },
   "resources/js/Pages/Public/RegisterTeam.vue": {
-    "file": "assets/RegisterTeam-BSCUWQAn.js",
+    "file": "assets/RegisterTeam-CSUhQJf0.js",
     "name": "RegisterTeam",
     "src": "resources/js/Pages/Public/RegisterTeam.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_PublicLayout-BGrvsymJ.js",
-      "_InputError-MwHADmGJ.js",
-      "_FormErrorBanner-cAXQRCBS.js",
-      "_StatusBadge-DWOIX2kn.js",
-      "_FileInput-CoTxKPCT.js",
-      "_useFormValidator-rJCrpm0i.js",
+      "_PublicLayout-BP7XQRnJ.js",
+      "_InputError-CWxwvc6j.js",
+      "_FormErrorBanner-B7BB0jJt.js",
+      "_StatusBadge-DVuxRfkJ.js",
+      "_FileInput-uhfCRJDS.js",
+      "_useFormValidator-CWyFDrbH.js",
       "_useFormatters--jHLtjMb.js",
       "_imageCompressor-CEtKoNcI.js",
-      "_FlashAlert-DfwYOq4C.js"
+      "_FlashAlert-C_STMYMt.js"
     ],
     "css": [
-      "assets/app-CTefciY0.css"
+      "assets/app-DO6-AVx9.css"
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-CLggkjBL.js",
+    "file": "assets/app-DtFJ_sw0.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
@@ -467,7 +467,7 @@
       "resources/js/Pages/Public/RegisterTeam.vue"
     ],
     "css": [
-      "assets/app-CTefciY0.css"
+      "assets/app-DO6-AVx9.css"
     ]
   }
 }

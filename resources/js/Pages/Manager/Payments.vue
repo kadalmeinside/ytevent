@@ -613,77 +613,64 @@ const reclaimSlot = () => {
                 </div>
             </div>
 
-            <!-- Riwayat Tagihan Tim (Dual Responsive View) -->
-            <div v-if="paymentHistory.length > 1" class="frosted-card overflow-hidden">
-                <div class="px-5 py-3.5 border-b border-slate-200 bg-slate-100/70">
-                    <h3 class="text-xs font-bold uppercase tracking-wide text-slate-700">Riwayat Invoice Tim</h3>
+            <!-- Riwayat Tagihan Tim (Responsive Card List View) -->
+            <div v-if="paymentHistory.length > 1" class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xs font-bold uppercase tracking-wide text-slate-700">Riwayat Invoice &amp; Transaksi Tim</h3>
+                    <span class="text-xs text-slate-500 font-medium">Total {{ paymentHistory.length }} riwayat tagihan</span>
                 </div>
 
-                <!-- DESKTOP TABLE -->
-                <div class="hidden md:block overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr>
-                                <th class="table-th">No. Invoice</th>
-                                <th class="table-th">Metode</th>
-                                <th class="table-th">Nominal Tagihan</th>
-                                <th class="table-th">Kedaluwarsa</th>
-                                <th class="table-th">Status</th>
-                                <th class="table-th text-right">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100 bg-white">
-                            <tr v-for="item in paymentHistory" :key="item.id" class="hover:bg-orange-50/25 transition-colors">
-                                <td class="table-td font-semibold tabular-data text-slate-900 font-mono">{{ item.invoice_number }}</td>
-                                <td class="table-td text-slate-600 uppercase text-xs font-medium">{{ item.payment_channel || item.method || '-' }}</td>
-                                <td class="table-td tabular-data font-bold text-slate-900">{{ formatRupiah(item.total_amount) }}</td>
-                                <td class="table-td tabular-data text-slate-500 text-xs">{{ formatDateTime(item.expires_at) }}</td>
-                                <td class="table-td">
-                                    <StatusBadge :status="item.status" />
-                                </td>
-                                <td class="table-td text-right">
-                                    <button
-                                        v-if="item.proof_url"
-                                        type="button"
-                                        class="btn-sm-secondary"
-                                        @click="openProofModal(item)"
-                                    >
-                                        Bukti Bayar
-                                    </button>
-                                    <span v-else class="text-slate-400 text-xs">-</span>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- MOBILE CARD LIST -->
-                <div class="md:hidden divide-y divide-slate-100">
+                <div class="space-y-2.5">
                     <div
                         v-for="item in paymentHistory"
                         :key="item.id"
-                        class="p-4 hover:bg-orange-50/20 transition-colors space-y-2.5"
+                        class="frosted-card p-4 sm:p-5 hover:border-orange-300/80 hover:shadow-md transition-all duration-150 bg-white"
                     >
-                        <div class="flex items-center justify-between">
-                            <span class="font-mono text-xs font-bold text-slate-900 px-2 py-0.5 rounded bg-slate-100 border border-slate-200">
-                                {{ item.invoice_number }}
-                            </span>
-                            <StatusBadge :status="item.status" />
-                        </div>
-                        <div class="flex items-center justify-between text-xs">
-                            <span class="text-slate-500">{{ item.payment_channel || item.method || 'Transfer Manual' }}</span>
-                            <span class="font-mono tabular-data font-bold text-slate-900">{{ formatRupiah(item.total_amount) }}</span>
-                        </div>
-                        <div class="flex items-center justify-between pt-1 border-t border-slate-100 text-[11px] text-slate-500">
-                            <span>Expired: {{ formatDateTime(item.expires_at) }}</span>
+                        <!-- Header: Invoice, Status & Proof Button -->
+                        <div class="flex flex-wrap items-center justify-between gap-3 pb-3 mb-3 border-b border-slate-100">
+                            <div class="flex items-center gap-2.5">
+                                <span class="font-mono text-xs font-bold text-slate-900 px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200">
+                                    {{ item.invoice_number }}
+                                </span>
+                                <StatusBadge :status="item.status" />
+                            </div>
+
                             <button
                                 v-if="item.proof_url"
                                 type="button"
                                 class="btn-sm-secondary"
                                 @click="openProofModal(item)"
                             >
-                                Bukti Bayar
+                                <svg class="w-3.5 h-3.5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                <span>Lihat Bukti Bayar</span>
                             </button>
+                        </div>
+
+                        <!-- Card Body Grid -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs items-center">
+                            <div>
+                                <span class="text-[10px] uppercase font-bold text-slate-400 block">Metode Pembayaran</span>
+                                <span class="font-semibold text-slate-800 uppercase text-xs">
+                                    {{ item.payment_channel || item.method || 'Transfer Manual' }}
+                                </span>
+                            </div>
+
+                            <div>
+                                <span class="text-[10px] uppercase font-bold text-slate-400 block">Nominal Tagihan</span>
+                                <span class="font-mono tabular-data font-bold text-slate-900 text-sm">
+                                    {{ formatRupiah(item.total_amount) }}
+                                </span>
+                            </div>
+
+                            <div class="sm:text-right">
+                                <span class="text-[10px] uppercase font-bold text-slate-400 block">Batas Waktu / Kedaluwarsa</span>
+                                <span class="text-xs font-mono tabular-data text-slate-600">
+                                    {{ formatDateTime(item.expires_at) }}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>

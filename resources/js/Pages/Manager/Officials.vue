@@ -164,128 +164,45 @@ const executeDelete = () => {
                 </div>
             </div>
 
-            <!-- Officials Container (Desktop Table + Mobile Cards) -->
-            <div class="frosted-card overflow-hidden">
-                <div v-if="officials.length === 0" class="p-8 text-center text-xs text-slate-500">
-                    Belum ada ofisial terdaftar.
+            <!-- Officials Container (Responsive Card List View) -->
+            <div class="space-y-3.5">
+                <div v-if="officials.length === 0" class="frosted-card p-12 text-center text-xs text-slate-500">
+                    <svg class="w-10 h-10 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <p class="font-bold text-slate-700">Belum ada ofisial terdaftar</p>
+                    <p class="mt-0.5 text-slate-400">Klik tombol "Tambah Ofisial Baru" di atas untuk mendaftarkan staf pelatih atau ofisial tim.</p>
                 </div>
-                <div v-else>
-                    <!-- DESKTOP TABLE VIEW -->
-                    <div class="hidden md:block overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr>
-                                    <th class="table-th">Ofisial</th>
-                                    <th class="table-th">Jabatan</th>
-                                    <th class="table-th">No. Lisensi</th>
-                                    <th class="table-th">Kontak WhatsApp</th>
-                                    <th class="table-th text-right">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 bg-white">
-                                <tr v-for="item in officials" :key="item.id" class="hover:bg-orange-50/25 transition-colors">
-                                    <td class="table-td">
-                                        <div class="flex items-center gap-2.5">
-                                            <img
-                                                v-if="item.photo_url"
-                                                :src="item.photo_url"
-                                                :alt="item.full_name"
-                                                class="w-9 h-9 rounded-lg object-cover border border-slate-200 bg-slate-100 shrink-0"
-                                            />
-                                            <div v-else class="w-9 h-9 rounded-lg bg-orange-100 text-orange-800 flex items-center justify-center font-bold text-xs shrink-0">
-                                                FOTO
-                                            </div>
-                                            <span class="font-bold text-slate-900 text-sm">{{ item.full_name }}</span>
-                                        </div>
-                                    </td>
-                                    <td class="table-td font-semibold text-slate-800">
-                                        <span class="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700 border border-slate-200">
+
+                <div v-else class="space-y-3">
+                    <div
+                        v-for="item in officials"
+                        :key="item.id"
+                        class="frosted-card p-4 sm:p-5 hover:border-orange-300/80 hover:shadow-md transition-all duration-150 bg-white"
+                    >
+                        <!-- Top Header: Photo, Name, Role & Action Buttons -->
+                        <div class="flex flex-wrap items-center justify-between gap-3 pb-3 mb-3 border-b border-slate-100">
+                            <div class="flex items-center gap-3">
+                                <img
+                                    v-if="item.photo_url"
+                                    :src="item.photo_url"
+                                    :alt="item.full_name"
+                                    class="w-11 h-11 rounded-xl object-cover border border-slate-200 bg-white shadow-2xs shrink-0"
+                                />
+                                <div v-else class="w-11 h-11 rounded-xl bg-gradient-to-br from-orange-100 to-amber-100 text-orange-700 font-extrabold flex items-center justify-center text-sm shadow-2xs shrink-0 border border-orange-200">
+                                    {{ item.full_name.charAt(0) }}
+                                </div>
+                                <div>
+                                    <h4 class="text-sm sm:text-base font-bold text-slate-900 leading-tight">{{ item.full_name }}</h4>
+                                    <div class="flex items-center gap-2 mt-1">
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-orange-50 text-orange-800 border border-orange-200">
                                             {{ item.role_label }}
                                         </span>
-                                    </td>
-                                    <td class="table-td">
-                                        <span v-if="item.license_number" class="tabular-data font-mono font-medium text-slate-800">{{ item.license_number }}</span>
-                                        <a
-                                            v-if="item.license_url"
-                                            :href="item.license_url"
-                                            target="_blank"
-                                            class="ml-2 text-orange-600 hover:text-orange-700 underline text-[11px] font-semibold"
-                                        >
-                                            (Lihat Berkas)
-                                        </a>
-                                        <span v-if="!item.license_number && !item.license_url" class="text-slate-400">-</span>
-                                    </td>
-                                    <td class="table-td tabular-data text-slate-700">{{ item.phone || '-' }}</td>
-                                    <td class="table-td text-right">
-                                        <div class="inline-flex items-center justify-end gap-1.5" v-if="team.can_manage_roster">
-                                            <button
-                                                type="button"
-                                                class="btn-sm-secondary"
-                                                @click="openEditModal(item)"
-                                            >
-                                                Edit
-                                            </button>
-                                            <button
-                                                v-if="item.role !== 'Head Coach'"
-                                                type="button"
-                                                class="btn-sm-danger"
-                                                @click="officialToDelete = item"
-                                            >
-                                                Hapus
-                                            </button>
-                                        </div>
-                                        <span v-else class="text-[11px] text-slate-400">Terkunci</span>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- MOBILE HIGH-DENSITY CARD LIST VIEW -->
-                    <div class="md:hidden divide-y divide-slate-100">
-                        <div
-                            v-for="item in officials"
-                            :key="item.id"
-                            class="p-4 hover:bg-orange-50/20 transition-colors space-y-2.5"
-                        >
-                            <div class="flex items-center justify-between gap-2.5">
-                                <div class="flex items-center gap-2.5">
-                                    <img
-                                        v-if="item.photo_url"
-                                        :src="item.photo_url"
-                                        :alt="item.full_name"
-                                        class="w-10 h-10 rounded-lg object-cover border border-slate-200 bg-slate-100 shrink-0"
-                                    />
-                                    <div v-else class="w-10 h-10 rounded-lg bg-orange-100 text-orange-800 flex items-center justify-center font-bold text-xs shrink-0">
-                                        FOTO
-                                    </div>
-                                    <div>
-                                        <h4 class="text-sm font-bold text-slate-900 leading-snug">{{ item.full_name }}</h4>
-                                        <span class="text-xs font-semibold text-slate-600">{{ item.role_label }}</span>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="flex items-center justify-between text-xs bg-slate-50/80 rounded-lg p-2.5 border border-slate-200/60">
-                                <div>
-                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Lisensi</span>
-                                    <span class="font-mono text-slate-800">{{ item.license_number || '-' }}</span>
-                                    <a
-                                        v-if="item.license_url"
-                                        :href="item.license_url"
-                                        target="_blank"
-                                        class="ml-1.5 text-orange-600 underline font-semibold text-[11px]"
-                                    >
-                                        Berkas
-                                    </a>
-                                </div>
-                                <div class="text-right">
-                                    <span class="text-slate-400 block text-[10px] uppercase font-bold">Telepon</span>
-                                    <span class="font-mono text-slate-800 tabular-data">{{ item.phone || '-' }}</span>
-                                </div>
-                            </div>
-
-                            <div class="flex items-center justify-end gap-1.5 pt-1" v-if="team.can_manage_roster">
+                            <div class="flex items-center gap-1.5 ml-auto sm:ml-0" v-if="team.can_manage_roster">
                                 <button
                                     type="button"
                                     class="btn-sm-secondary"
@@ -301,6 +218,38 @@ const executeDelete = () => {
                                 >
                                     Hapus
                                 </button>
+                            </div>
+                            <span v-else class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
+                                Terkunci
+                            </span>
+                        </div>
+
+                        <!-- Card Body Grid -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 text-xs items-center">
+                            <!-- Lisensi (Col 1-6) -->
+                            <div class="lg:col-span-6 space-y-0.5">
+                                <span class="text-[10px] uppercase font-bold text-slate-400 block">Nomor &amp; Berkas Lisensi</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-mono text-xs font-semibold text-slate-800">
+                                        {{ item.license_number || 'Tidak ada nomor lisensi' }}
+                                    </span>
+                                    <a
+                                        v-if="item.license_url"
+                                        :href="item.license_url"
+                                        target="_blank"
+                                        class="inline-flex items-center gap-1 text-[11px] font-semibold text-orange-600 hover:text-orange-700 underline"
+                                    >
+                                        [Lihat Berkas Lisensi &nearr;]
+                                    </a>
+                                </div>
+                            </div>
+
+                            <!-- Phone (Col 7-12) -->
+                            <div class="lg:col-span-6 space-y-0.5 sm:text-right">
+                                <span class="text-[10px] uppercase font-bold text-slate-400 block">Kontak Telepon / WhatsApp</span>
+                                <span class="text-xs font-mono tabular-data font-semibold text-slate-800">
+                                    {{ item.phone || '-' }}
+                                </span>
                             </div>
                         </div>
                     </div>
