@@ -352,4 +352,17 @@ class PaymentFlowTest extends TestCase
 
         $res->assertOk();
     }
+
+    public function test_admin_can_view_manual_verification_queue_and_empty_state_counters(): void
+    {
+        $res = $this->actingAs($this->financeUser)
+            ->get(route('admin.payments.manual-verification'));
+
+        $res->assertOk();
+        $res->assertInertia(fn ($page) => $page
+            ->component('Admin/Payments/ManualVerification')
+            ->has('totalManualEver')
+            ->has('totalVerified')
+        );
+    }
 }
