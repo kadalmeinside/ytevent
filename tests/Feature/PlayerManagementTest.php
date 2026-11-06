@@ -296,6 +296,24 @@ class PlayerManagementTest extends TestCase
             'player_id' => $player->id,
             'to_status' => 'submitted',
         ]);
+
+        // Manajer dapat mengganti/memperbarui berkas saat status sudah 'submitted' tanpa terkena 403 Unauthorized
+        $aktaBaru = UploadedFile::fake()->create('akta_lahir_revisi.pdf', 600, 'application/pdf');
+        $replaceResponse = $this->actingAs($this->managerB)->post(
+            route('manager.players.documents.store', ['player' => $player->id]),
+            [
+                'document_type' => 'birth_certificate',
+                'document_number' => 'AKTA-REVISI-FINAL',
+                'file' => $aktaBaru,
+            ]
+        );
+        $replaceResponse->assertSessionHas('success');
+        $this->assertDatabaseHas('player_documents', [
+            'player_id' => $player->id,
+            'document_type' => 'birth_certificate',
+            'document_number' => 'AKTA-REVISI-FINAL',
+            'original_name' => 'akta_lahir_revisi.pdf',
+        ]);
     }
 
     public function test_manager_cannot_access_or_tamper_with_other_teams_players(): void

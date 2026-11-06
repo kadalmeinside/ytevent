@@ -33,7 +33,7 @@ class PlayerPolicy
         return $user->can('manager.players.manage_own')
             && (int) $player->team?->user_id === (int) $user->id
             && $player->team->canManageRoster()
-            && in_array($player->screening_status, ['draft', 'rejected'], true);
+            && in_array($player->screening_status, ['draft', 'submitted', 'rejected'], true);
     }
 
     public function delete(User $user, Player $player): bool
