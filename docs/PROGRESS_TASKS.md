@@ -83,24 +83,63 @@ Legenda Status:
 
 ## Fase 2 — Tahap Lanjutan: Panel Screening Admin, Siklus Revisi, Pengesahan Skuad, Email Queue, & Operasional
 
-- [ ] **2.1** Panel Verifikasi & Screening Dokumen Admin (`/admin/screening`):
-  - [ ] **2.1.1** Dashboard antrean screening pemain per event dan per tim dengan filter status (`submitted`, `passed`, `rejected`).
-  - [ ] **2.1.2** *Split-View / Side-by-Side Document Reviewer*: Memeriksa biodata pemain (Nama, NIK, NISN, kesesuaian cut-off tanggal lahir) berdampingan langsung dengan foto scan dokumen asli (Akta Kelahiran, Kartu Keluarga, KIA/Rapor) dengan tombol zoom/fullscreen.
-  - [ ] **2.1.3** Validasi Dokumen Granular: Menandai keabsahan per dokumen (`Valid` / `Invalid`) dengan catatan spesifik.
-  - [ ] **2.1.4** Keputusan Verifikasi: Tombol **Loloskan (Sah)** -> `passed` + `is_locked = true` otomatis; dan tombol **Tolak (Revisi)** -> wajib mengisi alasan penolakan + status `rejected` + pencatatan otomatis ke `screening_logs`.
-  - [ ] **2.1.5** Aksi Khusus Panitia: Fitur *Unlock Player* (Buka Kunci Pemain) untuk koreksi darurat oleh Superadmin/Screening Officer.
-- [ ] **2.2** Siklus Revisi Terarah Manajer Tim (*Selective Re-submission*):
-  - [ ] **2.2.1** Tampilan penanda khusus pada pemain yang berstatus `rejected` beserta catatan spesifik penolakan dari panitia.
-  - [ ] **2.2.2** Formulir perbaikan berkas terisolasi (hanya pemain `rejected` yang dapat diedit dan diunggah ulang berkasnya).
-  - [ ] **2.2.3** Pengajuan ulang (*Re-submit*) hanya untuk pemain yang telah diperbaiki.
-- [ ] **2.3** Validasi Skuad Final & Akreditasi Resmi (`/manager/accreditation` & `/admin/teams/{team}/accreditation`):
-  - [ ] **2.3.1** Validasi kelayakan roster minimal (memeriksa batas minimal pemain per event dan minimal 2 Penjaga Gawang / `GK` yang sah).
-  - [ ] **2.3.2** Penguncian permanen skuad tim (*Locked Roster*).
-  - [ ] **2.3.3** Penerbitan Kode Pengesahan Digital / QR Code verifikasi pemain sah.
-  - [ ] **2.3.4** Ekspor PDF *Team Roster Sheet* resmi untuk pengawas pertandingan dan *ID Card* akreditasi pemain/ofisial.
-- [ ] **2.4** Antrean Email Notifikasi Latar Belakang (*Email Queue*):
-  - [ ] **2.4.1** Notifikasi hasil verifikasi screening ke Manajer Tim (daftar pemain lolos vs daftar pemain butuh revisi).
-  - [ ] **2.4.2** Modul pemantauan antrean email panitia (`/admin/system/email-logs`) lengkap dengan status pengiriman (`queued`, `sent`, `failed`) dan tombol kirim ulang (*Retry*).
-- [ ] **2.5** Manajemen Jadwal, Bagan Pertandingan & Laporan:
-  - [ ] **2.5.1** Modul jadwal & hasil pertandingan sesuai format kompetisi (`Cup`, `League`, `Group + Knockout`, `Festival`).
-  - [ ] **2.5.2** Ekspor rekapitulasi data pendaftaran dan laporan keuangan per event.
+### 2.1 Panel Verifikasi & Screening Dokumen Admin (`/admin/screening`)
+- [ ] **2.1.1** Backend Routing & Controller (`ScreeningController.php`): Rute index antrean `/admin/screening`, rute review berkas tim `/admin/screening/events/{event}/teams/{team}`, dan rute mutasi verifikasi pemain.
+- [ ] **2.1.2** FormRequests & Validasi Keputusan (`VerifyPlayerRequest.php` & `VerifyDocumentRequest.php`): Validasi keputusan `passed` / `rejected`, dan kewajiban mengisi alasan penolakan minimal 10 karakter jika status `rejected`.
+- [ ] **2.1.3** Service Layanan Verifikasi (`ScreeningService.php`):
+  - Penerbitan otomatis kode verifikasi unik `screening_code` saat pemain `passed`.
+  - Penguncian data pemain `is_locked = true` saat berstatus `passed`.
+  - Sinkronisasi otomatis status tim `teams.screening_status` (`in_review`, `partially_rejected`, `all_passed`).
+  - Pencatatan jejak audit ke tabel `screening_logs` (admin pemeriksa, status lama, status baru, alasan, dan waktu).
+  - Mekanisme *Unlock Player* darurat untuk membuka kunci pemain kembali ke `draft` jika terjadi kekeliruan administrasi panitia.
+- [ ] **2.1.4** Dashboard Antrean Screening Panitia (`Admin/Screening/Index.vue`):
+  - Tampilan Card List View tim-tim peserta dengan progres pemeriksaan berkas (contoh: *"14 / 18 Pemain Selesai Diperiksa"*).
+  - Filter interaktif berdasarkan Event dan Status Tim (`in_review`, `partially_rejected`, `all_passed`).
+  - Indikator badge antrean notifikasi pada sidebar `AdminLayout.vue` (*Screening Pemain: [X] Menunggu*).
+- [ ] **2.1.5** Antarmuka Pemeriksaan Dokumen *Split-View* (`Admin/Screening/TeamReview.vue`):
+  - Panel Kiri: Biodata pemain, pas foto resmi, posisi, nomor punggung, NIK, NISN, serta **Indikator Otomatis Kelayakan Tanggal Lahir** terhadap cut-off usia turnamen.
+  - Panel Kanan: Viewer dokumen scan asli (Akta Lahir, Kartu Keluarga, KIA/Rapor) dari storage privat dengan kontrol zoom in/out, modal perbesar, dan tombol penilaian per berkas (`Valid` / `Revisi`).
+  - Panel Bawah: Tombol aksi keputusan instan (**"Loloskan (Sah)"** dan **"Tolak (Revisi)"** dengan modal alasan penolakan) serta navigasi cepat antar pemain.
+
+### 2.2 Siklus Revisi Terarah di Portal Manajer Tim (*Selective Re-submission*)
+- [ ] **2.2.1** Tampilan Visual Pemain Ditolak di `Manager/Players.vue`:
+  - Highlight kartu merah/rose tegas pada pemain berstatus `rejected`.
+  - Banner peringatan memuat alasan spesifik penolakan dari panitia verifikator.
+- [ ] **2.2.2** Formulir Perbaikan Berkas Khusus Pemain Ditolak:
+  - Form edit dan tombol ganti berkas HANYA terbuka untuk pemain yang berstatus `rejected` atau `draft`.
+  - Pemain yang sudah berstatus `passed` tetap terkunci aman dan tidak dapat diubah.
+- [ ] **2.2.3** Pengajuan Ulang Hasil Perbaikan (*Re-submit*):
+  - Manajer mengajukan ulang hanya pemain yang telah diperbaiki.
+  - Status pemain kembali ke `submitted` dan status tim kembali menjadi `in_review`.
+
+### 2.3 Validasi Skuad Final & Akreditasi Resmi (`/manager/accreditation`)
+- [ ] **2.3.1** Validasi Kelayakan Roster Final (`AccreditationController.php`):
+  - Pengecekan syarat kuota minimal pemain per event (contoh: min. 14 pemain lolos).
+  - Pengecekan syarat minimal 2 Penjaga Gawang (`GK`) sah.
+  - Pengecekan seluruh ofisial terdaftar.
+- [ ] **2.3.2** Aksi Kunci Skuad Permanen (*Lock Roster*):
+  - Tombol **Kunci Skuad Final** di portal manajer untuk mengakhiri masa pengisian berkas sebelum *Technical Meeting* (mengubah status tim menjadi `locked_roster`).
+- [ ] **2.3.3** Generator PDF Resmi - Album Pemain (*Team Roster Sheet*):
+  - Desain PDF landscape/portrait resmi turnamen berlogo Persija Development.
+  - Memuat kisi foto seluruh pemain & ofisial sah, nomor punggung, posisi, NIK, tanggal lahir, dan Kode QR verifikasi untuk pemeriksaan wasit di lapangan.
+- [ ] **2.3.4** Generator PDF Resmi - Kartu Akreditasi (*ID Card*):
+  - Desain kartu akreditasi lanyard turnamen siap cetak untuk seluruh pemain dan ofisial.
+- [ ] **2.3.5** Halaman Publik Pemindaian QR Code (`/verify/player/{code}`):
+  - Halaman publik ringan untuk verifikasi keabsahan pemain digital saat wasit/pengawas pertandingan memindai QR Code di lapangan.
+
+### 2.4 Antrean Notifikasi Email (*Email Queue*) & Audit Logs
+- [ ] **2.4.1** Implementasi Mailable Latar Belakang (`ShouldQueue`):
+  - `ScreeningResultMail`: Notifikasi rekapitulasi verifikasi (daftar pemain lolos vs rejected beserta catatannya) otomatis ke manajer.
+  - `RosterLockedMail`: Notifikasi skuad terkunci resmi dan akreditasi turnamen siap diunduh.
+- [ ] **2.4.2** Modul Pemantauan Antrean Email Panitia (`/admin/system/email-logs`):
+  - Riwayat pengiriman email transaksional (`recipient_email`, `status` [queued, sent, failed], `sent_at`, `error_message`).
+  - Tombol **Kirim Ulang (*Retry*)** untuk email yang mengalami kegagalan transmisi.
+
+### 2.5 Automated Testing & Verifikasi Fase 2
+- [ ] **2.5.1** Penulisan Feature Tests Fase 2 (`ScreeningFlowTest.php` & `AccreditationTest.php`):
+  - Pengujian hak akses antrean screening (`screening_officer` & `superadmin`).
+  - Pengujian transisi status `submitted` -> `passed` / `rejected` dan pencatatan `screening_logs`.
+  - Pengujian pembukaan kunci darurat (*Unlock Player*).
+  - Pengujian validasi kunci skuad (penolakan jika kurang dari 2 GK atau kuota minimal).
+  - Pengujian akses cetak akreditasi PDF dan verifikasi Kode QR publik.
+- [ ] **2.5.2** Build produksi frontend (`npm run build`) & verifikasi zero regression.
