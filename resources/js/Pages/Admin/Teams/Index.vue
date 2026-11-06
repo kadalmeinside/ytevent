@@ -21,7 +21,7 @@ const props = defineProps({
     },
 });
 
-const { formatRupiah, formatDateTime } = useFormatters();
+const { formatRupiah, formatDateTime, formatDate } = useFormatters();
 
 const filterState = reactive({
     event_id: props.filters.event_id || '',
