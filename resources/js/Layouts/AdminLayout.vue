@@ -26,59 +26,87 @@ const can = (permission) => {
     return user.value.permissions?.includes(permission) || false;
 };
 
-const navGroups = computed(() => {
-    const items = [
+const navSections = computed(() => {
+    const sections = [
         {
-            label: 'Dashboard Operasional',
-            href: route('admin.dashboard'),
-            match: '/admin/dashboard',
-            show: can('dashboard.admin.view'),
+            title: 'Operasional',
+            items: [
+                {
+                    label: 'Dashboard',
+                    href: route('admin.dashboard'),
+                    match: '/admin/dashboard',
+                    icon: 'dashboard',
+                    show: can('dashboard.admin.view'),
+                },
+                {
+                    label: 'Kompetisi',
+                    href: route('admin.events.index'),
+                    match: '/admin/events',
+                    icon: 'trophy',
+                    show: can('events.view'),
+                },
+                {
+                    label: 'Daftar Tim',
+                    href: route('admin.teams.index'),
+                    match: '/admin/teams',
+                    icon: 'teams',
+                    show: can('teams.view_all'),
+                },
+            ],
         },
         {
-            label: 'Manajemen Kompetisi',
-            href: route('admin.events.index'),
-            match: '/admin/events',
-            show: can('events.view'),
+            title: 'Keuangan & Mutasi',
+            items: [
+                {
+                    label: 'Verifikasi Transfer',
+                    href: route('admin.payments.manual-verification'),
+                    match: '/admin/payments/manual-verification',
+                    icon: 'verify',
+                    show: can('payments.verify_manual'),
+                },
+                {
+                    label: 'Riwayat Transaksi',
+                    href: route('admin.payments.transactions'),
+                    match: '/admin/payments/transactions',
+                    icon: 'transactions',
+                    show: can('payments.view_all'),
+                },
+            ],
         },
         {
-            label: 'Daftar Tim Masuk',
-            href: route('admin.teams.index'),
-            match: '/admin/teams',
-            show: can('teams.view_all'),
-        },
-        {
-            label: 'Verifikasi Transfer Manual',
-            href: route('admin.payments.manual-verification'),
-            match: '/admin/payments/manual-verification',
-            show: can('payments.verify_manual'),
-        },
-        {
-            label: 'Riwayat Transaksi',
-            href: route('admin.payments.transactions'),
-            match: '/admin/payments/transactions',
-            show: can('payments.view_all'),
-        },
-        {
-            label: 'Manajemen Pengguna',
-            href: route('admin.users.index'),
-            match: '/admin/users',
-            show: user.value?.roles?.includes('superadmin'),
-        },
-        {
-            label: 'Hak Akses & Role',
-            href: route('admin.roles.index'),
-            match: '/admin/roles',
-            show: user.value?.roles?.includes('superadmin'),
-        },
-        {
-            label: 'Pengaturan Global',
-            href: route('admin.settings.index'),
-            match: '/admin/settings',
-            show: user.value?.roles?.includes('superadmin'),
+            title: 'Sistem & Akses',
+            items: [
+                {
+                    label: 'Manajemen Pengguna',
+                    href: route('admin.users.index'),
+                    match: '/admin/users',
+                    icon: 'users',
+                    show: user.value?.roles?.includes('superadmin'),
+                },
+                {
+                    label: 'Hak Akses & Role',
+                    href: route('admin.roles.index'),
+                    match: '/admin/roles',
+                    icon: 'roles',
+                    show: user.value?.roles?.includes('superadmin'),
+                },
+                {
+                    label: 'Pengaturan Global',
+                    href: route('admin.settings.index'),
+                    match: '/admin/settings',
+                    icon: 'settings',
+                    show: user.value?.roles?.includes('superadmin'),
+                },
+            ],
         },
     ];
 
-    return items.filter((i) => i.show);
+    return sections
+        .map((sec) => ({
+            ...sec,
+            items: sec.items.filter((i) => i.show),
+        }))
+        .filter((sec) => sec.items.length > 0);
 });
 
 const roleBadge = computed(() => {
@@ -165,21 +193,68 @@ const logout = () => {
                     </button>
                 </div>
 
-                <nav class="space-y-1">
-                    <Link
-                        v-for="item in navGroups"
-                        :key="item.href"
-                        :href="item.href"
-                        class="flex items-center justify-between px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all"
-                        :class="
-                            currentPath.startsWith(item.match)
-                                ? 'bg-gradient-to-r from-orange-500/15 via-orange-500/5 to-transparent text-orange-950 font-bold border-l-4 border-orange-600 shadow-sm'
-                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70 border-l-4 border-transparent'
-                        "
-                        @click="mobileMenuOpen = false"
-                    >
-                        <span>{{ item.label }}</span>
-                    </Link>
+                <nav class="space-y-4 pt-1">
+                    <div v-for="section in navSections" :key="section.title" class="space-y-1">
+                        <p class="px-3 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                            {{ section.title }}
+                        </p>
+                        <div class="space-y-0.5">
+                            <Link
+                                v-for="item in section.items"
+                                :key="item.href"
+                                :href="item.href"
+                                class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150"
+                                :class="
+                                    currentPath.startsWith(item.match)
+                                        ? 'bg-orange-500/10 text-orange-950 font-bold border-l-[3px] border-orange-600 shadow-2xs'
+                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 border-l-[3px] border-transparent'
+                                "
+                                @click="mobileMenuOpen = false"
+                            >
+                                <!-- Icons -->
+                                <span class="w-4 h-4 shrink-0" :class="currentPath.startsWith(item.match) ? 'text-orange-600' : 'text-slate-400'">
+                                    <!-- Dashboard Icon -->
+                                    <svg v-if="item.icon === 'dashboard'" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4">
+                                        <rect width="7" height="9" x="3" y="3" rx="1" stroke-width="2"/>
+                                        <rect width="7" height="5" x="14" y="3" rx="1" stroke-width="2"/>
+                                        <rect width="7" height="9" x="14" y="12" rx="1" stroke-width="2"/>
+                                        <rect width="7" height="5" x="3" y="16" rx="1" stroke-width="2"/>
+                                    </svg>
+                                    <!-- Trophy Icon -->
+                                    <svg v-else-if="item.icon === 'trophy'" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.45 1-1 1H8c-.55 0-1 .45-1 1v1h10v-1c0-.55-.45-1-1-1h-1c-.55 0-1-.45-1-1v-2.34c3.27-.47 5.76-3.23 5.76-6.66V4H5.24v4c0 3.43 2.49 6.19 5.76 6.66z" />
+                                    </svg>
+                                    <!-- Teams Icon -->
+                                    <svg v-else-if="item.icon === 'teams'" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                    </svg>
+                                    <!-- Verify Icon -->
+                                    <svg v-else-if="item.icon === 'verify'" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <!-- Transactions Icon -->
+                                    <svg v-else-if="item.icon === 'transactions'" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4">
+                                        <rect width="20" height="14" x="2" y="5" rx="2" stroke-width="2"/>
+                                        <line x1="2" x2="22" y1="10" y2="10" stroke-width="2"/>
+                                    </svg>
+                                    <!-- Users Icon -->
+                                    <svg v-else-if="item.icon === 'users'" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm10 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+                                    </svg>
+                                    <!-- Roles Icon -->
+                                    <svg v-else-if="item.icon === 'roles'" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 2l-2 2m-1.5 6.5l3-3m-3.5 3.5L12 16l-4 4-4-4 4-4 5-5m0 0a4 4 0 1 1 5.66 5.66L17 9.5z" />
+                                    </svg>
+                                    <!-- Settings Icon -->
+                                    <svg v-else fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4">
+                                        <circle cx="12" cy="12" r="3" stroke-width="2"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                                    </svg>
+                                </span>
+                                <span class="truncate">{{ item.label }}</span>
+                            </Link>
+                        </div>
+                    </div>
                 </nav>
             </div>
 

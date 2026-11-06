@@ -1,7 +1,7 @@
 export function useFormatters() {
-    const formatRupiah = (amount) => {
+    const formatRupiah = (amount, options = {}) => {
         const num = Number(amount || 0);
-        if (num === 0) return 'Gratis (Rp 0)';
+        if (num === 0 && options?.showFreeLabel) return 'Gratis (Rp 0)';
         return new Intl.NumberFormat('id-ID', {
             style: 'currency',
             currency: 'IDR',
