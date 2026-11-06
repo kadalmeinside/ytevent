@@ -22,7 +22,7 @@ const props = defineProps({
     },
 });
 
-const { applyValidation, isEmpty, isEmail } = useFormValidator();
+const { applyValidation, isEmpty, isValidEmail, isEmail } = useFormValidator();
 
 const filterState = reactive({
     search: props.filters.search || '',
@@ -89,7 +89,7 @@ const submitForm = () => {
         const errs = {};
         if (isEmpty(form.name)) errs.name = 'Nama lengkap wajib diisi.';
         if (isEmpty(form.email)) errs.email = 'Alamat email wajib diisi.';
-        else if (!isEmail(form.email)) errs.email = 'Format email tidak valid.';
+        else if (!isValidEmail(form.email)) errs.email = 'Format email tidak valid.';
 
         if (!editingUser.value && isEmpty(form.password)) {
             errs.password = 'Kata sandi wajib diisi untuk pengguna baru.';
@@ -106,12 +106,19 @@ const submitForm = () => {
     if (!ok) return;
 
     if (editingUser.value) {
-        form.post(route('admin.users.update', { user: editingUser.value.id }), {
+        form.transform((data) => {
+            const payload = { ...data };
+            if (!payload.password) {
+                delete payload.password;
+                delete payload.password_confirmation;
+            }
+            return payload;
+        }).post(route('admin.users.update', { user: editingUser.value.id }), {
             preserveScroll: true,
             onSuccess: () => closeModal(),
         });
     } else {
-        form.post(route('admin.users.store'), {
+        form.transform((data) => data).post(route('admin.users.store'), {
             preserveScroll: true,
             onSuccess: () => closeModal(),
         });

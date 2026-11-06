@@ -100,7 +100,7 @@ class UserController extends Controller
         $updatePayload = [
             'name' => trim($data['name']),
             'email' => strtolower(trim($data['email'])),
-            'phone' => $data['phone'] ? trim($data['phone']) : null,
+            'phone' => !empty($data['phone']) ? trim($data['phone']) : null,
             'is_active' => (bool) $data['is_active'],
         ];
 

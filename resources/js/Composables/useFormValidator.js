@@ -81,6 +81,7 @@ export function useFormValidator() {
     return {
         isEmpty,
         isValidEmail,
+        isEmail: isValidEmail,
         isValidPassword,
         isValidIndonesianPhone,
         isValidNik,
