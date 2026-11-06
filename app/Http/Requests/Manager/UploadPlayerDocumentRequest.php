@@ -19,10 +19,15 @@ class UploadPlayerDocumentRequest extends FormRequest
 
     public function rules(): array
     {
+        /** @var Player|null $player */
+        $player = $this->route('player');
+        $docType = (string) $this->input('document_type', '');
+        $hasExisting = $player && $player->documents()->where('document_type', $docType)->exists();
+
         return [
             'document_type' => ['required', Rule::in(array_keys(Event::DOCUMENT_TYPES))],
             'document_number' => ['nullable', 'string', 'max:100'],
-            'file' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:2048'],
+            'file' => [$hasExisting ? 'nullable' : 'required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:2048'],
         ];
     }
 

@@ -213,12 +213,18 @@ class PlayerController extends Controller
         $docType = $validated['document_type'];
         $docLabel = Event::documentLabel($docType);
 
-        $this->persistPlayerDocument(
-            player: $player,
-            documentType: $docType,
-            file: $request->file('file'),
-            documentNumber: $validated['document_number'] ?? null
-        );
+        if ($request->hasFile('file')) {
+            $this->persistPlayerDocument(
+                player: $player,
+                documentType: $docType,
+                file: $request->file('file'),
+                documentNumber: $validated['document_number'] ?? null
+            );
+        } elseif (array_key_exists('document_number', $validated)) {
+            $player->documents()->where('document_type', $docType)->update([
+                'document_number' => $validated['document_number'],
+            ]);
+        }
 
         return redirect()->back()
             ->with('success', "Berkas {$docLabel} untuk {$player->full_name} berhasil disimpan.");

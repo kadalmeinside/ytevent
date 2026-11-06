@@ -270,6 +270,21 @@ class PlayerManagementTest extends TestCase
         $this->assertEquals(2, $player->documents()->count());
         $this->assertTrue($player->fresh()->isCompleteForSubmission());
 
+        // Update nomor dokumen yang sudah ada tanpa unggah ulang file
+        $this->actingAs($this->managerB)->post(
+            route('manager.players.documents.store', ['player' => $player->id]),
+            [
+                'document_type' => 'birth_certificate',
+                'document_number' => 'AKTA-654321-REVISED',
+            ]
+        )->assertSessionHas('success');
+
+        $this->assertDatabaseHas('player_documents', [
+            'player_id' => $player->id,
+            'document_type' => 'birth_certificate',
+            'document_number' => 'AKTA-654321-REVISED',
+        ]);
+
         // Submit kembali setelah lengkap
         $submitResponse = $this->actingAs($this->managerB)->post(
             route('manager.players.submit', ['player' => $player->id])

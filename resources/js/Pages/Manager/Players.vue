@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import ManagerLayout from '@/Layouts/ManagerLayout.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
@@ -41,7 +41,6 @@ const activeDocPlayer = ref(null);
 const isDocModalOpen = ref(false);
 const selectedDocType = ref('');
 const docNumber = ref('');
-const docFile = ref(null);
 const docForm = useForm({
     document_type: '',
     document_number: '',
@@ -173,36 +172,51 @@ const executeDelete = () => {
     });
 };
 
+const existingDocPreview = computed(() => {
+    if (!activeDocPlayer.value || !selectedDocType.value) return '';
+    return activeDocPlayer.value.documents?.[selectedDocType.value]?.preview_url || '';
+});
+
 // Document Upload Modal
 const openDocModal = (player, docType = '') => {
     activeDocPlayer.value = player;
     selectedDocType.value = docType || (props.team?.event?.required_documents?.[0]?.type || 'birth_certificate');
     const existing = player.documents?.[selectedDocType.value];
     docNumber.value = existing?.document_number || '';
-    docFile.value = null;
     docForm.reset();
     docForm.clearErrors();
+    docForm.document_type = selectedDocType.value;
+    docForm.document_number = docNumber.value;
+    docForm.file = null;
     isDocModalOpen.value = true;
 };
 
-const handleDocFile = (e) => {
-    docFile.value = e.target.files?.[0] || null;
-    docForm.file = docFile.value;
-    docForm.clearErrors('file');
-};
+watch(selectedDocType, (newType) => {
+    if (activeDocPlayer.value && newType) {
+        const existing = activeDocPlayer.value.documents?.[newType];
+        docNumber.value = existing?.document_number || '';
+        docForm.document_type = newType;
+        docForm.document_number = docNumber.value;
+        docForm.clearErrors();
+    }
+});
 
 const saveDocument = () => {
     if (!activeDocPlayer.value) return;
     docForm.document_type = selectedDocType.value;
     docForm.document_number = docNumber.value;
-    docForm.file = docFile.value;
+
+    const existing = activeDocPlayer.value?.documents?.[docForm.document_type];
+    const isFileRequired = !existing;
 
     const ok = applyValidation(docForm, () => {
         const errs = {};
         if (isEmpty(docForm.document_type)) errs.document_type = 'Jenis dokumen wajib dipilih.';
-        const fCheck = checkFile(docForm.file, ['image/jpeg', 'image/png', 'application/pdf'], 2 * 1024 * 1024);
-        if (!fCheck.valid) {
-            errs.file = 'Berkas dokumen wajib diunggah dalam format JPG, PNG, atau PDF (maksimal 2 MB).';
+        if (isFileRequired || docForm.file) {
+            const fCheck = checkFile(docForm.file, ['image/jpeg', 'image/png', 'application/pdf'], 2 * 1024 * 1024);
+            if (!fCheck.valid) {
+                errs.file = 'Berkas dokumen wajib diunggah dalam format JPG, PNG, atau PDF (maksimal 2 MB).';
+            }
         }
         return errs;
     });
@@ -653,6 +667,7 @@ const isRosterLocked = computed(() => {
                             <FileInput
                                 v-model="docForm.file"
                                 accept=".jpg,.jpeg,.png,.pdf"
+                                :preview-url="existingDocPreview"
                                 label="Pilih Berkas Dokumen"
                                 hint="Format: JPG, PNG, atau PDF (maksimal 2 MB)"
                                 :error="docForm.errors.file"
