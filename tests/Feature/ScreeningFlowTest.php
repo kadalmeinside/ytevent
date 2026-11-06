@@ -156,6 +156,15 @@ class ScreeningFlowTest extends TestCase
             'from_status' => 'submitted',
             'to_status' => 'passed',
         ]);
+
+        // Repeat approve call (idempotent guard): should not create duplicate screening log
+        $this->actingAs($env['screeningOfficer'])->post(route('admin.screening.player.verify', [
+            'player' => $player->id,
+        ]), [
+            'action' => 'passed',
+        ]);
+
+        $this->assertEquals(1, \App\Models\ScreeningLog::where('player_id', $player->id)->where('to_status', 'passed')->count());
     }
 
     public function test_screening_officer_can_reject_player_with_reason(): void

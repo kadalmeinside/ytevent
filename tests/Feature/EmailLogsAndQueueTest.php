@@ -302,3 +302,4 @@ class EmailLogsAndQueueTest extends TestCase
         $response->assertSessionHas('error');
     }
 }
+

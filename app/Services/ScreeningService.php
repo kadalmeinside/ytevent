@@ -43,6 +43,11 @@ class ScreeningService
         return DB::transaction(function () use ($player, $officer, $action, $reason, $documentUpdates) {
             $fromStatus = $player->screening_status;
 
+            // Cegah duplikasi log jika status yang diminta sama persis dengan status saat ini (idempotent protection)
+            if ($fromStatus === $action && $action === 'passed') {
+                return $player->fresh(['documents', 'team', 'event']);
+            }
+
             if ($action === 'passed') {
                 $player->screening_status = 'passed';
                 $player->is_locked = true;
