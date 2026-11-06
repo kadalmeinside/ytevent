@@ -49,7 +49,7 @@ class PlayerPolicy
 
     public function delete(User $user, Player $player): bool
     {
-        if ($player->is_locked || $player->screening_status !== 'draft') {
+        if ($player->is_locked || ! in_array($player->screening_status, ['draft', 'rejected'], true)) {
             return false;
         }
 

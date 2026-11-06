@@ -10,6 +10,7 @@ use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\SystemSettingSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class ScreeningFlowTest extends TestCase
@@ -46,10 +47,7 @@ class ScreeningFlowTest extends TestCase
             'min_players_per_team' => 2,
             'max_players_per_team' => 18,
             'max_officials_per_team' => 4,
-            'required_documents' => [
-                ['type' => 'birth_certificate', 'label' => 'Akta Kelahiran'],
-                ['type' => 'family_card', 'label' => 'Kartu Keluarga'],
-            ],
+            'required_documents' => ['birth_certificate'],
             'max_teams' => 16,
             'registration_fee' => 1500000,
             'lock_roster_until_paid' => true,
@@ -85,6 +83,7 @@ class ScreeningFlowTest extends TestCase
             'birth_place' => 'Jakarta',
             'birth_date' => '2014-05-15',
             'nik' => '3171010101010001',
+            'photo_path' => 'player_photos/rizky.jpg',
             'screening_status' => 'submitted',
             'is_locked' => false,
         ]);
@@ -246,5 +245,108 @@ class ScreeningFlowTest extends TestCase
             'to_status' => 'draft',
             'reason' => 'Perbaikan nomor punggung',
         ]);
+    }
+
+    public function test_manager_can_edit_and_reupload_documents_for_rejected_player(): void
+    {
+        $env = $this->createScreeningEnvironment();
+        $manager = $env['manager'];
+        $player = $env['player'];
+        $doc = $env['doc'];
+
+        // 1. Mark player as rejected with reason and invalid doc note
+        $player->update([
+            'screening_status' => 'rejected',
+            'rejection_reason' => 'Scan akta buram dan nomor punggung ganda.',
+            'is_locked' => false,
+        ]);
+        $doc->update([
+            'validation_status' => 'invalid',
+            'notes' => 'Teks akta tidak terbaca.',
+        ]);
+
+        // 2. Manager edits player data
+        $updateResponse = $this->actingAs($manager)->post(route('manager.players.update', ['player' => $player->id]), [
+            'full_name' => 'Muhammad Rizky Pratama',
+            'jersey_name' => 'RIZKY P',
+            'jersey_number' => 11,
+            'position' => 'FW',
+            'dominant_foot' => 'Right',
+            'birth_place' => 'Jakarta Timur',
+            'birth_date' => '2015-06-15',
+            'nik' => '3171011506150001',
+        ]);
+
+        $updateResponse->assertSessionHas('success');
+        $player->refresh();
+        $this->assertSame('Muhammad Rizky Pratama', $player->full_name);
+        $this->assertSame(11, $player->jersey_number);
+
+        // 3. Manager re-uploads replacement document
+        $newFile = UploadedFile::fake()->create('akta_perbaikan.pdf', 800, 'application/pdf');
+        $uploadResponse = $this->actingAs($manager)->post(route('manager.players.documents.store', ['player' => $player->id]), [
+            'document_type' => 'birth_certificate',
+            'document_number' => 'AKTA-NEW-12345',
+            'file' => $newFile,
+        ]);
+
+        $uploadResponse->assertSessionHas('success');
+        $doc->refresh();
+        $this->assertSame('pending', $doc->validation_status);
+        $this->assertNull($doc->notes);
+        $this->assertSame('AKTA-NEW-12345', $doc->document_number);
+
+        // 4. Manager resubmits player for screening
+        $submitResponse = $this->actingAs($manager)->post(route('manager.players.submit', ['player' => $player->id]));
+        $submitResponse->assertSessionHas('success');
+
+        $player->refresh();
+        $this->assertSame('submitted', $player->screening_status);
+        $this->assertNull($player->rejection_reason);
+
+        // Verify team screening status is in_review
+        $env['team']->refresh();
+        $this->assertSame('in_review', $env['team']->screening_status);
+
+        // Verify audit log has from_status: rejected -> to_status: submitted
+        $this->assertDatabaseHas('screening_logs', [
+            'player_id' => $player->id,
+            'actor_id' => $manager->id,
+            'from_status' => 'rejected',
+            'to_status' => 'submitted',
+        ]);
+    }
+
+    public function test_manager_cannot_modify_passed_or_locked_player(): void
+    {
+        $env = $this->createScreeningEnvironment();
+        $manager = $env['manager'];
+        $player = $env['player'];
+
+        $player->update([
+            'screening_status' => 'passed',
+            'is_locked' => true,
+        ]);
+
+        // Attempt to update
+        $updateResponse = $this->actingAs($manager)->post(route('manager.players.update', ['player' => $player->id]), [
+            'full_name' => 'Hacker Name',
+            'jersey_number' => 99,
+            'position' => 'FW',
+            'dominant_foot' => 'Right',
+            'birth_date' => '2015-06-15',
+            'nik' => '3171011506150001',
+        ]);
+
+        $updateResponse->assertForbidden();
+
+        // Attempt to upload doc
+        $fakeFile = UploadedFile::fake()->create('hacked.pdf', 100, 'application/pdf');
+        $uploadResponse = $this->actingAs($manager)->post(route('manager.players.documents.store', ['player' => $player->id]), [
+            'document_type' => 'birth_certificate',
+            'file' => $fakeFile,
+        ]);
+
+        $uploadResponse->assertForbidden();
     }
 }

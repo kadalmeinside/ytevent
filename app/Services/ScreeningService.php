@@ -164,6 +164,11 @@ class ScreeningService
         $team->update(['screening_status' => 'not_started']);
     }
 
+    public function syncTeamStatus($team): void
+    {
+        $this->syncTeamScreeningStatus($team);
+    }
+
     /**
      * Menghasilkan kode akreditasi unik digital pemain.
      */

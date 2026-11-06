@@ -81,10 +81,14 @@ class Player extends Model
 
     public function missingRequiredDocuments(): array
     {
-        $required = $this->event?->required_documents ?? [];
+        $rawRequired = $this->event?->required_documents ?? [];
+        $requiredTypes = collect($rawRequired)->map(function ($item) {
+            return is_array($item) ? ($item['type'] ?? null) : $item;
+        })->filter()->values()->all();
+
         $uploaded = $this->documents->pluck('document_type')->all();
 
-        return array_values(array_diff($required, $uploaded));
+        return array_values(array_diff($requiredTypes, $uploaded));
     }
 
     public function isCompleteForSubmission(): bool

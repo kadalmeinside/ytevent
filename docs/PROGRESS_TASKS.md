@@ -102,13 +102,13 @@ Legenda Status:
   - Panel Bawah: Tombol aksi keputusan instan (**"Loloskan (Sah)"** dan **"Tolak (Revisi)"** dengan modal alasan penolakan) serta navigasi cepat antar pemain.
 
 ### 2.2 Siklus Revisi Terarah di Portal Manajer Tim (*Selective Re-submission*)
-- [ ] **2.2.1** Tampilan Visual Pemain Ditolak di `Manager/Players.vue`:
+- [x] **2.2.1** Tampilan Visual Pemain Ditolak di `Manager/Players.vue`:
   - Highlight kartu merah/rose tegas pada pemain berstatus `rejected`.
   - Banner peringatan memuat alasan spesifik penolakan dari panitia verifikator.
-- [ ] **2.2.2** Formulir Perbaikan Berkas Khusus Pemain Ditolak:
+- [x] **2.2.2** Formulir Perbaikan Berkas Khusus Pemain Ditolak:
   - Form edit dan tombol ganti berkas HANYA terbuka untuk pemain yang berstatus `rejected` atau `draft`.
   - Pemain yang sudah berstatus `passed` tetap terkunci aman dan tidak dapat diubah.
-- [ ] **2.2.3** Pengajuan Ulang Hasil Perbaikan (*Re-submit*):
+- [x] **2.2.3** Pengajuan Ulang Hasil Perbaikan (*Re-submit*):
   - Manajer mengajukan ulang hanya pemain yang telah diperbaiki.
   - Status pemain kembali ke `submitted` dan status tim kembali menjadi `in_review`.
 

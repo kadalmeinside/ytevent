@@ -12,6 +12,7 @@ use App\Models\Player;
 use App\Models\PlayerDocument;
 use App\Models\ScreeningLog;
 use App\Models\Team;
+use App\Services\ScreeningService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -187,6 +188,7 @@ class PlayerController extends Controller
         $player->loadMissing(['team.event', 'documents']);
         $this->authorize('delete', $player);
 
+        $team = $player->team;
         $name = $player->full_name;
 
         foreach ($player->documents as $doc) {
@@ -201,7 +203,11 @@ class PlayerController extends Controller
 
         $player->forceDelete();
 
-        return redirect()->back()->with('success', "Data draft pemain {$name} berhasil dihapus.");
+        if ($team) {
+            app(ScreeningService::class)->syncTeamStatus($team);
+        }
+
+        return redirect()->back()->with('success', "Data pemain {$name} berhasil dihapus.");
     }
 
     public function uploadDocument(UploadPlayerDocumentRequest $request, Player $player): RedirectResponse
@@ -245,9 +251,9 @@ class PlayerController extends Controller
             ]);
         }
 
-        DB::transaction(function () use ($player, $request) {
-            $prevStatus = $player->screening_status;
+        $prevStatus = $player->screening_status;
 
+        DB::transaction(function () use ($player, $request, $prevStatus) {
             $player->update([
                 'screening_status' => 'submitted',
                 'rejection_reason' => null,
@@ -258,16 +264,19 @@ class PlayerController extends Controller
                 'actor_id' => $request->user()->id,
                 'from_status' => $prevStatus,
                 'to_status' => 'submitted',
-                'reason' => 'Diajukan oleh Manajer Tim untuk pemeriksaan screening.',
+                'reason' => $prevStatus === 'rejected'
+                    ? 'Diajukan ulang oleh Manajer Tim setelah perbaikan berkas/data.'
+                    : 'Diajukan oleh Manajer Tim untuk pemeriksaan screening.',
             ]);
 
-            if ($player->team->screening_status === 'not_started') {
-                $player->team->update(['screening_status' => 'in_review']);
-            }
+            app(ScreeningService::class)->syncTeamStatus($player->team);
         });
 
-        return redirect()->back()
-            ->with('success', "Berkas pemain {$player->full_name} berhasil diajukan ke antrean screening panitia.");
+        $message = $prevStatus === 'rejected'
+            ? "Perbaikan berkas pemain {$player->full_name} berhasil diajukan ulang ke antrean screening panitia."
+            : "Berkas pemain {$player->full_name} berhasil diajukan ke antrean screening panitia.";
+
+        return redirect()->back()->with('success', $message);
     }
 
     public function recallPlayer(Request $request, Player $player): RedirectResponse
@@ -295,6 +304,8 @@ class PlayerController extends Controller
                 'to_status' => 'draft',
                 'reason' => 'Pengajuan ditarik kembali ke draft oleh Manajer Tim untuk perbaikan data/berkas.',
             ]);
+
+            app(ScreeningService::class)->syncTeamStatus($player->team);
         });
 
         return redirect()->back()->with('success', "Pengajuan screening pemain {$player->full_name} berhasil ditarik ke draft. Anda dapat mengoreksi data atau berkas sebelum diajukan kembali.");

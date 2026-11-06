@@ -219,7 +219,17 @@ const isDocModalReadOnly = computed(() => {
 // Document Upload Modal
 const openDocModal = (player, docType = '') => {
     activeDocPlayer.value = player;
-    selectedDocType.value = docType || (props.team?.event?.required_documents?.[0]?.type || 'birth_certificate');
+
+    // Prioritaskan dokumen berstatus invalid jika pemain berstatus rejected
+    let targetDocType = docType;
+    if (!targetDocType && player.documents) {
+        const invalidDoc = Object.values(player.documents).find((d) => d.validation_status === 'invalid');
+        if (invalidDoc) {
+            targetDocType = invalidDoc.document_type;
+        }
+    }
+
+    selectedDocType.value = targetDocType || (props.team?.event?.required_documents?.[0]?.type || 'birth_certificate');
     const existing = player.documents?.[selectedDocType.value];
     docNumber.value = existing?.document_number || '';
     docForm.reset();
@@ -357,7 +367,12 @@ const isRosterLocked = computed(() => {
                         <div
                             v-for="p in players"
                             :key="p.id"
-                            class="frosted-card p-4 sm:p-5 hover:border-orange-300/80 hover:shadow-md transition-all duration-150 bg-white space-y-3"
+                            class="frosted-card p-4 sm:p-5 transition-all duration-150 space-y-3"
+                            :class="[
+                                p.screening_status === 'rejected'
+                                    ? 'border-rose-400/90 bg-rose-50/30 ring-1 ring-rose-400/40 shadow-sm'
+                                    : (p.screening_status === 'passed' ? 'border-emerald-200/90 bg-emerald-50/15' : 'bg-white hover:border-orange-300/80 hover:shadow-md')
+                            ]"
                         >
                             <!-- Header: Jersey Number, Photo, Name, Position, Status & Actions -->
                             <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
@@ -398,14 +413,18 @@ const isRosterLocked = computed(() => {
                                     <button
                                         v-if="['draft', 'rejected'].includes(p.screening_status) && p.is_complete_for_submission"
                                         type="button"
-                                        class="btn-sm-pitch inline-flex items-center gap-1 shadow-2xs"
+                                        class="inline-flex items-center gap-1 shadow-2xs text-xs font-bold px-3 py-1.5 rounded-lg text-white"
+                                        :class="p.screening_status === 'rejected' ? 'bg-rose-600 hover:bg-rose-700 ring-2 ring-rose-400/40' : 'btn-sm-pitch'"
                                         :disabled="submitPlayerForm.processing"
                                         @click="submitForScreening(p)"
                                     >
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg v-if="p.screening_status === 'rejected'" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                        </svg>
+                                        <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
-                                        <span>{{ p.screening_status === 'rejected' ? 'Ajukan Ulang' : 'Ajukan Screening' }}</span>
+                                        <span>{{ p.screening_status === 'rejected' ? 'Ajukan Ulang Perbaikan' : 'Ajukan Screening' }}</span>
                                     </button>
                                     <button
                                         v-if="p.screening_status === 'submitted' && !p.is_locked"
@@ -452,10 +471,11 @@ const isRosterLocked = computed(() => {
                                         <span>Lihat Detail</span>
                                     </button>
                                     <button
-                                        v-if="p.screening_status === 'draft' && !p.is_locked"
+                                        v-if="['draft', 'rejected'].includes(p.screening_status) && !p.is_locked"
                                         type="button"
                                         class="btn-sm-danger"
                                         @click="confirmDelete(p)"
+                                        title="Hapus data pemain dari skuad"
                                     >
                                         Hapus
                                     </button>
@@ -498,25 +518,49 @@ const isRosterLocked = computed(() => {
                                             {{ ['draft', 'rejected'].includes(p.screening_status) && !p.is_locked ? '+ Unggah / Ganti' : 'Lihat Berkas' }}
                                         </button>
                                     </div>
-                                    <div class="flex flex-wrap gap-1">
+                                    <div class="flex flex-wrap gap-1.5">
                                         <span
                                             v-for="doc in team.event?.required_documents"
                                             :key="doc.type"
-                                            class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border"
-                                            :class="p.documents[doc.type] ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-rose-50 text-rose-800 border-rose-200'"
+                                            class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-colors"
+                                            :class="[
+                                                !p.documents[doc.type]
+                                                    ? 'bg-rose-50 text-rose-800 border-rose-200'
+                                                    : (p.documents[doc.type].validation_status === 'invalid'
+                                                        ? 'bg-rose-100 text-rose-950 border-rose-400 font-extrabold shadow-2xs'
+                                                        : (p.documents[doc.type].validation_status === 'valid'
+                                                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                                            : 'bg-amber-50 text-amber-800 border-amber-300'))
+                                            ]"
                                         >
-                                            <span v-if="p.documents[doc.type]">✓</span>
-                                            <span v-else>✕</span>
-                                            <span>{{ doc.label }}</span>
+                                            <span v-if="!p.documents[doc.type]">✕ Belum: {{ doc.label }}</span>
+                                            <span v-else-if="p.documents[doc.type].validation_status === 'invalid'">✕ Revisi: {{ doc.label }}</span>
+                                            <span v-else-if="p.documents[doc.type].validation_status === 'valid'">✓ Sah: {{ doc.label }}</span>
+                                            <span v-else>⏳ Menunggu: {{ doc.label }}</span>
                                         </span>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Rejection Note Alert Banner if any -->
-                            <div v-if="p.rejection_reason" class="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900 space-y-0.5">
-                                <span class="font-bold text-rose-800 block">Catatan Petugas Screening:</span>
-                                <p class="text-rose-700 leading-relaxed">{{ p.rejection_reason }}</p>
+                            <!-- Rejection Note Alert Banner if rejected -->
+                            <div v-if="p.screening_status === 'rejected'" class="p-3.5 rounded-xl bg-rose-50 border border-rose-300 text-xs text-rose-950 space-y-2">
+                                <div class="flex items-center justify-between gap-2 flex-wrap">
+                                    <div class="flex items-center gap-2 font-bold text-rose-900">
+                                        <svg class="w-4 h-4 text-rose-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                        <span class="tracking-wide">STATUS: DITOLAK / MEMERLUKAN REVISI</span>
+                                    </div>
+                                    <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-rose-200/80 text-rose-900 border border-rose-300">
+                                        Tindakan Diperlukan
+                                    </span>
+                                </div>
+                                <p v-if="p.rejection_reason" class="text-rose-900 leading-relaxed pl-6">
+                                    <strong>Catatan Petugas Screening:</strong> {{ p.rejection_reason }}
+                                </p>
+                                <div class="pl-6 text-[11px] text-rose-700">
+                                    Klik tombol <strong>Edit</strong> untuk memperbaiki biodata atau <strong>Berkas Dokumen</strong> untuk mengunggah ulang berkas yang diminta, kemudian klik <strong>Ajukan Ulang Perbaikan</strong>.
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -567,6 +611,24 @@ const isRosterLocked = computed(() => {
                             <span class="font-bold block">Pemain Sah (Lolos Screening)</span>
                             <p class="mt-0.5 text-emerald-800 leading-relaxed">
                                 Data pemain telah diverifikasi sah oleh panitia kompetisi dan terkunci permanen.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div
+                        v-if="!isViewingPlayer && editingPlayer?.screening_status === 'rejected'"
+                        class="p-3 mb-4 rounded-xl bg-rose-50 border border-rose-300 text-xs text-rose-950 flex items-start gap-2.5"
+                    >
+                        <svg class="w-4 h-4 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div>
+                            <span class="font-bold text-rose-900 block">Mode Revisi: Pemain Ditolak Panitia</span>
+                            <p v-if="editingPlayer.rejection_reason" class="mt-0.5 text-rose-800 leading-relaxed">
+                                <strong>Catatan Petugas:</strong> {{ editingPlayer.rejection_reason }}
+                            </p>
+                            <p class="mt-0.5 text-rose-700 leading-relaxed text-[11px]">
+                                Silakan perbaiki biodata atau ganti pas foto pemain sesuai catatan di atas, kemudian klik <strong>Simpan Pemain</strong>.
                             </p>
                         </div>
                     </div>
@@ -799,6 +861,24 @@ const isRosterLocked = computed(() => {
                             <span class="font-bold block">Pemain Sah (Lolos Screening)</span>
                             <p class="mt-0.5 text-emerald-800 leading-relaxed">
                                 Berkas telah diverifikasi sah oleh panitia kompetisi dan terkunci permanen.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div
+                        v-else-if="activeDocPlayer.screening_status === 'rejected'"
+                        class="p-3 mb-3.5 rounded-xl bg-rose-50 border border-rose-300 text-xs text-rose-950 flex items-start gap-2.5"
+                    >
+                        <svg class="w-4 h-4 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div>
+                            <span class="font-bold text-rose-900 block">Pemain Berstatus Ditolak / Perlu Revisi Berkas</span>
+                            <p v-if="activeDocPlayer.rejection_reason" class="mt-0.5 text-rose-800 leading-relaxed">
+                                <strong>Catatan Petugas:</strong> {{ activeDocPlayer.rejection_reason }}
+                            </p>
+                            <p class="mt-0.5 text-rose-700 leading-relaxed text-[11px]">
+                                Silakan pilih jenis berkas yang perlu diganti di bawah, unggah berkas pengganti yang sah, lalu klik Simpan Berkas.
                             </p>
                         </div>
                     </div>
