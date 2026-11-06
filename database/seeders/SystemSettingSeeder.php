@@ -14,6 +14,7 @@ class SystemSettingSeeder extends Seeder
             ['key' => 'app_name', 'value' => 'Persija Development', 'type' => 'text', 'group' => 'branding'],
             ['key' => 'app_tagline', 'value' => 'Young Tiger Cup & Football Competition Portal', 'type' => 'text', 'group' => 'branding'],
             ['key' => 'app_logo', 'value' => null, 'type' => 'file', 'group' => 'branding'],
+            ['key' => 'header_logo_style', 'value' => 'logo_only', 'type' => 'text', 'group' => 'branding'], // 'logo_only' (hanya logo kesamping) atau 'logo_and_text' (logo + teks)
             ['key' => 'app_favicon', 'value' => null, 'type' => 'file', 'group' => 'branding'],
             ['key' => 'footer_copyright', 'value' => '© ' . date('Y') . ' Persija Development - Young Tiger Football Tournament Management System', 'type' => 'text', 'group' => 'branding'],
 

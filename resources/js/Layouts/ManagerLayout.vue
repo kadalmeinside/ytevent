@@ -21,6 +21,7 @@ const props = defineProps({
 
 const page = usePage();
 const user = computed(() => page.props.auth?.user);
+const systemSettings = computed(() => page.props.systemSettings || {});
 const mobileMenuOpen = ref(false);
 
 const currentPath = computed(() => page.url.split('?')[0]);
@@ -92,10 +93,27 @@ const logout = () => {
                     </svg>
                 </button>
                 <div class="flex items-center gap-2">
-                    <div class="w-6 h-6 rounded-lg bg-gradient-to-br from-orange-600 to-red-600 text-white flex items-center justify-center font-bold text-[10px] shadow-sm">
-                        YT
-                    </div>
-                    <span class="font-bold text-sm text-slate-900">Portal Manajer Tim</span>
+                    <template v-if="systemSettings.header_logo_style === 'logo_only' && systemSettings.app_logo_url">
+                        <img
+                            :src="systemSettings.app_logo_url"
+                            :alt="systemSettings.app_name || 'Logo'"
+                            class="h-7 w-auto max-w-[140px] object-contain"
+                        />
+                    </template>
+                    <template v-else>
+                        <img
+                            v-if="systemSettings.app_logo_url"
+                            :src="systemSettings.app_logo_url"
+                            :alt="systemSettings.app_name || 'Logo'"
+                            class="w-6 h-6 rounded-lg object-contain bg-white border border-slate-200 shrink-0"
+                        />
+                        <div v-else class="w-6 h-6 rounded-lg bg-gradient-to-br from-orange-600 to-red-600 text-white flex items-center justify-center font-bold text-[10px] shadow-sm shrink-0">
+                            {{ (systemSettings.app_name || 'YT').substring(0, 2).toUpperCase() }}
+                        </div>
+                        <span class="font-bold text-sm text-slate-900 truncate max-w-[160px]">
+                            {{ systemSettings.app_name || 'Portal Manajer' }}
+                        </span>
+                    </template>
                 </div>
             </div>
             <Link :href="route('home')" class="text-xs font-semibold text-orange-600 hover:text-orange-700 hover:underline">
@@ -111,14 +129,33 @@ const logout = () => {
             <div class="p-4 space-y-4 overflow-y-auto">
                 <!-- Brand Header -->
                 <div class="flex items-center justify-between pb-1">
-                    <Link :href="route('home')" class="flex items-center gap-2.5 group">
-                        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-600 via-orange-600 to-red-600 text-white flex items-center justify-center font-black text-sm tracking-tight shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform">
-                            YT
-                        </div>
-                        <div>
-                            <span class="block text-sm font-bold text-slate-900 leading-tight group-hover:text-orange-600 transition-colors">YTEvent</span>
-                            <span class="block text-[11px] font-medium text-slate-500">Portal Manajer Tim</span>
-                        </div>
+                    <Link :href="route('home')" class="flex items-center group min-w-0">
+                        <template v-if="systemSettings.header_logo_style === 'logo_only' && systemSettings.app_logo_url">
+                            <img
+                                :src="systemSettings.app_logo_url"
+                                :alt="systemSettings.app_name || 'Logo'"
+                                class="h-9 w-auto max-w-[170px] object-contain group-hover:opacity-90 transition-opacity"
+                            />
+                        </template>
+                        <template v-else>
+                            <div class="flex items-center gap-2.5">
+                                <img
+                                    v-if="systemSettings.app_logo_url"
+                                    :src="systemSettings.app_logo_url"
+                                    :alt="systemSettings.app_name || 'Logo'"
+                                    class="w-9 h-9 rounded-xl object-contain bg-white border border-slate-200/90 shadow-xs shrink-0"
+                                />
+                                <div v-else class="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-600 via-orange-600 to-red-600 text-white flex items-center justify-center font-black text-sm tracking-tight shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform shrink-0">
+                                    {{ (systemSettings.app_name || 'YT').substring(0, 2).toUpperCase() }}
+                                </div>
+                                <div class="min-w-0">
+                                    <span class="block text-sm font-bold text-slate-900 leading-tight group-hover:text-orange-600 transition-colors truncate">
+                                        {{ systemSettings.app_name || 'YTEvent' }}
+                                    </span>
+                                    <span class="block text-[11px] font-medium text-slate-500 truncate">Portal Manajer Tim</span>
+                                </div>
+                            </div>
+                        </template>
                     </Link>
                     <button
                         type="button"

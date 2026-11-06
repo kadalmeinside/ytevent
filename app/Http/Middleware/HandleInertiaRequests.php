@@ -60,6 +60,7 @@ class HandleInertiaRequests extends Middleware
             'systemSettings' => fn () => [
                 'app_name' => SystemSetting::get('app_name', config('app.name', 'YTEvent Football')),
                 'app_tagline' => SystemSetting::get('app_tagline', 'Multi-Event Competition Portal'),
+                'header_logo_style' => SystemSetting::get('header_logo_style', 'logo_only'),
                 'app_logo_url' => SystemSetting::get('app_logo') ? Storage::disk('public')->url(SystemSetting::get('app_logo')) : null,
                 'app_favicon_url' => SystemSetting::get('app_favicon') ? Storage::disk('public')->url(SystemSetting::get('app_favicon')) : null,
                 'footer_copyright' => SystemSetting::get('footer_copyright', 'YTEvent Multi-Event Football Tournament & League Management System'),

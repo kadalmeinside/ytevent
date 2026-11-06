@@ -19,6 +19,7 @@ const activeTab = ref('branding');
 const brandingForm = useForm({
     app_name: props.settings.app_name || 'YTEvent Football Competition',
     app_tagline: props.settings.app_tagline || 'Multi-Event Competition Portal',
+    header_logo_style: props.settings.header_logo_style || 'logo_only', // 'logo_only' atau 'logo_and_text'
     footer_copyright: props.settings.footer_copyright || 'YTEvent Multi-Event Football Tournament System',
     contact_email: props.settings.contact_email || 'sekretariat@ytevent.id',
     contact_whatsapp: props.settings.contact_whatsapp || '',
@@ -150,6 +151,49 @@ const submitPaymentSettings = () => {
                                 hint="Format: ICO atau PNG (Rasio 1:1, maks 1 MB)"
                                 :error="brandingForm.errors.favicon"
                             />
+                        </div>
+                    </div>
+
+                    <!-- Gaya Tampilan Logo di Header -->
+                    <div class="pt-2">
+                        <label class="block font-bold text-slate-800 mb-1.5">Gaya Tampilan Logo di Header Navbar</label>
+                        <p class="text-[11px] text-slate-500 mb-2.5">Pilih apakah logo ditampilkan memanjang kesamping secara mandiri tanpa teks nama, atau berpasangan dengan teks nama situs.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <label
+                                class="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all"
+                                :class="brandingForm.header_logo_style === 'logo_only' ? 'border-orange-500 bg-orange-50/50 ring-1 ring-orange-500/20' : 'border-slate-200 bg-white hover:border-slate-300'"
+                            >
+                                <input
+                                    v-model="brandingForm.header_logo_style"
+                                    type="radio"
+                                    value="logo_only"
+                                    class="mt-0.5 text-orange-600 focus:ring-orange-500"
+                                />
+                                <div>
+                                    <span class="block text-xs font-bold text-slate-900">Hanya Logo Saja (Kesamping / Landscape)</span>
+                                    <span class="block text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                                        Menyembunyikan teks nama web di navbar. Logo utama akan tampil membentang horizontal proporsional (tinggi responsif 32–40px, lebar bebas). Sangat ideal untuk logo resmi yang sudah memuat tulisan nama/merek klub.
+                                    </span>
+                                </div>
+                            </label>
+
+                            <label
+                                class="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all"
+                                :class="brandingForm.header_logo_style === 'logo_and_text' ? 'border-orange-500 bg-orange-50/50 ring-1 ring-orange-500/20' : 'border-slate-200 bg-white hover:border-slate-300'"
+                            >
+                                <input
+                                    v-model="brandingForm.header_logo_style"
+                                    type="radio"
+                                    value="logo_and_text"
+                                    class="mt-0.5 text-orange-600 focus:ring-orange-500"
+                                />
+                                <div>
+                                    <span class="block text-xs font-bold text-slate-900">Logo Ikon + Teks Nama Situs</span>
+                                    <span class="block text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                                        Menampilkan ikon logo persegi (36x36px) berdampingan dengan tulisan nama situs dan tagline singkat di sampingnya.
+                                    </span>
+                                </div>
+                            </label>
                         </div>
                     </div>
 

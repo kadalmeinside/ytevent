@@ -16,6 +16,7 @@ defineProps({
 
 const page = usePage();
 const user = computed(() => page.props.auth?.user);
+const systemSettings = computed(() => page.props.systemSettings || {});
 const mobileMenuOpen = ref(false);
 const currentPath = computed(() => page.url.split('?')[0]);
 
@@ -105,7 +106,18 @@ const logout = () => {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                     </svg>
                 </button>
-                <span class="font-bold text-sm text-slate-900">Portal Panitia YTEvent</span>
+                <template v-if="systemSettings.header_logo_style === 'logo_only' && systemSettings.app_logo_url">
+                    <img
+                        :src="systemSettings.app_logo_url"
+                        :alt="systemSettings.app_name || 'Logo'"
+                        class="h-7 w-auto max-w-[140px] object-contain"
+                    />
+                </template>
+                <template v-else>
+                    <span class="font-bold text-sm text-slate-900 truncate max-w-[180px]">
+                        {{ systemSettings.app_name || 'Portal Panitia' }}
+                    </span>
+                </template>
             </div>
             <span class="text-[11px] font-semibold uppercase px-2 py-0.5 rounded-md bg-orange-50 text-orange-800 border border-orange-200">
                 {{ roleBadge }}
@@ -118,14 +130,31 @@ const logout = () => {
         >
             <div class="p-4 space-y-5 overflow-y-auto">
                 <div class="flex items-center justify-between">
-                    <Link :href="route('admin.dashboard')" class="flex items-center gap-2.5 group">
-                        <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white flex items-center justify-center font-bold text-xs shadow-sm group-hover:scale-105 transition-transform">
-                            ADM
-                        </div>
-                        <div>
-                            <span class="block text-sm font-bold text-slate-900 leading-tight">Control Center</span>
-                            <span class="block text-[11px] font-medium text-slate-500">Operasional &amp; Finance</span>
-                        </div>
+                    <Link :href="route('admin.dashboard')" class="flex items-center group min-w-0">
+                        <template v-if="systemSettings.header_logo_style === 'logo_only' && systemSettings.app_logo_url">
+                            <img
+                                :src="systemSettings.app_logo_url"
+                                :alt="systemSettings.app_name || 'Logo'"
+                                class="h-8 w-auto max-w-[170px] object-contain group-hover:opacity-90 transition-opacity"
+                            />
+                        </template>
+                        <template v-else>
+                            <div class="flex items-center gap-2.5">
+                                <img
+                                    v-if="systemSettings.app_logo_url"
+                                    :src="systemSettings.app_logo_url"
+                                    :alt="systemSettings.app_name || 'Logo'"
+                                    class="w-8 h-8 rounded-xl object-contain bg-white border border-slate-200 shadow-xs shrink-0"
+                                />
+                                <div v-else class="w-8 h-8 rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white flex items-center justify-center font-bold text-xs shadow-sm group-hover:scale-105 transition-transform shrink-0">
+                                    ADM
+                                </div>
+                                <div class="min-w-0">
+                                    <span class="block text-sm font-bold text-slate-900 leading-tight truncate">{{ systemSettings.app_name || 'Control Center' }}</span>
+                                    <span class="block text-[11px] font-medium text-slate-500 truncate">Operasional &amp; Finance</span>
+                                </div>
+                            </div>
+                        </template>
                     </Link>
                     <button
                         type="button"

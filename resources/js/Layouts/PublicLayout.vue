@@ -21,27 +21,41 @@ const logout = () => {
         <header class="sticky top-0 z-40 frosted-header">
             <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
                 <!-- Brand / Logo Area -->
-                <Link :href="route('home')" class="flex items-center gap-2 sm:gap-2.5 min-w-0 group shrink-0">
-                    <img
-                        v-if="systemSettings?.app_logo_url"
-                        :src="systemSettings.app_logo_url"
-                        :alt="systemSettings.app_name || 'Logo'"
-                        class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl object-contain bg-white border border-slate-200/90 shadow-xs shrink-0"
-                    />
-                    <div
-                        v-else
-                        class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-orange-600 via-orange-600 to-red-600 text-white flex items-center justify-center font-black text-xs sm:text-sm tracking-tight shadow-sm shadow-orange-500/25 shrink-0 group-hover:scale-105 transition-transform"
-                    >
-                        YT
-                    </div>
-                    <div class="min-w-0">
-                        <span class="block text-xs sm:text-base font-black text-slate-900 tracking-tight leading-none group-hover:text-orange-600 transition-colors truncate">
-                            {{ systemSettings?.app_name || 'YTEvent' }}
-                        </span>
-                        <span class="hidden md:block text-[11px] font-medium text-slate-500 leading-tight truncate mt-0.5">
-                            {{ systemSettings?.app_tagline || 'Multi-Event Competition Portal' }}
-                        </span>
-                    </div>
+                <Link :href="route('home')" class="flex items-center min-w-0 group shrink-0">
+                    <!-- Tampilan 1: Hanya Logo Saja (Landscape / Memanjang Kesamping) -->
+                    <template v-if="systemSettings?.header_logo_style === 'logo_only' && systemSettings?.app_logo_url">
+                        <img
+                            :src="systemSettings.app_logo_url"
+                            :alt="systemSettings.app_name || 'Logo'"
+                            class="h-8 sm:h-9 md:h-10 w-auto max-w-[190px] sm:max-w-[260px] md:max-w-[320px] object-contain shrink-0 group-hover:opacity-90 transition-opacity"
+                        />
+                    </template>
+
+                    <!-- Tampilan 2: Logo Ikon + Teks Nama Situs (atau Fallback jika belum ada logo) -->
+                    <template v-else>
+                        <div class="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                            <img
+                                v-if="systemSettings?.app_logo_url"
+                                :src="systemSettings.app_logo_url"
+                                :alt="systemSettings.app_name || 'Logo'"
+                                class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl object-contain bg-white border border-slate-200/90 shadow-xs shrink-0"
+                            />
+                            <div
+                                v-else
+                                class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-orange-600 via-orange-600 to-red-600 text-white flex items-center justify-center font-black text-xs sm:text-sm tracking-tight shadow-sm shadow-orange-500/25 shrink-0 group-hover:scale-105 transition-transform"
+                            >
+                                {{ (systemSettings?.app_name || 'YT').substring(0, 2).toUpperCase() }}
+                            </div>
+                            <div class="min-w-0">
+                                <span class="block text-xs sm:text-base font-black text-slate-900 tracking-tight leading-none group-hover:text-orange-600 transition-colors truncate">
+                                    {{ systemSettings?.app_name || 'YTEvent' }}
+                                </span>
+                                <span class="hidden md:block text-[11px] font-medium text-slate-500 leading-tight truncate mt-0.5">
+                                    {{ systemSettings?.app_tagline || 'Multi-Event Competition Portal' }}
+                                </span>
+                            </div>
+                        </div>
+                    </template>
                 </Link>
 
                 <!-- Navigation & Actions Area -->

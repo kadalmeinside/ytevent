@@ -89,6 +89,7 @@ class SuperAdminAndEmailTest extends TestCase
         $brandResponse = $this->actingAs($superadmin)->post(route('admin.settings.branding'), [
             'app_name' => 'Liga Grassroots Persija Muda 2026',
             'app_tagline' => 'Festival Sepak Bola Usia Dini Terbesar',
+            'header_logo_style' => 'logo_only',
             'footer_copyright' => 'Hak Cipta 2026 Persija Muda',
             'contact_email' => 'panitia@persijamuda.id',
             'contact_whatsapp' => '08111222333',
@@ -96,6 +97,7 @@ class SuperAdminAndEmailTest extends TestCase
 
         $brandResponse->assertSessionHas('success');
         $this->assertSame('Liga Grassroots Persija Muda 2026', SystemSetting::get('app_name'));
+        $this->assertSame('logo_only', SystemSetting::get('header_logo_style'));
 
         // 2. Update gateway fee MDR rule with payment_method_mode
         $feeResponse = $this->actingAs($superadmin)->post(route('admin.settings.payment-gateway'), [

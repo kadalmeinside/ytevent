@@ -49,7 +49,7 @@ Legenda Status:
 ### 1.6 Pengaturan Global, Manajemen Pengguna & Hak Akses (`/admin/settings`, `/admin/users`, `/admin/roles`)
 - [x] **1.6.1** Manajemen Pengguna Admin (`/admin/users`): Tambah, edit, aktif/nonaktifkan akun panitia, serta penetapan peran (`superadmin`, `finance`, `screening_officer`).
 - [x] **1.6.2** Matriks Peran & Izin Spatie (`/admin/roles`): Super Admin dapat menyesuaikan checkbox permission untuk setiap peran panitia.
-- [x] **1.6.3** Pengaturan Branding Global (`/admin/settings`): Upload logo web, favicon, nama situs, tagline, dan footer copyright dengan cache flushing otomatis.
+- [x] **1.6.3** Pengaturan Branding Global (`/admin/settings`): Upload logo web, favicon, nama situs, tagline, opsi gaya logo header (`logo_only` landscape memanjang kesamping tanpa teks nama vs `logo_and_text`), dan footer copyright dengan cache flushing otomatis.
 
 ### 1.7 Verifikasi & Automated Testing Fase 1
 - [x] **1.7.1** Penulisan dan eksekusi Feature Tests: 28 test cases (130 assertions) lulus 100% (kuota & anti-race `lockForUpdate`, lazy/scheduled expiration, penegakan mode pembayaran manual vs midtrans, proteksi sandbox simulator, akses login screening officer, validasi NIK ganda & umur pemain, dokumen privat, serta otorisasi Policy `403 Forbidden`).

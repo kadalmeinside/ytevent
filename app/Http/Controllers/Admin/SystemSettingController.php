@@ -35,6 +35,7 @@ class SystemSettingController extends Controller
             'footer_copyright' => ['nullable', 'string', 'max:255'],
             'contact_email' => ['nullable', 'email', 'max:160'],
             'contact_whatsapp' => ['nullable', 'string', 'max:30'],
+            'header_logo_style' => ['nullable', 'string', 'in:logo_only,logo_and_text'],
             'logo' => ['nullable', 'file', 'mimes:png,jpg,jpeg,svg', 'max:2048'],
             'favicon' => ['nullable', 'file', 'mimes:ico,png,svg', 'max:1024'],
         ], [
@@ -56,6 +57,9 @@ class SystemSettingController extends Controller
         if (isset($validated['contact_whatsapp'])) {
             SystemSetting::set('contact_whatsapp', trim($validated['contact_whatsapp']), 'text', 'general');
         }
+
+        $headerLogoStyle = $validated['header_logo_style'] ?? 'logo_only';
+        SystemSetting::set('header_logo_style', $headerLogoStyle, 'text', 'branding');
 
         if ($request->hasFile('logo')) {
             $oldLogo = SystemSetting::where('key', 'app_logo')->value('value');
