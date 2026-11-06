@@ -245,3 +245,10 @@ Legenda Status:
   - Pengujian transisi `team.workflow` dari Tahap 1 hingga Tahap 5 (`is_ready_to_lock` -> peringatan akreditasi, dan `locked_roster` -> terakreditasi resmi).
   - Pengujian visibilitas daftar pemain *read-only* pada `Manager/Players` saat tim berstatus `locked_roster`.
 - [x] **3.4.2** Eksekusi penuh `php artisan test` dan `npm run build` dengan hasil 100% lulus tanpa regresi.
+
+---
+
+## DOKUMEN ANALISIS GAP & ROADMAP SELANJUTNYA (FASE 4 – FASE 6)
+
+> **Dokumen Evaluasi & Rekomendasi Fitur:** [`docs/FEATURE_GAP_AND_ROADMAP.md`](./FEATURE_GAP_AND_ROADMAP.md)
+> Memuat analisis fitur yang belum dibuat, rekomendasi fitur wajib operasional (*Fase 4*), fitur pelaksanaan pertandingan/bagan (*Fase 5*), serta fitur pelengkap bernilai tambah (*Fase 6*).
