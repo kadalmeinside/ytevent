@@ -58,16 +58,49 @@ Legenda Status:
 - [x] **1.7.4** Antrean Verifikasi Transfer Manual Dual Empty State (`/admin/payments/manual-verification`): Membedakan kondisi *Seluruh Bukti Transfer Telah Selesai Diverifikasi* (semua antrean tuntas diperiksa panitia) vs *Belum Ada Bukti Transfer Masuk* (belum ada manajer yang mengunggah bukti).
 - [x] **1.7.5** Transformasi Seluruh Tabel Admin ke **Card List View** Responsif: Mengganti tabel kaku multi-kolom yang rawan tergencet pada `Transactions.vue`, `Teams/Index.vue`, `Events/Index.vue`, dan `Users/Index.vue` menjadi layout card list modern, proporsional, dan nyaman dibaca di desktop maupun ponsel.
 
-### 1.8 Verifikasi & Automated Testing Fase 1
-- [x] **1.8.1** Penulisan dan eksekusi Feature Tests: 29 test cases (143 assertions) lulus 100% (kuota & anti-race `lockForUpdate`, lazy/scheduled expiration, penegakan mode pembayaran manual vs midtrans, proteksi sandbox simulator, akses login screening officer, validasi NIK ganda & umur pemain, dokumen privat, otorisasi Policy `403 Forbidden`, serta verifikasi `venue_maps_url` & deskripsi HTML).
-- [x] **1.8.2** Build aset produksi (`npm run build`) & kompilasi siap Shared Hosting.
+### 1.8 Sinkronisasi Kuota Real-time & Tooling Operasional Panitia
+- [x] **1.8.1** Engine Resync Kuota Slot (`AdminEventController::resyncSlots` & `resyncEventSlots`): Menghitung ulang slot aktif (`occupied_slots`) secara presisi dari database dan menyinkronkan status event (`open` ↔ `quota_full`).
+- [x] **1.8.2** Tombol Resync Slot Antarmuka Admin: Menambahkan tombol aksi cepat *Resync Kuota* pada halaman `Admin/Teams/Index.vue` dan `Admin/Events/Index.vue` dengan indikator tanggal kedaluwarsa slot pada setiap kartu tim.
+- [x] **1.8.3** Audit Keamanan & Optimasi Query Database: Pencegahan N+1 queries dengan eager loading relasi (`with(['roles', 'teams:id,user_id,name'])`, `with(['team', 'event'])`), penguatan otorisasi media privat, perlindungan rate limiting, dan hardening input sanitization.
+
+### 1.9 Redesain Card List View & Alur Berkas Terkunci (Portal Manajer)
+- [x] **1.9.1** Card List View Komprehensif Portal Manajer: Transformasi total tabel `Players.vue` dan `Officials.vue` menjadi kartu responsif bergaya Persija Liquid Glass (chip status dokumen wajib, badge posisi, NIK/NISN, nomor punggung, dan aksi cepat).
+- [x] **1.9.2** Alur Tarik Pengajuan (*Recall to Draft*): Implementasi rute `manager.players.recall` (`/manager/players/{player}/recall`) agar manajer tim dapat menarik pemain yang telah diajukan kembali ke status `draft` secara resmi sebelum panitia melakukan verifikasi.
+- [x] **1.9.3** Penguncian Modal & State Pratinjau: Mencegah modifikasi berkas ilegal saat pemain berstatus `submitted` atau `passed` (`isDocModalReadOnly`), tombol modal berganti menjadi "Lihat Berkas / Pratinjau", dan penambahan tombol "Lihat Detail" pada kartu pemain yang terkunci.
+- [x] **1.9.4** Tombol Universal "Lihat Berkas" (*View Document*):
+  - Penambahan kartu *Berkas Terunggah Saat Ini* di modal berkas pemain lengkap dengan nama berkas asli, nomor dokumen, ukuran berkas, status validasi, catatan petugas, serta tombol **"Lihat Berkas"** bergaya Persija Red-Orange dengan target rute privat.
+  - Penambahan tombol **"Lihat Berkas"** pada komponen universal `FileInput.vue` saat pratinjau lokal atau `previewUrl` tersedia, serta penyembunyian otomatis tombol ganti/hapus saat mode `disabled="true"` aktif.
+
+### 1.10 Manajemen Pengguna Panitia & Multi-Method Routing
+- [x] **1.10.1** Multi-Method Update Route: Mengizinkan request `POST` dan `PUT` pada route `admin.users.update` (`/admin/users/{user}/update`) untuk kompatibilitas penuh Inertia.js dan HTTP method spoofing.
+- [x] **1.10.2** Perbaikan Validasi & Form Transformation: Perbaikan destructuring validator `isValidEmail`, penambahan alias `isEmail: isValidEmail` pada `useFormValidator.js`, dan transformasi payload otomatis agar tidak mengirimkan string kosong saat mengedit pengguna tanpa mengubah kata sandi.
+
+### 1.11 Verifikasi, Pengujian Otomatis & Build Produksi
+- [x] **1.11.1** Pengujian Otomatis Komprehensif (PHPUnit): Seluruh 31 Feature & Unit Tests dengan **174 assertions** berhasil lolos 100% `PASS`.
+- [x] **1.11.2** Kompilasi Aset Frontend: Berhasil di-build dengan Vite (`npm run build`) tanpa error dan siap di-deploy.
 
 ---
 
 ## Fase 2 — Tahap Lanjutan: Panel Screening Admin, Siklus Revisi, Pengesahan Skuad, Email Queue, & Operasional
 
-- [ ] **2.1** Panel Verifikasi & Screening Dokumen Admin (`/admin/screening`) dengan *Split-View Document Viewer* (Zoom/Rotate), keputusan `passed` (`is_locked = true`) / `rejected` (wajib alasan), `screening_logs`, dan *Unlock Player*.
-- [ ] **2.2** Siklus Revisi Terarah Manajer Tim (*Selective Re-submission* hanya untuk pemain/berkas `rejected`).
-- [ ] **2.3** Validasi Skuad Final (min. pemain & min. 2 `GK`), penguncian `locked_roster`, QR pengesahan pemain, serta unduh PDF *Team Roster Sheet* & *ID Card* (`/manager/accreditation`).
-- [ ] **2.4** Implementasi penuh 5 Mailable Antrean Latar Belakang (`ShouldQueue`, `$tries = 3`, `$backoff = [10, 30, 60]`) dan pemantauan `/admin/system/email-logs` (*Retry*).
-- [ ] **2.5** Manajemen User & Matriks Role-Permission Dinamis (`/admin/system/*`), ekspor laporan keuangan per event, dan modul jadwal/bagan pertandingan (`Cup`, `League`, `Group + Knockout`, `Festival`).
+- [ ] **2.1** Panel Verifikasi & Screening Dokumen Admin (`/admin/screening`):
+  - [ ] **2.1.1** Dashboard antrean screening pemain per event dan per tim dengan filter status (`submitted`, `passed`, `rejected`).
+  - [ ] **2.1.2** *Split-View / Side-by-Side Document Reviewer*: Memeriksa biodata pemain (Nama, NIK, NISN, kesesuaian cut-off tanggal lahir) berdampingan langsung dengan foto scan dokumen asli (Akta Kelahiran, Kartu Keluarga, KIA/Rapor) dengan tombol zoom/fullscreen.
+  - [ ] **2.1.3** Validasi Dokumen Granular: Menandai keabsahan per dokumen (`Valid` / `Invalid`) dengan catatan spesifik.
+  - [ ] **2.1.4** Keputusan Verifikasi: Tombol **Loloskan (Sah)** -> `passed` + `is_locked = true` otomatis; dan tombol **Tolak (Revisi)** -> wajib mengisi alasan penolakan + status `rejected` + pencatatan otomatis ke `screening_logs`.
+  - [ ] **2.1.5** Aksi Khusus Panitia: Fitur *Unlock Player* (Buka Kunci Pemain) untuk koreksi darurat oleh Superadmin/Screening Officer.
+- [ ] **2.2** Siklus Revisi Terarah Manajer Tim (*Selective Re-submission*):
+  - [ ] **2.2.1** Tampilan penanda khusus pada pemain yang berstatus `rejected` beserta catatan spesifik penolakan dari panitia.
+  - [ ] **2.2.2** Formulir perbaikan berkas terisolasi (hanya pemain `rejected` yang dapat diedit dan diunggah ulang berkasnya).
+  - [ ] **2.2.3** Pengajuan ulang (*Re-submit*) hanya untuk pemain yang telah diperbaiki.
+- [ ] **2.3** Validasi Skuad Final & Akreditasi Resmi (`/manager/accreditation` & `/admin/teams/{team}/accreditation`):
+  - [ ] **2.3.1** Validasi kelayakan roster minimal (memeriksa batas minimal pemain per event dan minimal 2 Penjaga Gawang / `GK` yang sah).
+  - [ ] **2.3.2** Penguncian permanen skuad tim (*Locked Roster*).
+  - [ ] **2.3.3** Penerbitan Kode Pengesahan Digital / QR Code verifikasi pemain sah.
+  - [ ] **2.3.4** Ekspor PDF *Team Roster Sheet* resmi untuk pengawas pertandingan dan *ID Card* akreditasi pemain/ofisial.
+- [ ] **2.4** Antrean Email Notifikasi Latar Belakang (*Email Queue*):
+  - [ ] **2.4.1** Notifikasi hasil verifikasi screening ke Manajer Tim (daftar pemain lolos vs daftar pemain butuh revisi).
+  - [ ] **2.4.2** Modul pemantauan antrean email panitia (`/admin/system/email-logs`) lengkap dengan status pengiriman (`queued`, `sent`, `failed`) dan tombol kirim ulang (*Retry*).
+- [ ] **2.5** Manajemen Jadwal, Bagan Pertandingan & Laporan:
+  - [ ] **2.5.1** Modul jadwal & hasil pertandingan sesuai format kompetisi (`Cup`, `League`, `Group + Knockout`, `Festival`).
+  - [ ] **2.5.2** Ekspor rekapitulasi data pendaftaran dan laporan keuangan per event.

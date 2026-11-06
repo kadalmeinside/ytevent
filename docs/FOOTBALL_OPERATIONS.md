@@ -31,6 +31,9 @@ Proses *screening* adalah jantung dari kredibilitas kompetisi sepak bola kelompo
 4. **Siklus Revisi Terarah (Selective Re-submission):**
    - Ketika sebuah tim mendaftarkan 20 pemain, sering kali 17 pemain dinyatakan lolos dan 3 pemain dinyatakan bermasalah (misal foto akta terpotong).
    - Sistem hanya mengunci 17 pemain yang sudah berstatus `Passed`, dan hanya membuka akses edit/unggah ulang pada 3 pemain yang berstatus `Rejected` tersebut. Manajer tidak perlu menginput ulang seluruh tim.
+5. **Mekanisme Tarik Pengajuan (*Recall to Draft*) & Penguncian Berkas:**
+   - Setelah pemain diajukan (`submitted`), modal form dan tombol unggah berkas otomatis dikunci demi menjamin dokumen tidak dimanipulasi di tengah-tengah proses pemeriksaan panitia.
+   - Apabila manajer tim menyadari adanya salah unggah sebelum panitia memverifikasi, manajer dapat memanfaatkan fitur **Tarik Pengajuan (*Recall*)** untuk mengembalikan status ke `draft` secara resmi. Setiap perubahan status dicatat dalam `screening_logs`.
 
 ---
 

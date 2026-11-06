@@ -1,66 +1,139 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# YTEvent — Multi-Event Football Tournament & League Management Platform
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Platform manajemen kompetisi sepak bola multi-event enterprise (Format Cup/Knockout, League, Group + Knockout, dan Grassroots Festival Usia Dini) yang terintegrasi penuh mulai dari pendaftaran tim anti-*race condition*, pembayaran multi-kanal (Midtrans Gateway & Transfer Manual Bank), hingga verifikasi berkas (*screening*) pemain dan akreditasi turnamen.
 
-## About Laravel
+Sistem ini dibangun dengan filosofi **High-Density Operational Utility** dipadukan dengan estetika **Liquid Glass Persija Red-Orange** (`#EA580C` & `#DC2626`).
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 🚀 Ringkasan Capaian Fase 1 (Selesai & Terverifikasi)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### 1. Engine Pendaftaran Tim Anti-Race Condition
+- **Pessimistic Row Locking (`SELECT ... FOR UPDATE`)**: Menjamin penghitungan kuota slot `occupied_slots` dilakukan secara atomik di dalam `DB::transaction()` untuk mencegah *over-booking* pada detik-detik terakhir kuota turnamen.
+- **Lazy Expiration Sweep & Scheduler**: Otomatis membersihkan slot pendaftaran yang tagihan `unpaid`-nya melewati batas waktu (`slot_expires_at`), serta fitur **Reclaim Slot** bagi manajer untuk mengaktifkan kembali slot yang sempat kedaluwarsa.
+- **Engine Resync Kuota Real-time**: Endpoint dan tombol aksi cepat di Admin (`admin/teams` dan `admin/events`) untuk menyinkronkan status ketersediaan slot (`open` ↔ `quota_full`) terhadap transaksi aktif.
 
-## Learning Laravel
+### 2. Multi-Kanal Pembayaran & Verifikasi Finance
+- **Mode Pembayaran Eksklusif**: Penegakan ketat di backend antara mode `manual` (transfer rekening bank resmi BCA PT Persija Jakarta Hebat) dan mode `midtrans` (Snap Token & Webhook SHA-512 signature).
+- **Portal Verifikasi Pembayaran Manual (`/admin/payments/manual-verification`)**: Modal interaktif `PaymentProofModal.vue` dengan zoom/fullscreen, aksi *Approve* (membuka roster pemain) dan *Reject* (wajib alasan penolakan + masa tenggang unggah ulang), serta *Dual Empty State*.
+- **Keamanan Sandbox Simulator**: Simulator terkunci otomatis di lingkungan produksi (`403 Forbidden`).
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### 3. Portal Manajer Tim & Manajemen Skuad (`/manager/*`)
+- **Desain Responsif Card List View**: Seluruh tabel kaku digantikan dengan kartu modular informatif (`Players.vue` & `Officials.vue`) yang nyaman digunakan di perangkat desktop maupun ponsel.
+- **Validasi Ketat Sepak Bola**:
+  - *Age Cut-Off Filter*: Penolakan otomatis pemain yang tanggal lahirnya tidak sesuai kategori usia turnamen.
+  - *NIK Duplicate Lock*: Pencegahan pendaftaran NIK 16 digit yang sama pada dua tim berbeda di event yang sama.
+  - Batas kuota pemain (`min_players` s/d `max_players`) dan nomor punggung unik (`1–99`).
+- **Komponen Universal FileInput & Berkas Privat**:
+  - Validasi reaktif client & server (JPG, PNG, PDF maks 2 MB).
+  - Tampilan kartu *Berkas Terunggah Saat Ini* dengan tombol langsung **Lihat Berkas** (*View Document*) yang terhubung ke rute media privat.
+- **Alur Tarik Pengajuan (*Recall to Draft*)**:
+  - Saat pemain berstatus `submitted` (diajukan), form dan berkas dikunci demi menjaga integritas data selama antrean panitia.
+  - Manajer dapat menekan tombol **Tarik Pengajuan** (`/manager/players/{player}/recall`) untuk mengembalikan pemain ke `draft` jika ingin merevisi data sebelum panitia memverifikasi.
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+### 4. Portal Administrasi Panitia & Keamanan RBAC (`/admin/*`)
+- **Manajemen Akun Panitia & Manajer (`/admin/users`)**: Tampilan Card List View dengan dukungan multi-method `POST` dan `PUT`, reset kata sandi, pembekuan status akun (`is_active`), dan pencegahan crash validasi email.
+- **Matriks Hak Akses Spatie (`/admin/roles`)**: 4 peran bawaan (`superadmin`, `finance`, `screening_officer`, `team_manager`) dengan kontrol izin granular.
+- **Pengaturan Global Branding (`/admin/settings`)**: Upload logo web, favicon, nama platform, opsi gaya logo header, dan pengaturan rekening bank panitia.
+- **Visual Rich-Text Editor**: Integrasi editor deskripsi event dengan format blok, list, dan link web, serta integrasi Google Maps lokasi stadion (`venue_maps_url`).
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+---
 
-## Laravel Sponsors
+## 🛠️ Tech Stack & Konvensi Arsitektur
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+- **Backend:** Laravel 11.x (PHP 8.3+)
+- **Frontend:** Vue 3 (Composition API `<script setup>`) via Inertia.js
+- **Styling:** Tailwind CSS (Custom Theme *Persija Red-Orange Liquid Glass*)
+- **Routing:** Ziggy (`route('name')`)
+- **Database:** MySQL 8.0+ (Strict Mode, InnoDB, Foreign Key Constraints & Composite Indexes)
+- **Authorization:** `spatie/laravel-permission` + Laravel Policies
+- **Form Handling:** Inertia `useForm()` + Composable `useFormValidator.js` (Form selalu `<form novalidate>`)
+- **Testing:** PHPUnit (31 Test Cases, 174 Assertions — 100% PASS)
 
-### Premium Partners
+---
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+## 📂 Struktur Dokumentasi Proyek (`docs/`)
 
-## Contributing
+| File Dokumen | Deskripsi & Cakupan |
+| :--- | :--- |
+| [PROGRESS_TASKS.md](docs/PROGRESS_TASKS.md) | Catatan progres pengerjaan Fase 1 dan rincian breakdown rencana kerja Fase 2. |
+| [PRD.md](docs/PRD.md) | Dokumen Kebutuhan Produk (Fitur Publik, Kuota Anti-Race, Pembayaran, Regulasi). |
+| [FLOW.md](docs/FLOW.md) | Arsitektur end-to-end, alur data, transisi status (*State Machine*), dan siklus revisi. |
+| [DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) | Kamus data MySQL, skema tabel, tipe data, indeks, dan relasi *Foreign Keys*. |
+| [FOOTBALL_OPERATIONS.md](docs/FOOTBALL_OPERATIONS.md) | Regulasi sepak bola operasional (Format turnamen, batas usia, NIK lock, komposisi tim). |
+| [RBAC_SECURITY_MATRIX.md](docs/RBAC_SECURITY_MATRIX.md) | Peta rute URL, matriks izin Spatie per peran, dan aturan otorisasi Policy. |
+| [UI_UX.md](docs/UI_UX.md) | Standar desain visual *Persija Liquid Glass*, palet warna, tipografi, dan larangan wajib (anti-dot, anti-pulse). |
+| [VALIDATION_AND_ERRORS.md](docs/VALIDATION_AND_ERRORS.md) | Standar penanganan validasi dua arah (frontend composable + backend FormRequest). |
+| [PAYMENT_AND_QUEUE.md](docs/PAYMENT_AND_QUEUE.md) | Arsitektur pembayaran Midtrans/Manual dan antrean email latar belakang (*Queue*). |
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+---
 
-## Code of Conduct
+## 🚦 Menjalankan Proyek Secara Lokal
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### 1. Kebutuhan Lingkungan
+- PHP `>= 8.2` (Disarankan PHP 8.3)
+- Composer `>= 2.x`
+- Node.js `>= 18.x` & NPM
+- MySQL `>= 8.0`
 
-## Security Vulnerabilities
+### 2. Instalasi & Setup Database
+```bash
+# Clone repositori
+git clone https://github.com/kadalmeinside/ytevent.git
+cd ytevent
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+# Install dependensi backend & frontend
+composer install
+npm install
 
-## License
+# Buat file konfigurasi environment
+cp .env.example .env
+php artisan key:generate
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+# Konfigurasi database di file .env lalu jalankan migrasi & seeder
+php artisan migrate --seed
+
+# Buat symbolic link storage
+php artisan storage:link
+```
+
+### 3. Akun Bawaan Seeder
+- **Superadmin:** `superadmin@persijadevelopment.id` / `Password123!`
+- **Finance Officer:** `finance@persijadevelopment.id` / `Password123!`
+- **Screening Officer:** `screening@persijadevelopment.id` / `Password123!`
+
+### 4. Menjalankan Server & Build Asset
+```bash
+# Terminal 1: Web server Laravel
+php artisan serve
+
+# Terminal 2: Vite dev server (atau compile untuk produksi)
+npm run dev
+# atau untuk build produksi:
+npm run build
+```
+
+### 5. Menjalankan Automated Test Suite
+```bash
+# Menjalankan seluruh 31 Feature & Unit Tests (174 Assertions)
+php artisan test
+```
+
+---
+
+## 🎯 Rencana Fase 2 (Next Steps)
+
+1. **Panel Screening Admin (`/admin/screening`)**:
+   - Dashboard antrean verifikasi berkas pemain per turnamen dan per tim.
+   - *Split-View Document Reviewer* (mengecek kesesuaian data NIK & umur berdampingan dengan foto akta/KK asli).
+   - Validasi keabsahan dokumen per berkas dan tombol keputusan (*Loloskan* / *Tolak dengan Catatan*).
+   - Fitur *Unlock Player* darurat untuk Superadmin/Screening Officer.
+2. **Siklus Revisi Terarah (*Selective Re-submission*)**:
+   - Manajer tim hanya memperbaiki berkas dan data pemain yang berstatus `rejected`.
+3. **Akreditasi Tim & Pengesahan Skuad (`/manager/accreditation`)**:
+   - Validasi kelayakan skuad final (minimal pemain & minimal 2 GK sah).
+   - Penerbitan Kode QR pengesahan digital dan unduh PDF resmi *Team Roster Sheet* & *ID Card* pemain/ofisial untuk pemeriksaan wasit di lapangan.
+4. **Antrean Notifikasi Email (*Email Queue*)**:
+   - Pengiriman otomatis hasil verifikasi screening ke email manajer dan pemantauan antrean di `/admin/system/email-logs`.
+5. **Modul Jadwal & Hasil Pertandingan**:
+   - Bagan gugur, jadwal fase grup, dan klasemen liga otomatis.

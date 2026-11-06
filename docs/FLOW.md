@@ -47,6 +47,8 @@ Dokumen ini mendefinisikan alur kerja sistem dari hulu ke hilir, aturan perubaha
    - Setelah transaksi di-`commit`, sistem memasukkan pekerjaan pengiriman **Email Pendaftaran Berhasil** ke dalam antrean latar belakang (*Queue*).
    - Pengguna langsung masuk (auto-login) ke portal Manajer Tim dan diarahkan menuju halaman penyelesaian pembayaran.
    - Apabila hingga `expires_at` tagihan tetap `Unpaid`, tugas terjadwal (*Scheduler*) otomatis mengubah status tagihan & tim menjadi `Expired`, melepas slot kuota, dan membuka kembali status event (`Quota Full` -> `Open`) selama masa pendaftaran masih berjalan.
+6. **Sinkronisasi Kuota Real-time (*Resync Slot Engine*):**
+   - Panitia dapat memicu sinkronisasi ulang kuota (`/admin/events/resync-slots` atau `/admin/events/{event}/resync-slots`) sewaktu-waktu dari antarmuka Admin untuk memastikan status ketersediaan slot (`open` ↔ `quota_full`) selalu akurat 100% terhadap transaksi aktif di database.
 
 ---
 
@@ -61,30 +63,33 @@ Dokumen ini mendefinisikan alur kerja sistem dari hulu ke hilir, aturan perubaha
 ### 3.2 Jalur Manual (Transfer Bank & Verifikasi Finance)
 1. Manajer Tim melakukan transfer ke rekening resmi panitia, lalu mengunggah foto/PDF bukti transfer beserta detail rekening pengirim pada halaman pembayaran.
 2. Status tagihan berubah menjadi `Waiting Verification`.
-3. Staf dengan peran `finance` atau `superadmin` login melalui `/admin/login` dan membuka menu **Antrean Verifikasi Pembayaran Manual**.
-4. Staf memeriksa kecocokan mutasi rekening dengan bukti unggahan:
+3. Staf dengan peran `finance` atau `superadmin` login melalui `/admin/login` dan membuka menu **Antrean Verifikasi Pembayaran Manual** (dilengkapi Dual Empty State informatif).
+4. Staf memeriksa kecocokan mutasi rekening dengan bukti unggahan melalui modal `PaymentProofModal.vue`:
    - **Apabila Disetujui:** Status tagihan berubah menjadi `Paid`, status tim menjadi `Active`, akses input pemain dibuka, dan sistem mengirimkan **Email Konfirmasi Pembayaran Lunas** melalui Queue.
-   - **Apabila Ditolak:** Staf wajib menuliskan alasan penolakan. Status tagihan berubah menjadi `Rejected`, sistem mengirimkan **Email Penolakan Pembayaran** melalui Queue, dan Manajer Tim dapat mengunggah ulang bukti pembayaran yang benar.
+   - **Apabila Ditolak:** Staf wajib menuliskan alasan penolakan (min. 10 karakter). Status tagihan berubah menjadi `Rejected`, sistem mengirimkan **Email Penolakan Pembayaran** melalui Queue, dan Manajer Tim mendapatkan masa tenggang (*grace period*) untuk mengunggah ulang bukti pembayaran yang benar.
 
 ---
 
 ## 4. Alur End-to-End 3: Pengisian Daftar Pemain & Screening Berkas
 
-1. **Akses Khusus Manajer Tim:**
-   - Manajer Tim wajib login ke portal khusus manajer untuk membuka menu **Daftar Pemain & Berkas Screening**.
+1. **Akses Khusus Manajer Tim (Card List View Responsif):**
+   - Manajer Tim wajib login ke portal khusus manajer untuk membuka menu **Daftar Pemain & Berkas Screening** (`/manager/players`) yang disajikan dalam format Card List View responsif.
 2. **Penambahan Data & Berkas Pemain:**
-   - Manajer menginput biodata setiap pemain beserta unggahan foto dan dokumen pendukung (Akta Lahir, KK, KIA/Rapor).
-   - Sistem secara otomatis memvalidasi tanggal lahir pemain terhadap batas kelahiran maksimal event. Jika usia pemain melampaui batas kategori event, form langsung menolak penyimpanan dengan pesan kesalahan yang jelas di bawah kolom tanggal lahir.
-3. **Pengajuan Screening:**
-   - Setelah data dan dokumen pemain lengkap, Manajer Tim menekan tombol pengajuan sehingga status pemain berubah dari `Draft` menjadi `Submitted`.
-4. **Pemeriksaan oleh Admin (Screening Process):**
-   - Superadmin membuka menu **Verifikasi & Screening Pemain**, memilih event dan tim terkait, lalu memeriksa data pemain berdampingan dengan pratinjau dokumen asli di layar.
-   - **Keputusan Lolos (`Passed`):** Jika seluruh dokumen sah dan sesuai regulasi, admin menandai pemain sebagai **Lolos**. Data pemain tersebut langsung dikunci oleh sistem agar tidak dapat diubah lagi oleh manajer.
+   - Manajer menginput biodata setiap pemain beserta unggahan foto dan dokumen pendukung (Akta Lahir, KK, KIA/Rapor) melalui komponen universal `FileInput.vue`.
+   - Sistem secara otomatis memvalidasi tanggal lahir pemain terhadap batas kelahiran maksimal event (*Age Cut-Off Filter* otomatis) dan keunikan 16 digit NIK (*NIK Duplicate Lock*).
+   - Setiap berkas yang telah berhasil diunggah memiliki tombol **"Lihat Berkas"** langsung untuk mempratinjau dokumen scan secara aman dari rute privat media.
+3. **Pengajuan Screening & Penguncian Dokumen:**
+   - Setelah data dan dokumen pemain lengkap, Manajer Tim menekan tombol **Ajukan Screening** sehingga status pemain berubah dari `Draft` menjadi `Submitted`.
+   - Selama berstatus `Submitted`, form pengubahan berkas otomatis dikunci demi integritas verifikasi panitia.
+   - **Alur Tarik Pengajuan (*Recall to Draft*):** Jika manajer menyadari ada kesalahan data/berkas sebelum panitia memeriksa, manajer dapat menekan tombol **"Tarik Pengajuan"** (`/manager/players/{player}/recall`) untuk mengembalikan pemain ke status `Draft` agar dapat diedit kembali.
+4. **Pemeriksaan oleh Admin (Screening Process — Fase 2):**
+   - Petugas dengan peran `screening_officer` atau `superadmin` membuka menu **Verifikasi & Screening Pemain**, memilih event dan tim terkait, lalu memeriksa data pemain berdampingan dengan pratinjau dokumen asli di layar (*Split-View Reviewer*).
+   - **Keputusan Lolos (`Passed`):** Jika seluruh dokumen sah dan sesuai regulasi, admin menandai pemain sebagai **Lolos**. Status pemain menjadi `Passed` dan data otomatis dikunci permanen (`is_locked = true`).
    - **Keputusan Gagal (`Rejected`):** Jika ditemukan ketidaksesuaian atau dokumen buram, admin menandai pemain sebagai **Gagal** dan wajib mengisi kolom catatan alasan penolakan.
-5. **Notifikasi Email Hasil Screening:**
-   - Saat admin menyelesaikan pemeriksaan dan menekan tombol kirim hasil verifikasi, sistem memasukkan pengiriman **Email Hasil Screening Tim** ke dalam Queue.
+5. **Notifikasi Email Hasil Screening & Siklus Revisi Terarah:**
+   - Saat admin menyelesaikan pemeriksaan, sistem mencatat riwayat ke `screening_logs` dan memasukkan pengiriman **Email Hasil Screening Tim** ke dalam Queue.
    - Manajer Tim menerima rincian lengkap daftar pemain yang dinyatakan Lolos dan daftar pemain yang Gagal beserta alasan spesifiknya.
-   - Manajer Tim dapat login kembali untuk memperbaiki data atau mengunggah ulang dokumen hanya pada pemain yang berstatus `Rejected`, kemudian mengajukannya kembali untuk diperiksa ulang oleh admin.
+   - Manajer Tim login kembali untuk memperbaiki data atau mengunggah ulang dokumen **hanya pada pemain yang berstatus `Rejected`**, kemudian mengajukannya kembali untuk diperiksa ulang oleh admin (*Selective Re-submission*).
 
 ---
 
