@@ -74,7 +74,10 @@ trait ResolvesActiveTeam
                 'match_start_date' => $event->match_start_date?->format('d/m/Y'),
                 'min_players_per_team' => $event->min_players_per_team,
                 'max_players_per_team' => $event->max_players_per_team,
+                'min_gk_per_team' => (int) ($event->min_gk_per_team ?? 2),
                 'max_officials_per_team' => $event->max_officials_per_team,
+                'show_coach_license' => (bool) ($event->show_coach_license ?? true),
+                'require_coach_license' => (bool) (($event->show_coach_license ?? true) && ($event->require_coach_license ?? false)),
                 'lock_roster_until_paid' => $event->lock_roster_until_paid,
                 'registration_fee' => (float) $event->registration_fee,
                 'required_documents' => collect($event->required_documents ?? [])->map(fn (string $type) => [
@@ -90,9 +93,11 @@ trait ResolvesActiveTeam
         $event = $team->event;
         $minPlayers = (int) ($event?->min_players_per_team ?? 11);
         $maxPlayers = (int) ($event?->max_players_per_team ?? 25);
-        $minGk = 2;
+        $minGk = (int) ($event?->min_gk_per_team ?? 2);
         $minOfficials = 1;
         $maxOfficials = (int) ($event?->max_officials_per_team ?? 5);
+        $showCoachLicense = (bool) ($event?->show_coach_license ?? true);
+        $requireCoachLicense = $showCoachLicense && (bool) ($event?->require_coach_license ?? false);
         $requiredDocTypes = collect($event?->required_documents ?? []);
 
         $players = $team->players;
@@ -117,6 +122,10 @@ trait ResolvesActiveTeam
         $gkTotal = $players->where('position', 'GK')->count();
         $gkPassed = $players->where('position', 'GK')->where('screening_status', 'passed')->count();
         $officialsTotal = $team->officials->count();
+        $headCoach = $team->officials->firstWhere('role', 'Head Coach');
+        $hasCoachLicense = ! empty(trim((string) ($team->head_coach_license ?? '')))
+            || ! empty(trim((string) ($headCoach?->license_number ?? '')));
+        $isCoachLicenseMet = ! $requireCoachLicense || $hasCoachLicense;
 
         $paymentStatus = $team->latestPayment?->status ?? 'unpaid';
         $isPaid = in_array($team->status, ['active', 'locked_roster'], true) || $paymentStatus === 'paid';
@@ -124,7 +133,7 @@ trait ResolvesActiveTeam
 
         $isMinPlayersMet = $playersTotal >= $minPlayers;
         $isGkMet = $gkTotal >= $minGk;
-        $isOfficialsMet = $officialsTotal >= $minOfficials;
+        $isOfficialsMet = $officialsTotal >= $minOfficials && $isCoachLicenseMet;
         $isAllPlayersSubmittedOrPassed = $playersTotal >= $minPlayers && $playersDraft === 0 && $playersRejected === 0;
         $isAllPlayersPassed = $playersPassed >= $minPlayers
             && $playersPassed === $playersTotal
@@ -180,6 +189,8 @@ trait ResolvesActiveTeam
             $officialsBadge = ['text' => "0/{$minOfficials}", 'variant' => 'slate', 'needs_action' => false, 'count' => 0];
         } elseif ($officialsTotal < $minOfficials) {
             $officialsBadge = ['text' => 'WAJIB 1+', 'variant' => 'amber', 'needs_action' => true, 'count' => 1];
+        } elseif (! $isCoachLicenseMet) {
+            $officialsBadge = ['text' => 'LISENSI WAJIB', 'variant' => 'amber', 'needs_action' => true, 'count' => 1];
         } else {
             $officialsBadge = ['text' => "{$officialsTotal}/{$maxOfficials}", 'variant' => 'emerald', 'needs_action' => false, 'count' => $officialsTotal];
         }
@@ -252,9 +263,13 @@ trait ResolvesActiveTeam
                 'type' => 'officials_incomplete',
                 'variant' => 'amber',
                 'step_label' => 'TAHAP 3 DARI 5 — DATA PELATIH & OFISIAL TIM',
-                'title' => 'Syarat Pemain Terpenuhi! Sekarang Tambahkan Minimal 1 Pelatih / Ofisial',
-                'message' => 'Data pemain Anda sudah diajukan, namun setiap tim wajib mendaftarkan minimal 1 Pelatih atau Ofisial resmi sebelum skuad dapat dikunci untuk akreditasi.',
-                'cta_label' => 'Tambah Pelatih & Ofisial',
+                'title' => ! $isCoachLicenseMet
+                    ? 'Lengkapi Nomor Lisensi Pelatih Kepala (Wajib Sesuai Regulasi Event)'
+                    : 'Syarat Pemain Terpenuhi! Sekarang Tambahkan Minimal 1 Pelatih / Ofisial',
+                'message' => ! $isCoachLicenseMet
+                    ? 'Kompetisi ini mewajibkan pencantuman nomor lisensi Pelatih Kepala (Head Coach). Silakan lengkapi nomor lisensi pelatih di menu Pelatih & Ofisial sebelum mengunci skuad final.'
+                    : 'Data pemain Anda sudah diajukan, namun setiap tim wajib mendaftarkan minimal 1 Pelatih atau Ofisial resmi sebelum skuad dapat dikunci untuk akreditasi.',
+                'cta_label' => ! $isCoachLicenseMet ? 'Lengkapi Lisensi Pelatih' : 'Tambah Pelatih & Ofisial',
                 'cta_route' => 'manager.officials',
             ];
         } else {
@@ -277,6 +292,9 @@ trait ResolvesActiveTeam
             'is_min_players_met' => $isMinPlayersMet,
             'is_gk_met' => $isGkMet,
             'is_officials_met' => $isOfficialsMet,
+            'is_coach_license_met' => $isCoachLicenseMet,
+            'show_coach_license' => $showCoachLicense,
+            'require_coach_license' => $requireCoachLicense,
             'is_all_players_submitted_or_passed' => $isAllPlayersSubmittedOrPassed,
             'is_all_players_passed' => $isAllPlayersPassed,
             'is_gk_passed_met' => $isGkPassedMet,

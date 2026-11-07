@@ -282,7 +282,7 @@ const docChipClass = (doc) => {
                         >
                             <div>
                                 <span class="text-[10px] font-extrabold uppercase block opacity-75">Tahap 2</span>
-                                <span class="font-bold">Kuota &amp; Min 2 GK</span>
+                                <span class="font-bold">Kuota &amp; Min {{ team.workflow.counts.min_gk_required || 2 }} GK</span>
                             </div>
                             <span class="px-2 py-0.5 rounded text-[10px] font-extrabold tabular-data" :class="team.workflow.is_min_players_met && team.workflow.is_gk_met ? 'bg-emerald-200/70 text-emerald-900' : 'bg-amber-200/70 text-amber-900'">
                                 {{ team.workflow.counts.players_total }}/{{ team.workflow.counts.min_players_required }} ({{ team.workflow.counts.gk_total }} GK)
@@ -711,3 +711,4 @@ const docChipClass = (doc) => {
         />
     </AdminLayout>
 </template>
+

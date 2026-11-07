@@ -101,6 +101,12 @@ class DashboardController extends Controller
 
         $team->update($updates);
 
+        // Sinkronkan juga data Head Coach di tabel team_officials jika ada
+        $team->officials()->where('role', 'Head Coach')->update([
+            'full_name' => $updates['head_coach_name'],
+            'license_number' => $updates['head_coach_license'],
+        ]);
+
         return redirect()->back()->with('success', 'Profil tim dan kontak penanggung jawab berhasil diperbarui.');
     }
 }

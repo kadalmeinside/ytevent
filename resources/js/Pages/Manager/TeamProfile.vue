@@ -57,6 +57,13 @@ const submit = () => {
             errs.manager_whatsapp = 'Masukkan nomor WhatsApp Indonesia yang valid (contoh: 081234567890).';
         }
         if (isEmpty(form.head_coach_name)) errs.head_coach_name = 'Nama pelatih kepala wajib diisi.';
+        if (props.team?.event?.show_coach_license !== false && props.team?.event?.require_coach_license) {
+            if (isEmpty(form.head_coach_license)) {
+                errs.head_coach_license = 'Nomor atau jenis lisensi pelatih kepala wajib diisi sesuai regulasi kompetisi ini.';
+            } else if (form.head_coach_license.trim().length < 2) {
+                errs.head_coach_license = 'Nomor atau jenis lisensi pelatih kepala minimal 2 karakter.';
+            }
+        }
         if (form.logo) {
             const c = checkFile(form.logo, ['image/png', 'image/jpeg'], 2 * 1024 * 1024);
             if (!c.valid) {
@@ -155,17 +162,24 @@ const submit = () => {
                             <InputError :message="form.errors.head_coach_name" />
                         </div>
 
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">Nomor / Jenis Lisensi Pelatih</label>
+                        <div v-if="team.event?.show_coach_license !== false" data-field="head_coach_license">
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">
+                                Nomor / Jenis Lisensi Pelatih
+                                <span v-if="team.event?.require_coach_license" class="text-rose-500 font-bold">* (Wajib)</span>
+                                <span v-else class="text-slate-400 font-normal">(Opsional)</span>
+                            </label>
                             <input
                                 v-model="form.head_coach_license"
                                 type="text"
                                 placeholder="Contoh: AFC C / PSSI D"
                                 class="input-field"
+                                :class="{ 'input-field-error': form.errors.head_coach_license }"
+                                @input="form.clearErrors('head_coach_license')"
                             />
+                            <InputError :message="form.errors.head_coach_license" />
                         </div>
 
-                        <div>
+                        <div :class="team.event?.show_coach_license === false ? 'sm:col-span-2' : ''">
                             <label class="block text-xs font-semibold text-slate-700 mb-1">Alamat Sekretariat</label>
                             <input
                                 v-model="form.secretariat_address"

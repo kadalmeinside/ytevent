@@ -126,6 +126,14 @@ const submit = () => {
             errs.head_coach_name = 'Nama pelatih kepala wajib diisi.';
         }
 
+        if (props.event?.show_coach_license !== false && props.event?.require_coach_license) {
+            if (isEmpty(form.head_coach_license)) {
+                errs.head_coach_license = 'Nomor atau jenis lisensi pelatih kepala wajib diisi sesuai regulasi kompetisi ini.';
+            } else if (form.head_coach_license.trim().length < 2) {
+                errs.head_coach_license = 'Nomor atau jenis lisensi pelatih kepala minimal 2 karakter.';
+            }
+        }
+
         if (!form.terms_accepted) {
             errs.terms_accepted = 'Anda wajib menyetujui syarat, ketentuan, dan regulasi kompetisi untuk melanjutkan pendaftaran.';
         }
@@ -308,7 +316,7 @@ const submit = () => {
                                 <InputError :message="form.errors.manager_whatsapp" />
                             </div>
 
-                            <div data-field="head_coach_name">
+                            <div :class="event.show_coach_license === false ? 'sm:col-span-2' : ''" data-field="head_coach_name">
                                 <label for="head_coach_name" class="block text-xs font-semibold text-slate-700 mb-1">
                                     Nama Pelatih Kepala (Head Coach)
                                 </label>
@@ -324,9 +332,11 @@ const submit = () => {
                                 <InputError :message="form.errors.head_coach_name" />
                             </div>
 
-                            <div>
+                            <div v-if="event.show_coach_license !== false" data-field="head_coach_license">
                                 <label for="head_coach_license" class="block text-xs font-semibold text-slate-700 mb-1">
-                                    Lisensi Kepelatihan (Opsional di tahap awal)
+                                    Lisensi Kepelatihan
+                                    <span v-if="event.require_coach_license" class="text-rose-500 font-bold">* (Wajib)</span>
+                                    <span v-else class="text-slate-400 font-normal">(Opsional di tahap awal)</span>
                                 </label>
                                 <input
                                     id="head_coach_license"
@@ -334,7 +344,10 @@ const submit = () => {
                                     type="text"
                                     placeholder="Contoh: Lisensi D PSSI / AFC C"
                                     class="input-field"
+                                    :class="{ 'input-field-error': form.errors.head_coach_license }"
+                                    @input="form.clearErrors('head_coach_license')"
                                 />
+                                <InputError :message="form.errors.head_coach_license" />
                             </div>
                         </div>
                     </div>

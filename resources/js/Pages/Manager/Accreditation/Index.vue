@@ -132,11 +132,11 @@ const closeQrModal = () => {
                     </div>
                     <div class="my-2">
                         <div class="text-2xl font-black text-slate-900 tabular-nums">
-                            {{ readiness.gk_passed_count }} <span class="text-xs font-normal text-slate-500">/ min 2 GK</span>
+                            {{ readiness.gk_passed_count }} <span class="text-xs font-normal text-slate-500">/ min {{ readiness.min_gk_required || 2 }} GK</span>
                         </div>
                     </div>
                     <div class="text-[11px]" :class="readiness.is_gk_met ? 'text-emerald-700 font-semibold' : 'text-slate-500'">
-                        {{ readiness.is_gk_met ? 'Syarat 2 kiper sah terpenuhi' : `Kurang ${Math.max(0, 2 - readiness.gk_passed_count)} kiper sah` }}
+                        {{ readiness.is_gk_met ? `Syarat ${readiness.min_gk_required || 2} kiper sah terpenuhi` : `Kurang ${Math.max(0, (readiness.min_gk_required || 2) - readiness.gk_passed_count)} kiper sah` }}
                     </div>
                 </div>
 
@@ -159,7 +159,13 @@ const closeQrModal = () => {
                         </div>
                     </div>
                     <div class="text-[11px]" :class="readiness.is_officials_met ? 'text-emerald-700 font-semibold' : 'text-slate-500'">
-                        {{ readiness.is_officials_met ? 'Ofisial tim telah terdaftar' : 'Belum mendaftarkan ofisial' }}
+                        {{
+                            readiness.is_officials_met
+                                ? 'Ofisial & syarat lisensi terpenuhi'
+                                : readiness.officials_count < 1
+                                  ? 'Belum mendaftarkan ofisial'
+                                  : 'Lisensi Pelatih Kepala wajib diisi'
+                        }}
                     </div>
                 </div>
 

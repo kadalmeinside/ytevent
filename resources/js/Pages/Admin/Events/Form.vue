@@ -44,7 +44,10 @@ const form = useForm({
     max_birth_date: props.event?.max_birth_date || '',
     min_players_per_team: props.event?.min_players_per_team ?? 14,
     max_players_per_team: props.event?.max_players_per_team ?? 25,
+    min_gk_per_team: props.event?.min_gk_per_team ?? 2,
     max_officials_per_team: props.event?.max_officials_per_team ?? 5,
+    show_coach_license: props.event?.show_coach_license ?? true,
+    require_coach_license: props.event?.require_coach_license ?? false,
     required_documents: props.event?.required_documents || ['birth_certificate', 'family_card', 'student_card_kia'],
     max_teams: props.event?.max_teams ?? 32,
     registration_fee: props.event?.registration_fee ?? 0,
@@ -345,6 +348,97 @@ const submit = () => {
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Maks. Ofisial per Tim</label>
                                 <input v-model="form.max_officials_per_team" type="number" min="1" class="input-field tabular-data" />
+                            </div>
+
+                            <!-- Pengaturan Syarat Minimal Penjaga Gawang (GK) & Lisensi Pelatih -->
+                            <div class="sm:col-span-3 p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-4">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                                    <div data-field="min_gk_per_team">
+                                        <label class="block text-xs font-bold text-slate-800 mb-1.5">
+                                            Syarat Minimal Penjaga Gawang (GK) per Tim
+                                        </label>
+                                        <div class="grid grid-cols-2 gap-2.5 text-xs">
+                                            <label
+                                                class="flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors"
+                                                :class="Number(form.min_gk_per_team) === 1 ? 'border-orange-500 bg-orange-50 text-orange-950 font-bold' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'"
+                                            >
+                                                <input
+                                                    v-model="form.min_gk_per_team"
+                                                    type="radio"
+                                                    :value="1"
+                                                    class="text-orange-600 focus:ring-orange-500"
+                                                />
+                                                <span>Minimal 1 GK</span>
+                                            </label>
+                                            <label
+                                                class="flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors"
+                                                :class="Number(form.min_gk_per_team) === 2 ? 'border-orange-500 bg-orange-50 text-orange-950 font-bold' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'"
+                                            >
+                                                <input
+                                                    v-model="form.min_gk_per_team"
+                                                    type="radio"
+                                                    :value="2"
+                                                    class="text-orange-600 focus:ring-orange-500"
+                                                />
+                                                <span>Minimal 2 GK</span>
+                                            </label>
+                                        </div>
+                                        <p class="text-[11px] text-slate-500 mt-1">
+                                            Menentukan jumlah minimal kiper yang wajib lolos screening agar tim dapat mengunci skuad final.
+                                        </p>
+                                        <InputError :message="form.errors.min_gk_per_team" />
+                                    </div>
+
+                                    <div class="space-y-3">
+                                        <label class="block text-xs font-bold text-slate-800">
+                                            Pengaturan Input Lisensi Pelatih Kepala (Head Coach)
+                                        </label>
+                                        <label class="flex items-start gap-2.5 cursor-pointer text-xs font-medium text-slate-700 p-2.5 rounded-lg border border-slate-200 bg-white">
+                                            <input
+                                                v-model="form.show_coach_license"
+                                                type="checkbox"
+                                                class="mt-0.5 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                                                @change="!form.show_coach_license && (form.require_coach_license = false)"
+                                            />
+                                            <div>
+                                                <span class="font-bold text-slate-900 block">Munculkan Kolom Lisensi Pelatih pada Pendaftaran &amp; Portal Tim</span>
+                                                <span class="text-[11px] text-slate-500 block mt-0.5">
+                                                    Jika tidak dicentang, kolom lisensi kepelatihan akan disembunyikan pada form pendaftaran tim dan ofisial.
+                                                </span>
+                                            </div>
+                                        </label>
+
+                                        <div v-if="form.show_coach_license" class="pl-3 border-l-2 border-orange-300 space-y-1.5">
+                                            <span class="block text-[11px] font-bold text-slate-700">Status Kewajiban Pengisian Lisensi Pelatih:</span>
+                                            <div class="grid grid-cols-2 gap-2 text-xs">
+                                                <label
+                                                    class="flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors"
+                                                    :class="!form.require_coach_license ? 'border-orange-500 bg-orange-50 text-orange-950 font-bold' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'"
+                                                >
+                                                    <input
+                                                        v-model="form.require_coach_license"
+                                                        type="radio"
+                                                        :value="false"
+                                                        class="text-orange-600 focus:ring-orange-500"
+                                                    />
+                                                    <span>Opsional</span>
+                                                </label>
+                                                <label
+                                                    class="flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors"
+                                                    :class="form.require_coach_license ? 'border-orange-500 bg-orange-50 text-orange-950 font-bold' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'"
+                                                >
+                                                    <input
+                                                        v-model="form.require_coach_license"
+                                                        type="radio"
+                                                        :value="true"
+                                                        class="text-orange-600 focus:ring-orange-500"
+                                                    />
+                                                    <span>Wajib Diisi</span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Checkbox Dokumen Wajib -->

@@ -238,13 +238,18 @@ Legenda Status:
 - [x] **3.3.4** **Halaman Dossier 360° Detail Tim untuk Panitia (`Admin/Teams/Show.vue` & `TeamManagementController::show`)**:
   - Menambahkan halaman khusus `/admin/teams/{team}` (`admin.teams.show`) yang menampilkan profil 360° tim bagi Admin: Stepper 5 Tahap Kesiapan Tim, Tab Daftar Pemain & Berkas (dengan filter status, pencarian, dan pratinjau langsung dokumen/pas foto via `DocumentViewerModal`), Tab Pelatih & Ofisial (beserta pratinjau berkas lisensi), serta Tab Profil Klub & Riwayat Tagihan.
   - Memperkaya kartu tim pada `Admin/Teams/Index.vue` dengan filter `screening_status`, rincian jumlah pemain (`Sah`, `Antrean`, `Revisi`, `Ofisial`), serta tombol aksi langsung **Detail Tim & Skuad** dan **Screening**.
+- [x] **3.3.5** **Pengaturan Dinamis Syarat Minimal Kiper (`1 GK` / `2 GK`) & Visibilitas/Kewajiban Lisensi Pelatih per Event**:
+  - Menambahkan kolom `min_gk_per_team` (`1` atau `2`), `show_coach_license` (`boolean`), dan `require_coach_license` (`boolean`) pada tabel `events` serta form pembuatan/edit event (`Admin/Events/Form.vue`).
+  - Menyinkronkan aturan visibilitas dan validasi wajib/opsional Lisensi Pelatih Kepala pada form pendaftaran publik (`Public/RegisterTeam.vue` & `RegisterTeamRequest.php`), profil tim manajer (`Manager/TeamProfile.vue` & `UpdateTeamProfileRequest.php`), serta form ofisial (`Manager/Officials.vue` & `StoreOfficialRequest.php`).
+  - Menyinkronkan perhitungan kelayakan akreditasi (`AccreditationService::checkReadiness`) dan *workflow state machine* (`ResolvesActiveTeam::buildTeamWorkflow`) terhadap `min_gk_per_team` (`1` atau `2` GK) dan kewajiban lisensi pelatih.
 
 ### 3.4 Automated Testing & Verifikasi Fase 3
 - [x] **3.4.1** Penulisan Feature Tests Fase 3 (`WorkflowAndNotificationBadgeTest.php`):
   - Pengujian akurasi counter `adminNotifications` untuk panitia.
   - Pengujian transisi `team.workflow` dari Tahap 1 hingga Tahap 5 (`is_ready_to_lock` -> peringatan akreditasi, dan `locked_roster` -> terakreditasi resmi).
   - Pengujian visibilitas daftar pemain *read-only* pada `Manager/Players` saat tim berstatus `locked_roster`.
-- [x] **3.4.2** Eksekusi penuh `php artisan test` dan `npm run build` dengan hasil 100% lulus tanpa regresi.
+  - Pengujian skenario event dengan konfigurasi `min_gk_per_team = 1` dan `require_coach_license = true` dari validasi form hingga kunci skuad final.
+- [x] **3.4.2** Eksekusi penuh `php artisan test` (**62 tests / 535 assertions PASS**) dan `npm run build` dengan hasil 100% lulus tanpa regresi.
 
 ---
 

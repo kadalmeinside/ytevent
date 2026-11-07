@@ -294,9 +294,9 @@ const calculatePercent = (current, total) => {
                                     }}
                                 </span>
                             </div>
-                            <h3 class="font-bold text-xs sm:text-sm text-slate-900">Skuad &amp; Min. 2 Kiper (GK)</h3>
+                            <h3 class="font-bold text-xs sm:text-sm text-slate-900">Skuad &amp; Min. {{ team.workflow?.counts?.min_gk_required || 2 }} Kiper (GK)</h3>
                             <p class="text-xs text-slate-600 leading-relaxed">
-                                Wajib min. {{ team.workflow?.counts?.min_players_required || 11 }} pemain, min. 2 GK (saat ini {{ team.workflow?.counts?.gk_total || 0 }} GK), dan diajukan ke panitia.
+                                Wajib min. {{ team.workflow?.counts?.min_players_required || 11 }} pemain, min. {{ team.workflow?.counts?.min_gk_required || 2 }} GK (saat ini {{ team.workflow?.counts?.gk_total || 0 }} GK), dan diajukan ke panitia.
                             </p>
                         </div>
                         <div class="pt-2 border-t border-slate-200/70">

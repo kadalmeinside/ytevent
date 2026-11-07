@@ -158,13 +158,16 @@ const formattedDescription = computed(() => {
                                         <div class="p-3 rounded-lg bg-slate-50 border border-slate-200">
                                             <span class="text-slate-500 block">Kuota Skuad Pemain per Tim</span>
                                             <strong class="text-slate-900 tabular-data mt-0.5 block">
-                                                Minimal {{ event.min_players_per_team }} &ndash; Maksimal {{ event.max_players_per_team }} Pemain
+                                                Minimal {{ event.min_players_per_team }} &ndash; Maksimal {{ event.max_players_per_team }} Pemain (Min. {{ event.min_gk_per_team || 2 }} GK)
                                             </strong>
                                         </div>
                                         <div class="p-3 rounded-lg bg-slate-50 border border-slate-200">
                                             <span class="text-slate-500 block">Kuota Ofisial &amp; Pelatih</span>
                                             <strong class="text-slate-900 tabular-data mt-0.5 block">
                                                 Maksimal {{ event.max_officials_per_team }} Ofisial
+                                                <span v-if="event.show_coach_license !== false">
+                                                    ({{ event.require_coach_license ? 'Lisensi Pelatih Wajib' : 'Lisensi Pelatih Opsional' }})
+                                                </span>
                                             </strong>
                                         </div>
                                         <div class="p-3 rounded-lg bg-slate-50 border border-slate-200">

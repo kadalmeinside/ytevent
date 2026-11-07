@@ -198,7 +198,10 @@ class PublicEventController extends Controller
         if ($detailed) {
             $data['min_players_per_team'] = $event->min_players_per_team;
             $data['max_players_per_team'] = $event->max_players_per_team;
+            $data['min_gk_per_team'] = (int) ($event->min_gk_per_team ?? 2);
             $data['max_officials_per_team'] = $event->max_officials_per_team;
+            $data['show_coach_license'] = (bool) ($event->show_coach_license ?? true);
+            $data['require_coach_license'] = (bool) (($event->show_coach_license ?? true) && ($event->require_coach_license ?? false));
             $data['lock_roster_until_paid'] = $event->lock_roster_until_paid;
             $data['contact_person'] = $event->contact_person;
             $data['contact_whatsapp'] = $event->contact_whatsapp;

@@ -24,8 +24,11 @@ class AccreditationService
         $team->loadMissing(['event', 'players', 'officials']);
         $event = $team->event;
 
-        $minPlayers = $event->min_players_per_team ?? 14;
-        $maxPlayers = $event->max_players_per_team ?? 18;
+        $minPlayers = (int) ($event?->min_players_per_team ?? 14);
+        $maxPlayers = (int) ($event?->max_players_per_team ?? 18);
+        $minGk = (int) ($event?->min_gk_per_team ?? 2);
+        $showCoachLicense = (bool) ($event?->show_coach_license ?? true);
+        $requireCoachLicense = $showCoachLicense && (bool) ($event?->require_coach_license ?? false);
 
         $passedPlayers = $team->players->where('screening_status', 'passed');
         $passedPlayersCount = $passedPlayers->count();
@@ -34,6 +37,10 @@ class AccreditationService
         $submittedCount = $team->players->where('screening_status', 'submitted')->count();
         $rejectedCount = $team->players->where('screening_status', 'rejected')->count();
         $officialsCount = $team->officials->count();
+        $headCoach = $team->officials->firstWhere('role', 'Head Coach');
+        $hasCoachLicense = ! empty(trim((string) ($team->head_coach_license ?? '')))
+            || ! empty(trim((string) ($headCoach?->license_number ?? '')));
+        $isCoachLicenseMet = ! $requireCoachLicense || $hasCoachLicense;
 
         $isPaid = in_array($team->status, ['active', 'locked_roster'], true);
         $isLocked = $team->isRosterLocked();
@@ -52,12 +59,16 @@ class AccreditationService
             $blockingReasons[] = "Jumlah pemain yang sah ({$passedPlayersCount}) belum memenuhi kuota minimal ({$minPlayers} pemain).";
         }
 
-        if ($gkPassedCount < 2) {
-            $blockingReasons[] = "Wajib memiliki minimal 2 Penjaga Gawang (GK) yang lolos verifikasi (saat ini: {$gkPassedCount} GK sah).";
+        if ($gkPassedCount < $minGk) {
+            $blockingReasons[] = "Wajib memiliki minimal {$minGk} Penjaga Gawang (GK) yang lolos verifikasi (saat ini: {$gkPassedCount} GK sah).";
         }
 
         if ($officialsCount < 1) {
             $blockingReasons[] = 'Minimal 1 pelatih kepala / ofisial tim wajib terdaftar.';
+        }
+
+        if (! $isCoachLicenseMet) {
+            $blockingReasons[] = 'Nomor lisensi Pelatih Kepala (Head Coach) wajib dilengkapi sesuai regulasi kompetisi ini.';
         }
 
         $canLock = empty($blockingReasons) && ! $isLocked;
@@ -71,10 +82,13 @@ class AccreditationService
             'max_players_allowed' => $maxPlayers,
             'is_min_players_met' => $passedPlayersCount >= $minPlayers,
             'gk_passed_count' => $gkPassedCount,
-            'min_gk_required' => 2,
-            'is_gk_met' => $gkPassedCount >= 2,
+            'min_gk_required' => $minGk,
+            'is_gk_met' => $gkPassedCount >= $minGk,
             'officials_count' => $officialsCount,
-            'is_officials_met' => $officialsCount >= 1,
+            'is_officials_met' => $officialsCount >= 1 && $isCoachLicenseMet,
+            'show_coach_license' => $showCoachLicense,
+            'require_coach_license' => $requireCoachLicense,
+            'is_coach_license_met' => $isCoachLicenseMet,
             'submitted_players_count' => $submittedCount,
             'rejected_players_count' => $rejectedCount,
             'has_in_review_players' => $submittedCount > 0,

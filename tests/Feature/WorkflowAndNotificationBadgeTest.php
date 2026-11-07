@@ -313,4 +313,90 @@ class WorkflowAndNotificationBadgeTest extends TestCase
                 ->has('officials', 1)
             );
     }
+
+    public function test_event_with_min_1_gk_and_required_coach_license_enforces_rules_correctly(): void
+    {
+        $env = $this->createEnvironment(2);
+        /** @var Event $event */
+        $event = $env['event'];
+        /** @var Team $team */
+        $team = $env['team'];
+        $manager = $env['manager'];
+
+        // Configure event: min 1 GK, show_coach_license = true, require_coach_license = true
+        $event->update([
+            'min_gk_per_team' => 1,
+            'show_coach_license' => true,
+            'require_coach_license' => true,
+        ]);
+
+        // Clear head_coach_license on team to test mandatory coach license enforcement
+        $team->update([
+            'status' => 'active',
+            'head_coach_license' => null,
+        ]);
+
+        // Add 2 passed players with only 1 GK (which meets min_gk_per_team = 1)
+        $this->seedPlayer($team, 1, 'GK', 'passed');
+        $this->seedPlayer($team, 9, 'FW', 'passed');
+
+        // Add Head Coach without license_number
+        $coach = TeamOfficial::create([
+            'team_id' => $team->id,
+            'event_id' => $team->event_id,
+            'full_name' => 'Coach Tanpa Lisensi',
+            'role' => 'Head Coach',
+            'license_number' => null,
+            'phone' => '081299990000',
+        ]);
+
+        // Because require_coach_license is true and license is empty, team is at Step 3 (LISENSI WAJIB) and NOT ready to lock
+        $this->actingAs($manager)
+            ->get(route('manager.dashboard'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('team.workflow.counts.min_gk_required', 1)
+                ->where('team.workflow.is_gk_met', true)
+                ->where('team.workflow.is_gk_passed_met', true)
+                ->where('team.workflow.is_coach_license_met', false)
+                ->where('team.workflow.is_ready_to_lock', false)
+                ->where('team.workflow.badges.officials.text', 'LISENSI WAJIB')
+            );
+
+        // Attempting to update Head Coach without license_number fails validation
+        $this->actingAs($manager)
+            ->post(route('manager.officials.update', ['team' => $team->id, 'official' => $coach->id]), [
+                'full_name' => 'Coach Tanpa Lisensi',
+                'role' => 'Head Coach',
+                'license_number' => '',
+                'phone' => '081299990000',
+            ])
+            ->assertSessionHasErrors(['license_number']);
+
+        // Updating Head Coach WITH license_number succeeds and makes team ready to lock with just 1 GK!
+        $this->actingAs($manager)
+            ->post(route('manager.officials.update', ['team' => $team->id, 'official' => $coach->id]), [
+                'full_name' => 'Coach Berlisensi Resmi',
+                'role' => 'Head Coach',
+                'license_number' => 'AFC-C-2026',
+                'phone' => '081299990000',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($manager)
+            ->get(route('manager.dashboard'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('team.workflow.is_coach_license_met', true)
+                ->where('team.workflow.is_ready_to_lock', true)
+                ->where('team.workflow.badges.accreditation.text', 'SIAP KUNCI')
+            );
+
+        // Locking roster with 1 GK succeeds
+        $this->actingAs($manager)
+            ->post(route('manager.teams.lock-roster', ['team' => $team->id]))
+            ->assertSessionHasNoErrors();
+
+        $this->assertEquals('locked_roster', $team->fresh()->status);
+    }
 }

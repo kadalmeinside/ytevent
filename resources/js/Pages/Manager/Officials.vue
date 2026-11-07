@@ -89,6 +89,17 @@ const submitOfficial = () => {
         const errs = {};
         if (isEmpty(form.full_name)) errs.full_name = 'Nama lengkap pelatih atau ofisial wajib diisi.';
         if (isEmpty(form.role)) errs.role = 'Jabatan ofisial wajib dipilih.';
+        if (
+            props.team?.event?.show_coach_license !== false &&
+            props.team?.event?.require_coach_license &&
+            form.role === 'Head Coach'
+        ) {
+            if (isEmpty(form.license_number)) {
+                errs.license_number = 'Nomor lisensi kepelatihan untuk Pelatih Kepala (Head Coach) wajib diisi sesuai regulasi kompetisi ini.';
+            } else if (form.license_number.trim().length < 2) {
+                errs.license_number = 'Nomor lisensi kepelatihan minimal 2 karakter.';
+            }
+        }
         if (!isEmpty(form.phone) && !isValidIndonesianPhone(form.phone)) {
             errs.phone = 'Masukkan nomor WhatsApp Indonesia yang valid (contoh: 081234567890).';
         }
@@ -234,11 +245,14 @@ const executeDelete = () => {
                         <!-- Card Body Grid -->
                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 text-xs items-center">
                             <!-- Lisensi (Col 1-6) -->
-                            <div class="lg:col-span-6 space-y-0.5">
+                            <div v-if="team.event?.show_coach_license !== false" class="lg:col-span-6 space-y-0.5">
                                 <span class="text-[10px] uppercase font-bold text-slate-400 block">Nomor &amp; Berkas Lisensi</span>
-                                <div class="flex items-center gap-2">
-                                    <span class="font-mono text-xs font-semibold text-slate-800">
-                                        {{ item.license_number || 'Tidak ada nomor lisensi' }}
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span
+                                        class="font-mono text-xs font-semibold"
+                                        :class="!item.license_number && item.role === 'Head Coach' && team.event?.require_coach_license ? 'text-amber-700' : 'text-slate-800'"
+                                    >
+                                        {{ item.license_number || (item.role === 'Head Coach' && team.event?.require_coach_license ? 'Lisensi Wajib Belum Diisi' : 'Tidak ada nomor lisensi') }}
                                     </span>
                                     <a
                                         v-if="item.license_url"
@@ -252,7 +266,7 @@ const executeDelete = () => {
                             </div>
 
                             <!-- Phone (Col 7-12) -->
-                            <div class="lg:col-span-6 space-y-0.5 sm:text-right">
+                            <div :class="team.event?.show_coach_license !== false ? 'lg:col-span-6 sm:text-right' : 'lg:col-span-12'" class="space-y-0.5">
                                 <span class="text-[10px] uppercase font-bold text-slate-400 block">Kontak Telepon / WhatsApp</span>
                                 <span class="text-xs font-mono tabular-data font-semibold text-slate-800">
                                     {{ item.phone || '-' }}
@@ -304,9 +318,21 @@ const executeDelete = () => {
                             </select>
                         </div>
 
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">Nomor Lisensi (Jika Ada)</label>
-                            <input v-model="form.license_number" type="text" class="input-field" />
+                        <div v-if="team.event?.show_coach_license !== false" data-field="license_number">
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">
+                                Nomor Lisensi Kepelatihan
+                                <span v-if="form.role === 'Head Coach' && team.event?.require_coach_license" class="text-rose-500 font-bold">* (Wajib)</span>
+                                <span v-else class="text-slate-400 font-normal">(Jika Ada)</span>
+                            </label>
+                            <input
+                                v-model="form.license_number"
+                                type="text"
+                                placeholder="Contoh: Lisensi D PSSI / AFC C"
+                                class="input-field"
+                                :class="{ 'input-field-error': form.errors.license_number }"
+                                @input="form.clearErrors('license_number')"
+                            />
+                            <InputError :message="form.errors.license_number" />
                         </div>
 
                         <div data-field="phone">
@@ -328,7 +354,7 @@ const executeDelete = () => {
                             />
                         </div>
 
-                        <div data-field="license_file">
+                        <div v-if="team.event?.show_coach_license !== false" data-field="license_file">
                             <label class="block text-xs font-bold text-slate-800 mb-1.5">Sertifikat Lisensi Kepelatihan (Maks. 2 MB)</label>
                             <FileInput
                                 v-model="form.license_file"

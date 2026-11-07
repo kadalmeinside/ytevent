@@ -390,7 +390,7 @@ const isFinalRosterLocked = computed(() => {
                             class="p-2.5 rounded-xl border flex items-center justify-between text-xs"
                             :class="team.workflow.is_gk_met ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900' : 'bg-amber-50/70 border-amber-200 text-amber-900'"
                         >
-                            <span class="font-semibold">2. Min. 2 Kiper (GK)</span>
+                            <span class="font-semibold">2. Min. {{ team.workflow.counts.min_gk_required || 2 }} Kiper (GK)</span>
                             <span class="font-extrabold tabular-data px-1.5 py-0.5 rounded text-[11px]" :class="team.workflow.is_gk_met ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'">
                                 {{ team.workflow.counts.gk_total }}/{{ team.workflow.counts.min_gk_required }} GK
                             </span>

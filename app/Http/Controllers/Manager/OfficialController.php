@@ -88,6 +88,13 @@ class OfficialController extends Controller
             'screening_status' => 'draft',
         ]);
 
+        if ($validated['role'] === 'Head Coach') {
+            $team->update([
+                'head_coach_name' => trim($validated['full_name']),
+                'head_coach_license' => isset($validated['license_number']) ? trim($validated['license_number']) : null,
+            ]);
+        }
+
         return redirect()->back()->with('success', 'Data pelatih/ofisial tim berhasil ditambahkan.');
     }
 
@@ -125,6 +132,13 @@ class OfficialController extends Controller
         }
 
         $official->update($updates);
+
+        if ($validated['role'] === 'Head Coach') {
+            $team->update([
+                'head_coach_name' => $updates['full_name'],
+                'head_coach_license' => $updates['license_number'],
+            ]);
+        }
 
         return redirect()->back()->with('success', 'Data pelatih/ofisial berhasil diperbarui.');
     }
