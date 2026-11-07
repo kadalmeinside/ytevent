@@ -159,24 +159,55 @@ const resetFilters = () => {
                     </span>.
                 </div>
 
-                <button
-                    type="button"
-                    class="btn-secondary text-xs inline-flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
-                    :disabled="isSyncing"
-                    title="Pindai dan lepas pendaftaran tim yang telah melewati batas waktu pembayaran"
-                    @click="triggerResync"
-                >
-                    <svg
-                        class="w-4 h-4 text-orange-600 shrink-0"
-                        :class="{ 'animate-spin': isSyncing }"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
+                <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                    <a
+                        :href="route('admin.teams.export', {
+                            event_id: filterState.event_id || undefined,
+                            status: filterState.status || undefined,
+                            screening_status: filterState.screening_status || undefined,
+                            search: filterState.search || undefined,
+                        })"
+                        class="btn-secondary text-xs inline-flex items-center gap-1.5"
                     >
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    <span>{{ isSyncing ? 'Menyinkronkan Slot...' : (filterState.event_id ? 'Cek & Resync Slot Event Ini' : 'Cek & Resync Semua Slot') }}</span>
-                </button>
+                        <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span>Ekspor Rekap Tim (CSV)</span>
+                    </a>
+
+                    <a
+                        :href="route('admin.teams.export-players', {
+                            event_id: filterState.event_id || undefined,
+                            status: filterState.status || undefined,
+                            screening_status: filterState.screening_status || undefined,
+                        })"
+                        class="btn-secondary text-xs inline-flex items-center gap-1.5"
+                    >
+                        <svg class="w-4 h-4 text-orange-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span>Ekspor Database Pemain (CSV)</span>
+                    </a>
+
+                    <button
+                        type="button"
+                        class="btn-secondary text-xs inline-flex items-center gap-1.5 cursor-pointer"
+                        :disabled="isSyncing"
+                        title="Pindai dan lepas pendaftaran tim yang telah melewati batas waktu pembayaran"
+                        @click="triggerResync"
+                    >
+                        <svg
+                            class="w-4 h-4 text-orange-600 shrink-0"
+                            :class="{ 'animate-spin': isSyncing }"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        <span>{{ isSyncing ? 'Menyinkronkan Slot...' : (filterState.event_id ? 'Cek & Resync Slot Event Ini' : 'Cek & Resync Semua Slot') }}</span>
+                    </button>
+                </div>
             </div>
 
             <!-- Teams Container (Responsive Card List View) -->

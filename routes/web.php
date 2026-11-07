@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\RolePermissionController as AdminRolePermissionController;
 use App\Http\Controllers\Admin\ScreeningController as AdminScreeningController;
 use App\Http\Controllers\Admin\SystemSettingController as AdminSystemSettingController;
+use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Manager\AccreditationController as ManagerAccreditationController;
 use App\Http\Controllers\Manager\DashboardController as ManagerDashboardController;
@@ -37,10 +38,15 @@ Route::post('/events/{event:slug}/register', [PublicEventController::class, 'reg
 Route::get('/verify/player/{code}', [PlayerVerificationController::class, 'verify'])->name('public.player.verify');
 Route::get('/verify/player/{code}/photo', [PlayerVerificationController::class, 'photo'])->name('public.player.verify.photo');
 
-// Autentikasi Manajer Tim
+// Autentikasi Manajer Tim & Pemulihan Kata Sandi Mandiri
 Route::middleware('guest')->group(function () {
     Route::get('/login', [SessionController::class, 'showManagerLogin'])->name('login');
     Route::post('/login', [SessionController::class, 'managerLogin'])->name('login.store');
+
+    Route::get('/forgot-password', [PasswordResetController::class, 'showForgotPassword'])->name('password.request');
+    Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink'])->name('password.email');
+    Route::get('/reset-password/{token}', [PasswordResetController::class, 'showResetPassword'])->name('password.reset');
+    Route::post('/reset-password', [PasswordResetController::class, 'resetPassword'])->name('password.store');
 });
 
 Route::post('/logout', [SessionController::class, 'logout'])->middleware('auth')->name('logout');
@@ -67,6 +73,7 @@ Route::middleware(['auth', 'manager.portal'])->prefix('manager')->name('manager.
 
     Route::get('/team-profile', [ManagerDashboardController::class, 'teamProfile'])->name('team-profile');
     Route::post('/teams/{team}/profile', [ManagerDashboardController::class, 'updateTeamProfile'])->name('team-profile.update');
+    Route::put('/password', [ManagerDashboardController::class, 'updatePassword'])->name('password.update');
 
     Route::get('/payments', [ManagerPaymentController::class, 'index'])->name('payments');
     Route::post('/payments/{payment}/gateway', [ManagerPaymentController::class, 'initiateGateway'])->name('payments.gateway');
@@ -75,6 +82,7 @@ Route::middleware(['auth', 'manager.portal'])->prefix('manager')->name('manager.
     Route::post('/teams/{team}/reclaim-slot', [ManagerPaymentController::class, 'reclaimSlot'])->name('payments.reclaim-slot');
 
     Route::get('/players', [ManagerPlayerController::class, 'index'])->name('players');
+    Route::post('/players/submit-all', [ManagerPlayerController::class, 'submitAllReady'])->name('players.submit-all');
     Route::post('/teams/{team}/players', [ManagerPlayerController::class, 'store'])->name('players.store');
     Route::post('/players/{player}/update', [ManagerPlayerController::class, 'update'])->name('players.update');
     Route::delete('/players/{player}', [ManagerPlayerController::class, 'destroy'])->name('players.destroy');
@@ -114,9 +122,28 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
         ->middleware('permission:teams.view_all')
         ->name('teams.index');
 
+    Route::get('/teams/export-csv', [AdminTeamManagementController::class, 'exportTeamsCsv'])
+        ->middleware('permission:teams.view_all')
+        ->name('teams.export');
+
+    Route::get('/teams/export-players-csv', [AdminTeamManagementController::class, 'exportPlayersCsv'])
+        ->middleware('permission:teams.view_all')
+        ->name('teams.export-players');
+
     Route::get('/teams/{team}', [AdminTeamManagementController::class, 'show'])
         ->middleware('permission:teams.view_all')
         ->name('teams.show');
+
+    Route::middleware('permission:teams.manage_status')->group(function () {
+        Route::post('/teams/{team}/unlock-roster', [AdminTeamManagementController::class, 'unlockRoster'])
+            ->name('teams.unlock-roster');
+        Route::post('/teams/{team}/force-lock-roster', [AdminTeamManagementController::class, 'forceLockRoster'])
+            ->name('teams.force-lock-roster');
+        Route::post('/teams/{team}/update-status', [AdminTeamManagementController::class, 'updateStatus'])
+            ->name('teams.update-status');
+        Route::put('/teams/{team}/notes', [AdminTeamManagementController::class, 'updateNotes'])
+            ->name('teams.update-notes');
+    });
 
     Route::get('/teams/{team}/accreditation/roster-sheet', [ManagerAccreditationController::class, 'downloadRosterSheet'])
         ->middleware('permission:teams.view_all')
@@ -152,9 +179,17 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
         ->middleware('permission:payments.verify_manual')
         ->name('payments.verify');
 
+    Route::post('/payments/{payment}/mark-refunded', [AdminPaymentVerificationController::class, 'markRefunded'])
+        ->middleware('permission:payments.verify_manual')
+        ->name('payments.mark-refunded');
+
     Route::get('/payments/transactions', [AdminPaymentVerificationController::class, 'transactions'])
         ->middleware('permission:payments.view_all')
         ->name('payments.transactions');
+
+    Route::get('/payments/transactions/export-csv', [AdminPaymentVerificationController::class, 'exportCsv'])
+        ->middleware('permission:payments.view_all')
+        ->name('payments.transactions.export');
 
     // Pemantauan Antrean Email Transaksional
     Route::middleware('permission:email_logs.manage')->group(function () {

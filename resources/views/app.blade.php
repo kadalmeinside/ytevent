@@ -17,7 +17,9 @@
             || request()->is('manager')
             || request()->is('manager/*')
             || request()->is('private-media/*')
-            || request()->is('verify/player/*');
+            || request()->is('verify/player/*')
+            || request()->is('forgot-password')
+            || request()->is('reset-password*');
         $robotsContent = $isPrivatePath
             ? 'noindex, nofollow, noarchive, nosnippet'
             : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';

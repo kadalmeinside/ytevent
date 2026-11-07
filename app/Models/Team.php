@@ -35,7 +35,18 @@ class Team extends Model
         'slot_expires_at',
         'screening_status',
         'internal_notes',
+        'admin_notes',
     ];
+
+    public function getAdminNotesAttribute(): ?string
+    {
+        return $this->internal_notes;
+    }
+
+    public function setAdminNotesAttribute(?string $value): void
+    {
+        $this->attributes['internal_notes'] = $value;
+    }
 
     protected function casts(): array
     {

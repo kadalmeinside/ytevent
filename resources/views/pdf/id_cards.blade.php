@@ -195,6 +195,9 @@
                                             Posisi: {{ $card['role'] }}
                                         @else
                                             Jabatan: {{ $card['role'] }}
+                                            @if(!empty($card['license_number']))
+                                                <br><span style="font-size: 9px; font-weight: bold; color: #0369a1;">Lisensi: {{ $card['license_number'] }}</span>
+                                            @endif
                                         @endif
                                     </div>
                                 </div>

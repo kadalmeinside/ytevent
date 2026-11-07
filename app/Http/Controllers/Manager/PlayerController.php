@@ -280,6 +280,65 @@ class PlayerController extends Controller
         return redirect()->back()->with('success', $message);
     }
 
+    /**
+     * Mengajukan seluruh pemain berstatus draft/rejected yang berkas wajibnya sudah lengkap secara kolektif (Bulk Submit).
+     */
+    public function submitAllReady(Request $request): RedirectResponse
+    {
+        $ctx = $this->resolveManagerContext($request);
+        /** @var Team|null $team */
+        $team = $ctx['activeTeam'];
+
+        if (! $team) {
+            return redirect()->back()->with('error', 'Konteks tim aktif tidak ditemukan.');
+        }
+
+        $this->authorize('manageRoster', $team);
+        $team->loadMissing(['event', 'players.documents']);
+
+        $readyPlayers = $team->players
+            ->filter(function (Player $player) use ($team) {
+                if (! in_array($player->screening_status, ['draft', 'rejected'], true) || $player->is_locked) {
+                    return false;
+                }
+                $player->setRelation('event', $team->event);
+
+                return $player->isCompleteForSubmission();
+            })
+            ->values();
+
+        if ($readyPlayers->isEmpty()) {
+            return redirect()->back()
+                ->with('warning', 'Belum ada pemain berstatus Draft atau Revisi yang pas foto dan berkas wajibnya sudah lengkap untuk diajukan.');
+        }
+
+        $count = $readyPlayers->count();
+
+        DB::transaction(function () use ($readyPlayers, $team, $request) {
+            foreach ($readyPlayers as $player) {
+                $prevStatus = $player->screening_status;
+
+                $player->update([
+                    'screening_status' => 'submitted',
+                    'rejection_reason' => null,
+                ]);
+
+                ScreeningLog::create([
+                    'player_id' => $player->id,
+                    'actor_id' => $request->user()->id,
+                    'from_status' => $prevStatus,
+                    'to_status' => 'submitted',
+                    'reason' => 'Diajukan secara kolektif (Bulk Submit) oleh Manajer Tim untuk pemeriksaan screening.',
+                ]);
+            }
+
+            app(ScreeningService::class)->syncTeamStatus($team);
+        });
+
+        return redirect()->back()
+            ->with('success', "Berhasil mengajukan {$count} pemain sekaligus ke antrean screening panitia.");
+    }
+
     public function recallPlayer(Request $request, Player $player): RedirectResponse
     {
         $player->loadMissing('team');

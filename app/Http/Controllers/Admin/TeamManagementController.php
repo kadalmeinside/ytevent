@@ -5,13 +5,18 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Manager\Concerns\ResolvesActiveTeam;
 use App\Models\Event;
+use App\Models\Player;
 use App\Models\Team;
 use App\Models\TeamOfficial;
 use App\Services\AccreditationService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TeamManagementController extends Controller
 {
@@ -241,11 +246,327 @@ class TeamManagementController extends Controller
         ]);
 
         return Inertia::render('Admin/Teams/Show', [
-            'team' => $this->formatTeamForManager($team),
+            'team' => array_merge($this->formatTeamForManager($team), [
+                'admin_notes' => $team->internal_notes,
+            ]),
             'readiness' => $this->accreditationService->checkReadiness($team),
             'players' => $players,
             'officials' => $officials,
             'payments' => $payments,
+            'canManageStatus' => (bool) request()->user()?->can('teams.manage_status'),
+        ]);
+    }
+
+    /**
+     * Membuka kembali kunci skuad final (locked_roster -> active) atas izin Admin.
+     */
+    public function unlockRoster(Request $request, Team $team): RedirectResponse
+    {
+        $this->authorize('update', $team);
+
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:5', 'max:500'],
+        ], [
+            'reason.required' => 'Alasan pembukaan kunci skuad wajib diisi.',
+            'reason.min' => 'Alasan pembukaan kunci skuad minimal 5 karakter.',
+        ]);
+
+        if ($team->status !== 'locked_roster') {
+            return redirect()->back()->with('error', 'Tim ini tidak sedang dalam status skuad terkunci.');
+        }
+
+        $auditLine = '[UNLOCK ROSTER - ' . now()->format('d/m/Y H:i') . ' oleh ' . $request->user()->name . ']: ' . trim($validated['reason']);
+        $updatedNotes = trim(($team->admin_notes ? $team->admin_notes . "\n" : '') . $auditLine);
+
+        $team->update([
+            'status' => 'active',
+            'roster_locked_at' => null,
+            'admin_notes' => $updatedNotes,
+        ]);
+
+        return redirect()->back()
+            ->with('success', "Kunci skuad final untuk tim {$team->name} berhasil dibuka kembali. Manajer tim kini dapat melakukan penyesuaian skuad.");
+    }
+
+    /**
+     * Mengunci skuad final secara langsung oleh Admin (Force Lock Roster).
+     */
+    public function forceLockRoster(Request $request, Team $team): RedirectResponse
+    {
+        $this->authorize('lockRoster', $team);
+
+        $this->accreditationService->lockRoster($team, $request->user());
+
+        $auditLine = '[FORCE LOCK ROSTER - ' . now()->format('d/m/Y H:i') . ' oleh ' . $request->user()->name . ']';
+        $updatedNotes = trim(($team->admin_notes ? $team->admin_notes . "\n" : '') . $auditLine);
+        $team->update(['admin_notes' => $updatedNotes]);
+
+        return redirect()->back()
+            ->with('success', "Skuad final tim {$team->name} berhasil dikunci resmi oleh Panitia. Dokumen akreditasi siap diunduh.");
+    }
+
+    /**
+     * Mengubah status kepesertaan tim (Diskualifikasi atau Pemulihan ke Aktif).
+     */
+    public function updateStatus(Request $request, Team $team): RedirectResponse
+    {
+        $this->authorize('update', $team);
+
+        $validated = $request->validate([
+            'status' => ['required', 'string', 'in:disqualified,active'],
+            'reason' => ['required', 'string', 'min:5', 'max:500'],
+        ], [
+            'status.required' => 'Status tujuan wajib dipilih.',
+            'reason.required' => 'Alasan perubahan status tim wajib diisi.',
+            'reason.min' => 'Alasan perubahan status tim minimal 5 karakter.',
+        ]);
+
+        $targetStatus = $validated['status'];
+        $reason = trim($validated['reason']);
+
+        DB::transaction(function () use ($team, $targetStatus, $reason, $request) {
+            $lockedEvent = Event::query()->whereKey($team->event_id)->lockForUpdate()->firstOrFail();
+            $lockedTeam = Team::query()->whereKey($team->id)->lockForUpdate()->firstOrFail();
+
+            if ($targetStatus === 'disqualified') {
+                $auditLine = '[DISKUALIFIKASI - ' . now()->format('d/m/Y H:i') . ' oleh ' . $request->user()->name . ']: ' . $reason;
+                $updatedNotes = trim(($lockedTeam->admin_notes ? $lockedTeam->admin_notes . "\n" : '') . $auditLine);
+
+                $lockedTeam->update([
+                    'status' => 'disqualified',
+                    'slot_expires_at' => null,
+                    'admin_notes' => $updatedNotes,
+                ]);
+
+                $lockedEvent->syncQuotaStatus();
+
+                return;
+            }
+
+            // Pemulihan ke active
+            $occupied = $lockedEvent->teams()
+                ->occupyingQuotaAt(now())
+                ->where('id', '!=', $lockedTeam->id)
+                ->count();
+
+            if ($occupied >= $lockedEvent->max_teams) {
+                throw ValidationException::withMessages([
+                    'status' => 'Kuota event saat ini sudah penuh oleh tim lain sehingga tim tidak dapat diaktifkan kembali.',
+                ]);
+            }
+
+            $auditLine = '[RE-AKTIVASI TIM - ' . now()->format('d/m/Y H:i') . ' oleh ' . $request->user()->name . ']: ' . $reason;
+            $updatedNotes = trim(($lockedTeam->admin_notes ? $lockedTeam->admin_notes . "\n" : '') . $auditLine);
+
+            $lockedTeam->update([
+                'status' => 'active',
+                'slot_expires_at' => null,
+                'admin_notes' => $updatedNotes,
+            ]);
+
+            $lockedEvent->syncQuotaStatus($occupied + 1);
+        });
+
+        $msg = $targetStatus === 'disqualified'
+            ? "Tim {$team->name} telah didiskualifikasi dan slot kuota kompetisi telah disesuaikan."
+            : "Status tim {$team->name} berhasil dipulihkan menjadi AKTIF.";
+
+        return redirect()->back()->with('success', $msg);
+    }
+
+    /**
+     * Menyimpan catatan internal panitia (admin_notes) pada tim.
+     */
+    public function updateNotes(Request $request, Team $team): RedirectResponse
+    {
+        $this->authorize('update', $team);
+
+        $validated = $request->validate([
+            'admin_notes' => ['nullable', 'string', 'max:2000'],
+        ], [
+            'admin_notes.max' => 'Catatan internal panitia maksimal 2000 karakter.',
+        ]);
+
+        $team->update([
+            'admin_notes' => isset($validated['admin_notes']) ? trim($validated['admin_notes']) : null,
+        ]);
+
+        return redirect()->back()->with('success', 'Catatan internal panitia berhasil disimpan.');
+    }
+
+    /**
+     * Ekspor rekapitulasi daftar tim ke format CSV (UTF-8 BOM kompatibel Excel).
+     */
+    public function exportTeamsCsv(Request $request): StreamedResponse
+    {
+        $this->authorize('viewAny', Team::class);
+
+        $query = Team::query()
+            ->with(['event', 'latestPayment'])
+            ->withCount([
+                'players',
+                'players as players_passed_count' => fn ($q) => $q->where('screening_status', 'passed'),
+                'players as gk_passed_count' => fn ($q) => $q->where('position', 'GK')->where('screening_status', 'passed'),
+                'officials',
+            ])
+            ->orderBy('event_id')
+            ->orderBy('name');
+
+        if ($eventId = $request->query('event_id')) {
+            $query->where('event_id', $eventId);
+        }
+        if ($status = $request->query('status')) {
+            $query->where('status', $status);
+        }
+        if ($screeningStatus = $request->query('screening_status')) {
+            $query->where('screening_status', $screeningStatus);
+        }
+        if ($search = trim((string) $request->query('search', ''))) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('origin_association', 'like', "%{$search}%")
+                    ->orWhere('manager_name', 'like', "%{$search}%");
+            });
+        }
+
+        $teams = $query->get();
+        $filename = 'rekap-tim-ytevent-' . now()->format('Ymd-His') . '.csv';
+
+        return response()->streamDownload(function () use ($teams) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF");
+
+            fputcsv($out, [
+                'ID Tim',
+                'Kompetisi',
+                'Kategori Usia',
+                'Nama Tim',
+                'Asosiasi / Askot / Askab',
+                'Nama Manajer',
+                'Email Manajer',
+                'WhatsApp Manajer',
+                'Pelatih Kepala',
+                'Lisensi Pelatih',
+                'Status Tim',
+                'Status Pembayaran',
+                'Status Screening',
+                'Total Pemain',
+                'Pemain Sah',
+                'GK Sah',
+                'Jumlah Ofisial',
+                'Waktu Kunci Skuad',
+            ]);
+
+            foreach ($teams as $team) {
+                fputcsv($out, [
+                    $team->id,
+                    $team->event?->name ?? '-',
+                    $team->event?->age_category ?? '-',
+                    $team->name,
+                    $team->origin_association ?? '-',
+                    $team->manager_name,
+                    $team->manager_email,
+                    $team->manager_whatsapp,
+                    $team->head_coach_name ?? '-',
+                    $team->head_coach_license ?? '-',
+                    $team->status,
+                    $team->latestPayment?->status ?? 'unpaid',
+                    $team->screening_status,
+                    (int) $team->players_count,
+                    (int) $team->players_passed_count,
+                    (int) $team->gk_passed_count,
+                    (int) $team->officials_count,
+                    $team->roster_locked_at?->format('Y-m-d H:i:s') ?? '-',
+                ]);
+            }
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    /**
+     * Ekspor database pemain lengkap ke format CSV (UTF-8 BOM kompatibel Excel).
+     */
+    public function exportPlayersCsv(Request $request): StreamedResponse
+    {
+        $this->authorize('viewAny', Team::class);
+
+        $query = Player::query()
+            ->with(['team', 'event'])
+            ->orderBy('event_id')
+            ->orderBy('team_id')
+            ->orderBy('jersey_number');
+
+        if ($eventId = $request->query('event_id')) {
+            $query->where('event_id', $eventId);
+        }
+
+        if ($status = $request->query('status')) {
+            $query->whereHas('team', fn ($q) => $q->where('status', $status));
+        }
+
+        if ($screeningStatus = $request->query('screening_status')) {
+            $query->whereHas('team', fn ($q) => $q->where('screening_status', $screeningStatus));
+        }
+
+        $players = $query->get();
+        $filename = 'database-pemain-ytevent-' . now()->format('Ymd-His') . '.csv';
+
+        return response()->streamDownload(function () use ($players) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF");
+
+            fputcsv($out, [
+                'ID Pemain',
+                'Kompetisi',
+                'Kategori Usia',
+                'Nama Tim',
+                'Asosiasi / Askot',
+                'Status Tim',
+                'No. Punggung',
+                'Nama Lengkap Pemain',
+                'Nama Punggung',
+                'Posisi',
+                'Kaki Dominan',
+                'Tempat Lahir',
+                'Tanggal Lahir',
+                'NIK',
+                'NISN',
+                'Tinggi (cm)',
+                'Berat (kg)',
+                'Status Screening',
+                'Kode Akreditasi QR',
+            ]);
+
+            foreach ($players as $player) {
+                fputcsv($out, [
+                    $player->id,
+                    $player->event?->name ?? '-',
+                    $player->event?->age_category ?? '-',
+                    $player->team?->name ?? '-',
+                    $player->team?->origin_association ?? '-',
+                    $player->team?->status ?? '-',
+                    $player->jersey_number,
+                    $player->full_name,
+                    $player->jersey_name ?? '-',
+                    $player->position,
+                    $player->dominant_foot,
+                    $player->birth_place ?? '-',
+                    $player->birth_date?->format('Y-m-d') ?? '-',
+                    "'" . $player->nik,
+                    $player->nisn ? "'" . $player->nisn : '-',
+                    $player->height_cm ?? '-',
+                    $player->weight_kg ?? '-',
+                    $player->screening_status,
+                    $player->accreditation_code ?? '-',
+                ]);
+            }
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
     }
 }

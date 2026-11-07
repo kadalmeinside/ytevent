@@ -29,7 +29,9 @@ Menyimpan pengaturan per kompetisi yang dibuat oleh Superadmin.
   - Label Kategori Usia (contoh: U-10, U-12, U-15, U-17, Senior).
   - Batas Tanggal Lahir Minimal dan Maksimal Pemain (digunakan untuk validasi otomatis usia saat input pemain).
   - Batas Minimal dan Maksimal Jumlah Pemain per Tim (contoh: Minimal 14, Maksimal 25 pemain).
-  - Batas Maksimal Kuota Ofisial/Pelatih per Tim.
+  - Syarat Minimal Penjaga Gawang / Kiper per Tim (`min_gk_per_team` — `1` atau `2` GK, default `2`).
+  - Batas Maksimal Kuota Ofisial/Pelatih per Tim (`max_officials_per_team`).
+  - Pengaturan Lisensi Pelatih Kepala (`show_coach_license` Boolean untuk menampilkan/menyembunyikan input lisensi, serta `require_coach_license` Boolean untuk mewajibkan pengisian nomor & sertifikat lisensi pelatih kepala).
   - Daftar Jenis Dokumen Wajib (disimpan dalam format terstruktur, misal wajib Akta Lahir, KK, dan KIA).
 - **Kolom Kuota & Keuangan:**
   - Kuota Maksimal Tim (`max_teams` — Unsigned Integer, menjadi acuan batas keras *Pessimistic Row Locking* `SELECT ... FOR UPDATE` pada baris `events.id`).

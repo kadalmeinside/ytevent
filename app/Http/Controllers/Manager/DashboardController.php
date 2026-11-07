@@ -8,6 +8,7 @@ use App\Http\Requests\Manager\UpdateTeamProfileRequest;
 use App\Models\Team;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -108,6 +109,30 @@ class DashboardController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Profil tim dan kontak penanggung jawab berhasil diperbarui.');
+    }
+
+    /**
+     * Memperbarui kata sandi akun Manajer Tim secara mandiri.
+     */
+    public function updatePassword(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'current_password' => ['required', 'string', 'current_password'],
+            'password' => ['required', 'string', 'min:8', 'regex:/^(?=.*[A-Za-z])(?=.*\d).+$/', 'confirmed'],
+        ], [
+            'current_password.required' => 'Kata sandi saat ini wajib diisi.',
+            'current_password.current_password' => 'Kata sandi saat ini yang Anda masukkan tidak sesuai.',
+            'password.required' => 'Kata sandi baru wajib diisi.',
+            'password.min' => 'Kata sandi baru minimal terdiri dari 8 karakter.',
+            'password.regex' => 'Kata sandi baru wajib mengandung kombinasi huruf dan angka.',
+            'password.confirmed' => 'Konfirmasi kata sandi baru tidak cocok.',
+        ]);
+
+        $request->user()->update([
+            'password' => Hash::make($validated['password']),
+        ]);
+
+        return redirect()->back()->with('success', 'Kata sandi akun Anda berhasil diperbarui.');
     }
 }
 

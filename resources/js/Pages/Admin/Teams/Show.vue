@@ -1,8 +1,9 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { router } from '@inertiajs/vue3';
+import { router, useForm } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
+import InputError from '@/Components/InputError.vue';
 import DocumentViewerModal from '@/Components/DocumentViewerModal.vue';
 import PaymentProofModal from '@/Components/PaymentProofModal.vue';
 import { useFormatters } from '@/Composables/useFormatters';
@@ -27,6 +28,10 @@ const props = defineProps({
     payments: {
         type: Array,
         default: () => [],
+    },
+    canManageStatus: {
+        type: Boolean,
+        default: false,
     },
 });
 
@@ -98,6 +103,98 @@ const onPaymentVerified = () => {
     router.reload({ preserveScroll: true });
 };
 
+// Admin Status & Notes Management
+const notesForm = useForm({
+    admin_notes: props.team.admin_notes || '',
+});
+
+const saveAdminNotes = () => {
+    notesForm.put(route('admin.teams.update-notes', { team: props.team.id }), {
+        preserveScroll: true,
+    });
+};
+
+const statusActionModal = ref({
+    show: false,
+    mode: '', // 'unlock' | 'force_lock' | 'disqualify' | 'reactivate'
+    title: '',
+    description: '',
+});
+
+const statusActionForm = useForm({
+    status: '',
+    reason: '',
+});
+
+const openStatusActionModal = (mode) => {
+    statusActionForm.reset();
+    statusActionForm.clearErrors();
+
+    if (mode === 'unlock') {
+        statusActionModal.value = {
+            show: true,
+            mode: 'unlock',
+            title: 'Buka Kunci Skuad Final (Unlock Roster)',
+            description: 'Tindakan ini akan mengembalikan status tim ke AKTIF sehingga Manajer Tim dapat menambah, mengedit, atau mengganti pemain sebelum dikunci kembali.',
+        };
+    } else if (mode === 'force_lock') {
+        statusActionModal.value = {
+            show: true,
+            mode: 'force_lock',
+            title: 'Kunci Skuad Final oleh Panitia (Force Lock)',
+            description: 'Seluruh syarat kelayakan skuad tim ini telah terpenuhi. Mengunci skuad akan menerbitkan akreditasi resmi dan mengirim email konfirmasi ke manajer.',
+        };
+    } else if (mode === 'disqualify') {
+        statusActionForm.status = 'disqualified';
+        statusActionModal.value = {
+            show: true,
+            mode: 'disqualify',
+            title: 'Diskualifikasi Tim dari Kompetisi',
+            description: 'Tim yang didiskualifikasi akan kehilangan hak bertanding dan slot kuotanya pada kompetisi ini akan dilepaskan.',
+        };
+    } else if (mode === 'reactivate') {
+        statusActionForm.status = 'active';
+        statusActionModal.value = {
+            show: true,
+            mode: 'reactivate',
+            title: 'Pulihkan Status Aktif Tim',
+            description: 'Mengembalikan status tim menjadi AKTIF kembali (selama slot kuota kompetisi masih tersedia).',
+        };
+    }
+};
+
+const closeStatusActionModal = () => {
+    statusActionModal.value.show = false;
+};
+
+const submitStatusAction = () => {
+    const mode = statusActionModal.value.mode;
+    if (mode === 'force_lock') {
+        statusActionForm.post(route('admin.teams.force-lock-roster', { team: props.team.id }), {
+            preserveScroll: true,
+            onSuccess: () => closeStatusActionModal(),
+        });
+        return;
+    }
+
+    if (!statusActionForm.reason || statusActionForm.reason.trim().length < 5) {
+        statusActionForm.setError('reason', 'Alasan wajib diisi minimal 5 karakter sebagai catatan audit.');
+        return;
+    }
+
+    if (mode === 'unlock') {
+        statusActionForm.post(route('admin.teams.unlock-roster', { team: props.team.id }), {
+            preserveScroll: true,
+            onSuccess: () => closeStatusActionModal(),
+        });
+    } else {
+        statusActionForm.post(route('admin.teams.update-status', { team: props.team.id }), {
+            preserveScroll: true,
+            onSuccess: () => closeStatusActionModal(),
+        });
+    }
+};
+
 const docChipClass = (doc) => {
     if (!doc.uploaded) {
         return 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed';
@@ -159,6 +256,38 @@ const docChipClass = (doc) => {
                         </svg>
                         <span>Unduh ID Card PDF</span>
                     </a>
+                    <button
+                        v-if="canManageStatus && team.status === 'locked_roster'"
+                        type="button"
+                        class="btn-sm-secondary text-amber-800 border-amber-300 bg-amber-50 hover:bg-amber-100 inline-flex items-center gap-1.5 cursor-pointer"
+                        @click="openStatusActionModal('unlock')"
+                    >
+                        <span>Buka Kunci Skuad</span>
+                    </button>
+                    <button
+                        v-if="canManageStatus && team.status === 'active' && team.workflow?.is_ready_to_lock"
+                        type="button"
+                        class="btn-sm-secondary text-emerald-800 border-emerald-300 bg-emerald-50 hover:bg-emerald-100 inline-flex items-center gap-1.5 cursor-pointer"
+                        @click="openStatusActionModal('force_lock')"
+                    >
+                        <span>Kunci Skuad (Force Lock)</span>
+                    </button>
+                    <button
+                        v-if="canManageStatus && team.status !== 'disqualified'"
+                        type="button"
+                        class="btn-sm-secondary text-rose-800 border-rose-300 bg-rose-50 hover:bg-rose-100 inline-flex items-center gap-1.5 cursor-pointer"
+                        @click="openStatusActionModal('disqualify')"
+                    >
+                        <span>Diskualifikasi Tim</span>
+                    </button>
+                    <button
+                        v-if="canManageStatus && team.status === 'disqualified'"
+                        type="button"
+                        class="btn-sm-secondary text-emerald-800 border-emerald-300 bg-emerald-50 hover:bg-emerald-100 inline-flex items-center gap-1.5 cursor-pointer"
+                        @click="openStatusActionModal('reactivate')"
+                    >
+                        <span>Pulihkan Status Aktif</span>
+                    </button>
                 </div>
             </div>
 
@@ -647,6 +776,26 @@ const docChipClass = (doc) => {
                             <dd class="text-slate-600 font-mono mt-0.5">Lisensi: {{ team.head_coach_license || '-' }}</dd>
                         </div>
                     </dl>
+
+                    <!-- Catatan Internal Panitia -->
+                    <div class="pt-4 border-t border-slate-200 space-y-2.5">
+                        <h4 class="text-xs font-bold text-slate-900">Catatan Internal Panitia (Audit &amp; Koordinasi)</h4>
+                        <form v-if="canManageStatus" @submit.prevent="saveAdminNotes" novalidate class="space-y-2">
+                            <textarea
+                                v-model="notesForm.admin_notes"
+                                rows="4"
+                                placeholder="Tambahkan catatan khusus panitia terkait tim ini..."
+                                class="input-field text-xs font-mono"
+                            ></textarea>
+                            <InputError :message="notesForm.errors.admin_notes" />
+                            <div class="flex justify-end">
+                                <button type="submit" class="btn-sm-pitch cursor-pointer" :disabled="notesForm.processing">
+                                    {{ notesForm.processing ? 'Menyimpan...' : 'Simpan Catatan Panitia' }}
+                                </button>
+                            </div>
+                        </form>
+                        <pre v-else class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 whitespace-pre-wrap font-mono">{{ team.admin_notes || 'Belum ada catatan internal panitia.' }}</pre>
+                    </div>
                 </div>
 
                 <div class="lg:col-span-7 frosted-card p-5 bg-white space-y-4">
@@ -709,6 +858,55 @@ const docChipClass = (doc) => {
             @close="closeProofModal"
             @verified="onPaymentVerified"
         />
+
+        <!-- Modal Kendali Status Tim (Unlock / Force Lock / Disqualify / Reactivate) -->
+        <div
+            v-if="statusActionModal.show"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+            @click.self="closeStatusActionModal"
+        >
+            <div class="frosted-card bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+                <div class="flex items-start justify-between gap-3 pb-3 border-b border-slate-100">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900">{{ statusActionModal.title }}</h3>
+                        <p class="text-xs text-slate-500 mt-1 leading-relaxed">{{ statusActionModal.description }}</p>
+                    </div>
+                    <button type="button" class="text-slate-400 hover:text-slate-700 text-lg leading-none" @click="closeStatusActionModal">
+                        &times;
+                    </button>
+                </div>
+
+                <form @submit.prevent="submitStatusAction" novalidate class="space-y-4">
+                    <div v-if="statusActionModal.mode !== 'force_lock'">
+                        <label class="block text-xs font-bold text-slate-700 mb-1">
+                            Alasan Resmi / Catatan Audit <span class="text-rose-600">*</span>
+                        </label>
+                        <textarea
+                            v-model="statusActionForm.reason"
+                            rows="3"
+                            placeholder="Tuliskan alasan perubahan status tim (minimal 5 karakter)..."
+                            class="input-field text-xs"
+                            :class="{ 'input-field-error': statusActionForm.errors.reason }"
+                            @input="statusActionForm.clearErrors('reason')"
+                        ></textarea>
+                        <InputError :message="statusActionForm.errors.reason || statusActionForm.errors.status || statusActionForm.errors.roster" />
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 pt-2">
+                        <button type="button" class="btn-secondary text-xs" @click="closeStatusActionModal">
+                            Batal
+                        </button>
+                        <button
+                            type="submit"
+                            class="btn-pitch text-xs"
+                            :disabled="statusActionForm.processing"
+                        >
+                            {{ statusActionForm.processing ? 'Memproses...' : 'Konfirmasi & Eksekusi' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </AdminLayout>
 </template>
 

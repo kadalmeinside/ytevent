@@ -562,5 +562,39 @@ class PaymentService
             return $lockedPayment->fresh();
         });
     }
+
+    /**
+     * Menandai transaksi berstatus refund_required menjadi refunded setelah Finance melakukan pengembalian dana.
+     */
+    public function markRefunded(Payment $payment, User $verifier, string $refundNotes): Payment
+    {
+        return DB::transaction(function () use ($payment, $verifier, $refundNotes) {
+            $lockedPayment = Payment::query()->whereKey($payment->id)->lockForUpdate()->firstOrFail();
+            $lockedTeam = $lockedPayment->team()->lockForUpdate()->firstOrFail();
+
+            if ($lockedPayment->status === 'refunded') {
+                return $lockedPayment;
+            }
+
+            if ($lockedPayment->status !== 'refund_required') {
+                throw ValidationException::withMessages([
+                    'payment' => 'Hanya transaksi berstatus Perlu Refund (refund_required) yang dapat ditandai selesai refund.',
+                ]);
+            }
+
+            $cleanNotes = trim($refundNotes);
+
+            $lockedPayment->update([
+                'status' => 'refunded',
+                'verified_by' => $verifier->id,
+                'verified_at' => now(),
+                'rejection_reason' => 'REFUND SELESAI: ' . $cleanNotes,
+            ]);
+
+            app(EmailNotificationService::class)->sendPaymentRefunded($lockedTeam, $lockedPayment, $cleanNotes);
+
+            return $lockedPayment->fresh();
+        });
+    }
 }
 

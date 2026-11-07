@@ -263,16 +263,26 @@ class AccreditationService
                 $officialPhotoBase64 = 'data:' . $mime . ';base64,' . base64_encode(Storage::disk('private')->get($official->photo_path));
             }
 
+            $officialQrTarget = $team->event
+                ? route('events.show', ['event' => $team->event->slug]) . '#official-' . $official->id
+                : url('/');
+
+            $officialQrSvg = (string) QrCode::format('svg')
+                ->size(80)
+                ->errorCorrection('H')
+                ->generate($officialQrTarget);
+
             $cards[] = [
                 'type' => 'official',
                 'name' => $official->full_name,
                 'jersey_name' => null,
                 'jersey_number' => null,
                 'role' => $official->role,
-                'role_label' => strtoupper($official->role),
-                'accreditation_code' => 'OFF-' . $official->id,
+                'role_label' => 'OFISIAL / ' . strtoupper($official->role),
+                'license_number' => $official->license_number ?: null,
+                'accreditation_code' => 'OFF-' . str_pad((string) $official->id, 4, '0', STR_PAD_LEFT),
                 'photo_base64' => $officialPhotoBase64,
-                'qr_code_svg' => null,
+                'qr_code_svg' => 'data:image/svg+xml;base64,' . base64_encode($officialQrSvg),
             ];
         }
 

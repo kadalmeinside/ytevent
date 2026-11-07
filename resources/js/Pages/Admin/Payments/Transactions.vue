@@ -1,8 +1,9 @@
 <script setup>
 import { ref, reactive } from 'vue';
-import { router } from '@inertiajs/vue3';
+import { router, useForm } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
+import InputError from '@/Components/InputError.vue';
 import PaymentProofModal from '@/Components/PaymentProofModal.vue';
 import { useFormatters } from '@/Composables/useFormatters';
 
@@ -47,6 +48,47 @@ const closeProofModal = () => {
 const onPaymentVerified = () => {
     // Reload data to reflect new status
     applyFilters();
+};
+
+// Refund Completion Modal State
+const refundModal = ref({
+    show: false,
+    payment: null,
+});
+
+const refundForm = useForm({
+    refund_notes: '',
+});
+
+const openRefundModal = (tx) => {
+    refundForm.reset();
+    refundForm.clearErrors();
+    refundModal.value = {
+        show: true,
+        payment: tx,
+    };
+};
+
+const closeRefundModal = () => {
+    refundModal.value = {
+        show: false,
+        payment: null,
+    };
+};
+
+const submitMarkRefunded = () => {
+    if (!refundModal.value.payment) return;
+    if (!refundForm.refund_notes || refundForm.refund_notes.trim().length < 5) {
+        refundForm.setError('refund_notes', 'Catatan atau nomor referensi transfer pengembalian dana minimal 5 karakter.');
+        return;
+    }
+
+    refundForm.post(route('admin.payments.mark-refunded', { payment: refundModal.value.payment.id }), {
+        preserveScroll: true,
+        onSuccess: () => {
+            closeRefundModal();
+        },
+    });
 };
 
 const applyFilters = () => {
@@ -130,6 +172,28 @@ const resetFilters = () => {
                 </div>
             </form>
 
+            <!-- Export & Summary Bar -->
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3.5 bg-slate-100/80 rounded-xl border border-slate-200">
+                <div class="text-xs text-slate-600 font-medium">
+                    Menampilkan <strong class="text-slate-900 font-bold tabular-data">{{ transactions.length }} transaksi</strong>.
+                </div>
+
+                <a
+                    :href="route('admin.payments.transactions.export', {
+                        event_id: filterState.event_id || undefined,
+                        status: filterState.status || undefined,
+                        method: filterState.method || undefined,
+                        search: filterState.search || undefined,
+                    })"
+                    class="btn-secondary text-xs inline-flex items-center gap-1.5 self-start sm:self-auto"
+                >
+                    <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>Ekspor Laporan Transaksi (CSV)</span>
+                </a>
+            </div>
+
             <!-- Transactions Container (Responsive Card List View) -->
             <div class="space-y-3.5">
                 <div v-if="transactions.length === 0" class="frosted-card p-12 text-center text-xs text-slate-500">
@@ -206,7 +270,15 @@ const resetFilters = () => {
                             </div>
 
                             <!-- Actions (Col 11-12) -->
-                            <div class="md:col-span-2 flex items-center justify-end gap-2" @click.stop>
+                            <div class="md:col-span-2 flex flex-wrap items-center justify-end gap-2" @click.stop>
+                                <button
+                                    v-if="tx.status === 'refund_required'"
+                                    type="button"
+                                    class="btn-sm-pitch w-full sm:w-auto justify-center cursor-pointer"
+                                    @click="openRefundModal(tx)"
+                                >
+                                    <span>Tandai Refund Selesai</span>
+                                </button>
                                 <button
                                     v-if="tx.proof_url"
                                     type="button"
@@ -247,5 +319,53 @@ const resetFilters = () => {
             @close="closeProofModal"
             @verified="onPaymentVerified"
         />
+
+        <!-- Modal Penyelesaian Pengembalian Dana (Refund) -->
+        <div
+            v-if="refundModal.show && refundModal.payment"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+            @click.self="closeRefundModal"
+        >
+            <div class="frosted-card bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+                <div class="flex items-start justify-between gap-3 pb-3 border-b border-slate-100">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900">Konfirmasi Penyelesaian Refund</h3>
+                        <p class="text-xs text-slate-500 mt-1">
+                            Invoice: <strong class="font-mono text-slate-800">{{ refundModal.payment.invoice_number }}</strong>
+                            &bull; Tim: <strong class="text-slate-800">{{ refundModal.payment.team?.name }}</strong>
+                        </p>
+                    </div>
+                    <button type="button" class="text-slate-400 hover:text-slate-700 text-lg leading-none" @click="closeRefundModal">
+                        &times;
+                    </button>
+                </div>
+
+                <form @submit.prevent="submitMarkRefunded" novalidate class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">
+                            Nomor Referensi / Catatan Transfer Pengembalian Dana <span class="text-rose-600">*</span>
+                        </label>
+                        <textarea
+                            v-model="refundForm.refund_notes"
+                            rows="3"
+                            placeholder="Contoh: Dikembalikan via BCA ke rek 1234567890 a.n. Budi pada 07/11/2026 (Ref: TRF-99812)"
+                            class="input-field text-xs"
+                            :class="{ 'input-field-error': refundForm.errors.refund_notes }"
+                            @input="refundForm.clearErrors('refund_notes')"
+                        ></textarea>
+                        <InputError :message="refundForm.errors.refund_notes || refundForm.errors.payment" />
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 pt-2">
+                        <button type="button" class="btn-secondary text-xs" @click="closeRefundModal">
+                            Batal
+                        </button>
+                        <button type="submit" class="btn-pitch text-xs" :disabled="refundForm.processing">
+                            {{ refundForm.processing ? 'Menyimpan...' : 'Simpan & Tandai Refunded' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </AdminLayout>
 </template>

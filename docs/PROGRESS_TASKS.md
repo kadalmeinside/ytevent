@@ -244,7 +244,7 @@ Legenda Status:
   - Menyinkronkan perhitungan kelayakan akreditasi (`AccreditationService::checkReadiness`) dan *workflow state machine* (`ResolvesActiveTeam::buildTeamWorkflow`) terhadap `min_gk_per_team` (`1` atau `2` GK) dan kewajiban lisensi pelatih.
 - [x] **3.3.6** **Optimasi Search Engine (SEO), AI Generative Engine (GEO), & Proteksi No-Index Login/Portal Admin**:
   - **Penyembunyian Login & Portal Admin dari Mesin Pencari**: Menghapus tautan publik ke `/admin/login` pada footer `PublicLayout.vue`, menambahkan middleware [`SetSeoAndRobotsHeaders`](file:///Users/macbook/Application/ytevent/app/Http/Middleware/SetSeoAndRobotsHeaders.php) (`X-Robots-Tag: noindex, nofollow, noarchive, nosnippet`), meta tag `robots` / `googlebot` `noindex` pada `AdminLogin.vue`, `AdminLayout.vue`, `ManagerLayout.vue`, dan `PlayerVerification.vue`, serta aturan `Disallow: /admin`, `/admin/login`, `/manager`, `/private-media/` di `/robots.txt`.
-  - **Standar SEO Modern**: Menambahkan `sitemap.xml` dinamis, canonical URL, Open Graph (`og:*`), Twitter Cards, serta Schema.org JSON-LD (`SportsOrganization`, `WebSite` + `SearchAction`, `ItemList`, `BreadcrumbList`, dan `SportsEvent` lengkap dengan lokasi stadion, jadwal, harga, dan ketersediaan kuota) pada `app.blade.php`, `Public/Home.vue`, dan `Public/EventDetail.vue`.
+  - **Standar SEO Modern & Server-Side Social Preview (`6cda4a7`)**: Menambahkan `sitemap.xml` dinamis, canonical URL, Server-Side Open Graph (`og:title`, `og:description`, `og:image`, `og:image:secure_url`, `og:image:alt` dengan URL absolut sesuai domain aktif), Twitter Cards (`summary_large_image`), serta Schema.org JSON-LD (`SportsOrganization`, `WebSite` + `SearchAction`, `ItemList`, `BreadcrumbList`, dan `SportsEvent` lengkap dengan lokasi stadion, jadwal, harga, dan ketersediaan kuota) langsung pada HTML server `app.blade.php` & `PublicEventController` serta `Public/Home.vue`, `Public/EventDetail.vue`, dan `Public/RegisterTeam.vue`.
   - **Standar AI Generative Engine Optimization (GEO)**: Menyediakan endpoint `/llms.txt` dan `/llms-full.txt` (standar `llmstxt.org`) serta izin eksplisit di `/robots.txt` bagi crawler AI (`GPTBot`, `OAI-SearchBot`, `PerplexityBot`, `ClaudeBot`, `Google-Extended`) untuk merangkum katalog turnamen publik tanpa menyentuh rute internal panitia.
 
 ### 3.4 Automated Testing & Verifikasi Fase 3
@@ -253,12 +253,35 @@ Legenda Status:
   - Pengujian transisi `team.workflow` dari Tahap 1 hingga Tahap 5 (`is_ready_to_lock` -> peringatan akreditasi, dan `locked_roster` -> terakreditasi resmi).
   - Pengujian visibilitas daftar pemain *read-only* pada `Manager/Players` saat tim berstatus `locked_roster`.
   - Pengujian skenario event dengan konfigurasi `min_gk_per_team = 1` dan `require_coach_license = true` dari validasi form hingga kunci skuad final.
-  - Pengujian proteksi `noindex` pada `/admin/login` & `/admin`, validasi `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/llms-full.txt`, serta JSON-LD structured data.
-- [x] **3.4.2** Eksekusi penuh `php artisan test` (**67 tests / 575 assertions PASS**) dan `npm run build` dengan hasil 100% lulus tanpa regresi.
+  - Pengujian proteksi `noindex` pada `/admin/login` & `/admin`, validasi `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/llms-full.txt`, server-side Open Graph banner/title/description per event, serta JSON-LD structured data.
+- [x] **3.4.2** Eksekusi penuh `php artisan test` (**67 tests / 580 assertions PASS**) dan `npm run build` dengan hasil 100% lulus tanpa regresi.
 
 ---
 
-## DOKUMEN ANALISIS GAP & ROADMAP SELANJUTNYA (FASE 4 – FASE 6)
+## FASE 4 — KONTROL STATUS TIM ADMIN, BULK SCREENING, ID CARD OFISIAL, EKSEKUSI REFUND, EKSPOR DATA & AKUN MANDIRI (SELESAI 100%)
 
-> **Dokumen Evaluasi & Rekomendasi Fitur:** [`docs/FEATURE_GAP_AND_ROADMAP.md`](./FEATURE_GAP_AND_ROADMAP.md)
-> Memuat analisis fitur yang belum dibuat, rekomendasi fitur wajib operasional (*Fase 4*), fitur pelaksanaan pertandingan/bagan (*Fase 5*), serta fitur pelengkap bernilai tambah (*Fase 6*).
+> **Dokumen Rencana Implementasi Teknis Fase 4:** [`docs/PHASE_4_IMPLEMENTATION_PLAN.md`](./PHASE_4_IMPLEMENTATION_PLAN.md)
+> **Dokumen Analisis Gap & Roadmap Lengkap (Fase 4 – Fase 6):** [`docs/FEATURE_GAP_AND_ROADMAP.md`](./FEATURE_GAP_AND_ROADMAP.md)
+
+### 4.1 Kontrol Administratif Status Tim & Catatan Internal Panitia (`/admin/teams/{team}`)
+- [x] **4.1.1** **Aksi Buka Kunci Skuad Final (*Unlock Team Roster*)**: Mengubah status tim dari `locked_roster` kembali ke `active` atas izin Superadmin (misal pergantian pemain cedera sebelum Technical Meeting) disertai pencatatan audit (`TeamManagementController::unlockRoster`).
+- [x] **4.1.2** **Aksi Kunci Skuad oleh Admin (*Force Lock Roster*)**: Memungkinkan Admin mengunci skuad tim yang sudah memenuhi syarat (`is_ready_to_lock`) jika manajer lupa menekan tombol kunci menjelang penutupan (`TeamManagementController::forceLockRoster`).
+- [x] **4.1.3** **Aksi Diskualifikasi Tim (`disqualified`) & Re-Aktivasi**: Menjatuhkan status `disqualified` beserta alasan resmi (yang otomatis membebaskan slot kuota event dan menyinkronkan status kuota event) atau memulihkan status aktif (`TeamManagementController::updateStatus`).
+- [x] **4.1.4** **Catatan Internal Panitia (`admin_notes`)**: Form penyimpanan catatan internal khusus panitia pada halaman Dossier Tim (`Admin/Teams/Show.vue` & `TeamManagementController::updateNotes`).
+
+### 4.2 Pengajuan Screening Kolektif (*Bulk Submit*) & Akreditasi Staf Ofisial
+- [x] **4.2.1** **Tombol *Bulk Submit Players* (`Manager/Players.vue` & `PlayerController::submitAllReady`)**: Mengajukan seluruh pemain berstatus `draft`/`rejected` yang berkas wajibnya sudah lengkap ke status `submitted` dalam 1 kali klik.
+- [x] **4.2.2** **Verifikasi Ofisial & Cetak ID Card Pelatih/Ofisial (PDF)**: Menyertakan kartu ID Resmi untuk Pelatih Kepala & Ofisial di `id_cards.blade.php` lengkap dengan jabatan, nomor lisensi kepelatihan, dan kode QR verifikasi.
+
+### 4.3 Penyelesaian Refund Finance (`refunded`) & Pusat Ekspor Data (CSV / Excel)
+- [x] **4.3.1** **Alur Penyelesaian Pengembalian Dana (*Mark Refund Completed*)**: Tombol aksi bagi Finance/Superadmin untuk mengubah transaksi `refund_required` menjadi `refunded` disertai catatan referensi transfer refund dan pengiriman email `PaymentRefundedMail` (`PaymentService::markRefunded`).
+- [x] **4.3.2** **Ekspor Laporan Keuangan & Transaksi (CSV/Excel)**: Ekspor data transaksi per event/status/metode di halaman `/admin/payments/transactions` (`PaymentVerificationController::exportCsv`).
+- [x] **4.3.3** **Ekspor Master Data Tim & Database Pemain Terverifikasi (CSV/Excel)**: Ekspor data tim dan biodata pemain (NIK, NISN, TTL, Posisi, No. Punggung, Status Screening, Kode QR) per event di `/admin/teams` (`TeamManagementController::exportTeamsCsv` & `exportPlayersCsv`).
+
+### 4.4 Manajemen Password & Pemulihan Akun Mandiri
+- [x] **4.4.1** **Alur Lupa Kata Sandi (*Forgot & Reset Password via Email Queue*)**: Halaman `/forgot-password` dan `/reset-password/{token}` (`PasswordResetController`, `ForgotPassword.vue`, `ResetPassword.vue`) yang terintegrasi dengan antrean log email (`EmailNotificationService::sendPasswordReset`).
+- [x] **4.4.2** **Form Ubah Kata Sandi Mandiri (*Change Password*)**: Pengaturan ubah password dengan verifikasi password lama di Portal Manajer (`Manager/TeamProfile.vue` & `DashboardController::updatePassword`).
+
+### 4.5 Automated Testing & Verifikasi Fase 4
+- [x] **4.5.1** Penulisan Feature Tests `Phase4OperationsTest.php` untuk seluruh fitur Fase 4 (Unlock/Force-Lock/Disqualify Tim, Bulk Submit Pemain, ID Card Ofisial, Eksekusi Refund, Ekspor CSV, dan Reset/Ubah Password).
+- [x] **4.5.2** Eksekusi penuh `php artisan test` (**72 tests / 619 assertions PASS**) dan `npm run build` hingga 100% lulus.

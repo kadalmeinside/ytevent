@@ -113,13 +113,12 @@ const submit = () => {
                             <span>Ingat sesi saya</span>
                         </label>
 
-                        <button
-                            type="button"
+                        <Link
+                            :href="route('password.request')"
                             class="text-xs font-semibold text-orange-600 hover:text-orange-700 hover:underline transition-colors"
-                            @click="isForgotModalOpen = true"
                         >
                             Lupa kata sandi?
-                        </button>
+                        </Link>
                     </div>
 
                     <button type="submit" class="btn-pitch w-full" :disabled="form.processing">

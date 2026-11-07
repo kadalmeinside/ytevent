@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PaymentVerificationController extends Controller
 {
@@ -112,6 +113,109 @@ class PaymentVerificationController extends Controller
 
         return redirect()->back()
             ->with('warning', "Bukti pembayaran {$payment->invoice_number} ditolak dan diberi masa tenggang unggah ulang.");
+    }
+
+    /**
+     * Menandai transaksi berstatus refund_required menjadi refunded.
+     */
+    public function markRefunded(
+        Request $request,
+        Payment $payment,
+        PaymentService $paymentService
+    ): RedirectResponse {
+        $this->authorize('verifyManual', $payment);
+
+        $validated = $request->validate([
+            'refund_notes' => ['required', 'string', 'min:5', 'max:500'],
+        ], [
+            'refund_notes.required' => 'Catatan atau nomor referensi transfer pengembalian dana wajib diisi.',
+            'refund_notes.min' => 'Catatan atau referensi transfer minimal 5 karakter.',
+        ]);
+
+        $paymentService->markRefunded($payment, $request->user(), $validated['refund_notes']);
+
+        return redirect()->back()
+            ->with('success', "Transaksi {$payment->invoice_number} berhasil ditandai REFUND SELESAI dan notifikasi email telah dikirim ke manajer tim.");
+    }
+
+    /**
+     * Ekspor laporan transaksi pembayaran ke format CSV (UTF-8 BOM kompatibel Excel).
+     */
+    public function exportCsv(Request $request): StreamedResponse
+    {
+        $this->authorize('viewAny', Payment::class);
+
+        $query = Payment::query()
+            ->with(['team', 'event', 'verifier'])
+            ->orderByDesc('created_at');
+
+        if ($eventId = $request->query('event_id')) {
+            $query->where('event_id', $eventId);
+        }
+        if ($status = $request->query('status')) {
+            $query->where('status', $status);
+        }
+        if ($method = $request->query('method')) {
+            $query->where('method', $method);
+        }
+        if ($search = trim((string) $request->query('search', ''))) {
+            $query->where(function ($q) use ($search) {
+                $q->where('invoice_number', 'like', "%{$search}%")
+                    ->orWhereHas('team', fn ($tq) => $tq->where('name', 'like', "%{$search}%"));
+            });
+        }
+
+        $payments = $query->get();
+        $filename = 'laporan-transaksi-ytevent-' . now()->format('Ymd-His') . '.csv';
+
+        return response()->streamDownload(function () use ($payments) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF");
+
+            fputcsv($out, [
+                'No. Invoice',
+                'Tanggal Dibuat',
+                'Tanggal Lunas',
+                'Kompetisi',
+                'Kategori Usia',
+                'Nama Tim',
+                'Manajer Tim',
+                'WhatsApp Manajer',
+                'Metode',
+                'Kanal Pembayaran',
+                'Nominal Tagihan (Rp)',
+                'Biaya Layanan (Rp)',
+                'Total Bayar (Rp)',
+                'Status Pembayaran',
+                'Verifikator',
+                'Catatan / Alasan',
+            ]);
+
+            foreach ($payments as $p) {
+                fputcsv($out, [
+                    $p->invoice_number,
+                    $p->created_at?->format('Y-m-d H:i:s') ?? '-',
+                    $p->paid_at?->format('Y-m-d H:i:s') ?? '-',
+                    $p->event?->name ?? '-',
+                    $p->event?->age_category ?? '-',
+                    $p->team?->name ?? '-',
+                    $p->team?->manager_name ?? '-',
+                    $p->team?->manager_whatsapp ?? '-',
+                    $p->method ?? 'manual',
+                    $p->payment_channel ?? '-',
+                    (float) $p->amount,
+                    (float) ($p->gateway_fee ?? 0),
+                    (float) $p->total_amount,
+                    $p->status,
+                    $p->verifier?->name ?? '-',
+                    $p->rejection_reason ?? '-',
+                ]);
+            }
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 
     protected function transformPayment(Payment $p): array

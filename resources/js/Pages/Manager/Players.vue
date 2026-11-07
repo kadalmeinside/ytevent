@@ -298,6 +298,20 @@ const submitForScreening = (player) => {
     });
 };
 
+const bulkSubmitForm = useForm({});
+const readyForBulkSubmitPlayers = computed(() => {
+    return props.players.filter(
+        (p) => ['draft', 'rejected'].includes(p.screening_status) && !p.is_locked && p.is_complete_for_submission
+    );
+});
+
+const submitAllReadyPlayers = () => {
+    if (readyForBulkSubmitPlayers.value.length === 0) return;
+    bulkSubmitForm.post(route('manager.players.submit-all'), {
+        preserveScroll: true,
+    });
+};
+
 const recallPlayerForm = useForm({});
 const recallPlayer = (player) => {
     if (!confirm(`Tarik pengajuan ${player.full_name} kembali ke status draft untuk perbaikan berkas/data?`)) return;
@@ -347,13 +361,27 @@ const isFinalRosterLocked = computed(() => {
                             </p>
                         </div>
 
-                        <div class="flex items-center gap-3">
+                        <div class="flex flex-wrap items-center gap-2.5">
                             <div class="text-right">
                                 <span class="text-[11px] text-slate-500 block">Kuota Skuad Terisi</span>
                                 <span class="text-sm font-bold tabular-data" :class="players.length >= team.event?.max_players_per_team ? 'text-rose-700' : 'text-slate-900'">
                                     {{ players.length }} / {{ team.event?.max_players_per_team }} Pemain
                                 </span>
                             </div>
+                            <button
+                                v-if="!isFinalRosterLocked && readyForBulkSubmitPlayers.length > 0"
+                                type="button"
+                                class="btn-secondary text-xs border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 inline-flex items-center gap-1.5 cursor-pointer"
+                                :disabled="bulkSubmitForm.processing"
+                                @click="submitAllReadyPlayers"
+                            >
+                                <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>
+                                    {{ bulkSubmitForm.processing ? 'Mengajukan...' : `Ajukan Semua Siap (${readyForBulkSubmitPlayers.length} Pemain)` }}
+                                </span>
+                            </button>
                             <button
                                 v-if="!isFinalRosterLocked"
                                 type="button"

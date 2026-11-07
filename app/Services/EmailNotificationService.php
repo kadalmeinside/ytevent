@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Jobs\SendLoggedEmailJob;
 use App\Mail\PaymentConfirmedMail;
 use App\Mail\PaymentProofRejectedMail;
+use App\Mail\PaymentRefundedMail;
+use App\Mail\ResetPasswordMail;
 use App\Mail\RosterLockedMail;
 use App\Mail\ScreeningResultMail;
 use App\Mail\SlotExpiredMail;
@@ -12,6 +14,7 @@ use App\Mail\TeamRegisteredMail;
 use App\Models\EmailNotificationLog;
 use App\Models\Payment;
 use App\Models\Team;
+use App\Models\User;
 use Illuminate\Mail\Mailable;
 use Throwable;
 
@@ -63,6 +66,29 @@ class EmailNotificationService
     public function sendRosterLocked(Team $team): ?EmailNotificationLog
     {
         return $this->queueForTeam($team, new RosterLockedMail($team));
+    }
+
+    /**
+     * Kirim notifikasi pengembalian dana (refund) telah diselesaikan Finance.
+     */
+    public function sendPaymentRefunded(Team $team, Payment $payment, string $refundNotes): ?EmailNotificationLog
+    {
+        return $this->queueForTeam($team, new PaymentRefundedMail($team, $payment, $refundNotes));
+    }
+
+    /**
+     * Kirim email tautan atur ulang kata sandi (reset password).
+     */
+    public function sendPasswordReset(User $user, string $resetUrl): EmailNotificationLog
+    {
+        $team = Team::query()->where('user_id', $user->id)->latest('id')->first();
+
+        return $this->queueAndLog(
+            recipientEmail: $user->email,
+            mailable: new ResetPasswordMail($user, $resetUrl),
+            eventId: $team?->event_id,
+            teamId: $team?->id
+        );
     }
 
     /**

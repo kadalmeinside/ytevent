@@ -13,8 +13,15 @@ Saat ini fondasi **Pre-Competition (Pendaftaran -> Pembayaran -> Input Skuad -> 
   - Katalog Event Publik, Pendaftaran Tim dengan *Pessimistic Row-Level Locking* (`SELECT ... FOR UPDATE`), Reservasi Slot Sementara (*Temporary Slot Hold*), Pembayaran Midtrans/Sandbox & Transfer Manual, Verifikasi Bukti Bayar oleh Finance, serta CRUD Pemain & Ofisial oleh Manajer Tim.
 - **Fase 2 (Screening Workbench, Accreditation PDF & Email Queue):**
   - Workspace Screening Admin *Side-by-Side*, **Modal Wizard Verifikasi Dokumen Cepat (*Auto-Advance*)**, Penguncian Skuad Final (`locked_roster`), Cetak **Album Roster Sheet (PDF)** & **ID Card Lanyard (PDF)**, Halaman Verifikasi QR Code Publik (`/verify/player/{code}`), serta Antrean Log Email Transaksional (`ScreeningResultMail`, `RosterLockedMail`, dll.) dengan fitur *Retry*.
-- **Fase 3 (In-Web Notifications, Live Counter Badges & 360° Team Dossier):**
+- **Fase 3 (In-Web Notifications, Live Counter Badges, Configurable Event Rules, SEO/GEO & 360° Team Dossier):**
   - Live Counter Badges di Sidebar Admin & Manajer, Banner Peringatan Akreditasi Otomatis (`WorkflowStepBanner`), Stepper 5 Tahap Kesiapan Tim, serta Halaman **Dossier 360° Detail Tim (`/admin/teams/{team}`)** untuk Panitia.
+  - Pengaturan dinamis per event untuk **Syarat Minimal Kiper (`min_gk_per_team`: `1` atau `2` GK)** serta **Visibilitas & Kewajiban Lisensi Pelatih Kepala (`show_coach_license` & `require_coach_license`)** dari form pendaftaran hingga validasi kunci skuad final.
+  - Optimasi **SEO, Server-Side Open Graph (Thumbnail Banner, Judul & Deskripsi Event untuk Facebook/WhatsApp/X), Schema.org JSON-LD (`SportsEvent`), AI Generative Engine (`/llms.txt`, `/llms-full.txt`, `/sitemap.xml`, `/robots.txt`)**, serta proteksi **`noindex, nofollow`** penuh pada `/admin/login` dan seluruh rute internal.
+- **Fase 4 (Kontrol Status Tim Admin, Bulk Screening, ID Card Ofisial, Eksekusi Refund, Pusat Ekspor CSV/Excel & Akun Mandiri — SELESAI 100%):**
+  - Kendali Status Tim oleh Admin di `/admin/teams/{team}` (*Unlock Roster*, *Force Lock Roster*, *Diskualifikasi / Re-Aktivasi Tim*, dan *Catatan Internal Panitia*).
+  - Pengajuan Screening Kolektif 1-Klik (*Bulk Submit All Ready Players*) di Portal Manajer (`Manager/Players.vue`) serta pencetakan **ID Card Pelatih & Ofisial** ber-QR Code & Nomor Lisensi di PDF Akreditasi.
+  - Eksekusi penyelesaian pengembalian dana (`refund_required` -> `refunded` + `PaymentRefundedMail`) serta **Pusat Ekspor Data CSV/Excel** (Laporan Transaksi Keuangan, Rekapitulasi Tim, & Database Pemain per Event).
+  - Pemulihan Kata Sandi Mandiri (`/forgot-password` & `/reset-password/{token}` via Email Queue) dan Form Ubah Kata Sandi di Profil Tim Manajer.
 
 ---
 

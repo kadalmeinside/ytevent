@@ -37,7 +37,7 @@ Form menggunakan atribut `<form novalidate>` (tanpa validasi bawaan HTML5). Sete
 5. **Email Aktif:** Format email valid, unik di tabel `users` (untuk pendaftar baru/tamu), digunakan untuk login dan notifikasi Queue.
 6. **Password & Konfirmasi Password:** Minimal 8 karakter, kombinasi huruf dan angka (dienkripsi dengan `Hash::make()` / Argon2id).
 7. **Nomor Telepon / WhatsApp Aktif:** Format nomor Indonesia (`08xx` / `+628xx`), 10–15 digit.
-8. **Nama Pelatih Kepala (Head Coach):** String, 3–100 karakter (opsional lisensi kepelatihan di tahap awal, wajib dilengkapi di dashboard).
+8. **Nama Pelatih Kepala (Head Coach) & Lisensi Kepelatihan Dinamis:** String, 3–100 karakter. Kolom lisensi pelatih kepala ditampilkan secara dinamis mengikuti konfigurasi event (`show_coach_license`: disembunyikan jika nonaktif, opsional jika `require_coach_license = false`, atau wajib diisi jika `require_coach_license = true`).
 9. **Persetujuan Syarat & Ketentuan:** Checkbox wajib centang (`accepted` di FormRequest) bahwa tim menyetujui regulasi kompetisi dan keabsahan data.
 
 ### 2.4 Pengelolaan Kuota Maksimal Event & Arsitektur Anti-Race Condition
@@ -123,13 +123,17 @@ Setiap pendaftaran tim menghasilkan 1 record `RegistrationInvoice` dengan kode u
 - **Input Pemain oleh Manajer Tim:**
   - Nama Lengkap, Nomor Punggung, Posisi (`GK`, `DF`, `MF`, `FW`), Tanggal Lahir, NIK / NISN, Tinggi/Berat Badan.
   - **Unggah Berkas Wajib:** Pas Foto terbaru, Akta Kelahiran, Kartu Keluarga (KK), Ijazah / Rapor / KIA, atau KTP (untuk senior).
-- **Proses Screening oleh Admin:**
-  - Admin memeriksa kesesuaian dokumen dengan batas usia event di panel *Side-by-Side Document Viewer*.
+- **Proses Screening oleh Admin (`Quick Document Verification Wizard`):**
+  - Admin memeriksa kesesuaian dokumen dengan batas usia event di panel *Side-by-Side Document Viewer* atau melalui **Modal Wizard Verifikasi Dokumen Cepat (*Auto-Advance*)** yang otomatis berpindah ke dokumen berikutnya setelah klik *Sahkan* atau *Tolak*.
+  - Tombol **Loloskan Pemain (Sah)** hanya aktif/membuka konfirmasi akhir apabila seluruh dokumen wajib pemain tersebut telah berstatus `valid`.
   - Status per pemain:
     - `draft`: Belum diajukan.
     - `submitted`: Menunggu pemeriksaan admin.
     - `passed`: Lolos verifikasi (data dikunci, tidak bisa diubah manajer).
     - `rejected`: Gagal/Revisi (wajib menyertakan catatan alasan penolakan, misal: *"Scan Akta Kelahiran buram"* atau *"Melebihi batas usia kelahiran 2012"*).
+- **Aturan Teknis Skuad & Pelatih per Event:**
+  - **Minimal Penjaga Gawang (`min_gk_per_team`):** Setiap event dapat mengonfigurasi syarat minimal `1 GK` atau `2 GK` yang berlaku pada progres skuad dan syarat penguncian akreditasi final.
+  - **Aturan Lisensi Pelatih (`show_coach_license` & `require_coach_license`):** Setiap event dapat menyembunyikan kolom lisensi pelatih, menampilkannya sebagai opsional, atau mewajibkan pengisian nomor lisensi beserta unggah sertifikat lisensi untuk jabatan `Head Coach` sebelum skuad dapat dikunci.
 
 ---
 
@@ -158,3 +162,15 @@ Semua pengiriman email wajib di-dispatch ke background queue (`implements Should
    - **Tahap 3:** Pendaftaran Minimal 1 Pelatih Kepala / Ofisial Pendamping Resmi.
    - **Tahap 4:** Verifikasi & Pengesahan Seluruh Berkas Pemain oleh Panitia Screening (`all_passed`) via *Quick Document Verification Wizard*.
    - **Tahap 5:** Penguncian Skuad Final (`locked_roster`) oleh Manajer Tim dan Pengunduhan Dokumen Akreditasi Resmi (Album Roster PDF & ID Card QR PDF).
+
+---
+
+## 9. Optimasi Search Engine (SEO), Social Link Preview, AI Generative Engine (GEO) & Proteksi No-Index Admin
+1. **Server-Side Dynamic Meta Tags & Open Graph (`app.blade.php` & `PublicEventController`):**
+   - Halaman publik (`/`, `/events/{slug}`, `/events/{slug}/register`) merender `<title>`, `<meta name="description">`, `<link rel="canonical">`, Open Graph (`og:title`, `og:description`, `og:image`, `og:image:secure_url`, `og:image:alt`, `og:url`), dan Twitter Card (`summary_large_image`) langsung dari server (SSR HTML `<head>`) dengan URL absolut gambar banner event agar crawler Facebook, WhatsApp, Telegram, X, dan LinkedIn langsung menampilkan thumbnail banner, judul, dan deskripsi event.
+   - Menyertakan structured data Schema.org JSON-LD (`SportsOrganization`, `WebSite`, `BreadcrumbList`, dan `SportsEvent`) langsung di HTML server.
+2. **Optimasi AI Generative Engine (`GEO`):**
+   - Menyediakan endpoint dinamis `/robots.txt`, `/sitemap.xml`, `/llms.txt`, dan `/llms-full.txt` (`SeoAndGeoController`) agar mesin pencari maupun mesin AI generatif (ChatGPT/GPTBot, Perplexity, Claude, Google AI) memperoleh konteks akurat mengenai daftar kompetisi aktif, kuota slot real-time, syarat usia, syarat minimal GK, syarat lisensi pelatih, dan alur pendaftaran.
+3. **Penyembunyian Login Admin & Rute Internal (`No-Index Protection`):**
+   - Menghapus tautan `/admin/login` dari footer halaman publik.
+   - Memasang HTTP Header `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet` (`SetSeoAndRobotsHeaders` middleware) serta meta `<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">` pada seluruh rute `/admin*`, `/manager*`, `/private-media/*`, dan `/verify/player/*`, ditambah aturan `Disallow` pada `/robots.txt`.

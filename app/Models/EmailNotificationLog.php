@@ -15,9 +15,11 @@ class EmailNotificationLog extends Model
         'TeamRegisteredMail' => 'Pendaftaran Tim & Tagihan',
         'PaymentConfirmedMail' => 'Konfirmasi Pembayaran Lunas',
         'PaymentProofRejectedMail' => 'Penolakan Bukti Transfer',
+        'PaymentRefundedMail' => 'Penyelesaian Pengembalian Dana (Refund)',
         'SlotExpiredMail' => 'Slot Kedaluwarsa',
         'ScreeningResultMail' => 'Hasil Screening Pemain',
         'RosterLockedMail' => 'Skuad Terkunci & Akreditasi',
+        'ResetPasswordMail' => 'Pemulihan & Atur Ulang Kata Sandi',
     ];
 
     protected $fillable = [

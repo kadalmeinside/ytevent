@@ -19,8 +19,43 @@ const props = defineProps({
     },
 });
 
-const { applyValidation, isEmpty, isValidIndonesianPhone, checkFile } = useFormValidator();
+const { applyValidation, isEmpty, isValidIndonesianPhone, isValidPassword, checkFile } = useFormValidator();
 const logoPreview = ref(props.team?.logo_url || null);
+
+const passwordForm = useForm({
+    current_password: '',
+    password: '',
+    password_confirmation: '',
+});
+
+const submitPasswordChange = () => {
+    const ok = applyValidation(passwordForm, () => {
+        const errs = {};
+        if (isEmpty(passwordForm.current_password)) {
+            errs.current_password = 'Kata sandi saat ini wajib diisi.';
+        }
+        if (isEmpty(passwordForm.password)) {
+            errs.password = 'Kata sandi baru wajib diisi.';
+        } else if (!isValidPassword(passwordForm.password)) {
+            errs.password = 'Kata sandi baru minimal 8 karakter dan wajib mengandung huruf serta angka.';
+        }
+        if (isEmpty(passwordForm.password_confirmation)) {
+            errs.password_confirmation = 'Konfirmasi kata sandi baru wajib diisi.';
+        } else if (passwordForm.password_confirmation !== passwordForm.password) {
+            errs.password_confirmation = 'Konfirmasi kata sandi baru tidak cocok.';
+        }
+        return errs;
+    });
+
+    if (!ok) return;
+
+    passwordForm.put(route('manager.password.update'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            passwordForm.reset();
+        },
+    });
+};
 
 const form = useForm({
     origin_association: props.team?.origin_association || '',
@@ -192,6 +227,68 @@ const submit = () => {
                     <div class="pt-3 flex justify-end">
                         <button type="submit" class="btn-pitch" :disabled="form.processing">
                             {{ form.processing ? 'Menyimpan...' : 'Simpan Perubahan Profil' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Kartu Keamanan Akun & Ubah Kata Sandi Mandiri -->
+            <div class="frosted-card p-6 sm:p-8 mt-6">
+                <div class="mb-5 pb-4 border-b border-slate-200">
+                    <h2 class="text-base font-bold text-slate-900">Keamanan Akun &amp; Ubah Kata Sandi</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        Perbarui kata sandi akun portal manajer Anda secara berkala. Gunakan minimal 8 karakter kombinasi huruf dan angka.
+                    </p>
+                </div>
+
+                <form @submit.prevent="submitPasswordChange" novalidate class="space-y-4">
+                    <div data-field="current_password">
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Kata Sandi Saat Ini</label>
+                        <input
+                            v-model="passwordForm.current_password"
+                            type="password"
+                            autocomplete="current-password"
+                            placeholder="Masukkan kata sandi saat ini"
+                            class="input-field"
+                            :class="{ 'input-field-error': passwordForm.errors.current_password }"
+                            @input="passwordForm.clearErrors('current_password')"
+                        />
+                        <InputError :message="passwordForm.errors.current_password" />
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div data-field="password">
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Kata Sandi Baru</label>
+                            <input
+                                v-model="passwordForm.password"
+                                type="password"
+                                autocomplete="new-password"
+                                placeholder="Minimal 8 karakter (huruf & angka)"
+                                class="input-field"
+                                :class="{ 'input-field-error': passwordForm.errors.password }"
+                                @input="passwordForm.clearErrors('password')"
+                            />
+                            <InputError :message="passwordForm.errors.password" />
+                        </div>
+
+                        <div data-field="password_confirmation">
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Konfirmasi Kata Sandi Baru</label>
+                            <input
+                                v-model="passwordForm.password_confirmation"
+                                type="password"
+                                autocomplete="new-password"
+                                placeholder="Ulangi kata sandi baru"
+                                class="input-field"
+                                :class="{ 'input-field-error': passwordForm.errors.password_confirmation }"
+                                @input="passwordForm.clearErrors('password_confirmation')"
+                            />
+                            <InputError :message="passwordForm.errors.password_confirmation" />
+                        </div>
+                    </div>
+
+                    <div class="pt-2 flex justify-end">
+                        <button type="submit" class="btn-pitch" :disabled="passwordForm.processing">
+                            {{ passwordForm.processing ? 'Memperbarui...' : 'Perbarui Kata Sandi' }}
                         </button>
                     </div>
                 </form>
