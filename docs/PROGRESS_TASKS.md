@@ -242,14 +242,19 @@ Legenda Status:
   - Menambahkan kolom `min_gk_per_team` (`1` atau `2`), `show_coach_license` (`boolean`), dan `require_coach_license` (`boolean`) pada tabel `events` serta form pembuatan/edit event (`Admin/Events/Form.vue`).
   - Menyinkronkan aturan visibilitas dan validasi wajib/opsional Lisensi Pelatih Kepala pada form pendaftaran publik (`Public/RegisterTeam.vue` & `RegisterTeamRequest.php`), profil tim manajer (`Manager/TeamProfile.vue` & `UpdateTeamProfileRequest.php`), serta form ofisial (`Manager/Officials.vue` & `StoreOfficialRequest.php`).
   - Menyinkronkan perhitungan kelayakan akreditasi (`AccreditationService::checkReadiness`) dan *workflow state machine* (`ResolvesActiveTeam::buildTeamWorkflow`) terhadap `min_gk_per_team` (`1` atau `2` GK) dan kewajiban lisensi pelatih.
+- [x] **3.3.6** **Optimasi Search Engine (SEO), AI Generative Engine (GEO), & Proteksi No-Index Login/Portal Admin**:
+  - **Penyembunyian Login & Portal Admin dari Mesin Pencari**: Menghapus tautan publik ke `/admin/login` pada footer `PublicLayout.vue`, menambahkan middleware [`SetSeoAndRobotsHeaders`](file:///Users/macbook/Application/ytevent/app/Http/Middleware/SetSeoAndRobotsHeaders.php) (`X-Robots-Tag: noindex, nofollow, noarchive, nosnippet`), meta tag `robots` / `googlebot` `noindex` pada `AdminLogin.vue`, `AdminLayout.vue`, `ManagerLayout.vue`, dan `PlayerVerification.vue`, serta aturan `Disallow: /admin`, `/admin/login`, `/manager`, `/private-media/` di `/robots.txt`.
+  - **Standar SEO Modern**: Menambahkan `sitemap.xml` dinamis, canonical URL, Open Graph (`og:*`), Twitter Cards, serta Schema.org JSON-LD (`SportsOrganization`, `WebSite` + `SearchAction`, `ItemList`, `BreadcrumbList`, dan `SportsEvent` lengkap dengan lokasi stadion, jadwal, harga, dan ketersediaan kuota) pada `app.blade.php`, `Public/Home.vue`, dan `Public/EventDetail.vue`.
+  - **Standar AI Generative Engine Optimization (GEO)**: Menyediakan endpoint `/llms.txt` dan `/llms-full.txt` (standar `llmstxt.org`) serta izin eksplisit di `/robots.txt` bagi crawler AI (`GPTBot`, `OAI-SearchBot`, `PerplexityBot`, `ClaudeBot`, `Google-Extended`) untuk merangkum katalog turnamen publik tanpa menyentuh rute internal panitia.
 
 ### 3.4 Automated Testing & Verifikasi Fase 3
-- [x] **3.4.1** Penulisan Feature Tests Fase 3 (`WorkflowAndNotificationBadgeTest.php`):
+- [x] **3.4.1** Penulisan Feature Tests Fase 3 (`WorkflowAndNotificationBadgeTest.php` & `SeoAndGeoTest.php`):
   - Pengujian akurasi counter `adminNotifications` untuk panitia.
   - Pengujian transisi `team.workflow` dari Tahap 1 hingga Tahap 5 (`is_ready_to_lock` -> peringatan akreditasi, dan `locked_roster` -> terakreditasi resmi).
   - Pengujian visibilitas daftar pemain *read-only* pada `Manager/Players` saat tim berstatus `locked_roster`.
   - Pengujian skenario event dengan konfigurasi `min_gk_per_team = 1` dan `require_coach_license = true` dari validasi form hingga kunci skuad final.
-- [x] **3.4.2** Eksekusi penuh `php artisan test` (**62 tests / 535 assertions PASS**) dan `npm run build` dengan hasil 100% lulus tanpa regresi.
+  - Pengujian proteksi `noindex` pada `/admin/login` & `/admin`, validasi `/robots.txt`, `/sitemap.xml`, `/llms.txt`, `/llms-full.txt`, serta JSON-LD structured data.
+- [x] **3.4.2** Eksekusi penuh `php artisan test` (**67 tests / 575 assertions PASS**) dan `npm run build` dengan hasil 100% lulus tanpa regresi.
 
 ---
 

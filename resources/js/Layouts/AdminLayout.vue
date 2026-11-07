@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue';
-import { usePage, useForm } from '@inertiajs/vue3';
+import { usePage, useForm, Head } from '@inertiajs/vue3';
 import FlashAlert from '@/Components/FlashAlert.vue';
 
 defineProps({
@@ -178,6 +178,10 @@ const logout = () => {
 
 <template>
     <div class="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
+        <Head>
+            <meta head-key="robots" name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+            <meta head-key="googlebot" name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
+        </Head>
         <header class="lg:hidden sticky top-0 z-40 frosted-header px-4 h-14 flex items-center justify-between">
             <div class="flex items-center gap-2.5">
                 <button

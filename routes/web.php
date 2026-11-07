@@ -17,8 +17,15 @@ use App\Http\Controllers\Manager\PaymentController as ManagerPaymentController;
 use App\Http\Controllers\Manager\PlayerController as ManagerPlayerController;
 use App\Http\Controllers\PrivateMediaController;
 use App\Http\Controllers\Public\PlayerVerificationController;
+use App\Http\Controllers\Public\SeoAndGeoController;
 use App\Http\Controllers\PublicEventController;
 use Illuminate\Support\Facades\Route;
+
+// SEO & AI Generative Engine Optimization (GEO) Endpoints
+Route::get('/robots.txt', [SeoAndGeoController::class, 'robots'])->name('seo.robots');
+Route::get('/sitemap.xml', [SeoAndGeoController::class, 'sitemap'])->name('seo.sitemap');
+Route::get('/llms.txt', [SeoAndGeoController::class, 'llmsTxt'])->name('seo.llms');
+Route::get('/llms-full.txt', [SeoAndGeoController::class, 'llmsFullTxt'])->name('seo.llms-full');
 
 // Area Publik
 Route::get('/', [PublicEventController::class, 'index'])->name('home');

@@ -26,7 +26,10 @@ const props = defineProps({
 </script>
 
 <template>
-    <Head :title="isVerified ? `Verifikasi Sah: ${player?.full_name} (#${player?.jersey_number})` : 'Verifikasi Pemain Tidak Ditemukan'" />
+    <Head :title="isVerified ? `Verifikasi Sah: ${player?.full_name} (#${player?.jersey_number})` : 'Verifikasi Pemain Tidak Ditemukan'">
+        <meta head-key="robots" name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+        <meta head-key="googlebot" name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
+    </Head>
 
     <div class="min-h-screen bg-slate-50 text-slate-800 flex flex-col justify-between py-6 px-4 sm:px-6">
         <div class="max-w-md w-full mx-auto space-y-4">

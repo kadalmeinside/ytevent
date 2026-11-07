@@ -134,9 +134,9 @@ const logout = () => {
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-2">
                 <p>{{ systemSettings?.footer_copyright || 'YTEvent Multi-Event Football Tournament & League Management System' }}</p>
                 <div class="flex items-center justify-center gap-4 text-slate-400">
-                    <Link :href="route('home')" class="hover:text-slate-700">Daftar Event</Link>
+                    <Link :href="route('home')" class="hover:text-slate-700">Katalog Kompetisi</Link>
                     <span>&bull;</span>
-                    <Link :href="route('admin.login')" class="hover:text-slate-700">Portal Panitia</Link>
+                    <Link :href="route('login')" class="hover:text-slate-700">Portal Manajer Tim</Link>
                 </div>
             </div>
         </footer>

@@ -152,7 +152,13 @@ const submit = () => {
 
 <template>
     <PublicLayout>
-        <Head :title="`Daftar Tim - ${event.name}`" />
+        <Head :title="`Daftar Tim - ${event.name} (${event.age_category})`">
+            <meta
+                head-key="description"
+                name="description"
+                :content="`Formulir pendaftaran resmi tim sepak bola untuk kompetisi ${event.name} (${event.age_category}) di ${event.venue_name}, ${event.city}. Sisa slot tersedia: ${event.available_slots} dari ${event.max_teams} tim.`"
+            />
+        </Head>
 
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div class="mb-4">

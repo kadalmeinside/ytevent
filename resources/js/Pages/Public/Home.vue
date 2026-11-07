@@ -1,6 +1,6 @@
 <script setup>
-import { reactive } from 'vue';
-import { router } from '@inertiajs/vue3';
+import { reactive, computed } from 'vue';
+import { router, usePage } from '@inertiajs/vue3';
 import PublicLayout from '@/Layouts/PublicLayout.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import { useFormatters } from '@/Composables/useFormatters';
@@ -28,7 +28,55 @@ const props = defineProps({
     },
 });
 
+const page = usePage();
+const systemSettings = computed(() => page.props.systemSettings || {});
 const { formatRupiah, formatDate } = useFormatters();
+
+const seoTitle = computed(() => 'Katalog Kompetisi & Turnamen Sepak Bola Resmi');
+const seoDescription = computed(() => {
+    const appName = systemSettings.value.app_name || 'Persija Development';
+    return `Portal resmi pendaftaran turnamen dan liga sepak bola ${appName}. Reservasi slot tim real-time, pembayaran terverifikasi, screening dokumen usia pemain, dan penerbitan ID Card akreditasi.`;
+});
+
+const structuredCatalogJsonLd = computed(() => {
+    const items = (props.events || []).map((ev, idx) => ({
+        '@type': 'ListItem',
+        position: idx + 1,
+        item: {
+            '@type': 'SportsEvent',
+            name: `${ev.name} (${ev.age_category})`,
+            sport: 'Soccer',
+            startDate: ev.match_start_date || undefined,
+            endDate: ev.match_end_date || ev.match_start_date || undefined,
+            eventStatus: 'https://schema.org/EventScheduled',
+            eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+            url: typeof window !== 'undefined' ? `${window.location.origin}/events/${ev.slug}` : `/events/${ev.slug}`,
+            location: {
+                '@type': 'Place',
+                name: ev.venue_name,
+                address: {
+                    '@type': 'PostalAddress',
+                    addressLocality: ev.city,
+                    addressCountry: 'ID',
+                },
+            },
+            offers: {
+                '@type': 'Offer',
+                price: Number(ev.registration_fee || 0),
+                priceCurrency: 'IDR',
+                availability: ev.can_register ? 'https://schema.org/InStock' : 'https://schema.org/SoldOut',
+            },
+        },
+    }));
+
+    return JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'ItemList',
+        name: 'Katalog Turnamen & Liga Sepak Bola Resmi',
+        numberOfItems: items.length,
+        itemListElement: items,
+    });
+});
 
 const filterState = reactive({
     search: props.filters.search || '',
@@ -87,7 +135,14 @@ const stripHtml = (html) => {
 
 <template>
     <PublicLayout>
-        <Head title="Katalog Kompetisi Sepak Bola" />
+        <Head :title="seoTitle">
+            <meta head-key="description" name="description" :content="seoDescription" />
+            <meta head-key="og:title" property="og:title" :content="seoTitle" />
+            <meta head-key="og:description" property="og:description" :content="seoDescription" />
+            <meta head-key="twitter:title" name="twitter:title" :content="seoTitle" />
+            <meta head-key="twitter:description" name="twitter:description" :content="seoDescription" />
+            <component :is="'script'" head-key="jsonld-catalog" type="application/ld+json" v-text="structuredCatalogJsonLd" />
+        </Head>
 
         <!-- Hero Section (Seamless with Page Canvas, Identical to EventDetail) -->
         <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-4 sm:pt-6 sm:pb-6">

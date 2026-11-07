@@ -41,11 +41,91 @@ const formattedDescription = computed(() => {
     }
     return desc.replace(/\n/g, '<br>');
 });
+
+const plainDescription = computed(() => {
+    const raw = formattedDescription.value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (raw) {
+        return raw.slice(0, 160);
+    }
+    return `Pendaftaran resmi ${props.event.name} (${props.event.age_category}) di ${props.event.venue_name}, ${props.event.city}. Kuota maksimal ${props.event.max_teams} tim.`;
+});
+
+const eventJsonLd = computed(() => {
+    const ev = props.event;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const detailUrl = `${origin}/events/${ev.slug}`;
+
+    return JSON.stringify({
+        '@context': 'https://schema.org',
+        '@graph': [
+            {
+                '@type': 'BreadcrumbList',
+                itemListElement: [
+                    {
+                        '@type': 'ListItem',
+                        position: 1,
+                        name: 'Katalog Kompetisi',
+                        item: `${origin}/`,
+                    },
+                    {
+                        '@type': 'ListItem',
+                        position: 2,
+                        name: `${ev.name} (${ev.age_category})`,
+                        item: detailUrl,
+                    },
+                ],
+            },
+            {
+                '@type': 'SportsEvent',
+                name: `${ev.name} (${ev.age_category})`,
+                description: plainDescription.value,
+                sport: 'Soccer',
+                startDate: ev.match_start_date || undefined,
+                endDate: ev.match_end_date || ev.match_start_date || undefined,
+                eventStatus: 'https://schema.org/EventScheduled',
+                eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+                maximumAttendeeCapacity: Number(ev.max_teams || 0),
+                remainingAttendeeCapacity: Number(ev.available_slots || 0),
+                image: ev.banner_url ? [ev.banner_url] : undefined,
+                url: detailUrl,
+                location: {
+                    '@type': 'Place',
+                    name: ev.venue_name,
+                    hasMap: ev.venue_maps_url || undefined,
+                    address: {
+                        '@type': 'PostalAddress',
+                        addressLocality: ev.city,
+                        addressCountry: 'ID',
+                    },
+                },
+                offers: {
+                    '@type': 'Offer',
+                    url: `${origin}/events/${ev.slug}/register`,
+                    price: Number(ev.registration_fee || 0),
+                    priceCurrency: 'IDR',
+                    availability: ev.can_register ? 'https://schema.org/InStock' : 'https://schema.org/SoldOut',
+                    validFrom: ev.registration_open_at || undefined,
+                    validThrough: ev.registration_close_at || undefined,
+                },
+            },
+        ],
+    });
+});
 </script>
 
 <template>
     <PublicLayout>
-        <Head :title="event.name" />
+        <Head :title="`${event.name} (${event.age_category})`">
+            <meta head-key="description" name="description" :content="plainDescription" />
+            <meta head-key="og:type" property="og:type" content="article" />
+            <meta head-key="og:title" property="og:title" :content="`${event.name} (${event.age_category})`" />
+            <meta head-key="og:description" property="og:description" :content="plainDescription" />
+            <meta v-if="event.banner_url" head-key="og:image" property="og:image" :content="event.banner_url" />
+            <meta head-key="twitter:title" name="twitter:title" :content="`${event.name} (${event.age_category})`" />
+            <meta head-key="twitter:description" name="twitter:description" :content="plainDescription" />
+            <meta v-if="event.banner_url" head-key="twitter:image" name="twitter:image" :content="event.banner_url" />
+            <component :is="'script'" head-key="jsonld-event" type="application/ld+json" v-text="eventJsonLd" />
+        </Head>
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-8 sm:pt-3 sm:pb-12">
             <div class="mb-2.5">

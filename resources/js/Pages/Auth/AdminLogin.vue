@@ -37,7 +37,10 @@ const submit = () => {
 
 <template>
     <div class="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <Head title="Login Panitia Internal" />
+        <Head title="Login Panitia Internal">
+            <meta head-key="robots" name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+            <meta head-key="googlebot" name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
+        </Head>
 
         <div class="max-w-md w-full mx-auto">
             <div class="text-center mb-6">

@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue';
-import { usePage, useForm, router } from '@inertiajs/vue3';
+import { usePage, useForm, router, Head } from '@inertiajs/vue3';
 import FlashAlert from '@/Components/FlashAlert.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import WorkflowStepBanner from '@/Components/WorkflowStepBanner.vue';
@@ -122,6 +122,10 @@ const logout = () => {
 
 <template>
     <div class="min-h-screen bg-transparent flex flex-col lg:flex-row">
+        <Head>
+            <meta head-key="robots" name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+            <meta head-key="googlebot" name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
+        </Head>
         <!-- Mobile Top Navbar -->
         <header class="lg:hidden sticky top-0 z-40 frosted-header px-4 h-14 flex items-center justify-between">
             <div class="flex items-center gap-2.5">
