@@ -152,12 +152,27 @@ const submit = () => {
 
 <template>
     <PublicLayout>
-        <Head :title="`Daftar Tim - ${event.name} (${event.age_category})`">
+        <Head :title="`Daftar Tim — ${event.name} (${event.age_category})`">
             <meta
                 head-key="description"
                 name="description"
                 :content="`Formulir pendaftaran resmi tim sepak bola untuk kompetisi ${event.name} (${event.age_category}) di ${event.venue_name}, ${event.city}. Sisa slot tersedia: ${event.available_slots} dari ${event.max_teams} tim.`"
             />
+            <meta head-key="og:type" property="og:type" content="article" />
+            <meta head-key="og:title" property="og:title" :content="`Daftar Tim — ${event.name} (${event.age_category})`" />
+            <meta
+                head-key="og:description"
+                property="og:description"
+                :content="`Formulir pendaftaran resmi tim sepak bola untuk kompetisi ${event.name} (${event.age_category}) di ${event.venue_name}, ${event.city}. Sisa slot tersedia: ${event.available_slots} dari ${event.max_teams} tim.`"
+            />
+            <meta v-if="event.banner_url" head-key="og:image" property="og:image" :content="event.banner_url" />
+            <meta head-key="twitter:title" name="twitter:title" :content="`Daftar Tim — ${event.name} (${event.age_category})`" />
+            <meta
+                head-key="twitter:description"
+                name="twitter:description"
+                :content="`Formulir pendaftaran resmi tim sepak bola untuk kompetisi ${event.name} (${event.age_category}) di ${event.venue_name}, ${event.city}. Sisa slot tersedia: ${event.available_slots} dari ${event.max_teams} tim.`"
+            />
+            <meta v-if="event.banner_url" head-key="twitter:image" name="twitter:image" :content="event.banner_url" />
         </Head>
 
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

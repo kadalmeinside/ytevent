@@ -5,12 +5,13 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Public\RegisterTeamRequest;
 use App\Models\Event;
 use App\Models\Player;
+use App\Models\SystemSetting;
 use App\Models\Team;
 use App\Services\TeamRegistrationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -100,12 +101,14 @@ class PublicEventController extends Controller
                 'name' => $team->name,
                 'origin_association' => $team->origin_association,
                 'status' => $team->status,
-                'logo_url' => $team->logo_path ? Storage::disk('public')->url($team->logo_path) : null,
+                'logo_url' => $this->publicStorageUrl($team->logo_path),
             ]);
 
         return Inertia::render('Public/EventDetail', [
             'event' => $this->transformPublicEvent($event, detailed: true),
             'registeredTeams' => $registeredTeams,
+        ])->withViewData([
+            'seoMeta' => $this->buildEventSeoMeta($event, isRegisterPage: false),
         ]);
     }
 
@@ -128,6 +131,8 @@ class PublicEventController extends Controller
                 'email' => $user->email,
                 'phone' => $user->phone,
             ] : null,
+        ])->withViewData([
+            'seoMeta' => $this->buildEventSeoMeta($event, isRegisterPage: true),
         ]);
     }
 
@@ -191,8 +196,8 @@ class PublicEventController extends Controller
             'match_end_date' => $event->match_end_date?->toDateString(),
             'status' => $effectiveStatus,
             'can_register' => $event->canAcceptRegistration(),
-            'banner_url' => $event->banner_path ? Storage::disk('public')->url($event->banner_path) : null,
-            'regulation_pdf_url' => $event->regulation_pdf_path ? Storage::disk('public')->url($event->regulation_pdf_path) : null,
+            'banner_url' => $this->publicStorageUrl($event->banner_path),
+            'regulation_pdf_url' => $this->publicStorageUrl($event->regulation_pdf_path),
         ];
 
         if ($detailed) {
@@ -214,6 +219,128 @@ class PublicEventController extends Controller
         }
 
         return $data;
+    }
+
+    protected function publicStorageUrl(?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return $path;
+        }
+
+        $cleanPath = ltrim($path, '/');
+        if (str_starts_with($cleanPath, 'storage/')) {
+            return url('/' . $cleanPath);
+        }
+
+        return url('/storage/' . $cleanPath);
+    }
+
+    protected function cleanPlainDescription(Event $event, bool $isRegisterPage = false): string
+    {
+        if ($isRegisterPage) {
+            $occupied = $event->occupiedSlotsCount();
+            $available = max(0, $event->max_teams - $occupied);
+
+            return "Formulir pendaftaran resmi tim sepak bola untuk kompetisi {$event->name} ({$event->age_category}) di {$event->venue_name}, {$event->city}. Sisa slot tersedia: {$available} dari {$event->max_teams} tim.";
+        }
+
+        $raw = (string) ($event->short_description ?? '');
+        if ($raw !== '') {
+            $decoded = html_entity_decode(html_entity_decode($raw, ENT_QUOTES | ENT_HTML5, 'UTF-8'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $stripped = preg_replace('/\s+/u', ' ', trim(strip_tags($decoded))) ?? '';
+            if ($stripped !== '') {
+                return Str::limit($stripped, 160);
+            }
+        }
+
+        return "Pendaftaran resmi {$event->name} ({$event->age_category}) di {$event->venue_name}, {$event->city}. Kuota maksimal {$event->max_teams} tim.";
+    }
+
+    protected function buildEventSeoMeta(Event $event, bool $isRegisterPage = false): array
+    {
+        $appName = (string) SystemSetting::get('app_name', config('app.name', 'Persija Development'));
+        $occupied = $event->occupiedSlotsCount();
+        $available = max(0, $event->max_teams - $occupied);
+        $bannerUrl = $this->publicStorageUrl($event->banner_path);
+        $description = $this->cleanPlainDescription($event, $isRegisterPage);
+        $detailUrl = route('events.show', ['event' => $event->slug]);
+        $registerUrl = route('events.register', ['event' => $event->slug]);
+
+        $ogTitle = $isRegisterPage
+            ? "Daftar Tim — {$event->name} ({$event->age_category})"
+            : "{$event->name} ({$event->age_category})";
+
+        $pageTitle = "{$ogTitle} - {$appName}";
+
+        $sportsEventSchema = array_filter([
+            '@type' => 'SportsEvent',
+            '@id' => $detailUrl . '#event',
+            'name' => "{$event->name} ({$event->age_category})",
+            'description' => $this->cleanPlainDescription($event, false),
+            'sport' => 'Soccer',
+            'startDate' => $event->match_start_date?->toDateString(),
+            'endDate' => ($event->match_end_date ?? $event->match_start_date)?->toDateString(),
+            'eventStatus' => 'https://schema.org/EventScheduled',
+            'eventAttendanceMode' => 'https://schema.org/OfflineEventAttendanceMode',
+            'maximumAttendeeCapacity' => (int) $event->max_teams,
+            'remainingAttendeeCapacity' => (int) $available,
+            'image' => $bannerUrl ? [$bannerUrl] : null,
+            'url' => $detailUrl,
+            'location' => [
+                '@type' => 'Place',
+                'name' => $event->venue_name,
+                'hasMap' => $event->venue_maps_url ?: null,
+                'address' => [
+                    '@type' => 'PostalAddress',
+                    'addressLocality' => $event->city,
+                    'addressCountry' => 'ID',
+                ],
+            ],
+            'offers' => array_filter([
+                '@type' => 'Offer',
+                'url' => $registerUrl,
+                'price' => (float) $event->registration_fee,
+                'priceCurrency' => 'IDR',
+                'availability' => $event->canAcceptRegistration()
+                    ? 'https://schema.org/InStock'
+                    : 'https://schema.org/SoldOut',
+                'validFrom' => $event->registration_open_at?->toIso8601String(),
+                'validThrough' => $event->registration_close_at?->toIso8601String(),
+            ], fn ($v) => $v !== null),
+        ], fn ($v) => $v !== null);
+
+        $breadcrumbSchema = [
+            '@type' => 'BreadcrumbList',
+            'itemListElement' => [
+                [
+                    '@type' => 'ListItem',
+                    'position' => 1,
+                    'name' => 'Katalog Kompetisi',
+                    'item' => url('/'),
+                ],
+                [
+                    '@type' => 'ListItem',
+                    'position' => 2,
+                    'name' => "{$event->name} ({$event->age_category})",
+                    'item' => $detailUrl,
+                ],
+            ],
+        ];
+
+        return [
+            'title' => $pageTitle,
+            'og_title' => $ogTitle,
+            'description' => $description,
+            'image' => $bannerUrl,
+            'image_alt' => "{$event->name} ({$event->age_category})",
+            'type' => 'article',
+            'url' => $isRegisterPage ? $registerUrl : $detailUrl,
+            'json_ld' => [$breadcrumbSchema, $sportsEventSchema],
+        ];
     }
 }
 

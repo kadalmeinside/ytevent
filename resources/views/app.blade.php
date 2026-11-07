@@ -9,9 +9,9 @@
         $appTagline = (string) \App\Models\SystemSetting::get('app_tagline', 'Portal Resmi Pendaftaran Turnamen & Liga Sepak Bola');
         $defaultDescription = "{$appName} — {$appTagline}. Sistem terintegrasi pendaftaran tim sepak bola, reservasi slot kuota real-time, verifikasi berkas kelayakan usia pemain, dan penerbitan ID Card akreditasi resmi.";
         $favicon = \App\Models\SystemSetting::get('app_favicon');
-        $faviconUrl = $favicon ? \Illuminate\Support\Facades\Storage::disk('public')->url($favicon) : null;
+        $faviconUrl = $favicon ? url('/storage/' . ltrim((string) $favicon, '/')) : null;
         $logo = \App\Models\SystemSetting::get('app_logo');
-        $logoUrl = $logo ? \Illuminate\Support\Facades\Storage::disk('public')->url($logo) : null;
+        $logoUrl = $logo ? url('/storage/' . ltrim((string) $logo, '/')) : null;
         $isPrivatePath = request()->is('admin')
             || request()->is('admin/*')
             || request()->is('manager')
@@ -21,10 +21,18 @@
         $robotsContent = $isPrivatePath
             ? 'noindex, nofollow, noarchive, nosnippet'
             : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';
-        $canonicalUrl = url()->current();
+
+        $seoMeta = isset($seoMeta) && is_array($seoMeta) ? $seoMeta : null;
+        $pageTitle = $seoMeta['title'] ?? "{$appName} — {$appTagline}";
+        $ogTitle = $seoMeta['og_title'] ?? "{$appName} — {$appTagline}";
+        $metaDescription = $seoMeta['description'] ?? $defaultDescription;
+        $metaImage = $seoMeta['image'] ?? $logoUrl;
+        $metaImageAlt = $seoMeta['image_alt'] ?? $ogTitle;
+        $metaType = $seoMeta['type'] ?? 'website';
+        $canonicalUrl = $seoMeta['url'] ?? url()->current();
     @endphp
-    <title inertia>{{ $appName }}</title>
-    <meta head-key="description" name="description" content="{{ $defaultDescription }}">
+    <title inertia>{{ $pageTitle }}</title>
+    <meta head-key="description" name="description" content="{{ $metaDescription }}">
     <meta head-key="robots" name="robots" content="{{ $robotsContent }}">
     <meta head-key="googlebot" name="googlebot" content="{{ $robotsContent }}">
     @if(!$isPrivatePath)
@@ -32,18 +40,23 @@
         <link rel="alternate" type="text/plain" title="LLMs Context Summary" href="{{ url('/llms.txt') }}">
         <link rel="alternate" type="text/plain" title="LLMs Full Documentation" href="{{ url('/llms-full.txt') }}">
         <link rel="sitemap" type="application/xml" title="Sitemap" href="{{ url('/sitemap.xml') }}">
-        <meta head-key="og:type" property="og:type" content="website">
+        <meta head-key="og:type" property="og:type" content="{{ $metaType }}">
         <meta head-key="og:site_name" property="og:site_name" content="{{ $appName }}">
         <meta head-key="og:locale" property="og:locale" content="id_ID">
-        <meta head-key="og:title" property="og:title" content="{{ $appName }} — {{ $appTagline }}">
-        <meta head-key="og:description" property="og:description" content="{{ $defaultDescription }}">
+        <meta head-key="og:title" property="og:title" content="{{ $ogTitle }}">
+        <meta head-key="og:description" property="og:description" content="{{ $metaDescription }}">
         <meta head-key="og:url" property="og:url" content="{{ $canonicalUrl }}">
-        @if($logoUrl)
-            <meta head-key="og:image" property="og:image" content="{{ $logoUrl }}">
+        @if($metaImage)
+            <meta head-key="og:image" property="og:image" content="{{ $metaImage }}">
+            <meta head-key="og:image:secure_url" property="og:image:secure_url" content="{{ $metaImage }}">
+            <meta head-key="og:image:alt" property="og:image:alt" content="{{ $metaImageAlt }}">
         @endif
         <meta head-key="twitter:card" name="twitter:card" content="summary_large_image">
-        <meta head-key="twitter:title" name="twitter:title" content="{{ $appName }} — {{ $appTagline }}">
-        <meta head-key="twitter:description" name="twitter:description" content="{{ $defaultDescription }}">
+        <meta head-key="twitter:title" name="twitter:title" content="{{ $ogTitle }}">
+        <meta head-key="twitter:description" name="twitter:description" content="{{ $metaDescription }}">
+        @if($metaImage)
+            <meta head-key="twitter:image" name="twitter:image" content="{{ $metaImage }}">
+        @endif
     @endif
 
     @if($faviconUrl)
@@ -54,38 +67,44 @@
 
     @if(!$isPrivatePath)
         @php
-            $baseStructuredData = [
-                '@context' => 'https://schema.org',
-                '@graph' => [
-                    [
-                        '@type' => 'SportsOrganization',
+            $graphItems = [
+                [
+                    '@type' => 'SportsOrganization',
+                    '@id' => url('/') . '#organization',
+                    'name' => $appName,
+                    'description' => $defaultDescription,
+                    'url' => url('/'),
+                    'sport' => 'Soccer',
+                    'logo' => $logoUrl ?: url('/favicon.ico'),
+                ],
+                [
+                    '@type' => 'WebSite',
+                    '@id' => url('/') . '#website',
+                    'url' => url('/'),
+                    'name' => $appName,
+                    'description' => $appTagline,
+                    'inLanguage' => 'id-ID',
+                    'publisher' => [
                         '@id' => url('/') . '#organization',
-                        'name' => $appName,
-                        'description' => $defaultDescription,
-                        'url' => url('/'),
-                        'sport' => 'Soccer',
-                        'logo' => $logoUrl ?: url('/favicon.ico'),
                     ],
-                    [
-                        '@type' => 'WebSite',
-                        '@id' => url('/') . '#website',
-                        'url' => url('/'),
-                        'name' => $appName,
-                        'description' => $appTagline,
-                        'inLanguage' => 'id-ID',
-                        'publisher' => [
-                            '@id' => url('/') . '#organization',
+                    'potentialAction' => [
+                        '@type' => 'SearchAction',
+                        'target' => [
+                            '@type' => 'EntryPoint',
+                            'urlTemplate' => url('/') . '?search={search_term_string}',
                         ],
-                        'potentialAction' => [
-                            '@type' => 'SearchAction',
-                            'target' => [
-                                '@type' => 'EntryPoint',
-                                'urlTemplate' => url('/') . '?search={search_term_string}',
-                            ],
-                            'query-input' => 'required name=search_term_string',
-                        ],
+                        'query-input' => 'required name=search_term_string',
                     ],
                 ],
+            ];
+            if (!empty($seoMeta['json_ld']) && is_array($seoMeta['json_ld'])) {
+                foreach ($seoMeta['json_ld'] as $item) {
+                    $graphItems[] = $item;
+                }
+            }
+            $baseStructuredData = [
+                '@context' => 'https://schema.org',
+                '@graph' => $graphItems,
             ];
         @endphp
         <script type="application/ld+json">{!! json_encode($baseStructuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>

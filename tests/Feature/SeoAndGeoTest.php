@@ -24,7 +24,8 @@ class SeoAndGeoTest extends TestCase
         $published = Event::create([
             'name' => 'Persija Young Tiger Cup U-12',
             'slug' => 'persija-young-tiger-cup-u12',
-            'short_description' => 'Turnamen resmi sepak bola usia dini di Jakarta.',
+            'short_description' => '<p>Turnamen resmi sepak bola usia dini di Jakarta dengan kuota terbatas.</p>',
+            'banner_path' => 'events/banners/young-tiger-u12.jpg',
             'venue_name' => 'Stadion Soemantri Brodjonegoro',
             'city' => 'Jakarta Selatan',
             'format' => 'festival',
@@ -96,6 +97,11 @@ class SeoAndGeoTest extends TestCase
         $detailResponse->assertOk();
         $detailResponse->assertHeader('X-Robots-Tag', 'index, follow, max-image-preview:large, max-snippet:-1');
         $detailResponse->assertSee('rel="canonical"', false);
+        $detailResponse->assertSee('<meta head-key="og:title" property="og:title" content="Persija Young Tiger Cup U-12 (U-12)">', false);
+        $detailResponse->assertSee('<meta head-key="og:description" property="og:description" content="Turnamen resmi sepak bola usia dini di Jakarta dengan kuota terbatas.">', false);
+        $detailResponse->assertSee('<meta head-key="og:image" property="og:image" content="' . url('/storage/events/banners/young-tiger-u12.jpg') . '">', false);
+        $detailResponse->assertSee('<meta head-key="twitter:image" name="twitter:image" content="' . url('/storage/events/banners/young-tiger-u12.jpg') . '">', false);
+        $detailResponse->assertSee('"@type":"SportsEvent"', false);
     }
 
     public function test_robots_txt_disallows_admin_and_allows_public_and_ai_crawlers(): void
@@ -144,3 +150,4 @@ class SeoAndGeoTest extends TestCase
         $llmsFullResponse->assertDontSee($events['draft']->name, false);
     }
 }
+

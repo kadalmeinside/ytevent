@@ -34,3 +34,4 @@ class SetSeoAndRobotsHeaders
             || $request->is('verify/player/*');
     }
 }
+

@@ -278,3 +278,4 @@ class SeoAndGeoController extends Controller
         ]);
     }
 }
+
