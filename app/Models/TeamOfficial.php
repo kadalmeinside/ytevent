@@ -41,5 +41,10 @@ class TeamOfficial extends Model
     {
         return $this->belongsTo(Event::class);
     }
+
+    public function getAccreditationCodeAttribute(): string
+    {
+        return 'OFF-' . str_pad((string) $this->id, 4, '0', STR_PAD_LEFT);
+    }
 }
 

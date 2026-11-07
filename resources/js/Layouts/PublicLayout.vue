@@ -2,6 +2,7 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { usePage, useForm, Link } from '@inertiajs/vue3';
 import FlashAlert from '@/Components/FlashAlert.vue';
+import SimulationFloatingTool from '@/Components/SimulationFloatingTool.vue';
 
 const page = usePage();
 const user = computed(() => page.props.auth?.user);
@@ -140,5 +141,7 @@ const logout = () => {
                 </div>
             </div>
         </footer>
+
+        <SimulationFloatingTool context-area="public" />
     </div>
 </template>

@@ -207,6 +207,54 @@ const docChipClass = (doc) => {
     }
     return 'bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100 cursor-pointer';
 };
+
+// Official Verification Modal & Actions
+const officialVerifyModal = ref({
+    show: false,
+    official: null,
+});
+
+const officialVerifyForm = useForm({
+    screening_status: 'passed',
+    verification_notes: '',
+});
+
+const approveOfficialQuick = (official) => {
+    officialVerifyForm.screening_status = 'passed';
+    officialVerifyForm.verification_notes = '';
+    officialVerifyForm.post(route('admin.teams.officials.verify', { team: props.team.id, official: official.id }), {
+        preserveScroll: true,
+    });
+};
+
+const openRejectOfficialModal = (official) => {
+    officialVerifyForm.reset();
+    officialVerifyForm.clearErrors();
+    officialVerifyForm.screening_status = 'rejected';
+    officialVerifyForm.verification_notes = official.verification_notes || '';
+    officialVerifyModal.value = {
+        show: true,
+        official,
+    };
+};
+
+const closeRejectOfficialModal = () => {
+    officialVerifyModal.value = { show: false, official: null };
+};
+
+const submitRejectOfficial = () => {
+    if (!officialVerifyForm.verification_notes || officialVerifyForm.verification_notes.trim().length < 3) {
+        officialVerifyForm.setError('verification_notes', 'Catatan alasan revisi lisensi/data ofisial wajib diisi.');
+        return;
+    }
+    officialVerifyForm.post(
+        route('admin.teams.officials.verify', { team: props.team.id, official: officialVerifyModal.value.official.id }),
+        {
+            preserveScroll: true,
+            onSuccess: () => closeRejectOfficialModal(),
+        }
+    );
+};
 </script>
 
 <template>
@@ -694,53 +742,98 @@ const docChipClass = (doc) => {
                     <div
                         v-for="off in officials"
                         :key="off.id"
-                        class="frosted-card p-4 sm:p-5 bg-white flex items-start justify-between gap-4"
+                        class="frosted-card p-4 sm:p-5 bg-white flex flex-col justify-between gap-4"
+                        :class="off.screening_status === 'rejected' ? 'border-rose-300 bg-rose-50/20' : off.screening_status === 'passed' ? 'border-emerald-200/90' : 'border-slate-200'"
                     >
-                        <div class="flex items-start gap-3.5 min-w-0">
-                            <button
-                                v-if="off.photo_url"
-                                type="button"
-                                class="w-12 h-12 rounded-xl overflow-hidden border border-slate-200 shrink-0 cursor-pointer"
-                                @click="openDocumentPreview({ url: off.photo_url, title: `Foto Ofisial - ${off.full_name}`, subtitle: off.role_label })"
-                            >
-                                <img :src="off.photo_url" :alt="off.full_name" class="w-full h-full object-cover" />
-                            </button>
-                            <div
-                                v-else
-                                class="w-12 h-12 rounded-xl bg-orange-100 text-orange-700 font-extrabold flex items-center justify-center text-sm shrink-0 border border-orange-200"
-                            >
-                                {{ off.full_name.charAt(0) }}
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="flex items-start gap-3.5 min-w-0">
+                                <button
+                                    v-if="off.photo_url"
+                                    type="button"
+                                    class="w-12 h-12 rounded-xl overflow-hidden border border-slate-200 shrink-0 cursor-pointer"
+                                    @click="openDocumentPreview({ url: off.photo_url, title: `Foto Ofisial - ${off.full_name}`, subtitle: off.role_label })"
+                                >
+                                    <img :src="off.photo_url" :alt="off.full_name" class="w-full h-full object-cover" />
+                                </button>
+                                <div
+                                    v-else
+                                    class="w-12 h-12 rounded-xl bg-orange-100 text-orange-700 font-extrabold flex items-center justify-center text-sm shrink-0 border border-orange-200"
+                                >
+                                    {{ off.full_name.charAt(0) }}
+                                </div>
+
+                                <div class="space-y-1 min-w-0">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <h4 class="text-sm font-bold text-slate-900 truncate">{{ off.full_name }}</h4>
+                                        <StatusBadge :status="off.screening_status || 'draft'" />
+                                    </div>
+                                    <div class="flex items-center gap-1.5 flex-wrap">
+                                        <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-orange-50 text-orange-800 border border-orange-200">
+                                            {{ off.role_label }}
+                                        </span>
+                                        <a
+                                            v-if="off.verify_url"
+                                            :href="off.verify_url"
+                                            target="_blank"
+                                            class="px-2 py-0.5 rounded font-mono text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 hover:text-orange-700"
+                                            title="Buka halaman verifikasi QR Ofisial"
+                                        >
+                                            ID: {{ off.accreditation_code }} &nearr;
+                                        </a>
+                                    </div>
+                                    <p class="text-xs text-slate-600 font-mono pt-1">
+                                        Lisensi: <strong>{{ off.license_number || '-' }}</strong>
+                                    </p>
+                                    <p class="text-xs text-slate-600 font-mono">
+                                        WhatsApp: <strong>{{ off.phone || '-' }}</strong>
+                                    </p>
+                                </div>
                             </div>
 
-                            <div class="space-y-1 min-w-0">
-                                <h4 class="text-sm font-bold text-slate-900 truncate">{{ off.full_name }}</h4>
-                                <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-orange-50 text-orange-800 border border-orange-200">
-                                    {{ off.role_label }}
-                                </span>
-                                <p class="text-xs text-slate-600 font-mono pt-1">
-                                    Lisensi: <strong>{{ off.license_number || '-' }}</strong>
-                                </p>
-                                <p class="text-xs text-slate-600 font-mono">
-                                    WhatsApp: <strong>{{ off.phone || '-' }}</strong>
-                                </p>
-                            </div>
+                            <button
+                                v-if="off.license_url"
+                                type="button"
+                                class="btn-sm-secondary shrink-0 cursor-pointer"
+                                @click="
+                                    openDocumentPreview({
+                                        url: off.license_url,
+                                        title: `Lisensi Kepelatihan - ${off.full_name}`,
+                                        subtitle: off.license_number || off.role_label,
+                                        isPdf: off.license_is_pdf,
+                                    })
+                                "
+                            >
+                                Lihat Lisensi
+                            </button>
                         </div>
 
-                        <button
-                            v-if="off.license_url"
-                            type="button"
-                            class="btn-sm-secondary shrink-0 cursor-pointer"
-                            @click="
-                                openDocumentPreview({
-                                    url: off.license_url,
-                                    title: `Lisensi Kepelatihan - ${off.full_name}`,
-                                    subtitle: off.license_number || off.role_label,
-                                    isPdf: off.license_is_pdf,
-                                })
-                            "
+                        <div
+                            v-if="off.verification_notes"
+                            class="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900"
                         >
-                            Lihat Lisensi
-                        </button>
+                            <strong>Catatan Revisi Lisensi/Ofisial:</strong> {{ off.verification_notes }}
+                        </div>
+
+                        <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                            <button
+                                v-if="off.screening_status !== 'passed'"
+                                type="button"
+                                class="btn-sm-pitch cursor-pointer"
+                                :disabled="officialVerifyForm.processing"
+                                @click="approveOfficialQuick(off)"
+                            >
+                                Sahkan Ofisial / Lisensi
+                            </button>
+                            <button
+                                v-if="off.screening_status !== 'rejected'"
+                                type="button"
+                                class="btn-sm-danger cursor-pointer"
+                                :disabled="officialVerifyForm.processing"
+                                @click="openRejectOfficialModal(off)"
+                            >
+                                Minta Revisi
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -902,6 +995,57 @@ const docChipClass = (doc) => {
                             :disabled="statusActionForm.processing"
                         >
                             {{ statusActionForm.processing ? 'Memproses...' : 'Konfirmasi & Eksekusi' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal Minta Revisi Lisensi / Data Ofisial -->
+        <div
+            v-if="officialVerifyModal.show"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+            @click.self="closeRejectOfficialModal"
+        >
+            <div class="frosted-card bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+                <div class="flex items-start justify-between gap-3 pb-3 border-b border-slate-100">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900">Minta Revisi Lisensi / Data Ofisial</h3>
+                        <p class="text-xs text-slate-500 mt-1">
+                            Ofisial: <strong>{{ officialVerifyModal.official?.full_name }}</strong> ({{ officialVerifyModal.official?.role_label }})
+                        </p>
+                    </div>
+                    <button type="button" class="text-slate-400 hover:text-slate-700 text-lg leading-none" @click="closeRejectOfficialModal">
+                        &times;
+                    </button>
+                </div>
+
+                <form @submit.prevent="submitRejectOfficial" novalidate class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">
+                            Catatan Alasan Revisi <span class="text-rose-600">*</span>
+                        </label>
+                        <textarea
+                            v-model="officialVerifyForm.verification_notes"
+                            rows="3"
+                            placeholder="Contoh: Lampirkan scan sertifikat Lisensi D PSSI yang masih berlaku..."
+                            class="input-field text-xs"
+                            :class="{ 'input-field-error': officialVerifyForm.errors.verification_notes }"
+                            @input="officialVerifyForm.clearErrors('verification_notes')"
+                        ></textarea>
+                        <InputError :message="officialVerifyForm.errors.verification_notes" />
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 pt-2">
+                        <button type="button" class="btn-secondary text-xs" @click="closeRejectOfficialModal">
+                            Batal
+                        </button>
+                        <button
+                            type="submit"
+                            class="btn-sm-danger text-xs"
+                            :disabled="officialVerifyForm.processing"
+                        >
+                            {{ officialVerifyForm.processing ? 'Menyimpan...' : 'Kirim Catatan Revisi' }}
                         </button>
                     </div>
                 </form>

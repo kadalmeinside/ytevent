@@ -37,6 +37,8 @@ Route::post('/events/{event:slug}/register', [PublicEventController::class, 'reg
     ->name('events.register.store');
 Route::get('/verify/player/{code}', [PlayerVerificationController::class, 'verify'])->name('public.player.verify');
 Route::get('/verify/player/{code}/photo', [PlayerVerificationController::class, 'photo'])->name('public.player.verify.photo');
+Route::get('/verify/official/{code}', [PlayerVerificationController::class, 'verifyOfficial'])->name('public.official.verify');
+Route::get('/verify/official/{code}/photo', [PlayerVerificationController::class, 'officialPhoto'])->name('public.official.verify.photo');
 
 // Autentikasi Manajer Tim & Pemulihan Kata Sandi Mandiri
 Route::middleware('guest')->group(function () {
@@ -108,6 +110,9 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
         ->middleware('permission:dashboard.admin.view')
         ->name('dashboard');
 
+    Route::put('/password', [AdminDashboardController::class, 'updatePassword'])
+        ->name('password.update');
+
     Route::middleware('permission:events.view')->group(function () {
         Route::get('/events', [AdminEventController::class, 'index'])->name('events.index');
         Route::post('/events/resync-slots', [AdminEventController::class, 'resyncSlots'])->name('events.resync-slots');
@@ -144,6 +149,10 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
         Route::put('/teams/{team}/notes', [AdminTeamManagementController::class, 'updateNotes'])
             ->name('teams.update-notes');
     });
+
+    Route::post('/teams/{team}/officials/{official}/verify', [AdminTeamManagementController::class, 'verifyOfficial'])
+        ->middleware('permission:screening.verify_player')
+        ->name('teams.officials.verify');
 
     Route::get('/teams/{team}/accreditation/roster-sheet', [ManagerAccreditationController::class, 'downloadRosterSheet'])
         ->middleware('permission:teams.view_all')
@@ -213,3 +222,8 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
         Route::post('/settings/payment-gateway', [AdminSystemSettingController::class, 'updatePaymentGateway'])->name('settings.payment-gateway');
     });
 });
+
+// Modul Simulasi (Take-Out Ready: Hapus baris di bawah ini saat masuk Full Production)
+if (config('simulation.master_enabled', true) && file_exists(__DIR__ . '/simulation.php')) {
+    require __DIR__ . '/simulation.php';
+}

@@ -34,3 +34,4 @@ class PaymentRefundedMail extends Mailable
         );
     }
 }
+

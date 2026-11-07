@@ -51,6 +51,9 @@ class SystemSettingSeeder extends Seeder
             // General & Kontak
             ['key' => 'contact_email', 'value' => 'development@persija.id', 'type' => 'text', 'group' => 'general'],
             ['key' => 'contact_whatsapp', 'value' => '081128021928', 'type' => 'text', 'group' => 'general'],
+
+            // Simulation Module Toggle (Dapat dimatikan saat full production)
+            ['key' => 'simulation_mode_enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'simulation'],
         ];
 
         \Illuminate\Support\Facades\Cache::flush();

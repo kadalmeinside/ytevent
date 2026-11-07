@@ -111,3 +111,4 @@ class PasswordResetController extends Controller
             ->with('success', 'Kata sandi Anda berhasil diatur ulang. Silakan masuk menggunakan kata sandi baru.');
     }
 }
+

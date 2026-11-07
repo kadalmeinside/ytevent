@@ -32,6 +32,7 @@ class SetSeoAndRobotsHeaders
             || $request->is('manager/*')
             || $request->is('private-media/*')
             || $request->is('verify/player/*')
+            || $request->is('verify/official/*')
             || $request->is('forgot-password')
             || $request->is('reset-password*');
     }

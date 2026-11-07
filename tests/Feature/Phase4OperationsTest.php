@@ -351,4 +351,63 @@ class Phase4OperationsTest extends TestCase
             'email' => $this->manager->email,
         ]);
     }
+
+    public function test_admin_can_verify_official_license_and_public_qr_verifies_official_and_admin_can_change_password(): void
+    {
+        $official = TeamOfficial::create([
+            'team_id' => $this->team->id,
+            'event_id' => $this->event->id,
+            'full_name' => 'Coach Thomas Doll',
+            'role' => 'Head Coach',
+            'license_number' => 'UEFA Pro',
+            'screening_status' => 'draft',
+        ]);
+
+        // 1. Admin requests revision on official license
+        $this->actingAs($this->superadmin)
+            ->post(route('admin.teams.officials.verify', [
+                'team' => $this->team->id,
+                'official' => $official->id,
+            ]), [
+                'screening_status' => 'rejected',
+                'verification_notes' => 'Mohon unggah scan sertifikat UEFA Pro asli.',
+            ])
+            ->assertRedirect();
+
+        $this->assertSame('rejected', $official->fresh()->screening_status);
+        $this->assertSame('Mohon unggah scan sertifikat UEFA Pro asli.', $official->fresh()->verification_notes);
+
+        // Rejected official should not pass public QR verification
+        $rejectedVerify = $this->get(route('public.official.verify', ['code' => $official->accreditation_code]));
+        $rejectedVerify->assertOk();
+        $rejectedVerify->assertHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
+
+        // 2. Admin approves official license
+        $this->actingAs($this->superadmin)
+            ->post(route('admin.teams.officials.verify', [
+                'team' => $this->team->id,
+                'official' => $official->id,
+            ]), [
+                'screening_status' => 'passed',
+            ])
+            ->assertRedirect();
+
+        $this->assertSame('passed', $official->fresh()->screening_status);
+
+        // Approved official passes public QR verification
+        $passedVerify = $this->get(route('public.official.verify', ['code' => $official->accreditation_code]));
+        $passedVerify->assertOk();
+        $passedVerify->assertSee('Coach Thomas Doll');
+
+        // 3. Admin self-service password change
+        $this->actingAs($this->superadmin)
+            ->put(route('admin.password.update'), [
+                'current_password' => 'Admin12345',
+                'password' => 'SuperAdmin999',
+                'password_confirmation' => 'SuperAdmin999',
+            ])
+            ->assertRedirect();
+
+        $this->assertTrue(Hash::check('SuperAdmin999', $this->superadmin->fresh()->password));
+    }
 }

@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import ManagerLayout from '@/Layouts/ManagerLayout.vue';
+import StatusBadge from '@/Components/StatusBadge.vue';
 import InputError from '@/Components/InputError.vue';
 import FormErrorBanner from '@/Components/FormErrorBanner.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
@@ -211,7 +212,10 @@ const executeDelete = () => {
                                     {{ item.full_name.charAt(0) }}
                                 </div>
                                 <div>
-                                    <h4 class="text-sm sm:text-base font-bold text-slate-900 leading-tight">{{ item.full_name }}</h4>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <h4 class="text-sm sm:text-base font-bold text-slate-900 leading-tight">{{ item.full_name }}</h4>
+                                        <StatusBadge v-if="item.screening_status && item.screening_status !== 'draft'" :status="item.screening_status" />
+                                    </div>
                                     <div class="flex items-center gap-2 mt-1">
                                         <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-orange-50 text-orange-800 border border-orange-200">
                                             {{ item.role_label }}
@@ -272,6 +276,13 @@ const executeDelete = () => {
                                     {{ item.phone || '-' }}
                                 </span>
                             </div>
+                        </div>
+
+                        <div
+                            v-if="item.verification_notes"
+                            class="mt-3 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900"
+                        >
+                            <strong>Catatan Revisi Panitia:</strong> {{ item.verification_notes }}
                         </div>
                     </div>
                 </div>

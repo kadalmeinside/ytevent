@@ -3,10 +3,12 @@
 namespace App\Http\Middleware;
 
 use App\Models\EmailNotificationLog;
+use App\Models\Event;
 use App\Models\Payment;
 use App\Models\Player;
 use App\Models\SystemSetting;
 use App\Models\Team;
+use App\Modules\Simulation\SimulationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Middleware;
@@ -103,7 +105,50 @@ class HandleInertiaRequests extends Middleware
                 'manual_bank_accounts' => SystemSetting::get('manual_bank_accounts', []),
                 'fee_borne_by' => SystemSetting::get('fee_borne_by', 'team'),
                 'fee_fixed_amount' => (int) SystemSetting::get('midtrans_va_fee', 4000),
+                'simulation_mode_enabled' => SimulationService::isEnabled(),
             ],
+            'simulationContext' => fn () => config('simulation.master_enabled', true) ? (function () use ($request) {
+                $isEnabled = SimulationService::isEnabled();
+                if (! $isEnabled) {
+                    return [
+                        'enabled' => false,
+                        'master_enabled' => true,
+                    ];
+                }
+
+                $activeTeamId = $request->session()->get('active_manager_team_id');
+                $latestTeam = $activeTeamId ? Team::with('event')->find($activeTeamId) : null;
+                if (! $latestTeam) {
+                    $latestTeam = Team::with('event')->latest('id')->first();
+                }
+
+                $openEvents = Event::query()
+                    ->select(['id', 'name', 'slug', 'age_category', 'status'])
+                    ->orderByDesc('id')
+                    ->limit(8)
+                    ->get();
+
+                $recentTeams = Team::query()
+                    ->with('event:id,name,age_category')
+                    ->select(['id', 'event_id', 'name', 'status', 'screening_status', 'manager_email'])
+                    ->orderByDesc('id')
+                    ->limit(10)
+                    ->get();
+
+                return [
+                    'enabled' => true,
+                    'master_enabled' => true,
+                    'active_team' => $latestTeam ? [
+                        'id' => $latestTeam->id,
+                        'name' => $latestTeam->name,
+                        'status' => $latestTeam->status,
+                        'screening_status' => $latestTeam->screening_status,
+                        'event_name' => $latestTeam->event?->name,
+                    ] : null,
+                    'events' => $openEvents,
+                    'teams' => $recentTeams,
+                ];
+            })() : ['enabled' => false, 'master_enabled' => false],
         ];
     }
 }

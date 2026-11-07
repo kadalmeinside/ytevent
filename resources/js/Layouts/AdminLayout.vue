@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue';
 import { usePage, useForm, Head } from '@inertiajs/vue3';
 import FlashAlert from '@/Components/FlashAlert.vue';
+import InputError from '@/Components/InputError.vue';
+import SimulationFloatingTool from '@/Components/SimulationFloatingTool.vue';
 
 defineProps({
     pageTitle: {
@@ -173,6 +175,33 @@ const roleBadge = computed(() => {
 const logoutForm = useForm({});
 const logout = () => {
     logoutForm.post(route('admin.logout'));
+};
+
+const isPasswordModalOpen = ref(false);
+const passwordForm = useForm({
+    current_password: '',
+    password: '',
+    password_confirmation: '',
+});
+
+const openPasswordModal = () => {
+    passwordForm.reset();
+    passwordForm.clearErrors();
+    isPasswordModalOpen.value = true;
+};
+
+const closePasswordModal = () => {
+    isPasswordModalOpen.value = false;
+};
+
+const submitPasswordUpdate = () => {
+    passwordForm.put(route('admin.password.update'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            passwordForm.reset();
+            isPasswordModalOpen.value = false;
+        },
+    });
 };
 </script>
 
@@ -349,6 +378,14 @@ const logout = () => {
                     </Link>
                     <button
                         type="button"
+                        class="btn-sm-secondary cursor-pointer"
+                        title="Ubah Kata Sandi Akun Panitia"
+                        @click="openPasswordModal"
+                    >
+                        Sandi
+                    </button>
+                    <button
+                        type="button"
                         class="btn-sm-danger"
                         @click="logout"
                     >
@@ -402,6 +439,71 @@ const logout = () => {
                 <slot />
             </main>
         </div>
+
+        <!-- Modal Ubah Kata Sandi Akun Panitia / Admin -->
+        <div
+            v-if="isPasswordModalOpen"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+            @click.self="closePasswordModal"
+        >
+            <div class="frosted-card bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+                <div class="flex items-start justify-between gap-3 pb-3 border-b border-slate-100">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900">Ubah Kata Sandi Akun Panitia</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">{{ user?.name }} ({{ user?.email }})</p>
+                    </div>
+                    <button type="button" class="text-slate-400 hover:text-slate-700 text-lg leading-none" @click="closePasswordModal">
+                        &times;
+                    </button>
+                </div>
+
+                <form @submit.prevent="submitPasswordUpdate" novalidate class="space-y-3.5">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Kata Sandi Saat Ini</label>
+                        <input
+                            v-model="passwordForm.current_password"
+                            type="password"
+                            class="input-field text-xs"
+                            :class="{ 'input-field-error': passwordForm.errors.current_password }"
+                            @input="passwordForm.clearErrors('current_password')"
+                        />
+                        <InputError :message="passwordForm.errors.current_password" />
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Kata Sandi Baru (Minimal 8 Karakter)</label>
+                        <input
+                            v-model="passwordForm.password"
+                            type="password"
+                            class="input-field text-xs"
+                            :class="{ 'input-field-error': passwordForm.errors.password }"
+                            @input="passwordForm.clearErrors('password')"
+                        />
+                        <InputError :message="passwordForm.errors.password" />
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Konfirmasi Kata Sandi Baru</label>
+                        <input
+                            v-model="passwordForm.password_confirmation"
+                            type="password"
+                            class="input-field text-xs"
+                        />
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 pt-2">
+                        <button type="button" class="btn-secondary text-xs" @click="closePasswordModal">
+                            Batal
+                        </button>
+                        <button type="submit" class="btn-pitch text-xs" :disabled="passwordForm.processing">
+                            {{ passwordForm.processing ? 'Menyimpan...' : 'Simpan Kata Sandi' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <SimulationFloatingTool context-area="admin" />
     </div>
 </template>
 

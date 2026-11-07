@@ -4,6 +4,7 @@ import { usePage, useForm, router, Head } from '@inertiajs/vue3';
 import FlashAlert from '@/Components/FlashAlert.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import WorkflowStepBanner from '@/Components/WorkflowStepBanner.vue';
+import SimulationFloatingTool from '@/Components/SimulationFloatingTool.vue';
 
 const props = defineProps({
     team: {
@@ -362,5 +363,7 @@ const logout = () => {
                 <slot />
             </main>
         </div>
+
+        <SimulationFloatingTool context-area="manager" :current-team-id="team?.id" :current-event-id="team?.event?.id" />
     </div>
 </template>

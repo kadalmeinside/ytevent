@@ -263,9 +263,8 @@ class AccreditationService
                 $officialPhotoBase64 = 'data:' . $mime . ';base64,' . base64_encode(Storage::disk('private')->get($official->photo_path));
             }
 
-            $officialQrTarget = $team->event
-                ? route('events.show', ['event' => $team->event->slug]) . '#official-' . $official->id
-                : url('/');
+            $officialCode = 'OFF-' . str_pad((string) $official->id, 4, '0', STR_PAD_LEFT);
+            $officialQrTarget = route('public.official.verify', ['code' => $officialCode]);
 
             $officialQrSvg = (string) QrCode::format('svg')
                 ->size(80)
@@ -280,7 +279,7 @@ class AccreditationService
                 'role' => $official->role,
                 'role_label' => 'OFISIAL / ' . strtoupper($official->role),
                 'license_number' => $official->license_number ?: null,
-                'accreditation_code' => 'OFF-' . str_pad((string) $official->id, 4, '0', STR_PAD_LEFT),
+                'accreditation_code' => $officialCode,
                 'photo_base64' => $officialPhotoBase64,
                 'qr_code_svg' => 'data:image/svg+xml;base64,' . base64_encode($officialQrSvg),
             ];

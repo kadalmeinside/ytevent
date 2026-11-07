@@ -79,6 +79,16 @@ const submitPaymentSettings = () => {
         preserveScroll: true,
     });
 };
+
+const simForm = useForm({
+    enabled: props.settings.simulation_mode_enabled !== false && props.settings.simulation_mode_enabled !== '0',
+});
+
+const toggleSimulationSetting = () => {
+    simForm.post(route('simulation.toggle'), {
+        preserveScroll: true,
+    });
+};
 </script>
 
 <template>
@@ -87,10 +97,10 @@ const submitPaymentSettings = () => {
 
         <div class="space-y-6">
             <!-- Navigation Tabs -->
-            <div class="frosted-card p-1.5 flex items-center gap-1 max-w-md">
+            <div class="frosted-card p-1.5 flex flex-wrap items-center gap-1 max-w-2xl">
                 <button
                     type="button"
-                    class="flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all text-center"
+                    class="flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all text-center cursor-pointer"
                     :class="activeTab === 'branding' ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
                     @click="activeTab = 'branding'"
                 >
@@ -98,11 +108,19 @@ const submitPaymentSettings = () => {
                 </button>
                 <button
                     type="button"
-                    class="flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all text-center"
+                    class="flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all text-center cursor-pointer"
                     :class="activeTab === 'payment' ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
                     @click="activeTab = 'payment'"
                 >
                     Metode Pembayaran &amp; Rekening
+                </button>
+                <button
+                    type="button"
+                    class="flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all text-center cursor-pointer"
+                    :class="activeTab === 'simulation' ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
+                    @click="activeTab = 'simulation'"
+                >
+                    Mode Simulasi &amp; Uji Coba
                 </button>
             </div>
 
@@ -224,7 +242,7 @@ const submitPaymentSettings = () => {
             </div>
 
             <!-- Tab 2: Payment Method Mode (Manual vs Midtrans) & Multiple Accounts -->
-            <div v-else class="frosted-card p-6 sm:p-8 max-w-4xl space-y-6">
+            <div v-else-if="activeTab === 'payment'" class="frosted-card p-6 sm:p-8 max-w-4xl space-y-6">
                 <div>
                     <h2 class="text-base font-bold text-slate-900">Konfigurasi Metode Pembayaran Pendaftaran</h2>
                     <p class="text-xs text-slate-500 mt-0.5">
@@ -477,6 +495,48 @@ const submitPaymentSettings = () => {
                     <div class="pt-4 border-t border-slate-200 flex justify-end">
                         <button type="submit" class="btn-pitch" :disabled="paymentForm.processing">
                             {{ paymentForm.processing ? 'Menyimpan Pengaturan...' : 'Simpan Pengaturan Pembayaran' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Tab 3: Mode Simulasi & Uji Coba (Take-Out Ready) -->
+            <div v-else class="frosted-card p-6 sm:p-8 max-w-4xl space-y-6">
+                <div>
+                    <h2 class="text-base font-bold text-slate-900">Pengaturan Modul Simulasi &amp; Isi Data Paksa</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        Hidupkan atau matikan sementara tombol melayang (Floating Simulation Button) di halaman Publik, Portal Manajer, dan Portal Admin.
+                    </p>
+                </div>
+
+                <form @submit.prevent="toggleSimulationSetting" novalidate class="space-y-5 text-xs">
+                    <div class="p-4 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-between gap-4">
+                        <div class="space-y-1">
+                            <span class="block text-sm font-bold text-slate-900">Status Tombol Floating Simulasi Cepat</span>
+                            <span class="block text-xs text-slate-500 leading-relaxed">
+                                Jika diaktifkan, tombol <strong>Simulasi Cepat (Isi Data Paksa)</strong> akan muncul di sudut kanan bawah semua halaman untuk mempercepat simulasi pendaftaran tim, pembayaran, pengisian pemain &amp; dokumen, hingga verifikasi screening admin.
+                            </span>
+                        </div>
+                        <label class="inline-flex items-center gap-2 cursor-pointer shrink-0 font-bold text-slate-900">
+                            <input
+                                v-model="simForm.enabled"
+                                type="checkbox"
+                                class="w-4 h-4 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                            />
+                            <span>{{ simForm.enabled ? 'AKTIF' : 'NONAKTIF' }}</span>
+                        </label>
+                    </div>
+
+                    <div class="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 space-y-1">
+                        <p class="font-bold">Panduan Take-Out Saat Full Production:</p>
+                        <p class="text-[11px] leading-relaxed">
+                            Modul ini dirancang terisolasi penuh di <code class="font-mono bg-white/80 px-1 py-0.5 rounded">app/Modules/Simulation</code> dan <code class="font-mono bg-white/80 px-1 py-0.5 rounded">routes/simulation.php</code>. Untuk mematikan secara permanen di server production, cukup setel <code class="font-mono bg-white/80 px-1 py-0.5 rounded">SIMULATION_MODULE_ENABLED=false</code> pada file <code class="font-mono bg-white/80 px-1 py-0.5 rounded">.env</code>.
+                        </p>
+                    </div>
+
+                    <div class="pt-3 border-t border-slate-200 flex justify-end">
+                        <button type="submit" class="btn-pitch cursor-pointer" :disabled="simForm.processing">
+                            {{ simForm.processing ? 'Menyimpan...' : 'Simpan Status Modul Simulasi' }}
                         </button>
                     </div>
                 </form>

@@ -212,6 +212,10 @@ class TeamManagementController extends Controller
             'role_label' => TeamOfficial::ROLES[$official->role] ?? $official->role,
             'license_number' => $official->license_number,
             'phone' => $official->phone,
+            'screening_status' => $official->screening_status,
+            'verification_notes' => $official->verification_notes,
+            'accreditation_code' => $official->accreditation_code,
+            'verify_url' => route('public.official.verify', ['code' => $official->accreditation_code]),
             'photo_url' => $official->photo_path ? route('private.official-photo', ['official' => $official->id]) : null,
             'license_url' => $official->license_file_path ? route('private.official-license', ['official' => $official->id]) : null,
             'license_is_pdf' => $official->license_file_path
@@ -392,6 +396,41 @@ class TeamManagementController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Catatan internal panitia berhasil disimpan.');
+    }
+
+    /**
+     * Memverifikasi atau meminta revisi berkas lisensi pelatih / ofisial oleh Admin.
+     */
+    public function verifyOfficial(Request $request, Team $team, TeamOfficial $official): RedirectResponse
+    {
+        $this->authorize('view', $team);
+
+        if ((int) $official->team_id !== (int) $team->id) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'screening_status' => ['required', 'string', 'in:passed,rejected'],
+            'verification_notes' => ['nullable', 'string', 'max:500'],
+        ], [
+            'screening_status.required' => 'Keputusan verifikasi ofisial wajib dipilih.',
+            'screening_status.in' => 'Status verifikasi ofisial tidak valid.',
+        ]);
+
+        if ($validated['screening_status'] === 'rejected' && empty(trim((string) ($validated['verification_notes'] ?? '')))) {
+            throw ValidationException::withMessages([
+                'verification_notes' => 'Catatan alasan revisi wajib diisi apabila berkas lisensi ofisial ditolak.',
+            ]);
+        }
+
+        $official->update([
+            'screening_status' => $validated['screening_status'],
+            'verification_notes' => isset($validated['verification_notes']) ? trim($validated['verification_notes']) : null,
+        ]);
+
+        $statusLabel = $validated['screening_status'] === 'passed' ? 'disahkan (LOLOS)' : 'diminta revisi';
+
+        return redirect()->back()->with('success', "Status lisensi/data ofisial {$official->full_name} berhasil {$statusLabel}.");
     }
 
     /**

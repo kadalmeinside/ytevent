@@ -37,6 +37,8 @@ class OfficialController extends Controller
                     'license_number' => $o->license_number,
                     'phone' => $o->phone,
                     'screening_status' => $o->screening_status,
+                    'verification_notes' => $o->verification_notes,
+                    'accreditation_code' => $o->accreditation_code,
                     'photo_url' => $o->photo_path
                         ? route('private.official-photo', ['official' => $o->id])
                         : null,
@@ -129,6 +131,11 @@ class OfficialController extends Controller
                 Storage::disk('private')->delete($official->photo_path);
             }
             $updates['photo_path'] = $newPhoto;
+        }
+
+        if ($official->screening_status === 'rejected') {
+            $updates['screening_status'] = 'draft';
+            $updates['verification_notes'] = null;
         }
 
         $official->update($updates);

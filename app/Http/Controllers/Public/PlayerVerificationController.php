@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Public;
 
 use App\Http\Controllers\Controller;
 use App\Models\Player;
+use App\Models\TeamOfficial;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -103,5 +104,99 @@ class PlayerVerificationController extends Controller
             'Cache-Control' => 'public, max-age=86400',
         ]);
     }
+
+    /**
+     * Menampilkan profil verifikasi digital keabsahan pelatih/ofisial melalui QR code.
+     */
+    public function verifyOfficial(string $code): Response
+    {
+        $official = $this->resolveOfficialByCode($code);
+
+        if (! $official || ! $official->team || in_array($official->team->status, ['disqualified', 'expired'], true) || $official->screening_status === 'rejected') {
+            return Inertia::render('Public/OfficialVerification', [
+                'isVerified' => false,
+                'code' => $code,
+                'official' => null,
+            ]);
+        }
+
+        $team = $official->team;
+        $event = $team->event;
+
+        return Inertia::render('Public/OfficialVerification', [
+            'isVerified' => true,
+            'code' => $official->accreditation_code,
+            'official' => [
+                'full_name' => $official->full_name,
+                'role' => $official->role,
+                'role_label' => TeamOfficial::ROLES[$official->role] ?? $official->role,
+                'license_number' => $official->license_number ?: '-',
+                'screening_status' => $official->screening_status,
+                'photo_url' => $official->photo_path ? route('public.official.verify.photo', ['code' => $official->accreditation_code]) : null,
+                'accreditation_code' => $official->accreditation_code,
+            ],
+            'team' => [
+                'name' => $team->name,
+                'origin_association' => $team->origin_association,
+                'logo_url' => $team->logo_path ? asset('storage/' . $team->logo_path) : null,
+                'manager_name' => $team->manager_name,
+                'head_coach_name' => $team->head_coach_name,
+                'is_roster_locked' => $team->isRosterLocked(),
+            ],
+            'event' => $event ? [
+                'name' => $event->name,
+                'age_category' => $event->age_category,
+                'format' => $event->format,
+                'venue_name' => $event->venue_name,
+                'city' => $event->city,
+                'match_start_date' => $event->match_start_date?->format('d/m/Y'),
+                'match_end_date' => $event->match_end_date?->format('d/m/Y'),
+            ] : null,
+        ]);
+    }
+
+    /**
+     * Menyajikan pas foto resmi pelatih/ofisial untuk halaman publik QR.
+     */
+    public function officialPhoto(string $code): StreamedResponse
+    {
+        $official = $this->resolveOfficialByCode($code);
+
+        if (! $official || ! $official->photo_path || ! Storage::disk('private')->exists($official->photo_path)) {
+            abort(404, 'Foto ofisial tidak ditemukan.');
+        }
+
+        $mime = Storage::disk('private')->mimeType($official->photo_path) ?: 'image/jpeg';
+
+        return response()->stream(function () use ($official) {
+            $stream = Storage::disk('private')->readStream($official->photo_path);
+            if (is_resource($stream)) {
+                fpassthru($stream);
+                fclose($stream);
+            }
+        }, 200, [
+            'Content-Type' => $mime,
+            'Cache-Control' => 'public, max-age=86400',
+        ]);
+    }
+
+    protected function resolveOfficialByCode(string $code): ?TeamOfficial
+    {
+        $normalized = strtoupper(trim($code));
+        if (str_starts_with($normalized, 'OFF-')) {
+            $id = (int) ltrim(substr($normalized, 4), '0');
+        } elseif (ctype_digit($normalized)) {
+            $id = (int) $normalized;
+        } else {
+            return null;
+        }
+
+        if ($id <= 0) {
+            return null;
+        }
+
+        return TeamOfficial::query()->with(['team.event'])->find($id);
+    }
 }
+
 
