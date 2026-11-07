@@ -56,6 +56,7 @@ const docForm = useForm({
     document_type: '',
     document_number: '',
     file: null,
+    resubmit: false,
 });
 
 const playerForm = useForm({
@@ -85,7 +86,9 @@ const openCreateModal = () => {
 };
 
 const openEditModal = (player) => {
-    if (player.screening_status === 'submitted' || player.screening_status === 'passed' || player.is_locked) {
+    const canEdit = ['draft', 'rejected'].includes(player.screening_status)
+        || (player.screening_status === 'submitted' && player.has_invalid_documents);
+    if (!canEdit || player.screening_status === 'passed' || player.is_locked) {
         return;
     }
     editingPlayer.value = player;
@@ -221,16 +224,43 @@ const existingDocPreview = computed(() => {
 
 const isDocModalReadOnly = computed(() => {
     if (!activeDocPlayer.value) return false;
-    return activeDocPlayer.value.screening_status === 'submitted'
-        || activeDocPlayer.value.screening_status === 'passed'
-        || Boolean(activeDocPlayer.value.is_locked);
+    if (activeDocPlayer.value.screening_status === 'passed' || Boolean(activeDocPlayer.value.is_locked)) {
+        return true;
+    }
+    // Jika berkas yang sedang dipilih sudah dinyatakan SAH (valid) oleh panitia pada pemain berstatus rejected/submitted,
+    // lindungi berkas sah tersebut agar tidak tertimpa secara tidak sengaja.
+    if (
+        activeDocPlayer.value.screening_status !== 'draft' &&
+        activeExistingDoc.value?.validation_status === 'valid'
+    ) {
+        return true;
+    }
+    if (
+        activeDocPlayer.value.screening_status === 'submitted' &&
+        !activeDocPlayer.value.has_invalid_documents &&
+        activeExistingDoc.value?.validation_status !== 'invalid'
+    ) {
+        return true;
+    }
+    return false;
+});
+
+const canResubmitDirectly = computed(() => {
+    if (!activeDocPlayer.value) return false;
+    if (!['rejected', 'submitted'].includes(activeDocPlayer.value.screening_status)) return false;
+    if (activeDocPlayer.value.missing_documents?.length > 0) return false;
+    const docs = Object.values(activeDocPlayer.value.documents || {});
+    const otherInvalidCount = docs.filter(
+        (d) => d.validation_status === 'invalid' && d.document_type !== selectedDocType.value
+    ).length;
+    return otherInvalidCount === 0;
 });
 
 // Document Upload Modal
 const openDocModal = (player, docType = '') => {
     activeDocPlayer.value = player;
 
-    // Prioritaskan dokumen berstatus invalid jika pemain berstatus rejected
+    // Prioritaskan dokumen berstatus invalid jika pemain memiliki dokumen yang ditolak
     let targetDocType = docType;
     if (!targetDocType && player.documents) {
         const invalidDoc = Object.values(player.documents).find((d) => d.validation_status === 'invalid');
@@ -247,6 +277,7 @@ const openDocModal = (player, docType = '') => {
     docForm.document_type = selectedDocType.value;
     docForm.document_number = docNumber.value;
     docForm.file = null;
+    docForm.resubmit = false;
     isDocModalOpen.value = true;
 };
 
@@ -256,17 +287,19 @@ watch(selectedDocType, (newType) => {
         docNumber.value = existing?.document_number || '';
         docForm.document_type = newType;
         docForm.document_number = docNumber.value;
+        docForm.file = null;
         docForm.clearErrors();
     }
 });
 
-const saveDocument = () => {
+const saveDocument = (resubmit = false) => {
     if (!activeDocPlayer.value || isDocModalReadOnly.value) return;
     docForm.document_type = selectedDocType.value;
     docForm.document_number = docNumber.value;
+    docForm.resubmit = Boolean(resubmit);
 
     const existing = activeDocPlayer.value?.documents?.[docForm.document_type];
-    const isFileRequired = !existing;
+    const isFileRequired = !existing || existing.validation_status === 'invalid';
 
     const ok = applyValidation(docForm, () => {
         const errs = {};
@@ -274,7 +307,9 @@ const saveDocument = () => {
         if (isFileRequired || docForm.file) {
             const fCheck = checkFile(docForm.file, ['image/jpeg', 'image/png', 'application/pdf'], 2 * 1024 * 1024);
             if (!fCheck.valid) {
-                errs.file = 'Berkas dokumen wajib diunggah dalam format JPG, PNG, atau PDF (maksimal 2 MB).';
+                errs.file = existing?.validation_status === 'invalid'
+                    ? 'Silakan pilih file berkas perbaikan baru (JPG, PNG, atau PDF — maks. 2 MB) untuk menggantikan berkas yang ditolak.'
+                    : 'Berkas dokumen wajib diunggah dalam format JPG, PNG, atau PDF (maksimal 2 MB).';
             }
         }
         return errs;
@@ -541,10 +576,10 @@ const isFinalRosterLocked = computed(() => {
                                         <svg class="w-3.5 h-3.5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                                         </svg>
-                                        <span>{{ ['draft', 'rejected'].includes(p.screening_status) && !p.is_locked ? 'Berkas Dokumen' : 'Lihat Berkas' }}</span>
+                                        <span>{{ (['draft', 'rejected'].includes(p.screening_status) || p.has_invalid_documents) && !p.is_locked ? 'Berkas Dokumen' : 'Lihat Berkas' }}</span>
                                     </button>
                                     <button
-                                        v-if="['draft', 'rejected'].includes(p.screening_status) && !p.is_locked"
+                                        v-if="(['draft', 'rejected'].includes(p.screening_status) || p.has_invalid_documents) && !p.is_locked"
                                         type="button"
                                         class="btn-sm-secondary"
                                         @click="openEditModal(p)"
@@ -609,7 +644,7 @@ const isFinalRosterLocked = computed(() => {
                                             class="text-[11px] font-semibold text-orange-600 hover:text-orange-700 hover:underline"
                                             @click="openDocModal(p)"
                                         >
-                                            {{ ['draft', 'rejected'].includes(p.screening_status) && !p.is_locked ? '+ Unggah / Ganti' : 'Lihat Berkas' }}
+                                            {{ (['draft', 'rejected'].includes(p.screening_status) || p.has_invalid_documents) && !p.is_locked ? '+ Unggah / Perbaiki' : 'Lihat Berkas' }}
                                         </button>
                                     </div>
                                     <div class="flex flex-wrap gap-1.5">
@@ -627,8 +662,8 @@ const isFinalRosterLocked = computed(() => {
                                                             ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
                                                             : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'))
                                             ]"
-                                            @click="p.documents[doc.type] ? previewDocument(p.documents[doc.type], p) : openDocModal(p, doc.type)"
-                                            :title="p.documents[doc.type] ? 'Klik untuk melihat dokumen di modal view' : 'Klik untuk mengunggah dokumen'"
+                                            @click="(!p.documents[doc.type] || p.documents[doc.type].validation_status === 'invalid') ? openDocModal(p, doc.type) : previewDocument(p.documents[doc.type], p)"
+                                            :title="(!p.documents[doc.type] || p.documents[doc.type].validation_status === 'invalid') ? 'Klik untuk mengunggah / memperbaiki berkas ini' : 'Klik untuk melihat pratinjau dokumen'"
                                         >
                                             <!-- Belum Diunggah -->
                                             <template v-if="!p.documents[doc.type]">
@@ -960,7 +995,7 @@ const isFinalRosterLocked = computed(() => {
                 <div class="mt-4">
                     <!-- Status Alert Banner if in submitted/passed status -->
                     <div
-                        v-if="activeDocPlayer.screening_status === 'submitted'"
+                        v-if="activeDocPlayer.screening_status === 'submitted' && !activeDocPlayer.has_invalid_documents"
                         class="p-3 mb-3.5 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-950 flex items-start gap-2.5"
                     >
                         <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -990,26 +1025,26 @@ const isFinalRosterLocked = computed(() => {
                     </div>
 
                     <div
-                        v-else-if="activeDocPlayer.screening_status === 'rejected'"
+                        v-else-if="activeDocPlayer.screening_status === 'rejected' || activeDocPlayer.has_invalid_documents"
                         class="p-3 mb-3.5 rounded-xl bg-rose-50 border border-rose-300 text-xs text-rose-950 flex items-start gap-2.5"
                     >
                         <svg class="w-4 h-4 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
                         <div>
-                            <span class="font-bold text-rose-900 block">Pemain Berstatus Ditolak / Perlu Revisi Berkas</span>
+                            <span class="font-bold text-rose-900 block">Mode Revisi Berkas (Tanpa Buka Kunci Manual)</span>
                             <p v-if="activeDocPlayer.rejection_reason" class="mt-0.5 text-rose-800 leading-relaxed">
                                 <strong>Catatan Petugas:</strong> {{ activeDocPlayer.rejection_reason }}
                             </p>
                             <p class="mt-0.5 text-rose-700 leading-relaxed text-[11px]">
-                                Silakan pilih jenis berkas yang perlu diganti di bawah, unggah berkas pengganti yang sah, lalu klik Simpan Berkas.
+                                Berkas yang sudah <strong>Sah</strong> tetap terlindungi, sedangkan berkas yang <strong>Butuh Revisi</strong> dapat langsung Anda ganti dan ajukan ulang di bawah ini.
                             </p>
                         </div>
                     </div>
 
                     <FormErrorBanner :errors="docForm.errors" />
 
-                    <form @submit.prevent="saveDocument" novalidate class="space-y-4">
+                    <form @submit.prevent="saveDocument(false)" novalidate class="space-y-4">
                         <div data-field="document_type">
                             <label class="block text-xs font-semibold text-slate-700 mb-1">Jenis Dokumen Wajib</label>
                             <select
@@ -1023,6 +1058,15 @@ const isFinalRosterLocked = computed(() => {
                                     :value="doc.type"
                                 >
                                     {{ doc.label }}
+                                    {{
+                                        activeDocPlayer.documents?.[doc.type]?.validation_status === 'invalid'
+                                            ? ' — (PERLU REVISI)'
+                                            : activeDocPlayer.documents?.[doc.type]?.validation_status === 'valid'
+                                            ? ' — (Sudah Sah)'
+                                            : activeDocPlayer.documents?.[doc.type]
+                                            ? ' — (Menunggu Verifikasi)'
+                                            : ' — (Belum Diunggah)'
+                                    }}
                                 </option>
                             </select>
                             <InputError :message="docForm.errors.document_type" />
@@ -1111,9 +1155,22 @@ const isFinalRosterLocked = computed(() => {
                             <p class="text-[11px] text-slate-400 mt-0.5">Dokumen ini belum pernah diunggah untuk pemain {{ activeDocPlayer?.full_name }}.</p>
                         </div>
 
+                        <div
+                            v-if="activeExistingDoc?.validation_status === 'valid' && activeDocPlayer.screening_status !== 'draft'"
+                            class="p-3 rounded-xl border border-emerald-200 bg-emerald-50/70 text-xs text-emerald-900"
+                        >
+                            Berkas ini sudah dinyatakan <strong>Sah</strong> oleh petugas screening dan dikunci agar tidak tertimpa. Pilih dokumen lain yang berstatus <strong>PERLU REVISI</strong> pada daftar di atas untuk mengunggah perbaikan.
+                        </div>
+
                         <div v-if="!isDocModalReadOnly" data-field="file">
                             <label class="block text-xs font-bold text-slate-800 mb-1.5">
-                                {{ activeExistingDoc ? 'Ganti Berkas Scan / Foto Baru (Opsional)' : 'Pilih Berkas Scan / Foto Dokumen (JPG, PNG, atau PDF — Maks. 2 MB)' }}
+                                {{
+                                    activeExistingDoc?.validation_status === 'invalid'
+                                        ? 'Unggah Berkas Perbaikan Baru (Wajib — JPG, PNG, atau PDF Maks. 2 MB)'
+                                        : activeExistingDoc
+                                        ? 'Ganti Berkas Scan / Foto Baru (Opsional)'
+                                        : 'Pilih Berkas Scan / Foto Dokumen (JPG, PNG, atau PDF — Maks. 2 MB)'
+                                }}
                             </label>
                             <FileInput
                                 v-model="docForm.file"
@@ -1127,13 +1184,22 @@ const isFinalRosterLocked = computed(() => {
                             />
                         </div>
 
-                        <div class="pt-3 flex justify-end gap-2.5">
+                        <div class="pt-3 flex flex-wrap justify-end gap-2">
                             <template v-if="!isDocModalReadOnly">
                                 <button type="button" class="btn-secondary" @click="isDocModalOpen = false">
                                     Batal
                                 </button>
-                                <button type="submit" class="btn-pitch" :disabled="docForm.processing">
-                                    {{ docForm.processing ? 'Mengunggah Berkas...' : 'Simpan Berkas' }}
+                                <button type="submit" class="btn-secondary border-orange-300 text-orange-800 hover:bg-orange-50" :disabled="docForm.processing">
+                                    {{ docForm.processing && !docForm.resubmit ? 'Menyimpan...' : 'Simpan Berkas' }}
+                                </button>
+                                <button
+                                    v-if="canResubmitDirectly"
+                                    type="button"
+                                    class="btn-pitch"
+                                    :disabled="docForm.processing"
+                                    @click="saveDocument(true)"
+                                >
+                                    {{ docForm.processing && docForm.resubmit ? 'Mengajukan Ulang...' : 'Simpan & Ajukan Ulang Screening' }}
                                 </button>
                             </template>
                             <template v-else>

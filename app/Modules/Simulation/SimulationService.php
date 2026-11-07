@@ -515,3 +515,4 @@ class SimulationService
         return $team->fresh(['event', 'players', 'officials', 'latestPayment']);
     }
 }
+

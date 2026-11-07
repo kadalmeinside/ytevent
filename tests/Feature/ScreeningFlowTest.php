@@ -358,4 +358,57 @@ class ScreeningFlowTest extends TestCase
 
         $uploadResponse->assertForbidden();
     }
+
+    public function test_marking_single_document_as_invalid_automatically_unlocks_revision_without_manual_recall(): void
+    {
+        $env = $this->createScreeningEnvironment();
+        $manager = $env['manager'];
+        $player = $env['player'];
+        $doc = $env['doc'];
+
+        // 1. Officer marks the single document as invalid ("Butuh Revisi") without calling verifyPlayer separately
+        $verifyDocResponse = $this->actingAs($env['screeningOfficer'])->post(
+            route('admin.screening.document.verify', ['document' => $doc->id]),
+            [
+                'validation_status' => 'invalid',
+                'notes' => 'Foto akta kelahiran terpotong bagian bawah.',
+            ]
+        );
+
+        $verifyDocResponse->assertSessionHas('success');
+        $doc->refresh();
+        $player->refresh();
+        $env['team']->refresh();
+
+        $this->assertSame('invalid', $doc->validation_status);
+        $this->assertSame('rejected', $player->screening_status);
+        $this->assertFalse($player->is_locked);
+        $this->assertStringContainsString('Foto akta kelahiran terpotong bagian bawah.', (string) $player->rejection_reason);
+        $this->assertSame('partially_rejected', $env['team']->screening_status);
+
+        // 2. Manager cannot resubmit yet while the invalid document has not been replaced
+        $prematureSubmit = $this->actingAs($manager)->post(route('manager.players.submit', ['player' => $player->id]));
+        $prematureSubmit->assertSessionHasErrors('submission');
+
+        // 3. Manager immediately re-uploads the rejected document AND triggers 1-click resubmit (without manual unlock/recall)
+        $replacementFile = UploadedFile::fake()->create('akta_revisi_utuh.pdf', 500, 'application/pdf');
+        $reuploadResponse = $this->actingAs($manager)->post(
+            route('manager.players.documents.store', ['player' => $player->id]),
+            [
+                'document_type' => 'birth_certificate',
+                'document_number' => 'AKTA-REVISI-999',
+                'file' => $replacementFile,
+                'resubmit' => true,
+            ]
+        );
+
+        $reuploadResponse->assertSessionHas('success');
+        $doc->refresh();
+        $player->refresh();
+
+        $this->assertSame('pending', $doc->validation_status);
+        $this->assertNull($doc->notes);
+        $this->assertSame('submitted', $player->screening_status);
+        $this->assertNull($player->rejection_reason);
+    }
 }

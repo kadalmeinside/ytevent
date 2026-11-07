@@ -253,3 +253,4 @@ class SimulationController extends Controller
         return Team::query()->latest('id')->first();
     }
 }
+

@@ -13,3 +13,4 @@ Route::middleware('web')->prefix('simulation')->name('simulation.')->group(funct
     Route::post('/admin-approve-screening', [SimulationController::class, 'adminApproveScreening'])->name('admin-approve-screening');
     Route::post('/fast-forward-team', [SimulationController::class, 'fastForwardFullTeam'])->name('fast-forward-team');
 });
+

@@ -26,14 +26,17 @@ class PlayerPolicy
 
     public function update(User $user, Player $player): bool
     {
-        if ($player->is_locked || in_array($player->screening_status, ['submitted', 'passed'], true)) {
+        if ($player->is_locked || $player->screening_status === 'passed') {
             return false;
         }
+
+        $isEditableStatus = in_array($player->screening_status, ['draft', 'rejected'], true)
+            || ($player->screening_status === 'submitted' && $player->hasInvalidDocuments());
 
         return $user->can('manager.players.manage_own')
             && (int) $player->team?->user_id === (int) $user->id
             && $player->team->canManageRoster()
-            && in_array($player->screening_status, ['draft', 'rejected'], true);
+            && $isEditableStatus;
     }
 
     public function recall(User $user, Player $player): bool

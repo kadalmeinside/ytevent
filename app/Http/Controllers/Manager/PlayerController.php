@@ -80,6 +80,7 @@ class PlayerController extends Controller
                             ],
                         ]),
                         'missing_documents' => $missing,
+                        'has_invalid_documents' => $player->hasInvalidDocuments(),
                         'is_complete_for_submission' => $player->isCompleteForSubmission(),
                     ];
                 })
@@ -213,12 +214,18 @@ class PlayerController extends Controller
 
     public function uploadDocument(UploadPlayerDocumentRequest $request, Player $player): RedirectResponse
     {
-        $player->loadMissing('team.event');
+        $player->loadMissing(['team.event', 'documents']);
         $this->authorize('update', $player);
 
         $validated = $request->validated();
         $docType = $validated['document_type'];
         $docLabel = Event::documentLabel($docType);
+
+        $existingDoc = $player->documents->firstWhere('document_type', $docType);
+        if ($existingDoc && $existingDoc->validation_status === 'valid' && $player->screening_status !== 'draft') {
+            return redirect()->back()
+                ->with('error', "Berkas {$docLabel} sudah dinyatakan SAH oleh panitia dan tidak perlu diunggah ulang.");
+        }
 
         if ($request->hasFile('file')) {
             $this->persistPlayerDocument(
@@ -231,6 +238,34 @@ class PlayerController extends Controller
             $player->documents()->where('document_type', $docType)->update([
                 'document_number' => $validated['document_number'],
             ]);
+        }
+
+        // Jika Manajer mengunggah berkas pengganti dan mencentang / menekan "Simpan & Ajukan Ulang Screening",
+        // atau jika seluruh berkas wajib telah lengkap & tidak ada lagi berkas invalid pada pemain berstatus rejected/submitted:
+        $player->load('documents');
+        $player->setRelation('event', $player->team->event);
+
+        if ($request->boolean('resubmit') && $player->isCompleteForSubmission() && in_array($player->screening_status, ['rejected', 'submitted'], true)) {
+            $prevStatus = $player->screening_status;
+            DB::transaction(function () use ($player, $request, $prevStatus, $docLabel) {
+                $player->update([
+                    'screening_status' => 'submitted',
+                    'rejection_reason' => null,
+                ]);
+
+                ScreeningLog::create([
+                    'player_id' => $player->id,
+                    'actor_id' => $request->user()->id,
+                    'from_status' => $prevStatus,
+                    'to_status' => 'submitted',
+                    'reason' => "Berkas {$docLabel} diperbaiki dan diajukan ulang oleh Manajer Tim.",
+                ]);
+
+                app(ScreeningService::class)->syncTeamStatus($player->team);
+            });
+
+            return redirect()->back()
+                ->with('success', "Berkas {$docLabel} berhasil diperbarui dan pemain {$player->full_name} langsung diajukan ulang ke antrean screening.");
         }
 
         return redirect()->back()
@@ -249,6 +284,17 @@ class PlayerController extends Controller
 
             throw ValidationException::withMessages([
                 'submission' => "Pemain {$player->full_name} belum dapat diajukan karena dokumen wajib belum lengkap: {$detail}.",
+            ]);
+        }
+
+        if ($player->hasInvalidDocuments()) {
+            $invalidLabels = $player->documents
+                ->where('validation_status', 'invalid')
+                ->map(fn (PlayerDocument $d) => Event::documentLabel($d->document_type))
+                ->implode(', ');
+
+            throw ValidationException::withMessages([
+                'submission' => "Pemain {$player->full_name} masih memiliki berkas yang ditolak dan belum diganti: {$invalidLabels}. Silakan unggah berkas perbaikan terlebih dahulu.",
             ]);
         }
 

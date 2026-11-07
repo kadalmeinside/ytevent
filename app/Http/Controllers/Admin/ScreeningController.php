@@ -252,12 +252,14 @@ class ScreeningController extends Controller
         $status = $request->input('validation_status');
         $notes = $request->input('notes');
 
-        $this->screeningService->verifyDocument(
+        $doc = $this->screeningService->verifyDocument(
             $document,
             $request->user(),
             $status,
             $notes
         );
+
+        $player = $doc->player;
 
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json([
@@ -268,6 +270,12 @@ class ScreeningController extends Controller
                     'validation_status' => $status,
                     'notes' => $notes,
                 ],
+                'player' => $player ? [
+                    'id' => $player->id,
+                    'screening_status' => $player->screening_status,
+                    'is_locked' => $player->is_locked,
+                    'rejection_reason' => $player->rejection_reason,
+                ] : null,
             ]);
         }
 

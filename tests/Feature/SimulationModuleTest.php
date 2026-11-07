@@ -152,3 +152,4 @@ class SimulationModuleTest extends TestCase
         $this->assertGreaterThanOrEqual(4, $team->players()->where('screening_status', 'passed')->count());
     }
 }
+

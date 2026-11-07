@@ -112,12 +112,52 @@ class ScreeningService
         string $status,
         ?string $notes = null
     ): PlayerDocument {
-        $document->update([
-            'validation_status' => $status,
-            'notes' => $notes,
-        ]);
+        return DB::transaction(function () use ($document, $officer, $status, $notes) {
+            $document->update([
+                'validation_status' => $status,
+                'notes' => $notes,
+            ]);
 
-        return $document->fresh();
+            $player = $document->player()->with(['documents', 'team'])->first();
+
+            // Best Practice: Jika berkas ditandai "invalid" (Butuh Revisi) saat pemain masih berstatus "submitted",
+            // otomatis buka kunci pemain tersebut menjadi "rejected" agar Manajer dapat langsung mengganti berkas
+            // yang ditolak tanpa harus klik "Tarik Pengajuan" / menunggu buka kunci manual.
+            if ($status === 'invalid' && $player && $player->screening_status === 'submitted') {
+                $invalidReasons = $player->documents
+                    ->where('validation_status', 'invalid')
+                    ->map(function (PlayerDocument $doc) {
+                        $label = \App\Models\Event::documentLabel($doc->document_type);
+                        $note = $doc->notes ?: 'Berkas memerlukan perbaikan';
+
+                        return "{$label}: {$note}";
+                    })
+                    ->implode('; ');
+
+                $autoReason = "Perlu revisi berkas ({$invalidReasons}).";
+                $fromStatus = $player->screening_status;
+
+                $player->update([
+                    'screening_status' => 'rejected',
+                    'is_locked' => false,
+                    'rejection_reason' => $autoReason,
+                    'verified_by' => $officer->id,
+                    'verified_at' => now(),
+                ]);
+
+                ScreeningLog::create([
+                    'player_id' => $player->id,
+                    'actor_id' => $officer->id,
+                    'from_status' => $fromStatus,
+                    'to_status' => 'rejected',
+                    'reason' => $autoReason,
+                ]);
+
+                $this->syncTeamScreeningStatus($player->team);
+            }
+
+            return $document->fresh();
+        });
     }
 
     /**

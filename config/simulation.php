@@ -12,3 +12,4 @@ return [
     */
     'master_enabled' => (bool) env('SIMULATION_MODULE_ENABLED', true),
 ];
+

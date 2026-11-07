@@ -216,7 +216,7 @@ const submitWizardDocStatus = async (status) => {
     const notes = status === 'invalid' ? (wizardNotes.value || 'Dokumen memerlukan perbaikan.') : null;
 
     try {
-        await window.axios.post(route('admin.screening.document.verify', { document: doc.id }), {
+        const res = await window.axios.post(route('admin.screening.document.verify', { document: doc.id }), {
             validation_status: status,
             notes: notes,
         });
@@ -224,6 +224,11 @@ const submitWizardDocStatus = async (status) => {
         // Update status dokumen lokal langsung secara reaktif
         doc.validation_status = status;
         doc.notes = notes;
+        if (res.data?.player && activePlayer.value) {
+            activePlayer.value.screening_status = res.data.player.screening_status;
+            activePlayer.value.is_locked = res.data.player.is_locked;
+            activePlayer.value.rejection_reason = res.data.player.rejection_reason;
+        }
 
         // Auto advance ke dokumen berikutnya TANPA reload halaman dan TANPA menutup modal
         if (wizardDocIndex.value < activePlayer.value.documents.length - 1) {
@@ -332,11 +337,16 @@ const submitUnlock = () => {
 const setDocumentStatus = async (doc, status) => {
     if (isPlayerLocked.value || doc.validation_status === status) return;
     try {
-        await window.axios.post(route('admin.screening.document.verify', { document: doc.id }), {
+        const res = await window.axios.post(route('admin.screening.document.verify', { document: doc.id }), {
             validation_status: status,
             notes: doc.notes || null,
         });
         doc.validation_status = status;
+        if (res.data?.player && activePlayer.value) {
+            activePlayer.value.screening_status = res.data.player.screening_status;
+            activePlayer.value.is_locked = res.data.player.is_locked;
+            activePlayer.value.rejection_reason = res.data.player.rejection_reason;
+        }
     } catch (error) {
         console.error('Gagal memperbarui status dokumen:', error);
     }

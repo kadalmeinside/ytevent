@@ -96,9 +96,20 @@ class Player extends Model
         return array_values(array_diff($requiredTypes, $uploaded));
     }
 
+    public function hasInvalidDocuments(): bool
+    {
+        if ($this->relationLoaded('documents')) {
+            return $this->documents->contains(fn (PlayerDocument $doc) => $doc->validation_status === 'invalid');
+        }
+
+        return $this->documents()->where('validation_status', 'invalid')->exists();
+    }
+
     public function isCompleteForSubmission(): bool
     {
-        return ! empty($this->photo_path) && count($this->missingRequiredDocuments()) === 0;
+        return ! empty($this->photo_path)
+            && count($this->missingRequiredDocuments()) === 0
+            && ! $this->hasInvalidDocuments();
     }
 }
 
