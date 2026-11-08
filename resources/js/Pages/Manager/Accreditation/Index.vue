@@ -306,7 +306,7 @@ const closeQrModal = () => {
                     </Link>
                 </div>
 
-                <div v-if="passedPlayers.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div v-if="passedPlayers.length > 0" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div
                         v-for="player in passedPlayers"
                         :key="player.id"

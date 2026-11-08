@@ -360,5 +360,55 @@ class AccreditationTest extends TestCase
             ->where('isVerified', false)
         );
     }
+
+    public function test_id_cards_layout_is_a4_divided_by_4_precisely_and_roster_sheet_is_3_players_per_row(): void
+    {
+        $env = $this->createAccreditationEnvironment(minPlayers: 4);
+
+        $this->createPlayer($env['team'], 1, 'GK', 'passed');
+        $this->createPlayer($env['team'], 20, 'GK', 'passed');
+        $this->createPlayer($env['team'], 7, 'MF', 'passed');
+        $this->createPlayer($env['team'], 10, 'FW', 'passed');
+        $this->createOfficial($env['team']);
+
+        $rosterHtml = view('pdf.team_roster_sheet', [
+            'team' => $env['team'],
+            'event' => $env['event'],
+            'players' => [
+                ['full_name' => 'P1', 'jersey_number' => 1, 'position' => 'GK', 'birth_date' => '01/01/2014', 'birth_place' => 'JKT', 'nik' => '3171010101140001', 'accreditation_code' => 'C1', 'photo_base64' => null, 'qr_code_svg' => null],
+                ['full_name' => 'P2', 'jersey_number' => 20, 'position' => 'GK', 'birth_date' => '01/01/2014', 'birth_place' => 'JKT', 'nik' => '3171010101140002', 'accreditation_code' => 'C2', 'photo_base64' => null, 'qr_code_svg' => null],
+                ['full_name' => 'P3', 'jersey_number' => 7, 'position' => 'MF', 'birth_date' => '01/01/2014', 'birth_place' => 'JKT', 'nik' => '3171010101140003', 'accreditation_code' => 'C3', 'photo_base64' => null, 'qr_code_svg' => null],
+                ['full_name' => 'P4', 'jersey_number' => 10, 'position' => 'FW', 'birth_date' => '01/01/2014', 'birth_place' => 'JKT', 'nik' => '3171010101140004', 'accreditation_code' => 'C4', 'photo_base64' => null, 'qr_code_svg' => null],
+            ],
+            'officials' => [],
+            'team_logo_base64' => null,
+            'generated_at' => '08 Nov 2026',
+            'locked_at' => '08 Nov 2026',
+        ])->render();
+
+        // Roster sheet has 33.3333% column width and 6 player-card-td cells for 4 players (2 rows of 3)
+        $this->assertStringContainsString('width: 33.3333%;', $rosterHtml);
+        $this->assertSame(6, substr_count($rosterHtml, 'class="player-card-td"'));
+
+        $cardsHtml = view('pdf.id_cards', [
+            'team' => $env['team'],
+            'event' => $env['event'],
+            'cards' => [
+                ['type' => 'player', 'name' => 'P1', 'jersey_number' => 1, 'role' => 'GK', 'role_label' => 'PEMAIN', 'accreditation_code' => 'C1', 'photo_base64' => null, 'qr_code_svg' => null],
+                ['type' => 'player', 'name' => 'P2', 'jersey_number' => 20, 'role' => 'GK', 'role_label' => 'PEMAIN', 'accreditation_code' => 'C2', 'photo_base64' => null, 'qr_code_svg' => null],
+                ['type' => 'player', 'name' => 'P3', 'jersey_number' => 7, 'role' => 'MF', 'role_label' => 'PEMAIN', 'accreditation_code' => 'C3', 'photo_base64' => null, 'qr_code_svg' => null],
+                ['type' => 'player', 'name' => 'P4', 'jersey_number' => 10, 'role' => 'FW', 'role_label' => 'PEMAIN', 'accreditation_code' => 'C4', 'photo_base64' => null, 'qr_code_svg' => null],
+                ['type' => 'official', 'name' => 'O1', 'jersey_number' => null, 'role' => 'Head Coach', 'role_label' => 'OFISIAL / HEAD COACH', 'license_number' => 'LIS-1', 'accreditation_code' => 'OFF-0001', 'photo_base64' => null, 'qr_code_svg' => null],
+            ],
+            'team_logo_base64' => null,
+            'generated_at' => '08 Nov 2026',
+        ])->render();
+
+        // A4 exact quadrant dimensions: 105mm x 148.5mm (210mm x 297mm divided by 4)
+        $this->assertStringContainsString('width: 105mm;', $cardsHtml);
+        $this->assertStringContainsString('height: 148.5mm;', $cardsHtml);
+        // 5 cards produce 2 pages x 4 quadrants = 8 <td class="quadrant-cell ..."> cells
+        $this->assertSame(8, substr_count($cardsHtml, '<td class="quadrant-cell'));
+    }
 }
 

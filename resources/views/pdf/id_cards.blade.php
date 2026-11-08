@@ -4,236 +4,348 @@
     <meta charset="UTF-8">
     <title>Kartu Akreditasi (ID Cards) - {{ $team->name }}</title>
     <style>
+        /* Kertas A4 Portrait: 210mm x 297mm, dibagi 4 kuadran presisi (105mm x 148.5mm per kartu) */
         @page {
-            size: a4 portrait;
-            margin: 10mm;
+            size: 210mm 297mm;
+            margin: 0mm;
         }
-        body {
+        * {
+            box-sizing: border-box;
+        }
+        html, body {
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
             margin: 0;
             padding: 0;
+            width: 210mm;
             color: #0f172a;
+            background-color: #ffffff;
         }
-        .cards-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 12px;
+        .sheet-page {
+            width: 210mm;
+            height: 297mm;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
         }
-        .card-cell {
-            width: 50%;
-            vertical-align: top;
+        .page-break {
+            page-break-after: always;
+        }
+        .quadrant-table {
+            width: 210mm;
+            height: 297mm;
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin: 0;
             padding: 0;
         }
+        .quadrant-row {
+            height: 148.5mm;
+        }
+        .quadrant-cell {
+            width: 105mm;
+            height: 148.5mm;
+            vertical-align: top;
+            padding: 5.5mm;
+            margin: 0;
+        }
+        /* Garis potong presisi tengah A4 (lipat/potong 4 sama rata) */
+        .cell-tl {
+            border-right: 0.6pt dashed #94a3b8;
+            border-bottom: 0.6pt dashed #94a3b8;
+        }
+        .cell-tr {
+            border-bottom: 0.6pt dashed #94a3b8;
+        }
+        .cell-bl {
+            border-right: 0.6pt dashed #94a3b8;
+        }
+        .cell-br {
+            /* Kuadran kanan bawah */
+        }
+        /* Bingkai Kartu Akreditasi di dalam kuadran: 94mm x 137.5mm */
         .id-card {
-            border: 1.5px dashed #94a3b8;
-            border-radius: 12px;
+            width: 94mm;
+            height: 137.5mm;
+            border: 1.5pt solid #cbd5e1;
+            border-radius: 8pt;
             overflow: hidden;
-            background: #ffffff;
-            height: 380px;
-            box-sizing: border-box;
+            background-color: #ffffff;
             position: relative;
+        }
+        .lanyard-slot {
+            width: 16mm;
+            height: 3mm;
+            margin: 2.5mm auto 2mm auto;
+            border-radius: 2mm;
+            border: 1pt solid #cbd5e1;
+            background-color: #f8fafc;
         }
         .card-header {
             background-color: #ea580c;
             color: #ffffff;
-            padding: 10px 12px;
+            padding: 3mm 3.5mm;
             text-align: center;
+            border-bottom: 1.5pt solid #c2410c;
+        }
+        .card-brand {
+            font-size: 7.5pt;
+            font-weight: bold;
+            letter-spacing: 1.2pt;
+            text-transform: uppercase;
+            color: #ffedd5;
+            margin-bottom: 1mm;
         }
         .card-tournament {
-            font-size: 11px;
+            font-size: 9.5pt;
             font-weight: bold;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3pt;
+            line-height: 1.2;
             margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .card-category {
-            font-size: 9px;
-            opacity: 0.9;
-            margin-top: 2px;
+            font-size: 8pt;
+            font-weight: bold;
+            margin-top: 1mm;
+            color: #fff7ed;
         }
         .role-strip {
-            padding: 4px;
+            padding: 1.8mm 2mm;
             text-align: center;
-            font-size: 10px;
+            font-size: 8.5pt;
             font-weight: bold;
-            letter-spacing: 1px;
+            letter-spacing: 1pt;
             text-transform: uppercase;
         }
         .role-player {
             background-color: #fee2e2;
             color: #b91c1c;
+            border-bottom: 1pt solid #fecaca;
         }
         .role-official {
             background-color: #e0f2fe;
             color: #0369a1;
+            border-bottom: 1pt solid #bae6fd;
         }
         .card-body {
-            padding: 12px;
+            padding: 3.5mm 4mm 2mm 4mm;
             text-align: center;
         }
-        .photo-container {
-            margin: 0 auto 8px auto;
-            width: 90px;
-            height: 115px;
-            border-radius: 8px;
+        .photo-wrapper {
+            margin: 0 auto 2.5mm auto;
+            width: 31mm;
+            height: 39mm;
+            border-radius: 5pt;
             overflow: hidden;
-            border: 2px solid #cbd5e1;
+            border: 1.5pt solid #94a3b8;
             background-color: #f8fafc;
         }
         .card-photo {
-            width: 90px;
-            height: 115px;
+            width: 31mm;
+            height: 39mm;
             object-fit: cover;
+            display: block;
         }
         .photo-placeholder {
-            width: 90px;
-            height: 115px;
-            line-height: 115px;
+            width: 31mm;
+            height: 39mm;
+            line-height: 39mm;
             text-align: center;
-            font-size: 11px;
+            font-size: 8.5pt;
+            font-weight: bold;
             color: #94a3b8;
         }
-        .jersey-circle {
+        .jersey-badge {
             display: inline-block;
             background-color: #ea580c;
             color: #ffffff;
-            font-size: 16px;
+            font-size: 10.5pt;
             font-weight: bold;
-            width: 32px;
-            height: 32px;
-            line-height: 32px;
-            border-radius: 16px;
-            text-align: center;
-            margin-bottom: 4px;
+            padding: 0.8mm 3.5mm;
+            border-radius: 10pt;
+            margin-bottom: 1.5mm;
         }
         .holder-name {
-            font-size: 13px;
+            font-size: 11pt;
             font-weight: bold;
             color: #0f172a;
-            margin: 2px 0;
+            margin: 0.5mm 0 1mm 0;
+            line-height: 1.2;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
         .holder-team {
-            font-size: 11px;
+            font-size: 9pt;
             font-weight: bold;
             color: #c2410c;
-            margin-bottom: 2px;
+            margin-bottom: 1mm;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
-        .holder-pos {
-            font-size: 10px;
-            color: #64748b;
+        .holder-meta {
+            font-size: 8pt;
+            color: #475569;
+            line-height: 1.3;
         }
         .card-footer {
             position: absolute;
-            bottom: 8px;
-            left: 12px;
-            right: 12px;
-            border-top: 1px solid #f1f5f9;
-            padding-top: 6px;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 21mm;
+            background-color: #f8fafc;
+            border-top: 1pt solid #e2e8f0;
+            padding: 2mm 3.5mm;
         }
         .footer-table {
             width: 100%;
+            border-collapse: collapse;
+        }
+        .code-label {
+            font-size: 6.5pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #64748b;
+            letter-spacing: 0.4pt;
         }
         .code-text {
-            font-family: monospace;
-            font-size: 8px;
-            color: #64748b;
-            text-align: left;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 8pt;
+            font-weight: bold;
+            color: #0f172a;
+            margin: 0.5mm 0;
+        }
+        .status-verified {
+            font-size: 7.5pt;
+            font-weight: bold;
+            color: #15803d;
+            letter-spacing: 0.3pt;
+        }
+        .qr-box {
+            width: 16mm;
+            height: 16mm;
+            background-color: #ffffff;
+            border: 0.8pt solid #cbd5e1;
+            border-radius: 3pt;
+            padding: 1mm;
+            display: inline-block;
         }
         .qr-card-img {
-            width: 38px;
-            height: 38px;
-        }
-        .page-break {
-            page-break-after: always;
+            width: 13.6mm;
+            height: 13.6mm;
+            display: block;
         }
     </style>
 </head>
 <body>
     @php
-        $chunks = collect($cards)->chunk(4);
+        $pages = collect($cards)->chunk(4)->values();
     @endphp
 
-    @foreach($chunks as $chunkIndex => $pageCards)
-        <table class="cards-table">
-            @foreach($pageCards->chunk(2) as $row)
-                <tr>
-                    @foreach($row as $card)
-                        <td class="card-cell">
-                            <div class="id-card">
-                                <!-- Card Header -->
-                                <div class="card-header">
-                                    <div class="card-tournament">PERSIJA &bull; {{ $event->name }}</div>
-                                    <div class="card-category">Kategori Usia: {{ $event->age_category }}</div>
-                                </div>
+    @foreach($pages as $pageIndex => $pageCards)
+        @php
+            $items = $pageCards->values();
+            $quadrants = [
+                [0, 'cell-tl', $items->get(0)],
+                [1, 'cell-tr', $items->get(1)],
+                [2, 'cell-bl', $items->get(2)],
+                [3, 'cell-br', $items->get(3)],
+            ];
+        @endphp
+        <div class="sheet-page {{ !$loop->last ? 'page-break' : '' }}">
+            <table class="quadrant-table">
+                @foreach(collect($quadrants)->chunk(2) as $rowQuadrants)
+                    <tr class="quadrant-row">
+                        @foreach($rowQuadrants as $q)
+                            @php
+                                $cellClass = $q[1];
+                                $card = $q[2];
+                            @endphp
+                            <td class="quadrant-cell {{ $cellClass }}">
+                                @if($card)
+                                    <div class="id-card">
+                                        <!-- Lubang Lanyard Presisi Tengah -->
+                                        <div class="lanyard-slot"></div>
 
-                                <!-- Role Strip -->
-                                <div class="role-strip {{ $card['type'] === 'player' ? 'role-player' : 'role-official' }}">
-                                    {{ $card['role_label'] }}
-                                </div>
+                                        <!-- Header Kompetisi -->
+                                        <div class="card-header">
+                                            <div class="card-brand">PERSIJA DEVELOPMENT</div>
+                                            <div class="card-tournament">{{ $event->name }}</div>
+                                            <div class="card-category">KATEGORI {{ strtoupper($event->age_category) }}</div>
+                                        </div>
 
-                                <!-- Card Body -->
-                                <div class="card-body">
-                                    <div class="photo-container">
-                                        @if(!empty($card['photo_base64']))
-                                            <img src="{{ $card['photo_base64'] }}" class="card-photo" alt="{{ $card['name'] }}">
-                                        @else
-                                            <div class="photo-placeholder">FOTO</div>
-                                        @endif
-                                    </div>
+                                        <!-- Strip Peran -->
+                                        <div class="role-strip {{ $card['type'] === 'player' ? 'role-player' : 'role-official' }}">
+                                            {{ $card['role_label'] }}
+                                        </div>
 
-                                    @if($card['type'] === 'player' && !empty($card['jersey_number']))
-                                        <div class="jersey-circle">#{{ $card['jersey_number'] }}</div>
-                                    @endif
-
-                                    <div class="holder-name">{{ $card['name'] }}</div>
-                                    <div class="holder-team">{{ $team->name }}</div>
-                                    <div class="holder-pos">
-                                        @if($card['type'] === 'player')
-                                            Posisi: {{ $card['role'] }}
-                                        @else
-                                            Jabatan: {{ $card['role'] }}
-                                            @if(!empty($card['license_number']))
-                                                <br><span style="font-size: 9px; font-weight: bold; color: #0369a1;">Lisensi: {{ $card['license_number'] }}</span>
-                                            @endif
-                                        @endif
-                                    </div>
-                                </div>
-
-                                <!-- Card Footer with QR -->
-                                <div class="card-footer">
-                                    <table class="footer-table">
-                                        <tr>
-                                            <td style="vertical-align: middle;">
-                                                <div class="code-text">ID: {{ $card['accreditation_code'] }}</div>
-                                                <div class="code-text" style="color: #16a34a; font-weight: bold;">AKREDITASI SAH</div>
-                                            </td>
-                                            <td style="text-align: right; vertical-align: middle; width: 42px;">
-                                                @if(!empty($card['qr_code_svg']))
-                                                    <img src="{{ $card['qr_code_svg'] }}" class="qr-card-img" alt="QR">
+                                        <!-- Badan Kartu -->
+                                        <div class="card-body">
+                                            <div class="photo-wrapper">
+                                                @if(!empty($card['photo_base64']))
+                                                    <img src="{{ $card['photo_base64'] }}" class="card-photo" alt="{{ $card['name'] }}">
                                                 @else
-                                                    <div style="font-size: 7px; color: #94a3b8;">OFFICIAL</div>
+                                                    <div class="photo-placeholder">FOTO RESMI</div>
                                                 @endif
-                                            </td>
-                                        </tr>
-                                    </table>
-                                </div>
-                            </div>
-                        </td>
-                    @endforeach
-                    @for($i = count($row); $i < 2; $i++)
-                        <td class="card-cell"></td>
-                    @endfor
-                </tr>
-            @endforeach
-        </table>
+                                            </div>
 
-        @if(! $loop->last)
-            <div class="page-break"></div>
-        @endif
+                                            @if($card['type'] === 'player' && !empty($card['jersey_number']))
+                                                <div>
+                                                    <span class="jersey-badge">#{{ $card['jersey_number'] }} &bull; {{ $card['role'] }}</span>
+                                                </div>
+                                            @else
+                                                <div>
+                                                    <span class="jersey-badge" style="background-color: #0284c7;">{{ strtoupper($card['role']) }}</span>
+                                                </div>
+                                            @endif
+
+                                            <div class="holder-name">{{ $card['name'] }}</div>
+                                            <div class="holder-team">{{ $team->name }}</div>
+                                            <div class="holder-meta">
+                                                @if($card['type'] === 'player')
+                                                    Asal Tim: {{ $team->origin_association ?: '-' }}
+                                                @else
+                                                    @if(!empty($card['license_number']))
+                                                        <span style="font-weight: bold; color: #0369a1;">Lisensi: {{ $card['license_number'] }}</span>
+                                                    @else
+                                                        Ofisial Tim Terdaftar
+                                                    @endif
+                                                @endif
+                                            </div>
+                                        </div>
+
+                                        <!-- Footer QR & Kode Akreditasi -->
+                                        <div class="card-footer">
+                                            <table class="footer-table">
+                                                <tr>
+                                                    <td style="vertical-align: middle; text-align: left;">
+                                                        <div class="code-label">KODE AKREDITASI RESMI</div>
+                                                        <div class="code-text">{{ $card['accreditation_code'] }}</div>
+                                                        <div class="status-verified">TERVERIFIKASI SAH</div>
+                                                    </td>
+                                                    <td style="vertical-align: middle; text-align: right; width: 18mm;">
+                                                        @if(!empty($card['qr_code_svg']))
+                                                            <div class="qr-box">
+                                                                <img src="{{ $card['qr_code_svg'] }}" class="qr-card-img" alt="QR">
+                                                            </div>
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </div>
+                                    </div>
+                                @endif
+                            </td>
+                        @endforeach
+                    </tr>
+                @endforeach
+            </table>
+        </div>
     @endforeach
 </body>
 </html>
-
