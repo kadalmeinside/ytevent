@@ -449,3 +449,15 @@ Legenda Status:
 - [x] **6.6.1** Penulisan Test Suite `SecurityHardeningTest.php` (12 test methods / 55 assertions).
 - [x] **6.6.2** **Hasil Eksekusi Penuh PHPUnit**: Seluruh **107 Feature & Unit Tests dengan 849 assertions PASS 100% (0 failed)**.
 - [x] **6.6.3** **Vite Build**: Kompilasi aset frontend `npm run build` sukses tanpa error (2.28s).
+
+---
+
+## FASE 7 — CETAK BIRU SKALABILITAS & KERELEVANAN EKOSISTEM JANGKA PANJANG (POST GO-LIVE)
+
+- [x] **7.1** Dokumen Strategis Skalabilitas & Nilai Jangka Panjang: [`SCALABILITY_AND_ECOSYSTEM_ROADMAP.md`](file:///Users/macbook/Application/ytevent/docs/SCALABILITY_AND_ECOSYSTEM_ROADMAP.md) telah selesai disusun dan disahkan.
+- [ ] **7.2** *(P-1 Segera)* Implementasi Otomatisasi Watermarking Perlindungan Data Anak (UU PDP No. 27/2022) pada berkas upload Akta/KK.
+- [ ] **7.3** *(P-2 Segera)* Penambahan tautan Live Streaming YouTube/TikTok pada kartu pertandingan & live match center.
+- [ ] **7.4** *(P-3 Bulan Depan)* Digital Player Passport & Talent Scouting Database terpusat berbasis NIK/NISN.
+- [ ] **7.5** *(P-4 Skala Trafik)* Migrasi private document vault ke Object Storage (Cloudflare R2 / AWS S3) dengan Presigned URLs.
+- [ ] **7.6** *(P-5 Operasional)* Integrasi Redis In-Memory Caching & Laravel Horizon Queue Cluster.
+
