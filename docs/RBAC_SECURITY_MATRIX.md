@@ -76,4 +76,42 @@ Dokumen ini mengatur tata kelola keamanan akses, struktur URL aplikasi, matriks 
    - Dokumen bukti pembayaran manual yang sedang berstatus `waiting_verification` atau sudah `paid` tidak dapat ditimpa ulang oleh Manajer Tim kecuali statusnya diubah menjadi `rejected` oleh Finance.
 3. **Penyimpanan Dokumen Sensitif (Private Disk & Signed Route):**
    - Berkas Akta Kelahiran, Kartu Keluarga, KIA, dan Bukti Transfer **dilarang** diletakkan pada folder publik yang dapat ditebak URL-nya.
-   - Seluruh berkas sensitif wajib disajikan melalui rute khusus yang memeriksa sesi login dan otorisasi Policy sebelum menampilkan gambar ke layar.
+   - Seluruh berkas sensitif wajib disajikan melalui rute khusus (`/private-media/*`) yang memeriksa sesi login dan otorisasi Policy sebelum menampilkan gambar ke layar.
+
+---
+
+## 4. Standar Hardening Keamanan Produksi (*Production Security Hardening*)
+
+### 4.1 Header Keamanan HTTP Universal (`SecurityHeaders` Middleware)
+Setiap respons web publik dan panel terotentikasi dilengkapi dengan header pertahanan komprehensif:
+- **Content-Security-Policy (CSP)**: Menggunakan token acak dinamis per-request (*CSP Nonce*) yang terintegrasi dengan Vite (`Vite::useCspNonce()`) dan Ziggy (`@routes(null, $nonce)`). Menolak script/eksekusi asing (`default-src 'self'`, `object-src 'none'`, `frame-ancestors 'self'`).
+- **Strict-Transport-Security (HSTS)**: `max-age=31536000; includeSubDomains` aktif otomatis saat koneksi HTTPS.
+- **X-Frame-Options**: `SAMEORIGIN` (mencegah serangan Clickjacking).
+- **X-Content-Type-Options**: `nosniff` (mencegah MIME-type sniffing).
+- **Referrer-Policy**: `strict-origin-when-cross-origin`.
+- **Permissions-Policy**: `camera=(self), microphone=(), geolocation=(), payment=(), usb=()` (hanya mengizinkan kamera internal untuk Matchday QR Scanner).
+- **Cross-Origin-Opener-Policy (COOP)**: `same-origin`.
+
+### 4.2 Rate Limiting Terpusat & Anti-Abuse (`AppServiceProvider`)
+- `team-registration`: Maksimal 10 pendaftaran/menit per IP.
+- `public-verify`: Maksimal 30 permintaan/menit per IP (mencegah *brute-force* / enumerasi kode akreditasi pemain/ofisial).
+- `password-reset`: Perlindungan ganda (5 permintaan/menit per IP dan 10 permintaan/jam per kombinasi `email|IP`) untuk mencegah email bombing.
+- `webhooks`: Maksimal 120 notifikasi/menit per IP dengan verifikasi tanda tangan kriptografi SHA-512 (Midtrans) & Token (Xendit).
+- `qr-lookup`: Maksimal 120 pemindaian/menit untuk meja wasit/inspektur pertandingan.
+
+### 4.3 Isolasi & Penguncian Modul Simulasi (*Take-Out Safety Guard*)
+- Nilai default master konfigurasi adalah **MATI (`false`)**.
+- Rute `/simulation/*` memiliki proteksi ganda: tidak akan pernah didaftarkan pada lingkungan produksi (`! app()->isProduction()`).
+- `AppServiceProvider` menerapkan guard-rail runtime: menolak aplikasi berjalan di produksi jika modul simulasi aktif atau `APP_DEBUG=true`.
+
+### 4.4 Integritas Antrean Email & Anti-Object Injection
+- Data mailable pada tabel `email_notification_logs` ditandatangani menggunakan SHA-256 HMAC dengan secret key aplikasi (`app.key`).
+- `SendLoggedEmailJob` memverifikasi keabsahan HMAC sebelum melakukan `unserialize()`. Setiap payload yang dimanipulasi di database akan otomatis ditolak dan tidak akan pernah dieksekusi.
+
+### 4.5 Sanitasi Konten Dinamis Berbasis DOM (`HtmlSanitizer`)
+- Deskripsi event dan input teks kaya dibersihkan menggunakan parser DOM XML dengan *tag & attribute whitelist* ketat.
+- Seluruh tag berbahaya (`<script>`, `<iframe>`, `<object>`, `<svg onload>`, event handler `on*`, skema `javascript:`) dibuang tuntas sebelum disimpan dan dirender ke browser.
+
+### 4.6 Penanganan Error & Halaman Status Bermerek (Branded Error Views)
+- Halaman status `404 Not Found`, `403 Forbidden`, `429 Too Many Requests`, dan `500 Server Error` menggunakan template bertema resmi Persija Development (*Liquid Glass*).
+- Menyembunyikan seluruh informasi internal, stack trace, dan query database dari publik.
