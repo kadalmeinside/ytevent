@@ -387,12 +387,12 @@ class AccreditationTest extends TestCase
         ])->render();
 
         // Roster sheet has 33.3333% column width, 6 player-card-td cells for 4 players (2 rows of 3),
-        // and a page-break separating the Players page from the Officials & Signature page
+        // followed on a new row by Officials and Approval/Signatures without duplicate tables or duplicate headers
         $this->assertStringContainsString('width: 33.3333%;', $rosterHtml);
         $this->assertSame(6, substr_count($rosterHtml, 'class="player-card-td"'));
-        $this->assertSame(1, substr_count($rosterHtml, '<div class="page-break"></div>'));
-        $this->assertStringContainsString('DAFTAR OFISIAL TIM', $rosterHtml);
-        $this->assertStringContainsString('LEMBAR PENGESAHAN &amp; TANDA TANGAN RESMI PERTANDINGAN', $rosterHtml);
+        $this->assertSame(1, substr_count($rosterHtml, 'class="header-table"'));
+        $this->assertStringContainsString('OFISIAL TIM &amp; TIM PELATIH RESMI', $rosterHtml);
+        $this->assertStringContainsString('PERSETUJUAN &amp; TANDA TANGAN RESMI PERTANDINGAN', $rosterHtml);
 
         $cardsHtml = view('pdf.id_cards', [
             'team' => $env['team'],
@@ -408,11 +408,16 @@ class AccreditationTest extends TestCase
             'generated_at' => '08 Nov 2026',
         ])->render();
 
-        // A4 exact quadrant dimensions: 105mm x 148.5mm (210mm x 297mm divided by 4)
-        $this->assertStringContainsString('width: 105mm;', $cardsHtml);
-        $this->assertStringContainsString('height: 148.5mm;', $cardsHtml);
+        // A4 quadrant layout: 2x2 = 4 cards per page without page overflow
+        $this->assertStringContainsString('width: 50%;', $cardsHtml);
+        $this->assertStringContainsString('height: 138mm;', $cardsHtml);
         // 5 cards produce 2 pages x 4 quadrants = 8 <td class="quadrant-cell ..."> cells
         $this->assertSame(8, substr_count($cardsHtml, '<td class="quadrant-cell'));
+
+        // Verify DomPDF renders exact page count (5 cards = 2 pages, 4 cards per page)
+        $pdf = app(\App\Services\AccreditationService::class)->generateIdCardsPdf($env['team']);
+        $pdf->render();
+        $this->assertSame(2, $pdf->getCanvas()->get_page_count());
     }
 }
 
