@@ -285,3 +285,118 @@ Legenda Status:
 ### 4.5 Automated Testing & Verifikasi Fase 4
 - [x] **4.5.1** Penulisan Feature Tests `Phase4OperationsTest.php` untuk seluruh fitur Fase 4 (Unlock/Force-Lock/Disqualify Tim, Bulk Submit Pemain, ID Card Ofisial, Eksekusi Refund, Ekspor CSV, dan Reset/Ubah Password).
 - [x] **4.5.2** Eksekusi penuh `php artisan test` (**72 tests / 619 assertions PASS**) dan `npm run build` hingga 100% lulus.
+
+---
+
+## PENYEMPURNAAN OPERASIONAL: PDF LAYOUT, SIKLUS REVISI DOKUMEN & MODUL SIMULASI DATA (SELESAI 100%)
+
+### 4.6 Presisi Layout Cetak PDF (ID Card A4 & Album Roster Tim)
+- [x] **4.6.1** **Presisi ID Card A4 Dibagi 4 Simetris (`id_cards.blade.php`)**:
+  - Mengatur ulang grid CSS PDF cetak menjadi 2 kolom × 2 baris (tepat 4 kartu per lembar A4 portrait) dengan batas garis potong (*cut guide*) presisi, padding proporsional, serta tata letak vertikal simetris untuk lencana akreditasi pemain dan ofisial.
+- [x] **4.6.2** **Pemisahan Halaman Album Roster Skuad & Ofisial (`roster_sheet.blade.php`)**:
+  - Mengatur susunan 3 kartu pemain per baris (*3 cards per row*) dengan foto, nomor punggung, NIK, NISN, dan kode akreditasi yang rapi.
+  - Memisahkan halaman daftar pemain dengan halaman staf ofisial menggunakan page break CSS (`page-break-before: always;`).
+  - Menyediakan blok tanda tangan dan pengesahan resmi (Manajer Tim, Panitia Penyelenggara/Inspektur Pertandingan, dan Medis) di halaman tersendiri agar tidak terpotong atau tercampur dengan daftar pemain.
+
+### 4.7 Siklus Revisi Dokumen Pemain Ditolak Tanpa Membuka Kunci Skuad
+- [x] **4.7.1** **Akses Revisi Mandiri Berkas Ditolak (`PlayerPolicy.php` & `ScreeningService.php`)**:
+  - Memperbaiki aturan akses agar pemain berstatus `rejected` atau pemain yang memiliki dokumen berstatus `invalid` dapat langsung mengunggah ulang dokumen revisi secara mandiri tanpa harus membuka kunci skuad tim keseluruhan.
+  - Mengubah status dokumen menjadi `valid`/`invalid` pada screening granular secara otomatis memperbarui status pemain dan memberikan kesempatan manajer untuk mengajukan ulang (*re-submit*).
+
+### 4.8 Modul Simulasi Data Cepat (*Floating Testing & Demo Injector Tool*)
+- [x] **4.8.1** **Komponen Global Floating Button (`SimulationFloatingTool.vue`)**:
+  - Tombol melayang di pojok layar yang dapat diaktifkan/dinonaktifkan secara dinamis via konfigurasi `.env` (`SIMULATION_TOOL_ENABLED=true/false`) atau pengaturan sistem panitia, dan siap dicabut (*take out*) saat masuk ke fase *full production*.
+- [x] **4.8.2** **Aksi Simulasi End-to-End (`SimulationController.php`)**:
+  - **Simulasi Pendaftaran & Pembayaran Instan**: Mendaftarkan tim baru, mengaktifkan status, dan menerbitkan tagihan yang langsung disimulasikan lunas.
+  - **Simulasi Isi Skuad & Dokumen Lengkap**: Menginjeksi data pemain sintetis lengkap dengan NIK valid, nomor punggung unik, foto, dan 4 dokumen identitas di private storage.
+  - **Simulasi Sahkan Semua (One-Click Bulk Approve)**: Menyetujui dan meloloskan seluruh berkas pemain dalam tim atau event ke status `passed` sekaligus mengunci skuad tim (`locked_roster`).
+  - **Simulasi Penuhi Sisa Kuota Slot Event**: Mengisi seluruh sisa kuota tim yang masih kosong pada event tertentu dengan tim-tim demo otomatis agar panitia dapat langsung menguji fase turnamen/drawing grup tanpa menunggu pendaftar manual.
+- [x] **4.8.3** **Pengujian Otomatis Modul Simulasi**:
+  - Penulisan test suite `tests/Feature/SimulationModuleTest.php` (**5 tests / 32 assertions PASS**) untuk memverifikasi isolasi lingkungan, eksekusi step-by-step, fast-forward, dan pengisian slot sisa kuota.
+
+---
+
+## FASE 5 — MANAJEMEN KOMPETISI, JADWAL, HASIL PERTANDINGAN, DSP & KLASEMEN (SELESAI 100%)
+
+> **Dokumen Rencana Implementasi:** [`docs/PHASE_5_AND_6_IMPLEMENTATION_PLAN.md`](./PHASE_5_AND_6_IMPLEMENTATION_PLAN.md)
+
+### 5.1 Format Pertandingan Fleksibel & Standar Usia Dini (5v5, 7v7, 8v8, 9v9, 11v11)
+- [x] **5.1.1** **Konfigurasi Format Turnamen pada Event (`events` table & `Admin/Events/Form.vue`)**:
+  - Menambahkan kolom `match_format` (`5_vs_5`, `7_vs_7`, `8_vs_8`, `9_vs_9`, `11_vs_11`), `starting_players_count` (5, 7, 8, 9, atau 11), dan `dsp_cutoff_minutes` (default 30 menit) pada tabel `events`.
+  - Dropdown interaktif di form pembuatan & edit event dengan deskripsi standar kategori usia (contoh: 5v5 untuk U-8/U-9 Futsal/Mini, 7v7 untuk U-10/U-11 Mini Soccer, 9v9 untuk U-12/U-13, 11v11 untuk U-14+ PSSI/FIFA).
+  - Tampilan chip format kompetisi pada halaman detail event publik (`EventDetail.vue`).
+
+### 5.2 Sistem Pengundian Grup, Kunci Grup & Penataan Tim Manual
+- [x] **5.2.1** **Generator Grup & Undian Otomatis (`StandingsCalculatorService::generateGroupsAndDraw`)**:
+  - Membentuk grup (Grup A s/d Grup P) dan mengundi posisi tim terakreditasi (`locked_roster`) secara acak.
+- [x] **5.2.2** **Fitur Kunci Pembagian Grup (`is_group_locked` & `toggleGroupLock`)**:
+  - Tombol **"Kunci Grup"** pada Pusat Kendali Turnamen Admin (`Admin/Events/Tournament.vue`).
+  - Saat grup dikunci, aksi pengundian otomatis dinonaktifkan dan request undi ulang ditolak untuk mencegah perubahan tanpa sengaja pasca *Technical Meeting (TM)*.
+  - Panitia dapat membuka kunci (*Unlock*) kembali kapan saja dengan satu klik konfirmasi.
+- [x] **5.2.3** **Pindah Grup Manual (*Manual Seeding / Akademi Separator*) (`moveTeamGroup`)**:
+  - Aksi **"Pindah Grup"** pada setiap baris tim di klasemen grup admin.
+  - Memungkinkan panitia memindahkan tim antar-grup sebelum pertandingan dimulai (misal memisahkan tim se-akademi agar tidak satu grup).
+  - Validasi ketat: Tim yang sudah memainkan pertandingan resmi (`status != scheduled`) dilarang dipindahkan demi integritas kompetisi.
+
+### 5.3 Penjadwalan Pertandingan, Reschedule & Generator Babak Gugur
+- [x] **5.3.1** **Generator Jadwal Round-Robin Fase Grup (`generateGroupStageMatches`)**:
+  - Membuat seluruh pasangan pertandingan fase grup (*Round-Robin*) secara otomatis dengan parameter jam mulai, interval menit (misal 60 menit per laga), dan distribusi nomor lapangan (Lapangan 1, Lapangan 2, Lapangan Utama).
+- [x] **5.3.2** **Modal Penjadwalan Ulang Pertandingan (*Match Reschedule*) (`rescheduleMatch`)**:
+  - Tombol **"Reschedule"** pada kartu pertandingan admin untuk menyesuaikan waktu & jam kick-off baru, lapangan tanding, nama wasit, status pertandingan (`scheduled`, `ongoing`, `completed`, `postponed`), dan catatan penundaan (*match notes*).
+- [x] **5.3.3** **Generator Babak Gugur Otomatis (*Cross-Group Knockout Seeding*) (`generateKnockoutStageMatches`)**:
+  - Tombol **"Generate Babak Gugur"** untuk babak 16 besar, perempat final, semifinal, dan final.
+  - Membaca posisi klasemen grup terkini dan secara otomatis menyilangkan tim unggulan:
+    - **2 Grup**: `1A vs 2B` & `1B vs 2A`.
+    - **4 Grup**: `1A vs 2B`, `1C vs 2D`, `1B vs 2A`, `1D vs 2C`.
+    - Mengalokasikan jam kick-off dan rotasi lapangan secara otomatis.
+- [x] **5.3.4** **Tambah Pertandingan Manual (`storeMatch`)**:
+  - Form penambahan laga manual jika panitia membutuhkan pertandingan tambahan atau laga persahabatan/perebutan tempat ketiga.
+
+### 5.4 Daftar Susunan Pemain (DSP / Match Lineup) & Regulasi Disiplin
+- [x] **5.4.1** **Portal Pengisian DSP Manajer Tim (`/manager/matches` & `MatchLineupController.php`)**:
+  - Halaman pemilihan pemain inti (*Starting Lineup*) dan pemain cadangan (*Substitutes*) sebelum pertandingan dimulai.
+  - Validasi ketat kuota starter: Jumlah starter wajib tepat sama dengan format turnamen (`starting_players_count`, contoh: 7 untuk 7v7, 11 untuk 11v11).
+  - Validasi penjaga gawang: Starting lineup wajib menyertakan minimal 1 Penjaga Gawang (GK) jika tim memiliki kiper yang sah.
+  - Validasi penugasan Kapten Tim (`captain_player_id`).
+- [x] **5.4.2** **Penegakan Otomatis Suspensi Kartu Disiplin (`checkPlayerDisciplinaryStatus`)**:
+  - Memeriksa akumulasi kartu kuning (2 kartu kuning berturut-turut) atau kartu merah langsung pada laga sebelumnya.
+  - Pemain yang terkena sanksi suspensi otomatis diblokir dari pilihan DSP dengan pesan alasan yang transparan.
+- [x] **5.4.3** **Mekanisme Auto-Lock DSP (Jadwal Penguncian Otomatis)**:
+  - DSP otomatis terkunci dan tidak dapat diubah oleh manajer apabila:
+    1. Pertandingan telah berstatus `ongoing` (sedang bertanding), `completed` (selesai), atau `cancelled`.
+    2. Waktu telah melewati batas cut-off regulasi (`kickoff_at - dsp_cutoff_minutes`, misal H-30 menit sebelum kick-off).
+  - Perubahan darurat akibat cedera saat pemanasan (*pre-match warm up*) dibatasi hanya melalui wewenang Admin / Pengawas Pertandingan (*Match Commissioner*).
+- [x] **5.4.4** **Cetak Dokumen Resmi DSP Match Sheet (PDF) (`lineup_sheet.blade.php`)**:
+  - Lembar berita acara pertandingan resmi berformat A4 yang memuat daftar starter, cadangan, ofisial di bangku cadangan, warna kostum tim, serta kolom tanda tangan wasit dan pengawas pertandingan.
+
+### 5.5 Input Hasil Pertandingan, Skor, Kejadian Laga & Klasemen Real-time
+- [x] **5.5.1** **Pusat Input Skor & Kejadian Pertandingan (`updateMatchResult`)**:
+  - Form pencatatan skor akhir, skor adu penalti (fase gugur), nama wasit, dan kejadian laga (*match events*):
+    - Gol Reguler, Gol Penalti, Gol Bunuh Diri (*Own Goal*).
+    - Kartu Kuning, Kartu Kuning Kedua (*Second Yellow Card*), Kartu Merah Langsung.
+    - Menit kejadian dan catatan wasit.
+- [x] **5.5.2** **Kalkulasi Klasemen Otomatis (*Real-Time Standings Engine*) (`recalculateEventStandings`)**:
+  - Menghitung statistik tim secara transaksional: Main (*P*), Menang (*W*), Seri (*D*), Kalah (*L*), Memasukkan (*GF*), Kebobolan (*GA*), Selisih Gol (*GD*), Poin (*Pts*), serta akumulasi Kartu Kuning & Merah (*Fair Play*).
+  - Mengurutkan peringkat klasemen berdasarkan: (1) Manual Rank Override, (2) Poin, (3) Selisih Gol, (4) Gol Memasukkan, (5) Kartu Merah paling sedikit, (6) Kartu Kuning paling sedikit.
+- [x] **5.5.3** **Tab Live Match Center di Halaman Publik (`Public/EventDetail.vue`)**:
+  - Tab **Jadwal & Hasil**: Kartu skor pertandingan, menit gol, kartu disiplin, lapangan, dan status laga.
+  - Tab **Klasemen Grup**: Tabel klasemen interaktif per grup lengkap dengan indikator tim lolos.
+  - Tab **Statistik & Top Scorer**: Papan peringkat pencetak gol terbanyak (*Top Scorer Leaderboard*) dan tim paling sportif (*Fair Play Award*).
+
+### 5.6 Pengumuman Turnamen, Prestasi Tim, Matchday QR Scanner & E-Sertifikat Digital
+- [x] **5.6.1** **Papan Pengumuman & Penetapan Prestasi Tim (`announcements` & `achievements`)**:
+  - Admin dapat mempublikasikan pengumuman resmi turnamen (jadwal TM, regulasi teknis, info lapangan).
+  - Admin dapat menyematkan gelar juara pada profil tim (`achievement_title`, contoh: "Juara 1 (Champions)", "Runner-up", "Peringkat 3").
+- [x] **5.6.2** **Panel Pemindai QR Hari Pertandingan (*Matchday QR Scanner*) (`/admin/qr-scanner`)**:
+  - Endpoint verifikasi cepat `POST /admin/qr-scanner/lookup` untuk memeriksa keabsahan pemain atau ofisial di meja pengawas pertandingan dalam hitungan detik.
+- [x] **5.6.3** **E-Sertifikat Digital & Gerbang Rilis Panitia (`certificates_released`)**:
+  - Template PDF E-Sertifikat Penghargaan Pemain (`player_certificate.blade.php`) berdesain landscape resmi Persija Development lengkap dengan kode verifikasi QR dan predikat prestasi tim.
+  - **Gerbang Rilis Sertifikat (*Certificate Release Gating*)**: Manajer tim dibatasi dan tidak dapat mengunduh sertifikat pemain sebelum panitia mengaktifkan toggle **"Rilis E-Sertifikat"** (`toggleCertificateRelease`) atau status turnamen telah resmi diselesaikan (`status = completed`).
+
+### 5.7 Automated Testing & Verifikasi Fase 5
+- [x] **5.7.1** Penulisan Feature Tests `Phase5TournamentTest.php` (15 test methods):
+  - Pengujian kontrol turnamen admin, undian grup otomatis, kunci grup & penolakan undi ulang saat terkunci, pemindahan tim antar-grup, penjadwalan ulang laga (*reschedule*), generator babak gugur silang (*knockout cross-pairing*).
+  - Pengujian pengajuan DSP manajer: validasi jumlah starter sesuai format turnamen (5v5-11v11), kewajiban kiper (GK), blokir pemain suspensi, serta auto-lock DSP saat status ongoing atau melewati cut-off.
+  - Pengujian pembatasan unduh e-sertifikat (403 saat belum dirilis, 200 PDF saat dirilis / event completed).
+  - Pengujian input skor, pencatatan gol/kartu, kalkulasi klasemen otomatis, leaderboard top scorer, pengumuman, dan scanner QR matchday.
+- [x] **5.7.2** Eksekusi Penuh Test Suite: Seluruh **95 automated tests dengan 794 assertions PASS (100% lulus)** dan build aset Vite (`npm run build`) berjalan bersih tanpa error.

@@ -22,42 +22,42 @@ Saat ini fondasi **Pre-Competition (Pendaftaran -> Pembayaran -> Input Skuad -> 
   - Pengajuan Screening Kolektif 1-Klik (*Bulk Submit All Ready Players*) di Portal Manajer (`Manager/Players.vue`) serta pencetakan **ID Card Pelatih & Ofisial** ber-QR Code & Nomor Lisensi di PDF Akreditasi.
   - Eksekusi penyelesaian pengembalian dana (`refund_required` -> `refunded` + `PaymentRefundedMail`) serta **Pusat Ekspor Data CSV/Excel** (Laporan Transaksi Keuangan, Rekapitulasi Tim, & Database Pemain per Event).
   - Pemulihan Kata Sandi Mandiri (`/forgot-password` & `/reset-password/{token}` via Email Queue) dan Form Ubah Kata Sandi di Profil Tim Manajer.
+- **Penyempurnaan PDF Layout & Modul Simulasi Data (SELESAI 100%):**
+  - Presisi ID Card 1 lembar A4 dibagi 4 kartu simetris (2x2 grid) bergaris potong rapi.
+  - Album Roster Skuad 3 kartu per baris, pemisahan halaman skuad pemain dengan staf ofisial dan blok pengesahan/tanda tangan.
+  - Siklus revisi dokumen mandiri tanpa perlu membuka kunci skuad keseluruhan.
+  - Modul Simulasi Data Melayang (*Floating Testing/Demo Injector Tool*) untuk pengujian cepat pendaftaran, pembayaran, injeksi pemain sintetis, pengesahan massal, dan pengisian slot sisa kuota event.
+- **Fase 5 (Tournament Control Center, Format 5v5–11v11, Grup & Knockout, Jadwal & Reschedule, DSP & Auto-Lock, Klasemen & E-Sertifikat — SELESAI 100%):**
+  - Format pertandingan fleksibel (`match_format`: 5v5, 7v7, 8v8, 9v9, 11v11) dengan kuota starter wajib & batas menit penutupan DSP (`dsp_cutoff_minutes`).
+  - Undian grup otomatis, **Kunci Pembagian Grup (`is_group_locked`)**, serta **Pindah Grup Manual (`moveTeamGroup`)** sebelum bertanding.
+  - Penjadwalan Round-Robin otomatis, **Reschedule Pertandingan**, dan **Generator Fase Gugur Otomatis (*Cross-Group Seeding*)**.
+  - **Daftar Susunan Pemain (DSP)** dengan penegakan kuota starter, minimal 1 GK, blokir suspensi kartu disiplin, **Auto-Lock DSP** (laga berlangsung / lewat cut-off), dan cetak PDF Match Sheet.
+  - Input skor akhir, adu penalti, gol/kartu, serta kalkulasi klasemen otomatis dengan tie-breaker standar sepak bola.
+  - Matchday QR Scanner (`/admin/qr-scanner`), pengumuman turnamen, predikat juara tim, serta **E-Sertifikat Digital** dengan gerbang rilis panitia (`certificates_released`).
 
 ---
 
-## 2. Analisis Gap: Fitur di PRD / Schema yang Belum Dibuat atau Belum Lengkap
+## 2. Status Capaian Fitur (Seluruh Fitur Inti Telah Selesai 100%)
 
-Berdasarkan pemeriksaan mendalam terhadap `docs/PRD.md`, `docs/DATABASE_SCHEMA.md`, dan kode saat ini, berikut adalah bagian yang **sudah ada di spesifikasi/kolom database namun belum memiliki UI atau alur aksi lengkap**:
+Seluruh celah fungsional (*feature gap*) yang teridentifikasi pada audit awal telah berhasil diimplementasikan dan diverifikasi:
 
-### 2.1 Manajemen Status Tim & Catatan Internal oleh Admin (`teams.manage_status`)
-- **Kondisi Saat Ini:** Di database `teams` sudah ada kolom `status` (`disqualified`, `expired`, `active`, `locked_roster`), kolom `admin_notes`, serta permission `teams.manage_status`. Namun di halaman Admin (`Admin/Teams/Show.vue`), belum ada tombol bagi Superadmin untuk:
-  1. **Membuka Kunci Skuad Final (*Unlock Team Roster*)**: Jika tim sudah terlanjur klik `Kunci Skuad Final` (`locked_roster`), namun sebelum Technical Meeting ada pemain yang cedera parah dan harus diganti atas izin panitia.
-  2. **Diskualifikasi Tim (`disqualified`)**: Menjatuhkan sanksi diskualifikasi beserta alasan resmi (yang otomatis melepaskan slot kuota event).
-  3. **Kunci Skuad Paksa oleh Admin (*Force Lock Roster*)**: Jika semua pemain sudah sah dan batas waktu pendaftaran ditutup, tetapi manajer lupa menekan tombol `Kunci Skuad Final`.
-  4. **Catatan Internal Panitia (`admin_notes`)**: Menyimpan catatan khusus internal antar-panitia pada suatu tim.
-
-### 2.2 Penyelesaian Pengembalian Dana (*Refund Execution Workflow*)
-- **Kondisi Saat Ini:** Sistem sudah memiliki deteksi otomatis `refund_required` apabila terjadi *late settlement* saat kuota event sudah penuh, serta peringatan di Dashboard Admin.
-- **Yang Belum Ada:** Belum ada tombol aksi bagi Finance/Superadmin untuk **Menandai Refund Selesai (`refunded`)** beserta unggah bukti transfer pengembalian dana dan pengiriman email notifikasi `PaymentRefundedMail` ke manajer tim.
-
-### 2.3 Ekspor Laporan Keuangan & Data Tim/Pemain (CSV / Excel / PDF)
-- **Kondisi Saat Ini:** Di `PRD.md` bagian 4.1 disebutkan Finance memiliki fitur *"ekspor laporan keuangan per event"*.
-- **Yang Belum Ada:**
-  - Tombol **Export Laporan Keuangan / Transaksi (Excel/CSV)** per event di halaman `Riwayat Transaksi` (`/admin/payments/transactions`).
-  - Tombol **Export Master Data Tim & Pemain (Excel/CSV)** per event untuk kebutuhan buku acara, asuransi pemain, atau pelaporan ke Askot/Asprov PSSI.
-
-### 2.4 Pengajuan Screening Kolektif (*Bulk Submit Players*) di Portal Manajer
-- **Kondisi Saat Ini:** Manajer harus menekan tombol `Ajukan Screening` satu per satu pada setiap kartu pemain (12–18 kali klik untuk 1 tim).
-- **Yang Belum Ada:** Tombol **`Ajukan Semua Pemain Siap Screening (X Pemain)`** di bagian atas halaman `Manager/Players.vue` agar manajer cukup 1 kali klik ketika semua berkas pemain sudah lengkap.
-
-### 2.5 Fitur Lupa Kata Sandi (*Forgot / Reset Password*) & Ubah Password Mandiri
-- **Kondisi Saat Ini:** Manajer membuat password saat registrasi tim, namun belum ada halaman **Lupa Password (`/forgot-password`)** via email token maupun form **Ubah Password** di halaman profil manajer/admin.
-
-### 2.6 Verifikasi / Screening Staf Ofisial & Lisensi Pelatih
-- **Kondisi Saat Ini:** Di `DATABASE_SCHEMA.md` bagian 2.8 disebutkan tabel `team_officials` dirancang untuk memiliki verifikasi lisensi kepelatihan dan kartu ID Ofisial.
-- **Yang Belum Ada:**
-  - Saat ini kartu ID PDF (`id_cards.blade.php`) hanya mencetak kartu untuk pemain (`passedPlayers`), belum mencetak **ID Card untuk Pelatih & Ofisial Resmi** (atau opsi unduh ID Card Ofisial).
-  - Belum ada tombol verifikasi keabsahan sertifikat lisensi pelatih oleh Admin.
+| Area Fitur | Status Implementasi | Lokasi Kode / Antarmuka |
+| :--- | :---: | :--- |
+| **Kontrol Status Tim Admin** | Selesai (100%) | `Admin/Teams/Show.vue` & `TeamManagementController` |
+| **Penyelesaian Refund Finance** | Selesai (100%) | `PaymentVerificationController::markRefunded` |
+| **Ekspor Data CSV / Excel** | Selesai (100%) | `exportCsv`, `exportTeamsCsv`, `exportPlayersCsv` |
+| **Bulk Submit Screening Pemain** | Selesai (100%) | `Manager/Players.vue` & `PlayerController::submitAllReady` |
+| **Manajemen Kata Sandi Mandiri** | Selesai (100%) | `/forgot-password`, `/reset-password`, & Profil Manajer |
+| **ID Card Ofisial & QR Verifikasi** | Selesai (100%) | `id_cards.blade.php` & `/verify/official/{code}` |
+| **Format Turnamen (5v5 s/d 11v11)**| Selesai (100%) | `Admin/Events/Form.vue` & `EventController` |
+| **Kunci Grup & Pindah Grup Manual** | Selesai (100%) | `Admin/Events/Tournament.vue` & `TournamentController` |
+| **Jadwal & Reschedule Pertandingan**| Selesai (100%) | `rescheduleMatch` & modal reschedule |
+| **Generator Fase Gugur (Cross-Group)**| Selesai (100%)| `generateKnockoutMatches` & `StandingsCalculatorService` |
+| **DSP Lineup & Auto-Lock Cutoff** | Selesai (100%) | `Manager/Matches.vue` & `MatchLineupController` |
+| **Live Match Center & Klasemen** | Selesai (100%) | `Public/EventDetail.vue` & `StandingsCalculatorService` |
+| **Matchday QR Scanner Meja Wasit** | Selesai (100%) | `Admin/Screening/QrScanner.vue` |
+| **E-Sertifikat Digital & Release Gating**| Selesai (100%)| `player_certificate.blade.php` & `toggleCertificateRelease` |
+| **Modul Simulasi Data Melayang** | Selesai (100%) | `SimulationFloatingTool.vue` & `SimulationController` |
 
 ---
 
