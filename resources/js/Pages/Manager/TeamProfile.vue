@@ -64,6 +64,9 @@ const form = useForm({
     manager_whatsapp: props.team?.manager_whatsapp || '',
     head_coach_name: props.team?.head_coach_name || '',
     head_coach_license: props.team?.head_coach_license || '',
+    home_jersey_color: props.team?.home_jersey_color || '',
+    away_jersey_color: props.team?.away_jersey_color || '',
+    gk_jersey_color: props.team?.gk_jersey_color || '',
     logo: null,
 });
 
@@ -221,6 +224,41 @@ const submit = () => {
                                 type="text"
                                 class="input-field"
                             />
+                        </div>
+
+                        <!-- Fase 6.2: Pemilihan Warna Kostum Tim -->
+                        <div class="sm:col-span-2 pt-2 border-t border-slate-200/80">
+                            <span class="block text-xs font-bold text-slate-900 mb-1">Warna Jersey / Kostum Tanding Tim</span>
+                            <p class="text-[11px] text-slate-500 mb-3">Informasi warna jersey akan dicantumkan di lembar DSP dan Technical Meeting untuk mencegah bentrok warna kostum.</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1">Kostum Utama (Home)</label>
+                                    <input
+                                        v-model="form.home_jersey_color"
+                                        type="text"
+                                        placeholder="Contoh: Merah - Merah"
+                                        class="input-field text-xs"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1">Kostum Cadangan (Away)</label>
+                                    <input
+                                        v-model="form.away_jersey_color"
+                                        type="text"
+                                        placeholder="Contoh: Putih - Putih"
+                                        class="input-field text-xs"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1">Kostum Kiper (GK)</label>
+                                    <input
+                                        v-model="form.gk_jersey_color"
+                                        type="text"
+                                        placeholder="Contoh: Hijau Stabilo"
+                                        class="input-field text-xs"
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
 

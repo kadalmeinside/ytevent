@@ -35,6 +35,9 @@ class UpdateTeamProfileRequest extends FormRequest
             'head_coach_license' => $requireLicense
                 ? ['required', 'string', 'min:2', 'max:80']
                 : ['nullable', 'string', 'max:80'],
+            'home_jersey_color' => ['nullable', 'string', 'max:60'],
+            'away_jersey_color' => ['nullable', 'string', 'max:60'],
+            'gk_jersey_color' => ['nullable', 'string', 'max:60'],
             'logo' => ['nullable', 'file', 'mimes:png,jpg,jpeg', 'max:2048'],
         ];
     }

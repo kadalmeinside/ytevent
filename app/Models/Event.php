@@ -118,6 +118,21 @@ class Event extends Model
         return $this->hasMany(Player::class);
     }
 
+    public function groups(): HasMany
+    {
+        return $this->hasMany(EventGroup::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    public function matches(): HasMany
+    {
+        return $this->hasMany(TournamentMatch::class)->orderBy('match_number')->orderBy('kickoff_at');
+    }
+
+    public function announcements(): HasMany
+    {
+        return $this->hasMany(EventAnnouncement::class)->orderByDesc('is_pinned')->latest('id');
+    }
+
     public function scopeWithOccupiedSlotsCount(Builder $query): Builder
     {
         $now = now();

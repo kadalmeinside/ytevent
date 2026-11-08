@@ -91,6 +91,45 @@ const calculatePercent = (current, total) => {
                 </Link>
             </div>
 
+            <!-- Fase 6.1: Papan Pengumuman & Undangan Technical Meeting dari Panitia -->
+            <div
+                v-if="summary?.announcements?.length > 0"
+                class="space-y-3"
+            >
+                <div
+                    v-for="announcement in summary.announcements"
+                    :key="announcement.id"
+                    class="frosted-card p-5 border-l-4 border-l-orange-600 bg-white shadow-sm"
+                >
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span v-if="announcement.is_pinned" class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-red-100 text-red-800 border border-red-200">
+                                    PENTING
+                                </span>
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-orange-600">Pengumuman Panitia Pelaksana</span>
+                                <span class="text-slate-300">•</span>
+                                <span class="text-[11px] text-slate-400">{{ announcement.created_at }}</span>
+                            </div>
+                            <h3 class="text-sm sm:text-base font-bold text-slate-900">{{ announcement.title }}</h3>
+                            <p class="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{{ announcement.content }}</p>
+                        </div>
+                        <a
+                            v-if="announcement.meeting_link"
+                            :href="announcement.meeting_link"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="btn-pitch text-xs shrink-0 inline-flex items-center gap-1.5 shadow-sm"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                            <span>Buka Link Meeting</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
             <!-- Key Operational Cards (3-Tier Layout Anti-Collision) -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <!-- Card 1: Status Pendaftaran Tim -->

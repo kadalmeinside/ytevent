@@ -196,7 +196,7 @@ const triggerResyncEvent = (evt) => {
                                         </svg>
                                     </button>
                                 </div>
-                                <div class="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+                                <div class="flex items-center gap-1.5 w-full sm:w-auto justify-end flex-wrap">
                                     <Link
                                         :href="route('events.show', { event: evt.slug })"
                                         target="_blank"
@@ -208,10 +208,16 @@ const triggerResyncEvent = (evt) => {
                                         </svg>
                                     </Link>
                                     <Link
-                                        :href="route('admin.events.edit', { event: evt.id })"
-                                        class="btn-sm-pitch w-full sm:w-auto justify-center"
+                                        :href="route('admin.events.tournament', { event: evt.id })"
+                                        class="btn-sm-secondary border-orange-300 text-orange-800 hover:bg-orange-50 justify-center"
                                     >
-                                        Edit Kompetisi
+                                        Turnamen &amp; Skor
+                                    </Link>
+                                    <Link
+                                        :href="route('admin.events.edit', { event: evt.id })"
+                                        class="btn-sm-pitch justify-center"
+                                    >
+                                        Edit
                                     </Link>
                                 </div>
                             </div>

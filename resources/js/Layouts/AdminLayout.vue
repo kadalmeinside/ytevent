@@ -90,6 +90,14 @@ const navSections = computed(() => {
                         ? { text: String(notif.pending_screening_players_count), variant: 'orange', title: 'Pemain menunggu verifikasi screening' }
                         : null,
                 },
+                {
+                    label: 'QR Scanner Lapangan',
+                    href: route('admin.qr-scanner'),
+                    match: '/admin/qr-scanner',
+                    icon: 'screening',
+                    show: can('screening.view_queue'),
+                    badge: null,
+                },
             ],
         },
         {

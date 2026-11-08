@@ -54,6 +54,10 @@ trait ResolvesActiveTeam
             'manager_email' => $team->manager_email,
             'head_coach_name' => $team->head_coach_name,
             'head_coach_license' => $team->head_coach_license,
+            'home_jersey_color' => $team->home_jersey_color,
+            'away_jersey_color' => $team->away_jersey_color,
+            'gk_jersey_color' => $team->gk_jersey_color,
+            'achievement_title' => $team->achievement_title,
             'status' => $team->status,
             'screening_status' => $team->screening_status,
             'slot_reserved_at' => $team->slot_reserved_at?->toIso8601String(),
@@ -80,10 +84,13 @@ trait ResolvesActiveTeam
                 'require_coach_license' => (bool) (($event->show_coach_license ?? true) && ($event->require_coach_license ?? false)),
                 'lock_roster_until_paid' => $event->lock_roster_until_paid,
                 'registration_fee' => (float) $event->registration_fee,
-                'required_documents' => collect($event->required_documents ?? [])->map(fn (string $type) => [
-                    'type' => $type,
-                    'label' => Event::documentLabel($type),
-                ])->values(),
+                'required_documents' => collect($event->required_documents ?? [])->map(function ($item) {
+                    $type = is_array($item) ? ($item['type'] ?? '') : (string) $item;
+                    return [
+                        'type' => $type,
+                        'label' => is_array($item) && ! empty($item['label']) ? $item['label'] : Event::documentLabel($type),
+                    ];
+                })->values(),
             ] : null,
         ];
     }

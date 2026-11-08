@@ -49,6 +49,24 @@ class DashboardController extends Controller
                 'players_rejected' => $players->where('screening_status', 'rejected')->count(),
                 'players_docs_complete' => $players->filter(fn ($p) => $p->isCompleteForSubmission())->count(),
                 'officials_total' => $officialsCount,
+                'announcements' => \App\Models\EventAnnouncement::query()
+                    ->where(function ($q) use ($team) {
+                        $q->where('event_id', $team->event_id)
+                            ->orWhereNull('event_id');
+                    })
+                    ->orderByDesc('is_pinned')
+                    ->latest('id')
+                    ->take(5)
+                    ->get()
+                    ->map(fn ($a) => [
+                        'id' => $a->id,
+                        'title' => $a->title,
+                        'content' => $a->content,
+                        'meeting_link' => $a->meeting_link,
+                        'is_pinned' => $a->is_pinned,
+                        'created_at' => $a->created_at?->translatedFormat('d M Y, H:i'),
+                    ])
+                    ->values(),
             ];
         }
 
@@ -90,6 +108,9 @@ class DashboardController extends Controller
             'manager_whatsapp' => trim($validated['manager_whatsapp']),
             'head_coach_name' => trim($validated['head_coach_name']),
             'head_coach_license' => $validated['head_coach_license'] ?? null,
+            'home_jersey_color' => $validated['home_jersey_color'] ?? null,
+            'away_jersey_color' => $validated['away_jersey_color'] ?? null,
+            'gk_jersey_color' => $validated['gk_jersey_color'] ?? null,
         ];
 
         if ($request->hasFile('logo')) {

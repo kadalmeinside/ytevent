@@ -13,6 +13,18 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    groups: {
+        type: Array,
+        default: () => [],
+    },
+    matches: {
+        type: Array,
+        default: () => [],
+    },
+    leaderboard: {
+        type: Object,
+        default: () => ({ top_scorers: [], fair_play: [] }),
+    },
 });
 
 const { formatRupiah, formatDate, formatDateTime } = useFormatters();
@@ -214,6 +226,33 @@ const eventJsonLd = computed(() => {
                                 Tim Lunas / Terverifikasi ({{ registeredTeams.length }})
                             </button>
                             <button
+                                v-if="groups.length > 0"
+                                type="button"
+                                class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
+                                :class="activeTab === 'groups' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
+                                @click="activeTab = 'groups'"
+                            >
+                                Grup &amp; Klasemen ({{ groups.length }})
+                            </button>
+                            <button
+                                v-if="matches.length > 0"
+                                type="button"
+                                class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
+                                :class="activeTab === 'matches' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
+                                @click="activeTab = 'matches'"
+                            >
+                                Jadwal &amp; Hasil ({{ matches.length }})
+                            </button>
+                            <button
+                                v-if="leaderboard.top_scorers && leaderboard.top_scorers.length > 0"
+                                type="button"
+                                class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
+                                :class="activeTab === 'leaderboard' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
+                                @click="activeTab = 'leaderboard'"
+                            >
+                                Top Scorer
+                            </button>
+                            <button
                                 type="button"
                                 class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
                                 :class="activeTab === 'contact' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
@@ -356,6 +395,140 @@ const eventJsonLd = computed(() => {
                                             <StatusBadge :status="t.status" />
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+
+                            <!-- Tab: Groups & Standings -->
+                            <div v-else-if="activeTab === 'groups'" class="space-y-6">
+                                <div v-if="groups.length === 0" class="text-center py-8 text-xs text-slate-500">
+                                    Grup turnamen belum dibentuk oleh panitia.
+                                </div>
+                                <div v-else class="grid grid-cols-1 gap-6">
+                                    <div
+                                        v-for="g in groups"
+                                        :key="g.id"
+                                        class="rounded-xl border border-slate-200 overflow-hidden shadow-2xs"
+                                    >
+                                        <div class="px-4 py-2.5 bg-slate-900 text-white flex items-center justify-between text-xs">
+                                            <span class="font-bold text-orange-400 tracking-wider">{{ g.name }}</span>
+                                            <span class="text-slate-400 font-mono">{{ g.standings.length }} Tim</span>
+                                        </div>
+                                        <div class="overflow-x-auto">
+                                            <table class="w-full text-left text-xs border-collapse">
+                                                <thead>
+                                                    <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
+                                                        <th class="py-2 px-3 w-8 text-center">#</th>
+                                                        <th class="py-2 px-3">Klub / Tim</th>
+                                                        <th class="py-2 px-2 text-center">M</th>
+                                                        <th class="py-2 px-2 text-center">Mn</th>
+                                                        <th class="py-2 px-2 text-center">S</th>
+                                                        <th class="py-2 px-2 text-center">K</th>
+                                                        <th class="py-2 px-2 text-center">GM</th>
+                                                        <th class="py-2 px-2 text-center">GK</th>
+                                                        <th class="py-2 px-2 text-center">SG</th>
+                                                        <th class="py-2 px-3 text-center font-black text-orange-950 bg-orange-50/60">PTS</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="divide-y divide-slate-100 bg-white">
+                                                    <tr
+                                                        v-for="(st, sIdx) in g.standings"
+                                                        :key="st.team_id"
+                                                        class="hover:bg-orange-50/20"
+                                                        :class="{ 'bg-emerald-50/30 font-medium': sIdx < 2 }"
+                                                    >
+                                                        <td class="py-2 px-3 text-center font-mono font-bold">{{ sIdx + 1 }}</td>
+                                                        <td class="py-2 px-3 font-semibold text-slate-900 whitespace-nowrap">{{ st.team_name }}</td>
+                                                        <td class="py-2 px-2 text-center tabular-data">{{ st.played }}</td>
+                                                        <td class="py-2 px-2 text-center tabular-data text-emerald-700 font-semibold">{{ st.won }}</td>
+                                                        <td class="py-2 px-2 text-center tabular-data text-slate-500">{{ st.drawn }}</td>
+                                                        <td class="py-2 px-2 text-center tabular-data text-rose-700 font-semibold">{{ st.lost }}</td>
+                                                        <td class="py-2 px-2 text-center tabular-data">{{ st.goals_for }}</td>
+                                                        <td class="py-2 px-2 text-center tabular-data">{{ st.goals_against }}</td>
+                                                        <td class="py-2 px-2 text-center tabular-data font-semibold">
+                                                            {{ st.goal_difference > 0 ? `+${st.goal_difference}` : st.goal_difference }}
+                                                        </td>
+                                                        <td class="py-2 px-3 text-center tabular-data font-black text-orange-900 bg-orange-50/60 text-sm">
+                                                            {{ st.points }}
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Tab: Matches Fixtures & Results -->
+                            <div v-else-if="activeTab === 'matches'" class="space-y-4">
+                                <div v-if="matches.length === 0" class="text-center py-8 text-xs text-slate-500">
+                                    Jadwal pertandingan belum diterbitkan.
+                                </div>
+                                <div v-else class="space-y-3">
+                                    <div
+                                        v-for="m in matches"
+                                        :key="m.id"
+                                        class="p-4 rounded-xl border border-slate-200 bg-white shadow-2xs hover:border-orange-300 transition-colors"
+                                    >
+                                        <div class="flex items-center justify-between pb-2 border-b border-slate-100 text-xs">
+                                            <div class="flex items-center gap-2">
+                                                <span class="px-2 py-0.5 rounded font-black bg-slate-900 text-white font-mono text-[10px]">#{{ m.match_number }}</span>
+                                                <span class="font-bold text-orange-950 bg-orange-50 px-2 py-0.5 rounded text-[11px]">{{ m.stage_label }}</span>
+                                                <span v-if="m.group_name" class="text-slate-500 font-medium">({{ m.group_name }})</span>
+                                            </div>
+                                            <span class="text-slate-500 text-[11px] font-mono">{{ m.kickoff_formatted }} &bull; {{ m.pitch_name }}</span>
+                                        </div>
+                                        <div class="py-3 grid grid-cols-7 items-center gap-2 text-xs">
+                                            <div class="col-span-3 text-right font-bold text-slate-900 truncate">
+                                                {{ m.home_team_name }}
+                                            </div>
+                                            <div class="col-span-1 text-center">
+                                                <span v-if="m.status === 'completed' || m.status === 'ongoing'" class="text-base font-black text-slate-900 tabular-data font-mono">
+                                                    {{ m.home_score ?? 0 }} - {{ m.away_score ?? 0 }}
+                                                </span>
+                                                <span v-else class="text-[11px] font-bold text-slate-400">VS</span>
+                                            </div>
+                                            <div class="col-span-3 text-left font-bold text-slate-900 truncate">
+                                                {{ m.away_team_name }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Tab: Top Scorer Leaderboard -->
+                            <div v-else-if="activeTab === 'leaderboard'" class="space-y-4">
+                                <div class="rounded-xl border border-slate-200 overflow-hidden">
+                                    <div class="px-4 py-2.5 bg-slate-900 text-white flex items-center justify-between text-xs">
+                                        <span class="font-bold text-orange-400">Peringkat Top Scorer Resmi</span>
+                                        <span class="text-slate-400 font-mono">Golden Boot</span>
+                                    </div>
+                                    <table class="w-full text-left text-xs border-collapse">
+                                        <thead>
+                                            <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
+                                                <th class="py-2.5 px-3 w-10 text-center">#</th>
+                                                <th class="py-2.5 px-3">Nama Pemain</th>
+                                                <th class="py-2.5 px-3">Klub / Tim</th>
+                                                <th class="py-2.5 px-3 text-center font-black text-orange-950 bg-orange-50/60">GOL</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-100 bg-white">
+                                            <tr
+                                                v-for="(p, idx) in leaderboard.top_scorers"
+                                                :key="p.player_id"
+                                                class="hover:bg-orange-50/20"
+                                            >
+                                                <td class="py-2.5 px-3 text-center font-bold font-mono">{{ idx + 1 }}</td>
+                                                <td class="py-2.5 px-3 font-bold text-slate-900">
+                                                    {{ p.player_name }}
+                                                    <span v-if="p.jersey_number" class="text-slate-400 font-mono text-[10px] ml-1">#{{ p.jersey_number }}</span>
+                                                </td>
+                                                <td class="py-2.5 px-3 text-slate-600">{{ p.team_name }}</td>
+                                                <td class="py-2.5 px-3 text-center tabular-data font-black text-orange-900 bg-orange-50/60 text-sm">
+                                                    {{ p.total_goals }}
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
 

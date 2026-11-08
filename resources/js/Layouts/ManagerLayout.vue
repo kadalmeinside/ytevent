@@ -101,6 +101,13 @@ const navItems = computed(() => [
         badge: workflowBadges.value.accreditation || null,
     },
     {
+        label: 'Jadwal & DSP Tanding',
+        href: route('manager.matches.index'),
+        match: '/manager/matches',
+        icon: 'accreditation',
+        badge: null,
+    },
+    {
         label: 'Profil Tim',
         href: route('manager.team-profile'),
         match: '/manager/team-profile',

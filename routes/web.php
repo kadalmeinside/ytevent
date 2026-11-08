@@ -9,10 +9,12 @@ use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\RolePermissionController as AdminRolePermissionController;
 use App\Http\Controllers\Admin\ScreeningController as AdminScreeningController;
 use App\Http\Controllers\Admin\SystemSettingController as AdminSystemSettingController;
+use App\Http\Controllers\Admin\TournamentController as AdminTournamentController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Manager\AccreditationController as ManagerAccreditationController;
 use App\Http\Controllers\Manager\DashboardController as ManagerDashboardController;
+use App\Http\Controllers\Manager\MatchLineupController as ManagerMatchLineupController;
 use App\Http\Controllers\Manager\OfficialController as ManagerOfficialController;
 use App\Http\Controllers\Manager\PaymentController as ManagerPaymentController;
 use App\Http\Controllers\Manager\PlayerController as ManagerPlayerController;
@@ -102,6 +104,12 @@ Route::middleware(['auth', 'manager.portal'])->prefix('manager')->name('manager.
     Route::post('/teams/{team}/lock-roster', [ManagerAccreditationController::class, 'lockRoster'])->name('teams.lock-roster');
     Route::get('/teams/{team}/accreditation/roster-sheet', [ManagerAccreditationController::class, 'downloadRosterSheet'])->name('accreditation.roster-sheet');
     Route::get('/teams/{team}/accreditation/id-cards', [ManagerAccreditationController::class, 'downloadIdCards'])->name('accreditation.id-cards');
+    Route::get('/players/{player}/certificate', [ManagerMatchLineupController::class, 'downloadPlayerCertificate'])->name('players.certificate');
+
+    // Fase 5.3: Jadwal Pertandingan Tim & Daftar Susunan Pemain (Digital Match Lineup / DSP)
+    Route::get('/matches', [ManagerMatchLineupController::class, 'index'])->name('matches.index');
+    Route::post('/matches/{match}/lineup', [ManagerMatchLineupController::class, 'saveLineup'])->name('matches.lineup.save');
+    Route::get('/matches/{match}/lineup-pdf', [ManagerMatchLineupController::class, 'downloadLineupPdf'])->name('matches.lineup.pdf');
 });
 
 // Area Operasional Admin & Finance
@@ -121,6 +129,17 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
         Route::post('/events', [AdminEventController::class, 'store'])->name('events.store');
         Route::get('/events/{event}/edit', [AdminEventController::class, 'edit'])->name('events.edit');
         Route::post('/events/{event}/update', [AdminEventController::class, 'update'])->name('events.update');
+
+        // Fase 5 & 6: Pusat Kendali Turnamen, Grup, Jadwal, Skor, & Pengumuman
+        Route::get('/events/{event}/tournament', [AdminTournamentController::class, 'show'])->name('events.tournament');
+        Route::post('/events/{event}/groups/generate', [AdminTournamentController::class, 'generateGroups'])->name('events.groups.generate');
+        Route::post('/events/{event}/matches/generate-round-robin', [AdminTournamentController::class, 'generateGroupMatches'])->name('events.matches.generate');
+        Route::post('/events/{event}/matches', [AdminTournamentController::class, 'storeMatch'])->name('events.matches.store');
+        Route::post('/matches/{match}/result', [AdminTournamentController::class, 'updateMatchResult'])->name('matches.result');
+        Route::delete('/matches/{match}', [AdminTournamentController::class, 'destroyMatch'])->name('matches.destroy');
+        Route::post('/events/{event}/announcements', [AdminTournamentController::class, 'storeAnnouncement'])->name('events.announcements.store');
+        Route::delete('/announcements/{announcement}', [AdminTournamentController::class, 'destroyAnnouncement'])->name('announcements.destroy');
+        Route::post('/teams/{team}/achievement', [AdminTournamentController::class, 'updateTeamAchievement'])->name('teams.achievement');
     });
 
     Route::get('/teams', [AdminTeamManagementController::class, 'index'])
@@ -162,11 +181,17 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
         ->middleware('permission:teams.view_all')
         ->name('teams.accreditation.id-cards');
 
-    // Area Operasional Screening Berkas Pemain
+    // Area Operasional Screening Berkas Pemain & QR Scanner Lapangan
     Route::middleware('permission:screening.view_queue')->group(function () {
         Route::get('/screening', [AdminScreeningController::class, 'index'])->name('screening.index');
         Route::get('/screening/events/{event}/teams/{team}', [AdminScreeningController::class, 'teamReview'])->name('screening.team');
+        Route::get('/qr-scanner', [AdminTournamentController::class, 'qrScanner'])->name('qr-scanner');
+        Route::post('/qr-scanner/lookup', [AdminTournamentController::class, 'qrLookup'])->name('qr-scanner.lookup');
     });
+
+    Route::get('/players/{player}/certificate', [ManagerMatchLineupController::class, 'downloadPlayerCertificate'])
+        ->middleware('permission:teams.view_all')
+        ->name('players.certificate');
 
     Route::post('/screening/players/{player}/verify', [AdminScreeningController::class, 'verifyPlayer'])
         ->middleware('permission:screening.verify_player')

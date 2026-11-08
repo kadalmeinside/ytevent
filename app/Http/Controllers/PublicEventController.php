@@ -92,6 +92,13 @@ class PublicEventController extends Controller
             'teams as active_teams_count' => fn ($q) => $q->whereIn('status', ['active', 'locked_roster']),
         ]);
 
+        $event->load([
+            'groups.groupTeams.team',
+            'matches.homeTeam',
+            'matches.awayTeam',
+            'matches.group',
+        ]);
+
         $registeredTeams = $event->teams()
             ->whereIn('status', ['active', 'locked_roster'])
             ->orderBy('created_at')
@@ -101,12 +108,51 @@ class PublicEventController extends Controller
                 'name' => $team->name,
                 'origin_association' => $team->origin_association,
                 'status' => $team->status,
+                'home_jersey_color' => $team->home_jersey_color,
                 'logo_url' => $this->publicStorageUrl($team->logo_path),
             ]);
+
+        $groups = $event->groups->map(fn ($g) => [
+            'id' => $g->id,
+            'name' => $g->name,
+            'standings' => $g->groupTeams->map(fn ($gt) => [
+                'team_id' => $gt->team_id,
+                'team_name' => $gt->team?->name ?? '-',
+                'played' => $gt->played,
+                'won' => $gt->won,
+                'drawn' => $gt->drawn,
+                'lost' => $gt->lost,
+                'goals_for' => $gt->goals_for,
+                'goals_against' => $gt->goals_against,
+                'goal_difference' => $gt->goal_difference,
+                'points' => $gt->points,
+            ])->values(),
+        ])->values();
+
+        $matches = $event->matches->map(fn ($m) => [
+            'id' => $m->id,
+            'match_number' => $m->match_number,
+            'stage' => $m->stage,
+            'stage_label' => \App\Models\TournamentMatch::stageLabel($m->stage),
+            'group_name' => $m->group?->name,
+            'home_team_name' => $m->homeTeam?->name ?? 'TBD',
+            'away_team_name' => $m->awayTeam?->name ?? 'TBD',
+            'kickoff_formatted' => $m->kickoff_at?->translatedFormat('d M Y, H:i') . ($m->kickoff_at ? ' WIB' : ''),
+            'pitch_name' => $m->pitch_name ?: 'Lapangan Utama',
+            'status' => $m->status,
+            'status_label' => \App\Models\TournamentMatch::STATUSES[$m->status] ?? $m->status,
+            'home_score' => $m->home_score,
+            'away_score' => $m->away_score,
+        ])->values();
+
+        $leaderboard = app(\App\Services\StandingsCalculatorService::class)->getEventLeaderboard($event);
 
         return Inertia::render('Public/EventDetail', [
             'event' => $this->transformPublicEvent($event, detailed: true),
             'registeredTeams' => $registeredTeams,
+            'groups' => $groups,
+            'matches' => $matches,
+            'leaderboard' => $leaderboard,
         ])->withViewData([
             'seoMeta' => $this->buildEventSeoMeta($event, isRegisterPage: false),
         ]);
