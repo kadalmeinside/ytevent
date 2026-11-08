@@ -177,11 +177,21 @@ class AccreditationService
                 $officialPhotoBase64 = 'data:' . $mime . ';base64,' . base64_encode(Storage::disk('private')->get($official->photo_path));
             }
 
+            $officialCode = 'OFF-' . str_pad((string) $official->id, 4, '0', STR_PAD_LEFT);
+            $officialQrTarget = route('public.official.verify', ['code' => $officialCode]);
+
+            $officialQrSvg = (string) QrCode::format('svg')
+                ->size(80)
+                ->errorCorrection('H')
+                ->generate($officialQrTarget);
+
             return [
                 'full_name' => $official->full_name,
                 'role' => $official->role,
                 'license_number' => $official->license_number ?: '-',
+                'accreditation_code' => $officialCode,
                 'photo_base64' => $officialPhotoBase64,
+                'qr_code_svg' => 'data:image/svg+xml;base64,' . base64_encode($officialQrSvg),
             ];
         });
 

@@ -386,9 +386,13 @@ class AccreditationTest extends TestCase
             'locked_at' => '08 Nov 2026',
         ])->render();
 
-        // Roster sheet has 33.3333% column width and 6 player-card-td cells for 4 players (2 rows of 3)
+        // Roster sheet has 33.3333% column width, 6 player-card-td cells for 4 players (2 rows of 3),
+        // and a page-break separating the Players page from the Officials & Signature page
         $this->assertStringContainsString('width: 33.3333%;', $rosterHtml);
         $this->assertSame(6, substr_count($rosterHtml, 'class="player-card-td"'));
+        $this->assertSame(1, substr_count($rosterHtml, '<div class="page-break"></div>'));
+        $this->assertStringContainsString('DAFTAR OFISIAL TIM', $rosterHtml);
+        $this->assertStringContainsString('LEMBAR PENGESAHAN &amp; TANDA TANGAN RESMI PERTANDINGAN', $rosterHtml);
 
         $cardsHtml = view('pdf.id_cards', [
             'team' => $env['team'],
