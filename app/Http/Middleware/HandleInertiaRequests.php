@@ -107,7 +107,7 @@ class HandleInertiaRequests extends Middleware
                 'fee_fixed_amount' => (int) SystemSetting::get('midtrans_va_fee', 4000),
                 'simulation_mode_enabled' => SimulationService::isEnabled(),
             ],
-            'simulationContext' => fn () => config('simulation.master_enabled', true) ? (function () use ($request) {
+            'simulationContext' => fn () => config('simulation.master_enabled', false) ? (function () use ($request) {
                 $isEnabled = SimulationService::isEnabled();
                 if (! $isEnabled) {
                     return [

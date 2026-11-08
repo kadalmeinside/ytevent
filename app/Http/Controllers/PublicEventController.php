@@ -221,7 +221,7 @@ class PublicEventController extends Controller
             'id' => $event->id,
             'name' => $event->name,
             'slug' => $event->slug,
-            'short_description' => $event->short_description,
+            'short_description' => \App\Support\HtmlSanitizer::clean($event->short_description),
             'venue_name' => $event->venue_name,
             'venue_maps_url' => $event->venue_maps_url,
             'city' => $event->city,

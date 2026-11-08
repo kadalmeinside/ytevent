@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureAdminPortalAccess;
 use App\Http\Middleware\EnsureManagerPortalAccess;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetSeoAndRobotsHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -23,7 +24,16 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             HandleInertiaRequests::class,
             SetSeoAndRobotsHeaders::class,
+            SecurityHeaders::class,
         ]);
+
+        // Percayai reverse proxy / load balancer agar HTTPS, IP klien, dan rate limiter akurat.
+        $trustedProxies = env('TRUSTED_PROXIES');
+        if ($trustedProxies) {
+            $middleware->trustProxies(
+                at: $trustedProxies === '*' ? '*' : array_map('trim', explode(',', $trustedProxies)),
+            );
+        }
 
         $middleware->alias([
             'role' => RoleMiddleware::class,

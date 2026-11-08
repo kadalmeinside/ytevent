@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -91,11 +92,21 @@ class RolePermissionSeeder extends Seeder
             'manager.players.manage_own',
         ]);
 
-        // Helper untuk membuat user internal tanpa menimpa kata sandi jika sudah ada
+        // Helper untuk membuat user internal tanpa menimpa kata sandi jika sudah ada.
+        // KEAMANAN: di production tidak ada password default yang diketahui publik.
+        // Gunakan SEEDER_<ROLE>_PASSWORD di .env, atau sistem membuat password acak (ditampilkan sekali).
         $seedInternalUser = function (string $email, string $name, string $phone, string $role, string $defaultPassword) {
             $user = User::firstOrNew(['email' => $email]);
             if (! $user->exists) {
-                $user->password = Hash::make(env('SEEDER_' . strtoupper($role) . '_PASSWORD', $defaultPassword));
+                $configured = env('SEEDER_' . strtoupper($role) . '_PASSWORD');
+                $plain = $configured ?: $defaultPassword;
+
+                if (app()->isProduction() && ! $configured) {
+                    $plain = Str::password(24);
+                    $this->command?->warn("[SEEDER] Password awal {$email}: {$plain} (catat sekarang, tidak ditampilkan lagi)");
+                }
+
+                $user->password = Hash::make($plain);
             }
             $user->name = $name;
             $user->phone = $phone;

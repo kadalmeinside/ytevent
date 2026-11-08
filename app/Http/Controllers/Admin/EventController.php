@@ -287,23 +287,6 @@ class EventController extends Controller
 
     protected function sanitizeDescription(?string $html): ?string
     {
-        if (! $html) {
-            return null;
-        }
-
-        // Decode HTML entities if client passed escaped HTML tags (e.g. &lt;p&gt;)
-        if (str_contains($html, '&lt;') && str_contains($html, '&gt;')) {
-            $decoded = html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            if (preg_match('/<[a-z][\s\S]*>/i', $decoded)) {
-                $html = $decoded;
-            }
-        }
-
-        $cleaned = strip_tags($html, '<p><br><b><strong><i><em><u><ul><ol><li><h1><h2><h3><h4><h5><h6><blockquote><a><span><div><hr>');
-        $cleaned = preg_replace('/(\son[a-zA-Z]+\s*=\s*([\'"][^\'"]*[\'"]|[^\s>]+))/i', '', $cleaned);
-        $cleaned = preg_replace('/href\s*=\s*([\'"])\s*(javascript|data):[^\'"]*([\'"])/i', 'href="#"', $cleaned);
-
-        return trim($cleaned);
+        return \App\Support\HtmlSanitizer::clean($html);
     }
 }
-

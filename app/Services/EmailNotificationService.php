@@ -147,7 +147,7 @@ class EmailNotificationService
             'mailable_type' => class_basename($mailable),
             'recipient_email' => $recipientEmail,
             'subject' => $subject,
-            'payload' => serialize($mailable),
+            'payload' => static::signPayload(serialize($mailable)),
             'status' => EmailNotificationLog::STATUS_QUEUED,
         ]);
 
@@ -162,5 +162,29 @@ class EmailNotificationService
         }
 
         return $log->fresh();
+    }
+
+    /**
+     * Tanda-tangani payload mailable (HMAC) agar payload yang dimanipulasi di database tidak pernah di-unserialize.
+     */
+    public static function signPayload(string $serialized): string
+    {
+        return hash_hmac('sha256', $serialized, (string) config('app.key')) . '.' . $serialized;
+    }
+
+    /**
+     * Verifikasi tanda tangan payload; mengembalikan string terserialisasi atau null jika tidak valid.
+     */
+    public static function verifyPayload(?string $signed): ?string
+    {
+        if (! $signed || ! str_contains($signed, '.')) {
+            return null;
+        }
+
+        [$signature, $serialized] = explode('.', $signed, 2);
+
+        return hash_equals(hash_hmac('sha256', $serialized, (string) config('app.key')), $signature)
+            ? $serialized
+            : null;
     }
 }

@@ -37,10 +37,12 @@ Route::get('/events/{event:slug}/register', [PublicEventController::class, 'show
 Route::post('/events/{event:slug}/register', [PublicEventController::class, 'register'])
     ->middleware('throttle:team-registration')
     ->name('events.register.store');
-Route::get('/verify/player/{code}', [PlayerVerificationController::class, 'verify'])->name('public.player.verify');
-Route::get('/verify/player/{code}/photo', [PlayerVerificationController::class, 'photo'])->name('public.player.verify.photo');
-Route::get('/verify/official/{code}', [PlayerVerificationController::class, 'verifyOfficial'])->name('public.official.verify');
-Route::get('/verify/official/{code}/photo', [PlayerVerificationController::class, 'officialPhoto'])->name('public.official.verify.photo');
+Route::middleware('throttle:public-verify')->group(function () {
+    Route::get('/verify/player/{code}', [PlayerVerificationController::class, 'verify'])->name('public.player.verify');
+    Route::get('/verify/player/{code}/photo', [PlayerVerificationController::class, 'photo'])->name('public.player.verify.photo');
+    Route::get('/verify/official/{code}', [PlayerVerificationController::class, 'verifyOfficial'])->name('public.official.verify');
+    Route::get('/verify/official/{code}/photo', [PlayerVerificationController::class, 'officialPhoto'])->name('public.official.verify.photo');
+});
 
 // Autentikasi Manajer Tim & Pemulihan Kata Sandi Mandiri
 Route::middleware('guest')->group(function () {
@@ -48,9 +50,9 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [SessionController::class, 'managerLogin'])->name('login.store');
 
     Route::get('/forgot-password', [PasswordResetController::class, 'showForgotPassword'])->name('password.request');
-    Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink'])->name('password.email');
+    Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink'])->middleware('throttle:password-reset')->name('password.email');
     Route::get('/reset-password/{token}', [PasswordResetController::class, 'showResetPassword'])->name('password.reset');
-    Route::post('/reset-password', [PasswordResetController::class, 'resetPassword'])->name('password.store');
+    Route::post('/reset-password', [PasswordResetController::class, 'resetPassword'])->middleware('throttle:password-reset')->name('password.store');
 });
 
 Route::post('/logout', [SessionController::class, 'logout'])->middleware('auth')->name('logout');
@@ -121,17 +123,26 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
     Route::put('/password', [AdminDashboardController::class, 'updatePassword'])
         ->name('password.update');
 
+    // Baca (read-only): events.view
     Route::middleware('permission:events.view')->group(function () {
         Route::get('/events', [AdminEventController::class, 'index'])->name('events.index');
-        Route::post('/events/resync-slots', [AdminEventController::class, 'resyncSlots'])->name('events.resync-slots');
-        Route::post('/events/{event}/resync-slots', [AdminEventController::class, 'resyncEventSlots'])->name('events.resync-event-slots');
+        Route::get('/events/{event}/tournament', [AdminTournamentController::class, 'show'])->name('events.tournament');
+    });
+
+    // Buat event baru: events.create
+    Route::middleware('permission:events.create')->group(function () {
         Route::get('/events/create', [AdminEventController::class, 'create'])->name('events.create');
         Route::post('/events', [AdminEventController::class, 'store'])->name('events.store');
+    });
+
+    // Ubah event, jalankan turnamen, jadwal, skor, pengumuman, & rilis sertifikat: events.update
+    Route::middleware('permission:events.update')->group(function () {
+        Route::post('/events/resync-slots', [AdminEventController::class, 'resyncSlots'])->name('events.resync-slots');
+        Route::post('/events/{event}/resync-slots', [AdminEventController::class, 'resyncEventSlots'])->name('events.resync-event-slots');
         Route::get('/events/{event}/edit', [AdminEventController::class, 'edit'])->name('events.edit');
         Route::post('/events/{event}/update', [AdminEventController::class, 'update'])->name('events.update');
 
         // Fase 5 & 6: Pusat Kendali Turnamen, Grup, Jadwal, Skor, & Pengumuman
-        Route::get('/events/{event}/tournament', [AdminTournamentController::class, 'show'])->name('events.tournament');
         Route::post('/events/{event}/groups/generate', [AdminTournamentController::class, 'generateGroups'])->name('events.groups.generate');
         Route::post('/events/{event}/groups/toggle-lock', [AdminTournamentController::class, 'toggleGroupLock'])->name('events.groups.toggle-lock');
         Route::post('/events/{event}/groups/move-team', [AdminTournamentController::class, 'moveTeamGroup'])->name('events.groups.move-team');
@@ -191,7 +202,7 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
         Route::get('/screening', [AdminScreeningController::class, 'index'])->name('screening.index');
         Route::get('/screening/events/{event}/teams/{team}', [AdminScreeningController::class, 'teamReview'])->name('screening.team');
         Route::get('/qr-scanner', [AdminTournamentController::class, 'qrScanner'])->name('qr-scanner');
-        Route::post('/qr-scanner/lookup', [AdminTournamentController::class, 'qrLookup'])->name('qr-scanner.lookup');
+        Route::post('/qr-scanner/lookup', [AdminTournamentController::class, 'qrLookup'])->middleware('throttle:qr-lookup')->name('qr-scanner.lookup');
     });
 
     Route::get('/players/{player}/certificate', [ManagerMatchLineupController::class, 'downloadPlayerCertificate'])
@@ -254,6 +265,6 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
 });
 
 // Modul Simulasi (Take-Out Ready: Hapus baris di bawah ini saat masuk Full Production)
-if (config('simulation.master_enabled', true) && file_exists(__DIR__ . '/simulation.php')) {
+if (config('simulation.master_enabled', false) && ! app()->isProduction() && file_exists(__DIR__ . '/simulation.php')) {
     require __DIR__ . '/simulation.php';
 }

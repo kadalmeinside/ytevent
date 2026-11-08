@@ -43,7 +43,8 @@ class SendLoggedEmailJob implements ShouldQueue
         ])->save();
 
         try {
-            $mailable = $log->payload ? unserialize($log->payload) : null;
+            $serialized = \App\Services\EmailNotificationService::verifyPayload($log->payload);
+            $mailable = $serialized !== null ? unserialize($serialized) : null;
 
             if (! $mailable instanceof Mailable) {
                 throw new \RuntimeException('Payload email tidak valid atau tidak dapat direkonstruksi.');

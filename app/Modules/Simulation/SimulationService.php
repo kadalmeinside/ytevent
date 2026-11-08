@@ -33,7 +33,7 @@ class SimulationService
      */
     public static function isEnabled(): bool
     {
-        if (! config('simulation.master_enabled', true)) {
+        if (! config('simulation.master_enabled', false)) {
             return false;
         }
 

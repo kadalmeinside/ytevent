@@ -29,7 +29,7 @@ class SimulationController extends Controller
      */
     public function toggle(Request $request): RedirectResponse
     {
-        if (! config('simulation.master_enabled', true)) {
+        if (! config('simulation.master_enabled', false)) {
             return redirect()->back()->with('error', 'Modul simulasi dikunci melalui konfigurasi server (.env).');
         }
 

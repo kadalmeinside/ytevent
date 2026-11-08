@@ -220,7 +220,7 @@ class EmailLogsAndQueueTest extends TestCase
             'mailable_type' => 'RosterLockedMail',
             'recipient_email' => 'bambang@persijabarat.com',
             'subject' => 'Test Skuad Terkunci',
-            'payload' => serialize($mailable),
+            'payload' => \App\Services\EmailNotificationService::signPayload(serialize($mailable)),
             'status' => 'failed',
             'attempts' => 1,
             'error_message' => 'Connection timeout to SMTP server',
@@ -248,7 +248,7 @@ class EmailLogsAndQueueTest extends TestCase
         $env = $this->createEnvironment();
 
         $mailable = new RosterLockedMail($env['team']);
-        $payload = serialize($mailable);
+        $payload = \App\Services\EmailNotificationService::signPayload(serialize($mailable));
 
         $log1 = EmailNotificationLog::create([
             'event_id' => $env['event']->id,
