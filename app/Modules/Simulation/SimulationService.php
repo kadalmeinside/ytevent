@@ -149,6 +149,22 @@ class SimulationService
             'SSB Rajawali Depok',
             'SSB Patriot Bekasi Muda',
             'SSB Tangsel Tiger Academy',
+            'SSB Bina Taruna Rawamangun',
+            'SSB Ragunan Soccer School',
+            'SSB Persigawa Soccer School',
+            'SSB ASIOP Apacinti',
+            'SSB Pelita Jaya Sawangan',
+            'SSB Villa 2000 Pamulang',
+            'SSB Bina Sentra Cirebon',
+            'SSB Sukmajaya Depok',
+            'SSB Bintang Kranggan',
+            'SSB Matador Mekarsari',
+            'SSB Camp 91 Jakarta',
+            'SSB Menteng Junior',
+            'SSB Jayakarta FC',
+            'SSB Remci Tangerang',
+            'SSB Asiop Merah Putih',
+            'SSB Salfas Soccer Banten',
         ];
 
         $randSuffix = random_int(100, 999);
@@ -513,6 +529,128 @@ class SimulationService
         }
 
         return $team->fresh(['event', 'players', 'officials', 'latestPayment']);
+    }
+
+    /**
+     * 7. Simulasi Isi Penuh Kuota Tim Slot Event (Inject seluruh kekurangan slot tim beserta pembayaran & pemain).
+     *
+     * @return array{teams_created: int, players_created: int, message: string}
+     */
+    public function simulateFillRemainingSlots(Event $event, ?User $actor = null): array
+    {
+        $occupied = $event->occupiedSlotsCount();
+        $max = (int) $event->max_teams;
+        $remaining = max(0, $max - $occupied);
+
+        if ($remaining === 0) {
+            return [
+                'teams_created' => 0,
+                'players_created' => 0,
+                'message' => "Kuota tim pada kompetisi '{$event->name}' sudah penuh ({$max} tim).",
+            ];
+        }
+
+        $jerseyCombos = [
+            ['Merah', 'Putih', 'Kuning'],
+            ['Biru', 'Kuning', 'Hitam'],
+            ['Hijau', 'Hitam', 'Abu-abu'],
+            ['Oranye', 'Putih', 'Hitam'],
+            ['Putih', 'Biru', 'Merah'],
+            ['Hitam', 'Merah', 'Kuning'],
+            ['Kuning', 'Biru', 'Hitam'],
+            ['Merah Marun', 'Hitam', 'Biru'],
+            ['Biru Langit', 'Putih', 'Hitam'],
+            ['Ungu', 'Putih', 'Kuning'],
+        ];
+
+        $createdTeams = 0;
+        $totalPlayers = 0;
+
+        for ($i = 0; $i < $remaining; $i++) {
+            $team = $this->simulateRegisterTeam($event, $actor);
+
+            // Set variasi warna jersey tim
+            $combo = $jerseyCombos[$i % count($jerseyCombos)];
+            $team->update([
+                'home_jersey_color' => $combo[0],
+                'away_jersey_color' => $combo[1],
+                'gk_jersey_color' => $combo[2],
+            ]);
+
+            // Lunasi pembayaran instan agar status tim aktif
+            $this->simulateManagerPayment($team, true, $actor);
+            $team->refresh();
+
+            // Isi skuad pemain & ofisial lengkap
+            $pCount = $this->simulateFillRosterAndDocuments($team, true);
+            $totalPlayers += $pCount;
+            $createdTeams++;
+        }
+
+        // Sinkronisasi status kuota event jika penuh
+        $event->refresh();
+        if ($event->occupiedSlotsCount() >= $event->max_teams && $event->status === 'open') {
+            $event->update(['status' => 'quota_full']);
+        }
+
+        return [
+            'teams_created' => $createdTeams,
+            'players_created' => $totalPlayers,
+            'message' => "Berhasil menginjeksi {$createdTeams} tim baru beserta {$totalPlayers} pemain lengkap untuk memenuhi kuota kompetisi '{$event->name}'.",
+        ];
+    }
+
+    /**
+     * 8. Simulasi Sahkan Semua Tim di Event (Loloskan screening seluruh berkas pemain & kunci skuad final).
+     *
+     * @return array{teams_locked: int, players_verified: int, message: string}
+     */
+    public function simulateApproveAndLockAllTeams(Event $event, ?User $actor = null): array
+    {
+        $officer = $actor ?: User::role('superadmin')->first() ?: User::first();
+
+        $teams = $event->teams()
+            ->whereIn('status', ['pending_payment', 'active', 'locked_roster'])
+            ->get();
+
+        $teamsLocked = 0;
+        $playersVerified = 0;
+
+        foreach ($teams as $team) {
+            // Jika pembayaran belum lunas, lunasi
+            if ($team->status === 'pending_payment') {
+                $this->simulateManagerPayment($team, true, $officer);
+                $team->refresh();
+            }
+
+            // Jika pemain kurang dari batas minimal, lengkapi
+            $minPlayers = (int) ($event->min_players_per_team ?? 11);
+            if ($team->players()->count() < $minPlayers) {
+                $this->simulateFillRosterAndDocuments($team, true);
+                $team->refresh();
+            }
+
+            // Sahkan semua pemain dan ofisial
+            $pCount = $this->simulateAdminApproveScreening($team, $officer);
+            $playersVerified += $pCount;
+            $team->refresh();
+
+            // Kunci roster jika belum
+            if ($team->status !== 'locked_roster') {
+                $team->update([
+                    'status' => 'locked_roster',
+                    'roster_locked_at' => now(),
+                    'screening_status' => 'all_passed',
+                ]);
+                $teamsLocked++;
+            }
+        }
+
+        return [
+            'teams_locked' => $teamsLocked,
+            'players_verified' => $playersVerified,
+            'message' => "Berhasil mengesahkan {$playersVerified} pemain dan mengunci final {$teamsLocked} tim pada kompetisi '{$event->name}'. Seluruh skuad kini SAH & siap untuk turnamen!",
+        ];
     }
 }
 

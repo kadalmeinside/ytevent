@@ -230,6 +230,58 @@ class SimulationController extends Controller
             ->with('success', "[SIMULASI PENUH SELESAI] Tim '{$completedTeam->name}' telah tuntas 100% (Lunas -> Skuad & Dokumen Lengkap -> Lolos Screening -> Skuad Terkunci Final) dan siap cetak ID Card PDF!");
     }
 
+    /**
+     * 7. Simulasi Inject Sisa Kekurangan Tim Slot & Roster Pemain Lengkap untuk suatu Event.
+     */
+    public function fillEventSlots(Request $request): RedirectResponse
+    {
+        $this->ensureSimulationEnabled();
+
+        $event = $this->resolveTargetEvent($request);
+        if (! $event) {
+            return redirect()->back()->with('error', '[SIMULASI] Pilih event target terlebih dahulu.');
+        }
+
+        $result = $this->simulationService->simulateFillRemainingSlots($event, $request->user());
+
+        return redirect()->back()->with('success', '[SIMULASI] ' . $result['message']);
+    }
+
+    /**
+     * 8. Simulasi Sahkan Semua Berkas Pemain & Kunci Skuad Seluruh Tim di Event.
+     */
+    public function bulkApproveAndLockAll(Request $request): RedirectResponse
+    {
+        $this->ensureSimulationEnabled();
+
+        $event = $this->resolveTargetEvent($request);
+        if (! $event) {
+            return redirect()->back()->with('error', '[SIMULASI] Pilih event target terlebih dahulu.');
+        }
+
+        $result = $this->simulationService->simulateApproveAndLockAllTeams($event, $request->user());
+
+        return redirect()->back()->with('success', '[SIMULASI] ' . $result['message']);
+    }
+
+    protected function resolveTargetEvent(Request $request): ?Event
+    {
+        if ($eventId = $request->input('event_id')) {
+            $evt = Event::find($eventId);
+            if ($evt) {
+                return $evt;
+            }
+        }
+
+        if ($team = $this->resolveTargetTeam($request)) {
+            if ($team->event) {
+                return $team->event;
+            }
+        }
+
+        return Event::query()->where('status', '!=', 'draft')->latest('id')->first();
+    }
+
     protected function resolveTargetTeam(Request $request): ?Team
     {
         if ($teamId = $request->input('team_id')) {

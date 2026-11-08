@@ -228,6 +228,20 @@ const fillCurrentDomFormIfPresent = () => {
                         </div>
                         <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-sky-600 text-white shrink-0">SKUAD</span>
                     </button>
+
+                    <!-- INJECT SISAH KEKURANGAN TIM & PEMAIN EVENT -->
+                    <button
+                        type="button"
+                        class="w-full text-left px-3 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white shadow-md flex items-center justify-between gap-2 transition-all cursor-pointer"
+                        :disabled="isBusy || !selectedEventId"
+                        @click="runSimAction('simulation.fill-event-slots', { event_id: selectedEventId })"
+                    >
+                        <div>
+                            <span class="font-black text-xs block uppercase tracking-wide">Inject Penuhi Sisa Kuota Tim &amp; Pemain</span>
+                            <span class="text-[10px] text-orange-100 block">Buat tim baru hingga kuota event penuh + lunas + pemain lengkap</span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-black bg-black/25 shrink-0">AUTO KUOTA</span>
+                    </button>
                 </div>
 
                 <!-- BAGIAN 2: SIMULASI TINDAKAN ADMIN & VERIFIKASI -->
@@ -265,10 +279,24 @@ const fillCurrentDomFormIfPresent = () => {
                         @click="runSimAction('simulation.fast-forward-team', { team_id: selectedTeamId, event_id: selectedEventId })"
                     >
                         <div>
-                            <span class="font-black text-xs block uppercase tracking-wide">Simulasi Penuh Sampai Kunci Skuad Final</span>
+                            <span class="font-black text-xs block uppercase tracking-wide">Simulasi Penuh Sampai Kunci Skuad Final (1 Tim)</span>
                             <span class="text-[10px] text-emerald-100 block">Bayar Lunas &rarr; Isi Skuad &rarr; Lolos Screening &rarr; Kunci Roster</span>
                         </div>
                         <span class="px-2 py-0.5 rounded text-[10px] font-black bg-black/25">FINISH</span>
+                    </button>
+
+                    <!-- SAHKAN SEMUA TIM DI EVENT SEKALIGUS -->
+                    <button
+                        type="button"
+                        class="w-full text-left px-3 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-md flex items-center justify-between gap-2 transition-all cursor-pointer"
+                        :disabled="isBusy || !selectedEventId"
+                        @click="runSimAction('simulation.bulk-approve-lock-all', { event_id: selectedEventId })"
+                    >
+                        <div>
+                            <span class="font-black text-xs block uppercase tracking-wide">Sahkan Seluruh Tim &amp; Kunci Skuad Turnamen</span>
+                            <span class="text-[10px] text-indigo-100 block">Loloskan screening &amp; kunci roster SEMUA tim di event (Siap Drawing)</span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-black bg-black/25 shrink-0">SAHKAN SEMUA</span>
                     </button>
                 </div>
 

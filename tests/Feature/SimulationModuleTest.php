@@ -151,5 +151,58 @@ class SimulationModuleTest extends TestCase
         $this->assertSame('paid', $team->latestPayment->status);
         $this->assertGreaterThanOrEqual(4, $team->players()->where('screening_status', 'passed')->count());
     }
+
+    public function test_simulation_fill_remaining_slots_for_event(): void
+    {
+        // Event has max_teams = 8. Let's set it to 3 for quick test execution
+        $this->event->update(['max_teams' => 3]);
+
+        $response = $this->actingAs($this->superadmin)
+            ->post(route('simulation.fill-event-slots'), [
+                'event_id' => $this->event->id,
+            ]);
+
+        $response->assertRedirect();
+
+        // 3 teams created, each fully populated with players, jersey colors and paid
+        $this->assertEquals(3, $this->event->teams()->count());
+        foreach ($this->event->teams as $team) {
+            $this->assertEquals('active', $team->status);
+            $this->assertNotEmpty($team->home_jersey_color);
+            $this->assertNotEmpty($team->away_jersey_color);
+            $this->assertGreaterThanOrEqual(4, $team->players()->count());
+            $this->assertEquals('paid', $team->latestPayment->status);
+        }
+    }
+
+    public function test_simulation_bulk_approve_and_lock_all_teams_in_event(): void
+    {
+        $this->event->update(['max_teams' => 2]);
+
+        // Inject 2 teams
+        $this->actingAs($this->superadmin)
+            ->post(route('simulation.fill-event-slots'), [
+                'event_id' => $this->event->id,
+            ]);
+
+        // Now bulk approve and lock all
+        $response = $this->actingAs($this->superadmin)
+            ->post(route('simulation.bulk-approve-lock-all'), [
+                'event_id' => $this->event->id,
+            ]);
+
+        $response->assertRedirect();
+
+        // Verify both teams are locked_roster and all players passed
+        $this->assertEquals(2, $this->event->teams()->where('status', 'locked_roster')->count());
+        foreach ($this->event->teams as $team) {
+            $this->assertEquals('all_passed', $team->screening_status);
+            $this->assertEquals(0, $team->players()->where('screening_status', '!=', 'passed')->count());
+            foreach ($team->players as $player) {
+                $this->assertNotEmpty($player->accreditation_code);
+                $this->assertTrue($player->is_locked);
+            }
+        }
+    }
 }
 

@@ -12,5 +12,7 @@ Route::middleware('web')->prefix('simulation')->name('simulation.')->group(funct
     Route::post('/admin-approve-payments', [SimulationController::class, 'adminApprovePayments'])->name('admin-approve-payments');
     Route::post('/admin-approve-screening', [SimulationController::class, 'adminApproveScreening'])->name('admin-approve-screening');
     Route::post('/fast-forward-team', [SimulationController::class, 'fastForwardFullTeam'])->name('fast-forward-team');
+    Route::post('/fill-event-slots', [SimulationController::class, 'fillEventSlots'])->name('fill-event-slots');
+    Route::post('/bulk-approve-lock-all', [SimulationController::class, 'bulkApproveAndLockAll'])->name('bulk-approve-lock-all');
 });
 

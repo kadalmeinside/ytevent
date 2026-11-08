@@ -589,3 +589,4 @@ const getAvailabilityForActiveMatch = (playerId) => {
         </div>
     </ManagerLayout>
 </template>
+
