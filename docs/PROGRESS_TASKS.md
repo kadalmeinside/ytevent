@@ -400,3 +400,52 @@ Legenda Status:
   - Pengujian pembatasan unduh e-sertifikat (403 saat belum dirilis, 200 PDF saat dirilis / event completed).
   - Pengujian input skor, pencatatan gol/kartu, kalkulasi klasemen otomatis, leaderboard top scorer, pengumuman, dan scanner QR matchday.
 - [x] **5.7.2** Eksekusi Penuh Test Suite: Seluruh **95 automated tests dengan 794 assertions PASS (100% lulus)** dan build aset Vite (`npm run build`) berjalan bersih tanpa error.
+
+---
+
+## FASE 6 & PRODUCTION HARDENING — AUDIT KEAMANAN, EXPLOIT RESOLUTION, BRANDED ERROR VIEWS & PRODUCTION READINESS (SELESAI 100%)
+
+### 6.1 Penutupan Celah Keamanan & Isolasi Modul Simulasi
+- [x] **6.1.1** **Penutupan Celah Kritis Modul Simulasi (`switch-persona`)**:
+  - Mengubah default konfigurasi `config('simulation.master_enabled')` menjadi **MATI (`false`)**.
+  - Menerapkan penguncian rute ganda: rute `/simulation/*` tidak didaftarkan pada lingkungan produksi (`! app()->isProduction()`).
+  - Menambahkan *runtime guard-rail* di `AppServiceProvider::boot()` yang langsung menghentikan booting aplikasi (`RuntimeException`) jika modul simulasi atau `APP_DEBUG=true` aktif di produksi.
+  - Menolak akses persona switch tanpa login sah (`403 Forbidden`).
+
+### 6.2 Eliminasi Kerentanan Dependensi & Upgrade Framework
+- [x] **6.2.1** **Upgrade ke Laravel 12.71.0**:
+  - Mengeliminasi 5 security advisories (termasuk CVE-2026-114509 TokenGuard, CRLF injection pada rule email, dan path confusion signed URL).
+  - Hasil audit keamanan: `composer audit` **0 vulnerabilities** dan `npm audit` **0 vulnerabilities**.
+
+### 6.3 Header Keamanan Universal & Rate Limiting Terpusat
+- [x] **6.3.1** **Middleware `SecurityHeaders`**:
+  - Content-Security-Policy (CSP) berbasis cryptographic nonce dinamis per-request (`Vite::useCspNonce()`) yang terintegrasi dengan tag inline Ziggy (`@routes(null, $nonce)`).
+  - Strict-Transport-Security (HSTS: `max-age=31536000; includeSubDomains`) saat koneksi HTTPS.
+  - Anti-clickjacking (`X-Frame-Options: SAMEORIGIN`), `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, dan `Permissions-Policy: camera=(self)`.
+  - Dukungan konfigurasi reverse proxy `TRUSTED_PROXIES` untuk integrasi Cloudflare / load balancer.
+- [x] **6.3.2** **Rate Limiting Anti-Abuse (`AppServiceProvider`)**:
+  - Throttle `public-verify` (30 req/min per IP) untuk mencegah scraping/enumerasi data anak pada QR ID Card.
+  - Throttle `password-reset` (5 req/min per IP & 10 req/jam per email|IP) untuk mencegah email-bombing.
+  - Throttle `webhooks` (120 req/min) dan `qr-lookup` (120 req/min).
+
+### 6.4 Sanitasi DOM & Integritas Kriptografi Antrean Email
+- [x] **6.4.1** **Parser DOM XML Whitelist (`HtmlSanitizer`)**:
+  - Sanitizer semantik berbasis `DOMDocument` untuk deskripsi event menggantikan regex.
+  - Menghapus tuntas seluruh tag berbahaya (`<script>`, `<iframe>`, `<object>`, `<svg onload>`, event handler `on*`, skema `javascript:`).
+- [x] **6.4.2** **Tanda Tangan SHA-256 HMAC Payload Email**:
+  - Payload mailable pada tabel `email_notification_logs` ditandatangani menggunakan HMAC SHA-256 dengan secret key aplikasi (`app.key`).
+  - Mencegah bahaya *PHP Object Injection* saat `unserialize()` dipanggil oleh queue worker.
+
+### 6.5 Keamanan Kata Sandi Seeder & Halaman Error Bermerek (Branded Views)
+- [x] **6.5.1** **Kata Sandi Seeder Dinamis Produksi**:
+  - `RolePermissionSeeder` di lingkungan produksi tidak menggunakan kata sandi default statis publik (`Admin12345`), melainkan mewajibkan nilai dari `.env` atau otomatis meng-generate string kriptografi acak 24 karakter.
+- [x] **6.5.2** **Halaman Error Kustom (`resources/views/errors/`)**:
+  - Menyediakan template halaman status `404 Not Found`, `403 Forbidden`, `429 Too Many Requests`, dan `500 Server Error` dengan tema resmi Persija Liquid Glass dan tombol kembali ke beranda.
+  - Mencegah kebocoran stack trace dan query SQL internal ke publik.
+- [x] **6.5.3** **Template `.env.production.example`**:
+  - Menyediakan konfigurasi template produksi lengkap siap pakai untuk server hosting cPanel (`yt.persijadevelopment.id`) mencakup MySQL, HTTPS cookie security, SMTP, dan penonaktifan modul dev.
+
+### 6.6 Automated Testing & Verifikasi Penuh
+- [x] **6.6.1** Penulisan Test Suite `SecurityHardeningTest.php` (12 test methods / 55 assertions).
+- [x] **6.6.2** **Hasil Eksekusi Penuh PHPUnit**: Seluruh **107 Feature & Unit Tests dengan 849 assertions PASS 100% (0 failed)**.
+- [x] **6.6.3** **Vite Build**: Kompilasi aset frontend `npm run build` sukses tanpa error (2.28s).
