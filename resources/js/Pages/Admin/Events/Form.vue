@@ -18,6 +18,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    matchFormats: {
+        type: Object,
+        default: () => ({}),
+    },
     statuses: {
         type: Object,
         default: () => ({}),
@@ -39,6 +43,9 @@ const form = useForm({
     venue_maps_url: props.event?.venue_maps_url || '',
     city: props.event?.city || '',
     format: props.event?.format || 'cup',
+    match_format: props.event?.match_format || '11_vs_11',
+    starting_players_count: props.event?.starting_players_count ?? 11,
+    dsp_cutoff_minutes: props.event?.dsp_cutoff_minutes ?? 30,
     age_category: props.event?.age_category || 'U-15',
     min_birth_date: props.event?.min_birth_date || '',
     max_birth_date: props.event?.max_birth_date || '',
@@ -81,6 +88,13 @@ const handleBannerFile = async (raw) => {
 const handlePdfFile = (raw) => {
     form.regulation_pdf = raw || null;
     form.clearErrors('regulation_pdf');
+};
+
+const onMatchFormatChange = () => {
+    const val = form.match_format;
+    if (props.matchFormats && props.matchFormats[val]) {
+        form.starting_players_count = props.matchFormats[val].starting_count;
+    }
 };
 
 const submit = () => {
@@ -156,7 +170,7 @@ const submit = () => {
                             </div>
 
                             <div data-field="format">
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">Format Kompetisi</label>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Sistem Turnamen</label>
                                 <select v-model="form.format" class="input-field">
                                     <option v-for="(label, key) in formats" :key="key" :value="key">{{ label }}</option>
                                 </select>
@@ -167,6 +181,54 @@ const submit = () => {
                                 <select v-model="form.status" class="input-field">
                                     <option v-for="(label, key) in statuses" :key="key" :value="key">{{ label }}</option>
                                 </select>
+                            </div>
+
+                            <div data-field="match_format">
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">
+                                    Format Jumlah Pemain di Lapangan
+                                </label>
+                                <select v-model="form.match_format" class="input-field" @change="onMatchFormatChange">
+                                    <option v-for="(item, key) in matchFormats" :key="key" :value="key">
+                                        {{ item.label }}
+                                    </option>
+                                </select>
+                                <p class="text-[11px] text-slate-500 mt-1">
+                                    Menentukan jumlah starting lineup saat manajer mengisi formulir DSP.
+                                </p>
+                            </div>
+
+                            <div data-field="starting_players_count">
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">
+                                    Starter Wajib di DSP (Starting Lineup)
+                                </label>
+                                <div class="flex items-center gap-2">
+                                    <input
+                                        v-model="form.starting_players_count"
+                                        type="number"
+                                        min="3"
+                                        max="11"
+                                        class="input-field tabular-data w-28"
+                                    />
+                                    <span class="text-xs text-slate-500">Pemain (termasuk 1 Kiper)</span>
+                                </div>
+                                <InputError :message="form.errors.starting_players_count" />
+                            </div>
+
+                            <div data-field="dsp_cutoff_minutes">
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">
+                                    Batas Kunci DSP (Menit Sebelum Kick-off)
+                                </label>
+                                <div class="flex items-center gap-2">
+                                    <input
+                                        v-model="form.dsp_cutoff_minutes"
+                                        type="number"
+                                        min="0"
+                                        max="180"
+                                        class="input-field tabular-data w-28"
+                                    />
+                                    <span class="text-xs text-slate-500">Menit sebelum kick-off (Default: 30 menit)</span>
+                                </div>
+                                <InputError :message="form.errors.dsp_cutoff_minutes" />
                             </div>
 
                             <div data-field="venue_name">

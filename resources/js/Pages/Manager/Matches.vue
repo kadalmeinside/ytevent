@@ -25,11 +25,52 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    eventFormat: {
+        type: Object,
+        default: () => ({
+            match_format: '11_vs_11',
+            starting_players_count: 11,
+            dsp_cutoff_minutes: 30,
+            certificates_released: false,
+        }),
+    },
 });
 
 const activeTab = ref('matches'); // 'matches', 'standings', 'certificates'
 const activeMatchForLineup = ref(null);
 const showLineupModal = ref(false);
+
+const requiredStartingCount = computed(() => {
+    const formatReq = props.eventFormat?.starting_players_count || 11;
+    return Math.min(formatReq, props.eligiblePlayers.length);
+});
+
+const selectedGkCount = computed(() => {
+    return props.eligiblePlayers
+        .filter((p) => lineupForm.starting_player_ids.includes(p.id))
+        .filter((p) => p.position === 'Penjaga Gawang' || p.position === 'GK')
+        .length;
+});
+
+const totalTeamGkCount = computed(() => {
+    return props.eligiblePlayers
+        .filter((p) => p.position === 'Penjaga Gawang' || p.position === 'GK')
+        .length;
+});
+
+const isStartingCountValid = computed(() => {
+    return lineupForm.starting_player_ids.length === requiredStartingCount.value;
+});
+
+const isGkValid = computed(() => {
+    if (totalTeamGkCount.value === 0 || requiredStartingCount.value < 3) return true;
+    return selectedGkCount.value >= 1;
+});
+
+const canSubmitLineup = computed(() => {
+    if (activeMatchForLineup.value?.is_dsp_locked) return false;
+    return isStartingCountValid.value && isGkValid.value && !lineupForm.processing;
+});
 
 const lineupForm = useForm({
     starting_player_ids: [],
@@ -315,8 +356,14 @@ const getAvailabilityForActiveMatch = (playerId) => {
                                     Cetak DSP (PDF)
                                 </a>
 
+                                <div v-if="m.is_dsp_locked" class="text-[11px] text-slate-500 italic flex items-center gap-1">
+                                    <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                    DSP Terkunci
+                                </div>
                                 <button
-                                    v-if="m.status !== 'completed'"
+                                    v-else
                                     type="button"
                                     class="btn-sm-pitch inline-flex items-center gap-1"
                                     @click="openLineupModal(m)"
@@ -400,6 +447,18 @@ const getAvailabilityForActiveMatch = (playerId) => {
                     </div>
                 </div>
 
+                <div v-if="!eventFormat.certificates_released" class="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-3">
+                    <svg class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div>
+                        <div class="font-bold">E-Sertifikat Digital Belum Dirilis oleh Panitia</div>
+                        <div class="mt-0.5 text-amber-800">
+                            Fitur unduh sertifikat pemain akan aktif setelah panitia pelaksana merilis sertifikat secara resmi atau setelah seluruh rangkaian turnamen selesai.
+                        </div>
+                    </div>
+                </div>
+
                 <div v-if="eligiblePlayers.length === 0" class="frosted-card p-10 text-center text-xs text-slate-500">
                     Belum ada pemain yang berstatus lolos screening verifikasi berkas.
                 </div>
@@ -426,6 +485,7 @@ const getAvailabilityForActiveMatch = (playerId) => {
                                 Terverifikasi Sah
                             </span>
                             <a
+                                v-if="eventFormat.certificates_released"
                                 :href="route('manager.players.certificate', { player: p.id })"
                                 target="_blank"
                                 class="btn-sm-secondary text-xs inline-flex items-center gap-1 font-bold text-orange-950"
@@ -435,6 +495,13 @@ const getAvailabilityForActiveMatch = (playerId) => {
                                 </svg>
                                 Unduh Piagam
                             </a>
+                            <span
+                                v-else
+                                class="text-[11px] font-semibold text-slate-400 bg-slate-100 px-2 py-1 rounded cursor-not-allowed"
+                                title="Menunggu rilis resmi panitia"
+                            >
+                                Menunggu Rilis
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -461,16 +528,41 @@ const getAvailabilityForActiveMatch = (playerId) => {
                 <!-- Validation Error Banner -->
                 <InputError :message="lineupForm.errors.lineup" />
 
+                <div v-if="activeMatchForLineup.is_dsp_locked" class="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+                    <svg class="w-4 h-4 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    <span><strong>DSP Terkunci:</strong> {{ activeMatchForLineup.dsp_lock_reason || 'Pertandingan sedang berlangsung atau telah lewat batas waktu pengajuan.' }}</span>
+                </div>
+                <div v-else-if="activeMatchForLineup.cutoff_at_formatted" class="p-2.5 rounded-xl bg-orange-50/80 border border-orange-200 text-orange-950 text-xs flex items-center justify-between">
+                    <span>Format Pertandingan: <strong>{{ eventFormat.match_format.replace('_', ' ') }}</strong> (Wajib {{ requiredStartingCount }} Pemain Inti)</span>
+                    <span class="text-[11px] text-orange-800 font-medium">Batas Kirim: Pukul {{ activeMatchForLineup.cutoff_at_formatted }}</span>
+                </div>
+
                 <!-- Counters Summary Bar -->
-                <div class="p-3 bg-slate-900 text-white rounded-xl flex items-center justify-between text-xs">
+                <div class="p-3 bg-slate-900 text-white rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
                     <div class="flex items-center gap-4">
                         <div>
-                            <span class="text-slate-400">Starting Lineup:</span>
-                            <strong class="ml-1 text-emerald-400 tabular-data font-mono text-sm">{{ lineupForm.starting_player_ids.length }}</strong>
+                            <span class="text-slate-400">Pemain Inti (Starter):</span>
+                            <span
+                                class="ml-1 px-2 py-0.5 rounded font-mono font-bold"
+                                :class="isStartingCountValid ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'"
+                            >
+                                {{ lineupForm.starting_player_ids.length }} / {{ requiredStartingCount }}
+                            </span>
                         </div>
                         <div>
                             <span class="text-slate-400">Cadangan:</span>
                             <strong class="ml-1 text-amber-400 tabular-data font-mono text-sm">{{ lineupForm.substitute_player_ids.length }}</strong>
+                        </div>
+                        <div>
+                            <span class="text-slate-400">Kiper Starter:</span>
+                            <span
+                                class="ml-1 px-1.5 py-0.5 rounded text-[11px] font-bold"
+                                :class="selectedGkCount >= 1 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'"
+                            >
+                                {{ selectedGkCount }} GK
+                            </span>
                         </div>
                     </div>
                     <div>
@@ -479,6 +571,13 @@ const getAvailabilityForActiveMatch = (playerId) => {
                             {{ eligiblePlayers.find(p => p.id === lineupForm.captain_player_id)?.full_name || 'Belum Dipilih' }}
                         </strong>
                     </div>
+                </div>
+
+                <div v-if="!isStartingCountValid" class="text-xs text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+                    Jumlah pemain inti belum sesuai format (Wajib tepat {{ requiredStartingCount }} pemain, saat ini {{ lineupForm.starting_player_ids.length }} pemain).
+                </div>
+                <div v-else-if="!isGkValid" class="text-xs text-rose-700 bg-rose-50 p-2.5 rounded-lg border border-rose-200">
+                    Starting Lineup wajib menyertakan minimal 1 Penjaga Gawang (GK).
                 </div>
 
                 <div class="overflow-x-auto border border-slate-200 rounded-xl">
@@ -536,7 +635,7 @@ const getAvailabilityForActiveMatch = (playerId) => {
                                         :class="lineupForm.starting_player_ids.includes(p.id) ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
                                         @click="togglePlayerRole(p.id, 'starting')"
                                     >
-                                        {{ lineupForm.starting_player_ids.includes(p.id) ? 'Starting XI' : 'Pilih' }}
+                                        {{ lineupForm.starting_player_ids.includes(p.id) ? 'Starter' : 'Pilih' }}
                                     </button>
                                 </td>
                                 <!-- Sub Checkbox -->
@@ -578,7 +677,7 @@ const getAvailabilityForActiveMatch = (playerId) => {
                         <button
                             type="button"
                             class="btn-pitch text-xs"
-                            :disabled="lineupForm.processing || lineupForm.starting_player_ids.length === 0"
+                            :disabled="!canSubmitLineup"
                             @click="submitLineup"
                         >
                             {{ lineupForm.processing ? 'Menyimpan DSP...' : 'Simpan &amp; Sahkan DSP' }}

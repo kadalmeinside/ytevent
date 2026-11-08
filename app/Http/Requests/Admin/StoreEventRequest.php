@@ -13,6 +13,22 @@ class StoreEventRequest extends FormRequest
         return $this->user()?->can('create', Event::class) ?? false;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if (! $this->has('match_format')) {
+            $this->merge(['match_format' => '11_vs_11']);
+        }
+        if (! $this->has('starting_players_count')) {
+            $format = $this->input('match_format', '11_vs_11');
+            $this->merge([
+                'starting_players_count' => Event::MATCH_FORMATS[$format]['starting_count'] ?? 11,
+            ]);
+        }
+        if (! $this->has('dsp_cutoff_minutes')) {
+            $this->merge(['dsp_cutoff_minutes' => 30]);
+        }
+    }
+
     public function rules(): array
     {
         return [
@@ -22,6 +38,9 @@ class StoreEventRequest extends FormRequest
             'venue_maps_url' => ['nullable', 'url', 'max:500'],
             'city' => ['required', 'string', 'min:2', 'max:120'],
             'format' => ['required', Rule::in(array_keys(Event::FORMATS))],
+            'match_format' => ['sometimes', 'required', Rule::in(array_keys(Event::MATCH_FORMATS))],
+            'starting_players_count' => ['sometimes', 'required', 'integer', 'min:3', 'max:11'],
+            'dsp_cutoff_minutes' => ['sometimes', 'required', 'integer', 'min:0', 'max:180'],
             'age_category' => ['required', 'string', 'max:32'],
             'min_birth_date' => ['nullable', 'date'],
             'max_birth_date' => ['nullable', 'date', 'after_or_equal:min_birth_date'],

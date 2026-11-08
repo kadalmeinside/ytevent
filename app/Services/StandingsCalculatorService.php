@@ -120,6 +120,122 @@ class StandingsCalculatorService
     }
 
     /**
+     * Menghasilkan jadwal pertandingan Fase Gugur / Knockout Stage (Semi Final, Quarter Final, Final)
+     * berdasarkan tim yang lolos (peringkat 1 & 2 dari tiap grup) secara otomatis.
+     */
+    public function generateKnockoutStageMatches(
+        Event $event,
+        string $stage = 'semi_final',
+        ?string $startTime = null,
+        int $intervalMinutes = 60,
+        array $pitches = ['Lapangan Utama']
+    ): Collection {
+        return DB::transaction(function () use ($event, $stage, $startTime, $intervalMinutes, $pitches) {
+            $this->recalculateEventStandings($event);
+
+            $groups = $event->groups()->with(['groupTeams' => function ($q) {
+                $q->orderByDesc('points')
+                    ->orderByDesc('goal_difference')
+                    ->orderByDesc('goals_for')
+                    ->orderBy('yellow_cards')
+                    ->orderBy('red_cards');
+            }])->get();
+
+            if ($groups->isEmpty()) {
+                throw new \RuntimeException('Belum ada grup yang dibentuk pada kompetisi ini.');
+            }
+
+            // Hapus pertandingan fase gugur untuk stage ini yang masih berstatus scheduled
+            $event->matches()
+                ->where('stage', $stage)
+                ->where('status', 'scheduled')
+                ->delete();
+
+            $baseKickoff = $startTime
+                ? Carbon::parse($startTime)
+                : now()->addDays(1)->setTime(9, 0);
+
+            $pitchList = ! empty($pitches) ? array_values($pitches) : ['Lapangan Utama'];
+            $pitchCount = count($pitchList);
+            $nextMatchNumber = (int) $event->matches()->max('match_number') + 1;
+            $created = collect();
+            $slotIndex = 0;
+            $groupCount = $groups->count();
+            $pairings = [];
+
+            if ($groupCount === 2 && in_array($stage, ['semi_final', 'quarter_final'], true)) {
+                $gA = $groups[0];
+                $gB = $groups[1];
+                $tA1 = $gA->groupTeams->get(0)?->team_id;
+                $tA2 = $gA->groupTeams->get(1)?->team_id;
+                $tB1 = $gB->groupTeams->get(0)?->team_id;
+                $tB2 = $gB->groupTeams->get(1)?->team_id;
+
+                if ($tA1 && $tB2) $pairings[] = ['home' => $tA1, 'away' => $tB2];
+                if ($tB1 && $tA2) $pairings[] = ['home' => $tB1, 'away' => $tA2];
+            } elseif ($groupCount >= 4 && $stage === 'quarter_final') {
+                $gA = $groups[0];
+                $gB = $groups[1];
+                $gC = $groups[2];
+                $gD = $groups[3];
+
+                $tA1 = $gA->groupTeams->get(0)?->team_id;
+                $tA2 = $gA->groupTeams->get(1)?->team_id;
+                $tB1 = $gB->groupTeams->get(0)?->team_id;
+                $tB2 = $gB->groupTeams->get(1)?->team_id;
+                $tC1 = $gC->groupTeams->get(0)?->team_id;
+                $tC2 = $gC->groupTeams->get(1)?->team_id;
+                $tD1 = $gD->groupTeams->get(0)?->team_id;
+                $tD2 = $gD->groupTeams->get(1)?->team_id;
+
+                if ($tA1 && $tB2) $pairings[] = ['home' => $tA1, 'away' => $tB2];
+                if ($tC1 && $tD2) $pairings[] = ['home' => $tC1, 'away' => $tD2];
+                if ($tB1 && $tA2) $pairings[] = ['home' => $tB1, 'away' => $tA2];
+                if ($tD1 && $tC2) $pairings[] = ['home' => $tD1, 'away' => $tC2];
+            } else {
+                // Pasangkan tim peringkat 1 dan 2 lintas grup
+                $winners = [];
+                $runnersUp = [];
+                foreach ($groups as $g) {
+                    if ($w = $g->groupTeams->get(0)?->team_id) $winners[] = $w;
+                    if ($r = $g->groupTeams->get(1)?->team_id) $runnersUp[] = $r;
+                }
+
+                $pairCount = min(count($winners), count($runnersUp));
+                for ($k = 0; $k < $pairCount; $k++) {
+                    $pairings[] = [
+                        'home' => $winners[$k],
+                        'away' => $runnersUp[($k + 1) % count($runnersUp)],
+                    ];
+                }
+            }
+
+            foreach ($pairings as $pair) {
+                if (! $pair['home'] || ! $pair['away']) continue;
+                $pitchIdx = $slotIndex % $pitchCount;
+                $timeStep = intdiv($slotIndex, $pitchCount);
+                $kickoff = $baseKickoff->copy()->addMinutes($timeStep * $intervalMinutes);
+
+                $match = TournamentMatch::create([
+                    'event_id' => $event->id,
+                    'event_group_id' => null,
+                    'stage' => $stage,
+                    'match_number' => $nextMatchNumber++,
+                    'home_team_id' => $pair['home'],
+                    'away_team_id' => $pair['away'],
+                    'kickoff_at' => $kickoff,
+                    'pitch_name' => $pitchList[$pitchIdx],
+                    'status' => 'scheduled',
+                ]);
+                $created->push($match);
+                $slotIndex++;
+            }
+
+            return $created;
+        });
+    }
+
+    /**
      * Menghitung ulang seluruh statistik klasemen grup (Poin, Selisih Gol, Gol Memasukkan, Fair Play Kartu).
      */
     public function recalculateEventStandings(Event $event): void
@@ -301,9 +417,24 @@ class StandingsCalculatorService
             ->pluck('id');
 
         if ($completedMatchIds->isEmpty()) {
+            $fairPlay = EventGroupTeam::query()
+                ->whereHas('group', fn ($q) => $q->where('event_id', $event->id))
+                ->with('team:id,name,slug')
+                ->get()
+                ->map(fn (EventGroupTeam $gt) => [
+                    'team_id' => $gt->team_id,
+                    'team_name' => $gt->team?->name ?? 'Tim Terhapus',
+                    'yellow_cards' => 0,
+                    'red_cards' => 0,
+                    'fair_play_score' => 0,
+                ])
+                ->values()
+                ->all();
+
             return [
                 'top_scorers' => [],
                 'disciplinary' => [],
+                'fair_play' => $fairPlay,
             ];
         }
 

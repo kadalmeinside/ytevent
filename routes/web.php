@@ -133,13 +133,18 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
         // Fase 5 & 6: Pusat Kendali Turnamen, Grup, Jadwal, Skor, & Pengumuman
         Route::get('/events/{event}/tournament', [AdminTournamentController::class, 'show'])->name('events.tournament');
         Route::post('/events/{event}/groups/generate', [AdminTournamentController::class, 'generateGroups'])->name('events.groups.generate');
+        Route::post('/events/{event}/groups/toggle-lock', [AdminTournamentController::class, 'toggleGroupLock'])->name('events.groups.toggle-lock');
+        Route::post('/events/{event}/groups/move-team', [AdminTournamentController::class, 'moveTeamGroup'])->name('events.groups.move-team');
         Route::post('/events/{event}/matches/generate-round-robin', [AdminTournamentController::class, 'generateGroupMatches'])->name('events.matches.generate');
+        Route::post('/events/{event}/matches/generate-knockout', [AdminTournamentController::class, 'generateKnockoutMatches'])->name('events.matches.generate-knockout');
         Route::post('/events/{event}/matches', [AdminTournamentController::class, 'storeMatch'])->name('events.matches.store');
+        Route::post('/matches/{match}/reschedule', [AdminTournamentController::class, 'rescheduleMatch'])->name('matches.reschedule');
         Route::post('/matches/{match}/result', [AdminTournamentController::class, 'updateMatchResult'])->name('matches.result');
         Route::delete('/matches/{match}', [AdminTournamentController::class, 'destroyMatch'])->name('matches.destroy');
         Route::post('/events/{event}/announcements', [AdminTournamentController::class, 'storeAnnouncement'])->name('events.announcements.store');
         Route::delete('/announcements/{announcement}', [AdminTournamentController::class, 'destroyAnnouncement'])->name('announcements.destroy');
         Route::post('/teams/{team}/achievement', [AdminTournamentController::class, 'updateTeamAchievement'])->name('teams.achievement');
+        Route::post('/events/{event}/certificates/toggle-release', [AdminTournamentController::class, 'toggleCertificateRelease'])->name('events.certificates.toggle-release');
     });
 
     Route::get('/teams', [AdminTeamManagementController::class, 'index'])

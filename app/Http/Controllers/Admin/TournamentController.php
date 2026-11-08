@@ -18,6 +18,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -145,8 +146,13 @@ class TournamentController extends Controller
                 'slug' => $event->slug,
                 'age_category' => $event->age_category,
                 'format' => $event->format,
+                'match_format' => $event->match_format ?? '11_vs_11',
+                'starting_players_count' => (int) ($event->starting_players_count ?? 11),
+                'dsp_cutoff_minutes' => (int) ($event->dsp_cutoff_minutes ?? 30),
                 'venue_name' => $event->venue_name,
                 'status' => $event->status,
+                'is_group_locked' => (bool) $event->is_group_locked,
+                'certificates_released' => (bool) ($event->certificates_released || $event->status === 'completed'),
             ],
             'eligibleTeams' => $eligibleTeams,
             'groups' => $groups,
@@ -164,6 +170,19 @@ class TournamentController extends Controller
      */
     public function generateGroups(Request $request, Event $event): RedirectResponse
     {
+        if ($event->is_group_locked) {
+            throw ValidationException::withMessages([
+                'group' => 'Pembagian grup telah dikunci panitia. Buka kunci grup terlebih dahulu jika ingin mengundi ulang.',
+            ]);
+        }
+
+        $hasPlayedMatches = $event->matches()->where('status', '!=', 'scheduled')->exists();
+        if ($hasPlayedMatches) {
+            throw ValidationException::withMessages([
+                'group' => 'Pertandingan telah dimulai atau selesai. Grup tidak dapat diundi ulang.',
+            ]);
+        }
+
         $validated = $request->validate([
             'group_count' => ['required', 'integer', 'min:1', 'max:16'],
             'only_locked_roster' => ['nullable', 'boolean'],
@@ -176,6 +195,73 @@ class TournamentController extends Controller
         );
 
         return redirect()->back()->with('success', "Berhasil membentuk {$validated['group_count']} grup dan mengundi penempatan tim.");
+    }
+
+    /**
+     * Kunci / Buka Kunci Hasil Drawing Pembagian Grup.
+     */
+    public function toggleGroupLock(Event $event): RedirectResponse
+    {
+        $event->is_group_locked = ! $event->is_group_locked;
+        $event->save();
+
+        $msg = $event->is_group_locked
+            ? 'Pembagian grup resmi dikunci. Undian otomatis dan penataan grup dinonaktifkan.'
+            : 'Kunci pembagian grup dibuka. Pengundian dan penyesuaian tim dapat dilakukan kembali.';
+
+        return redirect()->back()->with('success', $msg);
+    }
+
+    /**
+     * Pindahkan Tim Antar Grup Secara Manual (Manual Seeding / Penyesuaian Tim Se-Akademi).
+     */
+    public function moveTeamGroup(Request $request, Event $event): RedirectResponse
+    {
+        if ($event->is_group_locked) {
+            throw ValidationException::withMessages([
+                'group' => 'Pembagian grup sedang dikunci. Buka kunci grup terlebih dahulu jika ingin memindahkan tim.',
+            ]);
+        }
+
+        $validated = $request->validate([
+            'team_id' => ['required', 'exists:teams,id'],
+            'target_group_id' => ['required', 'exists:event_groups,id'],
+        ]);
+
+        $team = Team::where('id', $validated['team_id'])->where('event_id', $event->id)->firstOrFail();
+        $targetGroup = EventGroup::where('id', $validated['target_group_id'])->where('event_id', $event->id)->firstOrFail();
+
+        $hasPlayed = TournamentMatch::query()
+            ->where('event_id', $event->id)
+            ->where(fn ($q) => $q->where('home_team_id', $team->id)->orWhere('away_team_id', $team->id))
+            ->where('status', '!=', 'scheduled')
+            ->exists();
+
+        if ($hasPlayed) {
+            throw ValidationException::withMessages([
+                'team_id' => "Tim {$team->name} telah memainkan pertandingan. Posisi grup tidak dapat dipindahkan lagi.",
+            ]);
+        }
+
+        DB::transaction(function () use ($event, $team, $targetGroup) {
+            $existing = EventGroupTeam::query()
+                ->where('team_id', $team->id)
+                ->whereHas('group', fn ($q) => $q->where('event_id', $event->id))
+                ->first();
+
+            if ($existing) {
+                $existing->update(['event_group_id' => $targetGroup->id]);
+            } else {
+                EventGroupTeam::create([
+                    'event_group_id' => $targetGroup->id,
+                    'team_id' => $team->id,
+                ]);
+            }
+
+            $this->standingsService->recalculateEventStandings($event);
+        });
+
+        return redirect()->back()->with('success', "Tim {$team->name} berhasil dipindahkan ke {$targetGroup->name}.");
     }
 
     /**
@@ -202,6 +288,36 @@ class TournamentController extends Controller
         );
 
         return redirect()->back()->with('success', "Berhasil menjadwalkan {$created->count()} pertandingan fase grup secara otomatis.");
+    }
+
+    /**
+     * Generate jadwal pertandingan fase gugur / knockout otomatis dari tim juara & runner-up grup.
+     */
+    public function generateKnockoutMatches(Request $request, Event $event): RedirectResponse
+    {
+        $validated = $request->validate([
+            'stage' => ['required', 'string', 'in:round_of_16,quarter_final,semi_final,final,third_place'],
+            'start_time' => ['nullable', 'date'],
+            'interval_minutes' => ['nullable', 'integer', 'min:15', 'max:240'],
+            'pitches' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $pitchArray = array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) ($validated['pitches'] ?? 'Lapangan Utama'))
+        )));
+
+        $matches = $this->standingsService->generateKnockoutStageMatches(
+            event: $event,
+            stage: $validated['stage'],
+            startTime: $validated['start_time'] ?? null,
+            intervalMinutes: (int) ($validated['interval_minutes'] ?? 60),
+            pitches: $pitchArray ?: ['Lapangan Utama'],
+        );
+
+        $stageLabel = TournamentMatch::stageLabel($validated['stage']);
+
+        return redirect()->back()->with('success', "Berhasil menjadwalkan {$matches->count()} pertandingan babak {$stageLabel} dari tim yang lolos grup.");
     }
 
     /**
@@ -294,6 +410,30 @@ class TournamentController extends Controller
     }
 
     /**
+     * Reschedule Jadwal Pertandingan (Waktu Kick-off, Lapangan, Wasit, Catatan).
+     */
+    public function rescheduleMatch(Request $request, TournamentMatch $match): RedirectResponse
+    {
+        $validated = $request->validate([
+            'kickoff_at' => ['required', 'date'],
+            'pitch_name' => ['nullable', 'string', 'max:80'],
+            'referee_name' => ['nullable', 'string', 'max:120'],
+            'status' => ['sometimes', 'in:scheduled,ongoing,completed,postponed'],
+            'match_notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $match->update([
+            'kickoff_at' => $validated['kickoff_at'],
+            'pitch_name' => $validated['pitch_name'] ?? $match->pitch_name,
+            'referee_name' => $validated['referee_name'] ?? $match->referee_name,
+            'status' => $validated['status'] ?? $match->status,
+            'match_notes' => $validated['match_notes'] ?? $match->match_notes,
+        ]);
+
+        return redirect()->back()->with('success', "Jadwal pertandingan #{$match->match_number} berhasil diperbarui.");
+    }
+
+    /**
      * Hapus jadwal pertandingan.
      */
     public function destroyMatch(TournamentMatch $match): RedirectResponse
@@ -354,6 +494,21 @@ class TournamentController extends Controller
         ]);
 
         return redirect()->back()->with('success', "Predikat piagam untuk tim {$team->name} berhasil diperbarui.");
+    }
+
+    /**
+     * Fase 6.3: Rilis / Kunci Akses Unduh E-Certificate Pemain untuk Manajer.
+     */
+    public function toggleCertificateRelease(Event $event): RedirectResponse
+    {
+        $event->certificates_released = ! $event->certificates_released;
+        $event->save();
+
+        $msg = $event->certificates_released
+            ? 'E-Sertifikat digital resmi dirilis. Seluruh manajer tim sekarang dapat mengunduh piagam penghargaan pemain.'
+            : 'Akses unduh E-Sertifikat digital ditutup sementara untuk manajer tim.';
+
+        return redirect()->back()->with('success', $msg);
     }
 
     /**

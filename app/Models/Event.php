@@ -25,6 +25,29 @@ class Event extends Model
         'festival' => 'Grassroots Festival',
     ];
 
+    public const MATCH_FORMATS = [
+        '5_vs_5' => [
+            'label' => '5 vs 5 (Futsal / Mini Football / U-8 & U-9)',
+            'starting_count' => 5,
+        ],
+        '7_vs_7' => [
+            'label' => '7 vs 7 (Mini Soccer / Grassroots U-10 & U-11)',
+            'starting_count' => 7,
+        ],
+        '8_vs_8' => [
+            'label' => '8 vs 8 (U-12 Transisi)',
+            'starting_count' => 8,
+        ],
+        '9_vs_9' => [
+            'label' => '9 vs 9 (U-12 & U-13 Transisi Lapangan Besar)',
+            'starting_count' => 9,
+        ],
+        '11_vs_11' => [
+            'label' => '11 vs 11 (Konvensional / Sepak Bola Standar)',
+            'starting_count' => 11,
+        ],
+    ];
+
     public const STATUSES = [
         'draft' => 'Draft',
         'open' => 'Pendaftaran Dibuka',
@@ -53,6 +76,9 @@ class Event extends Model
         'venue_maps_url',
         'city',
         'format',
+        'match_format',
+        'starting_players_count',
+        'dsp_cutoff_minutes',
         'age_category',
         'min_birth_date',
         'max_birth_date',
@@ -77,6 +103,8 @@ class Event extends Model
         'contact_person',
         'contact_whatsapp',
         'status',
+        'is_group_locked',
+        'certificates_released',
     ];
 
     protected function casts(): array
@@ -93,6 +121,8 @@ class Event extends Model
             'min_players_per_team' => 'integer',
             'max_players_per_team' => 'integer',
             'min_gk_per_team' => 'integer',
+            'starting_players_count' => 'integer',
+            'dsp_cutoff_minutes' => 'integer',
             'max_officials_per_team' => 'integer',
             'show_coach_license' => 'boolean',
             'require_coach_license' => 'boolean',
@@ -100,6 +130,8 @@ class Event extends Model
             'reupload_grace_hours' => 'integer',
             'registration_fee' => 'decimal:2',
             'lock_roster_until_paid' => 'boolean',
+            'is_group_locked' => 'boolean',
+            'certificates_released' => 'boolean',
         ];
     }
 

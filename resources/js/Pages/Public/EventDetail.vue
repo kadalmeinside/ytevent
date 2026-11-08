@@ -30,6 +30,8 @@ const props = defineProps({
 const { formatRupiah, formatDate, formatDateTime } = useFormatters();
 const activeTab = ref('summary');
 
+const publicTopScorers = computed(() => props.leaderboard?.top_scorers || []);
+
 const quotaPercentage = computed(() => {
     if (!props.event.max_teams) return 0;
     return Math.min(100, Math.round((props.event.occupied_slots / props.event.max_teams) * 100));
@@ -513,7 +515,7 @@ const eventJsonLd = computed(() => {
                                         </thead>
                                         <tbody class="divide-y divide-slate-100 bg-white">
                                             <tr
-                                                v-for="(p, idx) in leaderboard.top_scorers"
+                                                v-for="(p, idx) in publicTopScorers"
                                                 :key="p.player_id"
                                                 class="hover:bg-orange-50/20"
                                             >

@@ -60,6 +60,18 @@ class MatchLineupController extends Controller
 
             $matchesPayload = $matches->map(function (TournamentMatch $m) use ($team, $passedPlayers) {
                 $teamLineups = $m->lineups->where('team_id', $team->id);
+                $event = $team->event;
+                $cutoffMinutes = (int) ($event?->dsp_cutoff_minutes ?? 30);
+                $cutoffAt = $m->kickoff_at ? $m->kickoff_at->copy()->subMinutes($cutoffMinutes) : null;
+                $isPassedCutoff = $cutoffAt ? now()->gt($cutoffAt) : false;
+                $isMatchLocked = in_array($m->status, ['ongoing', 'completed', 'cancelled'], true) || $isPassedCutoff;
+
+                $lockReason = null;
+                if (in_array($m->status, ['ongoing', 'completed'], true)) {
+                    $lockReason = 'Pertandingan sedang berlangsung atau telah selesai.';
+                } elseif ($isPassedCutoff) {
+                    $lockReason = "Batas waktu pengajuan DSP telah ditutup ({$cutoffMinutes} menit sebelum kick-off).";
+                }
 
                 $playersWithDisciplinary = $passedPlayers->map(function (Player $p) use ($m) {
                     $disc = $this->standingsService->checkPlayerDisciplinaryStatus($p, $m);
@@ -96,6 +108,9 @@ class MatchLineupController extends Controller
                     'home_score' => $m->home_score,
                     'away_score' => $m->away_score,
                     'lineup_submitted' => $teamLineups->isNotEmpty(),
+                    'is_dsp_locked' => $isMatchLocked,
+                    'dsp_lock_reason' => $lockReason,
+                    'cutoff_at_formatted' => $cutoffAt ? $cutoffAt->translatedFormat('H:i') . ' WIB' : null,
                     'starting_player_ids' => $teamLineups->where('is_starting', true)->pluck('player_id')->values(),
                     'substitute_player_ids' => $teamLineups->where('is_starting', false)->pluck('player_id')->values(),
                     'captain_player_id' => $teamLineups->firstWhere('is_captain', true)?->player_id,
@@ -138,6 +153,12 @@ class MatchLineupController extends Controller
             'matches' => $matchesPayload,
             'eligiblePlayers' => $eligiblePlayers,
             'standingsGroups' => $standingsGroups,
+            'eventFormat' => [
+                'match_format' => $team?->event?->match_format ?? '11_vs_11',
+                'starting_players_count' => (int) ($team?->event?->starting_players_count ?? 11),
+                'dsp_cutoff_minutes' => (int) ($team?->event?->dsp_cutoff_minutes ?? 30),
+                'certificates_released' => (bool) ($team?->event?->certificates_released || $team?->event?->status === 'completed'),
+            ],
         ]);
     }
 
@@ -154,9 +175,17 @@ class MatchLineupController extends Controller
             abort(403, 'Pertandingan ini bukan milik tim Anda.');
         }
 
-        if ($match->status === 'completed') {
+        if (in_array($match->status, ['ongoing', 'completed', 'cancelled'], true)) {
             throw ValidationException::withMessages([
-                'lineup' => 'Pertandingan telah selesai. Daftar Susunan Pemain (DSP) tidak dapat diubah lagi.',
+                'lineup' => 'Pertandingan sedang berlangsung atau telah selesai. Daftar Susunan Pemain (DSP) tidak dapat diubah lagi.',
+            ]);
+        }
+
+        $event = $team->event;
+        $cutoffMinutes = (int) ($event?->dsp_cutoff_minutes ?? 30);
+        if ($match->kickoff_at && now()->gt($match->kickoff_at->copy()->subMinutes($cutoffMinutes))) {
+            throw ValidationException::withMessages([
+                'lineup' => "Batas pengajuan DSP telah ditutup ({$cutoffMinutes} menit sebelum kick-off: {$match->kickoff_at->copy()->subMinutes($cutoffMinutes)->format('H:i')} WIB). Hubungi Match Commissioner jika ada pergantian darurat sebelum laga.",
             ]);
         }
 
@@ -187,6 +216,31 @@ class MatchLineupController extends Controller
         if ($players->count() !== count($allSelectedIds)) {
             throw ValidationException::withMessages([
                 'lineup' => 'Hanya pemain dari tim Anda yang telah dinyatakan Sah (Lolos Screening) yang dapat dimasukkan ke DSP.',
+            ]);
+        }
+
+        // Validasi format pertandingan & kuota starter wajib
+        $requiredStarting = (int) ($event?->starting_players_count ?? 11);
+        $eligiblePassedCount = $team->players()->where('screening_status', 'passed')->count();
+        $expectedStartingCount = min($requiredStarting, $eligiblePassedCount);
+
+        if (count($startingIds) !== $expectedStartingCount) {
+            throw ValidationException::withMessages([
+                'starting_player_ids' => "Format pertandingan mewajibkan tepat {$expectedStartingCount} pemain inti (Starting Lineup). Saat ini Anda memilih " . count($startingIds) . " pemain.",
+            ]);
+        }
+
+        // Validasi wajib minimal 1 kiper di starting lineup jika tim memiliki kiper yang sah
+        $startingGkCount = $players->whereIn('id', $startingIds)
+            ->filter(fn ($p) => in_array($p->position, ['Penjaga Gawang', 'GK'], true))
+            ->count();
+        $teamGkCount = $team->players()->where('screening_status', 'passed')
+            ->whereIn('position', ['Penjaga Gawang', 'GK'])
+            ->count();
+
+        if ($teamGkCount > 0 && $expectedStartingCount >= 3 && $startingGkCount < 1) {
+            throw ValidationException::withMessages([
+                'starting_player_ids' => 'Starting lineup wajib menyertakan minimal 1 Penjaga Gawang (GK).',
             ]);
         }
 
@@ -274,6 +328,13 @@ class MatchLineupController extends Controller
 
         if ($player->screening_status !== 'passed') {
             abort(403, 'Sertifikat hanya tersedia bagi pemain yang telah lolos verifikasi akreditasi.');
+        }
+
+        $event = $player->team?->event;
+        $isReleased = $event && ($event->certificates_released || $event->status === 'completed');
+
+        if (! $isAdmin && ! $isReleased) {
+            abort(403, 'Sertifikat elektronik belum dirilis oleh panitia penyelenggara. Sertifikat akan dapat diunduh setelah turnamen selesai atau dirilis resmi oleh panitia.');
         }
 
         $pdf = $this->certificateService->generatePlayerCertificatePdf($player);

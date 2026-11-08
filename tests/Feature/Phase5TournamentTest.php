@@ -67,6 +67,9 @@ class Phase5TournamentTest extends TestCase
             'max_players_per_team' => 18,
             'min_gk_per_team' => 1,
             'max_officials_per_team' => 3,
+            'match_format' => '5_vs_5',
+            'starting_players_count' => 1,
+            'certificates_released' => true,
             'venue_name' => 'Stadion Patriot Chandrabhaga',
             'city' => 'Kota Bekasi',
             'status' => 'open',
@@ -497,5 +500,222 @@ class Phase5TournamentTest extends TestCase
                 'full_name' => 'Coach Indra',
                 'role' => 'Pelatih Kepala',
             ]);
+    }
+
+    public function test_admin_can_toggle_group_lock_and_locked_group_rejects_redraw(): void
+    {
+        $this->assertFalse((bool) $this->event->is_group_locked);
+
+        // Toggle lock to true
+        $res = $this->actingAs($this->superAdmin)
+            ->post(route('admin.events.groups.toggle-lock', $this->event->id));
+        $res->assertRedirect();
+        $this->assertTrue((bool) $this->event->fresh()->is_group_locked);
+
+        // Attempting to generate/re-draw groups while locked should be blocked
+        $drawRes = $this->actingAs($this->superAdmin)
+            ->post(route('admin.events.groups.generate', $this->event->id), [
+                'group_count' => 2,
+            ]);
+        $drawRes->assertRedirect();
+        $drawRes->assertSessionHasErrors(['group']);
+
+        // Toggle unlock
+        $unlockRes = $this->actingAs($this->superAdmin)
+            ->post(route('admin.events.groups.toggle-lock', $this->event->id));
+        $unlockRes->assertRedirect();
+        $this->assertFalse((bool) $this->event->fresh()->is_group_locked);
+    }
+
+    public function test_admin_can_move_team_to_different_group(): void
+    {
+        $groupA = EventGroup::create([
+            'event_id' => $this->event->id,
+            'name' => 'Grup A',
+            'sort_order' => 1,
+        ]);
+        $groupB = EventGroup::create([
+            'event_id' => $this->event->id,
+            'name' => 'Grup B',
+            'sort_order' => 2,
+        ]);
+
+        \App\Models\EventGroupTeam::create([
+            'event_group_id' => $groupA->id,
+            'team_id' => $this->teamA->id,
+        ]);
+
+        $this->assertDatabaseHas('event_group_teams', [
+            'event_group_id' => $groupA->id,
+            'team_id' => $this->teamA->id,
+        ]);
+
+        // Move teamA to groupB
+        $res = $this->actingAs($this->superAdmin)
+            ->post(route('admin.events.groups.move-team', $this->event->id), [
+                'team_id' => $this->teamA->id,
+                'target_group_id' => $groupB->id,
+            ]);
+
+        $res->assertRedirect();
+        $this->assertDatabaseMissing('event_group_teams', [
+            'event_group_id' => $groupA->id,
+            'team_id' => $this->teamA->id,
+        ]);
+        $this->assertDatabaseHas('event_group_teams', [
+            'event_group_id' => $groupB->id,
+            'team_id' => $this->teamA->id,
+        ]);
+    }
+
+    public function test_admin_can_reschedule_match(): void
+    {
+        $match = TournamentMatch::create([
+            'event_id' => $this->event->id,
+            'home_team_id' => $this->teamA->id,
+            'away_team_id' => $this->teamB->id,
+            'stage' => 'group_stage',
+            'match_number' => 1,
+            'kickoff_at' => Carbon::now()->addDays(5)->setTime(8, 0),
+            'pitch_name' => 'Lapangan 1',
+            'status' => 'scheduled',
+        ]);
+
+        $newKickoff = Carbon::now()->addDays(5)->setTime(14, 30)->format('Y-m-d H:i:s');
+
+        $res = $this->actingAs($this->superAdmin)
+            ->post(route('admin.matches.reschedule', $match->id), [
+                'kickoff_at' => $newKickoff,
+                'pitch_name' => 'Lapangan Utama Stadion',
+                'referee_name' => 'Wasit Thoriq Alkatiri',
+                'status' => 'scheduled',
+                'match_notes' => 'Penyesuaian jadwal siaran',
+            ]);
+
+        $res->assertRedirect();
+        $this->assertDatabaseHas('tournament_matches', [
+            'id' => $match->id,
+            'pitch_name' => 'Lapangan Utama Stadion',
+            'referee_name' => 'Wasit Thoriq Alkatiri',
+            'match_notes' => 'Penyesuaian jadwal siaran',
+        ]);
+    }
+
+    public function test_admin_can_generate_knockout_stage_matches(): void
+    {
+        $groupA = EventGroup::create(['event_id' => $this->event->id, 'name' => 'Grup A', 'sort_order' => 1]);
+        $groupB = EventGroup::create(['event_id' => $this->event->id, 'name' => 'Grup B', 'sort_order' => 2]);
+
+        $teamC = Team::create([
+            'event_id' => $this->event->id,
+            'user_id' => $this->managerUser->id,
+            'name' => 'Persikopa Pariaman',
+            'slug' => 'persikopa-pariaman',
+            'logo_path' => 'logos/default.png',
+            'origin_association' => 'Askot Bekasi',
+            'manager_name' => 'Manager C',
+            'manager_email' => 'c@test.com',
+            'manager_whatsapp' => '0811111111',
+            'head_coach_name' => 'Coach C',
+            'terms_accepted_at' => now(),
+            'status' => 'locked_roster',
+        ]);
+
+        $teamD = Team::create([
+            'event_id' => $this->event->id,
+            'user_id' => $this->managerUser->id,
+            'name' => 'Bina Sentra Cirebon',
+            'slug' => 'bina-sentra-cirebon',
+            'logo_path' => 'logos/default.png',
+            'origin_association' => 'Askot Bekasi',
+            'manager_name' => 'Manager D',
+            'manager_email' => 'd@test.com',
+            'manager_whatsapp' => '0822222222',
+            'head_coach_name' => 'Coach D',
+            'terms_accepted_at' => now(),
+            'status' => 'locked_roster',
+        ]);
+
+        \App\Models\EventGroupTeam::create(['event_group_id' => $groupA->id, 'team_id' => $this->teamA->id]);
+        \App\Models\EventGroupTeam::create(['event_group_id' => $groupA->id, 'team_id' => $teamC->id]);
+        \App\Models\EventGroupTeam::create(['event_group_id' => $groupB->id, 'team_id' => $this->teamB->id]);
+        \App\Models\EventGroupTeam::create(['event_group_id' => $groupB->id, 'team_id' => $teamD->id]);
+
+        $res = $this->actingAs($this->superAdmin)
+            ->post(route('admin.events.matches.generate-knockout', $this->event->id), [
+                'stage' => 'semi_final',
+                'start_time' => Carbon::now()->addDays(6)->setTime(9, 0)->format('Y-m-d H:i:s'),
+                'interval_minutes' => 60,
+                'pitches' => 'Lapangan 1',
+            ]);
+
+        $res->assertRedirect();
+        $this->assertDatabaseHas('tournament_matches', [
+            'event_id' => $this->event->id,
+            'stage' => 'semi_final',
+        ]);
+    }
+
+    public function test_dsp_lineup_enforces_starter_count_and_auto_lock(): void
+    {
+        // Event format requires 2 starters
+        $this->event->update(['starting_players_count' => 2]);
+
+        $match = TournamentMatch::create([
+            'event_id' => $this->event->id,
+            'home_team_id' => $this->teamA->id,
+            'away_team_id' => $this->teamB->id,
+            'stage' => 'group_stage',
+            'match_number' => 2,
+            'kickoff_at' => Carbon::now()->addDays(5)->setTime(10, 0),
+            'pitch_name' => 'Lapangan 1',
+            'status' => 'scheduled',
+        ]);
+
+        // Submit only 1 starter when 2 are required -> validation error on starting_player_ids
+        $invalidRes = $this->actingAs($this->managerUser)
+            ->post(route('manager.matches.lineup.save', $match->id), [
+                'starting_player_ids' => [$this->playerA1->id],
+                'substitute_player_ids' => [$this->playerA2->id],
+            ]);
+
+        $invalidRes->assertRedirect();
+        $invalidRes->assertSessionHasErrors(['starting_player_ids']);
+
+        // Lock condition: match is ongoing -> rejected
+        $match->update(['status' => 'ongoing']);
+        $ongoingRes = $this->actingAs($this->managerUser)
+            ->post(route('manager.matches.lineup.save', $match->id), [
+                'starting_player_ids' => [$this->playerA1->id, $this->playerA2->id],
+                'substitute_player_ids' => [],
+            ]);
+
+        $ongoingRes->assertRedirect();
+        $ongoingRes->assertSessionHasErrors(['lineup']);
+    }
+
+    public function test_player_certificate_download_is_gated_by_admin_release(): void
+    {
+        $this->event->update([
+            'certificates_released' => false,
+            'status' => 'open',
+        ]);
+
+        // Manager attempt when unreleased -> 403
+        $blockedRes = $this->actingAs($this->managerUser)
+            ->get(route('manager.players.certificate', $this->playerA1->id));
+        $blockedRes->assertStatus(403);
+
+        // Admin toggles release
+        $toggleRes = $this->actingAs($this->superAdmin)
+            ->post(route('admin.events.certificates.toggle-release', $this->event->id));
+        $toggleRes->assertRedirect();
+        $this->assertTrue((bool) $this->event->fresh()->certificates_released);
+
+        // Manager attempt now -> 200 PDF
+        $allowedRes = $this->actingAs($this->managerUser)
+            ->get(route('manager.players.certificate', $this->playerA1->id));
+        $allowedRes->assertOk();
+        $this->assertEquals('application/pdf', $allowedRes->headers->get('content-type'));
     }
 }

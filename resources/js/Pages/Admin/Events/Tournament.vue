@@ -48,14 +48,19 @@ const stageFilter = ref('all');
 
 // --- MODALS STATE ---
 const showDrawModal = ref(false);
+const showMoveTeamModal = ref(false);
 const showGenMatchesModal = ref(false);
+const showKnockoutModal = ref(false);
 const showAddMatchModal = ref(false);
+const showRescheduleModal = ref(false);
 const showScoreModal = ref(false);
 const showAnnouncementModal = ref(false);
 const showAchievementModal = ref(false);
 
 const activeMatchForScore = ref(null);
+const activeMatchForReschedule = ref(null);
 const activeTeamForAchievement = ref(null);
+const teamToMove = ref(null);
 
 // --- FORMS ---
 const drawForm = useForm({
@@ -63,10 +68,22 @@ const drawForm = useForm({
     only_locked_roster: false,
 });
 
+const moveTeamForm = useForm({
+    team_id: null,
+    target_group_id: '',
+});
+
 const genMatchesForm = useForm({
     start_time: '',
     interval_minutes: 60,
     pitches: 'Lapangan A, Lapangan B',
+});
+
+const genKnockoutForm = useForm({
+    stage: 'semi_final',
+    start_time: '',
+    interval_minutes: 60,
+    pitches: 'Lapangan Utama',
 });
 
 const addMatchForm = useForm({
@@ -77,6 +94,14 @@ const addMatchForm = useForm({
     kickoff_at: '',
     pitch_name: 'Lapangan Utama',
     referee_name: '',
+});
+
+const rescheduleForm = useForm({
+    kickoff_at: '',
+    pitch_name: '',
+    referee_name: '',
+    status: 'scheduled',
+    match_notes: '',
 });
 
 const scoreForm = useForm({
@@ -104,6 +129,30 @@ const achievementForm = useForm({
 });
 
 // --- SUBMIT ACTIONS ---
+const toggleGroupLock = () => {
+    router.post(route('admin.events.groups.toggle-lock', { event: props.event.id }), {}, {
+        preserveScroll: true,
+    });
+};
+
+const openMoveTeamModal = (teamEntry) => {
+    teamToMove.value = teamEntry;
+    moveTeamForm.team_id = teamEntry.team_id;
+    moveTeamForm.target_group_id = '';
+    moveTeamForm.clearErrors();
+    showMoveTeamModal.value = true;
+};
+
+const submitMoveTeam = () => {
+    moveTeamForm.post(route('admin.events.groups.move-team', { event: props.event.id }), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showMoveTeamModal.value = false;
+            teamToMove.value = null;
+        },
+    });
+};
+
 const submitDrawGroups = () => {
     drawForm.post(route('admin.events.groups.generate', { event: props.event.id }), {
         preserveScroll: true,
@@ -119,6 +168,43 @@ const submitGenMatches = () => {
         onSuccess: () => {
             showGenMatchesModal.value = false;
         },
+    });
+};
+
+const submitGenKnockout = () => {
+    genKnockoutForm.post(route('admin.events.matches.generate-knockout', { event: props.event.id }), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showKnockoutModal.value = false;
+        },
+    });
+};
+
+const openRescheduleModal = (match) => {
+    activeMatchForReschedule.value = match;
+    rescheduleForm.kickoff_at = match.kickoff_at || '';
+    rescheduleForm.pitch_name = match.pitch_name || '';
+    rescheduleForm.referee_name = match.referee_name || '';
+    rescheduleForm.status = match.status || 'scheduled';
+    rescheduleForm.match_notes = match.match_notes || '';
+    rescheduleForm.clearErrors();
+    showRescheduleModal.value = true;
+};
+
+const submitReschedule = () => {
+    if (!activeMatchForReschedule.value) return;
+    rescheduleForm.post(route('admin.matches.reschedule', { match: activeMatchForReschedule.value.id }), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showRescheduleModal.value = false;
+            activeMatchForReschedule.value = null;
+        },
+    });
+};
+
+const toggleCertificateRelease = () => {
+    router.post(route('admin.events.certificates.toggle-release', { event: props.event.id }), {}, {
+        preserveScroll: true,
     });
 };
 
@@ -328,8 +414,27 @@ const filteredMatches = computed(() => {
                     <div class="flex items-center gap-2">
                         <button
                             type="button"
+                            class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all border inline-flex items-center gap-1.5 shadow-2xs"
+                            :class="event.is_group_locked
+                                ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
+                                : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'"
+                            @click="toggleGroupLock"
+                        >
+                            <svg v-if="event.is_group_locked" class="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                            <svg v-else class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                            </svg>
+                            {{ event.is_group_locked ? 'Grup Terkunci (Buka Kunci)' : 'Kunci Grup' }}
+                        </button>
+
+                        <button
+                            type="button"
                             class="btn-pitch text-xs inline-flex items-center gap-1.5"
-                            @click="showDrawModal = true"
+                            :disabled="event.is_group_locked"
+                            :class="{ 'opacity-50 cursor-not-allowed': event.is_group_locked }"
+                            @click="!event.is_group_locked && (showDrawModal = true)"
                         >
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -388,6 +493,7 @@ const filteredMatches = computed(() => {
                                         <th class="py-2.5 px-3 text-center font-black text-orange-950 bg-orange-50/60" title="Poin">PTS</th>
                                         <th class="py-2.5 px-2 text-center" title="Kartu Kuning">KK</th>
                                         <th class="py-2.5 px-2 text-center" title="Kartu Merah">KM</th>
+                                        <th class="py-2.5 px-2 text-right">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 bg-white">
@@ -422,6 +528,17 @@ const filteredMatches = computed(() => {
                                         </td>
                                         <td class="py-2.5 px-2 text-center tabular-data text-amber-600 font-medium">{{ st.yellow_cards }}</td>
                                         <td class="py-2.5 px-2 text-center tabular-data text-rose-600 font-bold">{{ st.red_cards }}</td>
+                                        <td class="py-2.5 px-2 text-right">
+                                            <button
+                                                v-if="!event.is_group_locked"
+                                                type="button"
+                                                class="px-2 py-0.5 rounded text-[11px] font-semibold text-slate-600 hover:text-orange-950 hover:bg-orange-100 transition-colors inline-flex items-center gap-1 border border-slate-200"
+                                                title="Pindahkan Tim ke Grup Lain"
+                                                @click="openMoveTeamModal(st)"
+                                            >
+                                                Pindah
+                                            </button>
+                                        </td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -448,6 +565,17 @@ const filteredMatches = computed(() => {
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                             Generate Round-Robin Grup
+                        </button>
+                        <button
+                            v-if="groups.length > 0"
+                            type="button"
+                            class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-orange-300 bg-orange-50 text-orange-950 hover:bg-orange-100 inline-flex items-center gap-1.5 shadow-2xs"
+                            @click="showKnockoutModal = true"
+                        >
+                            <svg class="w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            Generate Babak Gugur (Knockout)
                         </button>
                         <button
                             type="button"
@@ -590,6 +718,16 @@ const filteredMatches = computed(() => {
                                 Wasit: <strong class="text-slate-700">{{ m.referee_name }}</strong>
                             </span>
                             <div class="flex items-center gap-2 ml-auto">
+                                <button
+                                    type="button"
+                                    class="btn-sm-secondary text-xs inline-flex items-center gap-1"
+                                    @click="openRescheduleModal(m)"
+                                >
+                                    <svg class="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    Reschedule
+                                </button>
                                 <button
                                     type="button"
                                     class="btn-sm-pitch text-xs inline-flex items-center gap-1"
@@ -784,8 +922,23 @@ const filteredMatches = computed(() => {
             <div v-else-if="activeTab === 'achievements'" class="space-y-6">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                        <h2 class="text-base font-bold text-slate-900">Predikat Piagam Penghargaan / E-Certificate Tim</h2>
+                        <h2 class="text-base font-bold text-slate-900">Predikat Piagam Penghargaan &amp; E-Certificate Tim</h2>
                         <p class="text-xs text-slate-500">Tentukan predikat juara (misal: "Juara 1", "Juara 2", "Semifinalis") yang akan tertera pada piagam digital setiap pemain.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button
+                            type="button"
+                            class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all border inline-flex items-center gap-1.5 shadow-2xs"
+                            :class="event.certificates_released
+                                ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700'
+                                : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'"
+                            @click="toggleCertificateRelease"
+                        >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>{{ event.certificates_released ? 'E-Sertifikat: Dirilis ke Manajer' : 'Rilis E-Sertifikat untuk Manajer' }}</span>
+                        </button>
                     </div>
                 </div>
 
@@ -1241,6 +1394,159 @@ const filteredMatches = computed(() => {
                         <button type="button" class="btn-secondary text-xs" @click="showAchievementModal = false">Batal</button>
                         <button type="submit" class="btn-pitch text-xs" :disabled="achievementForm.processing">
                             Simpan Predikat
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ================= MODAL: PINDAH GRUP ================= -->
+        <div v-if="showMoveTeamModal && teamToMove" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+            <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <h3 class="text-sm font-bold text-slate-900">Pindahkan Tim Antar Grup</h3>
+                    <button type="button" class="text-slate-400 hover:text-slate-600" @click="showMoveTeamModal = false">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+                <form @submit.prevent="submitMoveTeam" class="space-y-4">
+                    <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                        <span class="text-slate-500">Tim yang dipindahkan:</span>
+                        <strong class="block text-slate-900 font-bold text-sm mt-0.5">{{ teamToMove.team_name }}</strong>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Pilih Grup Tujuan</label>
+                        <select v-model="moveTeamForm.target_group_id" class="form-input text-xs w-full">
+                            <option value="">-- Pilih Grup Baru --</option>
+                            <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
+                        </select>
+                        <InputError :message="moveTeamForm.errors.target_group_id" />
+                        <InputError :message="moveTeamForm.errors.group" />
+                        <InputError :message="moveTeamForm.errors.team_id" />
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 pt-2">
+                        <button type="button" class="btn-secondary text-xs" @click="showMoveTeamModal = false">Batal</button>
+                        <button type="submit" class="btn-pitch text-xs" :disabled="moveTeamForm.processing || !moveTeamForm.target_group_id">
+                            {{ moveTeamForm.processing ? 'Memindahkan...' : 'Pindahkan Tim' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ================= MODAL: GENERATE KNOCKOUT STAGE ================= -->
+        <div v-if="showKnockoutModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+            <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <h3 class="text-sm font-bold text-slate-900">Generate Babak Gugur (Knockout) Otomatis</h3>
+                    <button type="button" class="text-slate-400 hover:text-slate-600" @click="showKnockoutModal = false">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+                <form @submit.prevent="submitGenKnockout" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Babak Fase Gugur</label>
+                        <select v-model="genKnockoutForm.stage" class="form-input text-xs w-full">
+                            <option value="round_of_16">Babak 16 Besar (Round of 16)</option>
+                            <option value="quarter_final">Babak 8 Besar (Quarter Final)</option>
+                            <option value="semi_final">Babak Semifinal (Semi Final)</option>
+                            <option value="third_place">Perebutan Juara 3 (Third Place)</option>
+                            <option value="final">Partai Puncak (Final)</option>
+                        </select>
+                        <p class="text-[11px] text-slate-500 mt-1">
+                            Sistem secara otomatis memasangkan Juara dan Runner-up grup secara silang (misal: 1A vs 2B, 1B vs 2A).
+                        </p>
+                        <InputError :message="genKnockoutForm.errors.stage" />
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Waktu Mulai Pertandingan Pertama</label>
+                        <input type="datetime-local" v-model="genKnockoutForm.start_time" class="form-input text-xs w-full" />
+                        <InputError :message="genKnockoutForm.errors.start_time" />
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Interval Waktu Antar Laga (Menit)</label>
+                        <input type="number" v-model="genKnockoutForm.interval_minutes" min="15" max="240" step="5" class="form-input text-xs w-full" />
+                        <InputError :message="genKnockoutForm.errors.interval_minutes" />
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Nama Lapangan / Venue</label>
+                        <input type="text" v-model="genKnockoutForm.pitches" placeholder="Lapangan Utama" class="form-input text-xs w-full" />
+                        <InputError :message="genKnockoutForm.errors.pitches" />
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 pt-2">
+                        <button type="button" class="btn-secondary text-xs" @click="showKnockoutModal = false">Batal</button>
+                        <button type="submit" class="btn-pitch text-xs" :disabled="genKnockoutForm.processing">
+                            {{ genKnockoutForm.processing ? 'Menjadwalkan...' : 'Buat Jadwal Knockout' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ================= MODAL: RESCHEDULE MATCH ================= -->
+        <div v-if="showRescheduleModal && activeMatchForReschedule" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+            <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <h3 class="text-sm font-bold text-slate-900">
+                        Reschedule Pertandingan #{{ activeMatchForReschedule.match_number }}
+                    </h3>
+                    <button type="button" class="text-slate-400 hover:text-slate-600" @click="showRescheduleModal = false">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+                <form @submit.prevent="submitReschedule" class="space-y-4">
+                    <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                        <span class="text-slate-500 font-mono">Laga:</span>
+                        <strong class="block text-slate-900 font-bold mt-0.5">
+                            {{ activeMatchForReschedule.home_team_name }} vs {{ activeMatchForReschedule.away_team_name }}
+                        </strong>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Jadwal Kick-Off Baru</label>
+                        <input type="datetime-local" v-model="rescheduleForm.kickoff_at" class="form-input text-xs w-full" />
+                        <InputError :message="rescheduleForm.errors.kickoff_at" />
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Lapangan / Venue</label>
+                        <input type="text" v-model="rescheduleForm.pitch_name" class="form-input text-xs w-full" />
+                        <InputError :message="rescheduleForm.errors.pitch_name" />
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Status Pertandingan</label>
+                        <select v-model="rescheduleForm.status" class="form-input text-xs w-full">
+                            <option value="scheduled">Terjadwal (Scheduled)</option>
+                            <option value="ongoing">Sedang Berlangsung (Ongoing)</option>
+                            <option value="completed">Selesai (Completed)</option>
+                            <option value="postponed">Ditunda (Postponed)</option>
+                        </select>
+                        <InputError :message="rescheduleForm.errors.status" />
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Nama Wasit</label>
+                        <input type="text" v-model="rescheduleForm.referee_name" placeholder="Thoriq Alkatiri" class="form-input text-xs w-full" />
+                        <InputError :message="rescheduleForm.errors.referee_name" />
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Alasan Penjadwalan Ulang / Catatan</label>
+                        <textarea v-model="rescheduleForm.match_notes" rows="2" placeholder="Kondisi cuaca hujan lebat / pergeseran waktu..." class="form-input text-xs w-full"></textarea>
+                        <InputError :message="rescheduleForm.errors.match_notes" />
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                        <button type="button" class="btn-secondary text-xs" @click="showRescheduleModal = false">Batal</button>
+                        <button type="submit" class="btn-pitch text-xs" :disabled="rescheduleForm.processing">
+                            {{ rescheduleForm.processing ? 'Menyimpan...' : 'Simpan Perubahan Jadwal' }}
                         </button>
                     </div>
                 </form>
