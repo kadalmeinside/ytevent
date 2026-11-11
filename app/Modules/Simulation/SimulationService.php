@@ -713,7 +713,6 @@ class SimulationService
             DB::table('event_group_teams')->where('team_id', $team->id)->delete();
             DB::table('tournament_matches')->where('home_team_id', $team->id)->update(['home_team_id' => null]);
             DB::table('tournament_matches')->where('away_team_id', $team->id)->update(['away_team_id' => null]);
-            DB::table('screening_logs')->where('team_id', $team->id)->delete();
             DB::table('email_notification_logs')->where('team_id', $team->id)->delete();
 
             // 6. Force delete tim
