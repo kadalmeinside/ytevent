@@ -139,6 +139,76 @@ class TournamentController extends Controller
             'created_at' => $a->created_at?->translatedFormat('d M Y, H:i'),
         ])->values();
 
+        $occupiedSlots = $event->occupiedSlotsCount();
+        $isRegistrationOpen = $event->status === 'open' && $event->isWithinRegistrationWindow() && $occupiedSlots < $event->max_teams;
+        $groupsCount = $event->groups->count();
+        $hasPlayedMatches = $event->matches()->where('status', '!=', 'scheduled')->exists();
+        $allMatchesCount = $event->matches->count();
+        $uncompletedMatchesCount = $event->matches()->where('status', '!=', 'completed')->count();
+        $hasPendingGroupMatches = $event->matches()->where('stage', 'group')->where('status', '!=', 'completed')->exists();
+
+        // 1. Undi Grup: Boleh jika pendaftaran SUDAH TIDAK BUKA (kuota penuh / pendaftaran ditutup) & min 2 tim & belum dikunci & belum ada laga
+        $canDrawGroups = ! $isRegistrationOpen && $eligibleTeams->count() >= 2 && ! $event->is_group_locked && ! $hasPlayedMatches;
+        $drawBlockReason = null;
+        if ($isRegistrationOpen) {
+            $drawBlockReason = "Pendaftaran masih OPEN dan slot kuota belum penuh ({$occupiedSlots}/{$event->max_teams} tim). Pengundian grup baru dapat dilakukan saat sesi Technical Meeting setelah kuota penuh atau pendaftaran resmi ditutup.";
+        } elseif ($event->is_group_locked) {
+            $drawBlockReason = 'Pembagian grup telah resmi dikunci panitia. Buka kunci grup jika ingin mengundi ulang.';
+        } elseif ($hasPlayedMatches) {
+            $drawBlockReason = 'Pertandingan telah dimulai atau selesai. Grup tidak dapat diundi ulang.';
+        } elseif ($eligibleTeams->count() < 2) {
+            $drawBlockReason = 'Minimal dibutuhkan 2 tim sah terverifikasi untuk melakukan pengundian grup.';
+        }
+
+        // 2. Kunci Grup: Boleh jika grup sudah dibentuk (>0) & belum ada laga berjalan
+        $canToggleGroupLock = $groupsCount > 0 && ! $hasPlayedMatches;
+        $lockBlockReason = null;
+        if ($groupsCount === 0) {
+            $lockBlockReason = 'Belum ada grup yang dibentuk. Silakan lakukan pengundian grup terlebih dahulu.';
+        } elseif ($hasPlayedMatches) {
+            $lockBlockReason = 'Pertandingan telah dimulai atau selesai. Status kunci grup tidak dapat diubah.';
+        }
+
+        // 3. Jadwal Pertandingan Grup: Boleh jika grup WAJIB SUDAH DIKUNCI
+        $canGenerateGroupMatches = $event->is_group_locked && $groupsCount > 0;
+        $groupMatchesBlockReason = null;
+        if (! $event->is_group_locked) {
+            $groupMatchesBlockReason = 'Pembagian grup WAJIB dikunci resmi pada sesi Technical Meeting terlebih dahulu sebelum menyusun jadwal pertandingan.';
+        } elseif ($groupsCount === 0) {
+            $groupMatchesBlockReason = 'Belum ada grup yang dibentuk.';
+        }
+
+        // 4. Jadwal Knockout: Boleh jika grup dikunci dan seluruh laga grup sudah completed
+        $canGenerateKnockout = $event->is_group_locked && $allMatchesCount > 0 && ! $hasPendingGroupMatches;
+        $knockoutBlockReason = null;
+        if (! $event->is_group_locked) {
+            $knockoutBlockReason = 'Pembagian grup belum dikunci resmi.';
+        } elseif ($hasPendingGroupMatches) {
+            $knockoutBlockReason = 'Seluruh pertandingan fase grup harus berstatus SELESAI terlebih dahulu agar penentuan juara & runner-up grup final.';
+        }
+
+        // 5. Rilis E-Sertifikat: Boleh jika turnamen sudah status completed atau seluruh jadwal selesai
+        $canReleaseCertificates = ($event->status === 'completed') || ($allMatchesCount > 0 && $uncompletedMatchesCount === 0);
+        $certificatesBlockReason = ! $canReleaseCertificates
+            ? 'E-Sertifikat hanya dapat dirilis setelah seluruh rangkaian pertandingan turnamen selesai (status: completed).'
+            : null;
+
+        // Penentuan Fase Siklus Turnamen untuk Banner SOP
+        $currentPhase = 'registration';
+        if ($isRegistrationOpen) {
+            $currentPhase = 'registration';
+        } elseif ($groupsCount === 0) {
+            $currentPhase = 'technical_meeting';
+        } elseif (! $event->is_group_locked) {
+            $currentPhase = 'group_drawn';
+        } elseif ($allMatchesCount === 0) {
+            $currentPhase = 'scheduling';
+        } elseif ($uncompletedMatchesCount > 0) {
+            $currentPhase = 'matchday';
+        } else {
+            $currentPhase = 'completed';
+        }
+
         return Inertia::render('Admin/Events/Tournament', [
             'event' => [
                 'id' => $event->id,
@@ -151,8 +221,26 @@ class TournamentController extends Controller
                 'dsp_cutoff_minutes' => (int) ($event->dsp_cutoff_minutes ?? 30),
                 'venue_name' => $event->venue_name,
                 'status' => $event->status,
+                'max_teams' => (int) $event->max_teams,
+                'occupied_slots' => $occupiedSlots,
                 'is_group_locked' => (bool) $event->is_group_locked,
                 'certificates_released' => (bool) ($event->certificates_released || $event->status === 'completed'),
+            ],
+            'controls' => [
+                'current_phase' => $currentPhase,
+                'is_registration_open' => $isRegistrationOpen,
+                'can_draw_groups' => $canDrawGroups,
+                'draw_block_reason' => $drawBlockReason,
+                'can_toggle_group_lock' => $canToggleGroupLock,
+                'lock_block_reason' => $lockBlockReason,
+                'can_generate_group_matches' => $canGenerateGroupMatches,
+                'group_matches_block_reason' => $groupMatchesBlockReason,
+                'can_generate_knockout' => $canGenerateKnockout,
+                'knockout_block_reason' => $knockoutBlockReason,
+                'can_release_certificates' => $canReleaseCertificates,
+                'certificates_block_reason' => $certificatesBlockReason,
+                'uncompleted_matches_count' => $uncompletedMatchesCount,
+                'all_matches_count' => $allMatchesCount,
             ],
             'eligibleTeams' => $eligibleTeams,
             'groups' => $groups,
@@ -170,6 +258,15 @@ class TournamentController extends Controller
      */
     public function generateGroups(Request $request, Event $event): RedirectResponse
     {
+        $occupiedSlots = $event->occupiedSlotsCount();
+        $isRegistrationOpen = $event->status === 'open' && $event->isWithinRegistrationWindow() && $occupiedSlots < $event->max_teams;
+
+        if ($isRegistrationOpen) {
+            throw ValidationException::withMessages([
+                'group' => "Pendaftaran turnamen masih berstatus OPEN dan kuota belum penuh ({$occupiedSlots}/{$event->max_teams} tim). Pengundian grup baru dapat dilakukan pada sesi Technical Meeting setelah kuota terpenuhi atau pendaftaran resmi ditutup.",
+            ]);
+        }
+
         if ($event->is_group_locked) {
             throw ValidationException::withMessages([
                 'group' => 'Pembagian grup telah dikunci panitia. Buka kunci grup terlebih dahulu jika ingin mengundi ulang.',
@@ -188,6 +285,15 @@ class TournamentController extends Controller
             'only_locked_roster' => ['nullable', 'boolean'],
         ]);
 
+        $eligibleCount = $event->teams()
+            ->when($validated['only_locked_roster'] ?? false, fn ($q) => $q->where('status', 'locked_roster'), fn ($q) => $q->whereIn('status', ['active', 'locked_roster']))
+            ->count();
+        if ($eligibleCount < 2) {
+            throw ValidationException::withMessages([
+                'group' => 'Jumlah tim sah yang siap diundi belum mencukupi (minimal 2 tim terverifikasi).',
+            ]);
+        }
+
         $this->standingsService->generateGroupsAndDraw(
             event: $event,
             groupCount: (int) $validated['group_count'],
@@ -202,6 +308,27 @@ class TournamentController extends Controller
      */
     public function toggleGroupLock(Event $event): RedirectResponse
     {
+        if (! $event->is_group_locked) {
+            if ($event->groups()->count() === 0) {
+                throw ValidationException::withMessages([
+                    'group' => 'Belum ada pembagian grup yang dibentuk. Silakan lakukan pengundian grup terlebih dahulu.',
+                ]);
+            }
+            $emptyGroup = $event->groups()->whereDoesntHave('groupTeams')->first();
+            if ($emptyGroup) {
+                throw ValidationException::withMessages([
+                    'group' => "Grup '{$emptyGroup->name}' masih kosong tanpa tim. Pastikan seluruh grup terisi tim sebelum dikunci.",
+                ]);
+            }
+        } else {
+            $hasPlayedMatches = $event->matches()->where('status', '!=', 'scheduled')->exists();
+            if ($hasPlayedMatches) {
+                throw ValidationException::withMessages([
+                    'group' => 'Pertandingan telah dimulai atau selesai. Status kunci pembagian grup tidak dapat dibuka kembali.',
+                ]);
+            }
+        }
+
         $event->is_group_locked = ! $event->is_group_locked;
         $event->save();
 
@@ -269,6 +396,18 @@ class TournamentController extends Controller
      */
     public function generateGroupMatches(Request $request, Event $event): RedirectResponse
     {
+        if (! $event->is_group_locked) {
+            throw ValidationException::withMessages([
+                'matches' => 'Pembagian grup belum dikunci resmi. Lakukan pengundian pada sesi Technical Meeting dan kunci grup terlebih dahulu sebelum menyusun jadwal pertandingan.',
+            ]);
+        }
+
+        if ($event->groups()->count() === 0) {
+            throw ValidationException::withMessages([
+                'matches' => 'Belum ada grup yang dibentuk. Silakan lakukan pengundian grup terlebih dahulu.',
+            ]);
+        }
+
         $validated = $request->validate([
             'start_time' => ['nullable', 'date'],
             'interval_minutes' => ['nullable', 'integer', 'min:15', 'max:240'],
@@ -295,6 +434,19 @@ class TournamentController extends Controller
      */
     public function generateKnockoutMatches(Request $request, Event $event): RedirectResponse
     {
+        if (! $event->is_group_locked) {
+            throw ValidationException::withMessages([
+                'stage' => 'Pembagian grup belum dikunci resmi.',
+            ]);
+        }
+
+        $hasPendingGroupMatches = $event->matches()->where('stage', 'group')->where('status', '!=', 'completed')->exists();
+        if ($hasPendingGroupMatches) {
+            throw ValidationException::withMessages([
+                'stage' => 'Seluruh pertandingan fase grup harus berstatus SELESAI terlebih dahulu agar penentuan juara dan runner-up grup final.',
+            ]);
+        }
+
         $validated = $request->validate([
             'stage' => ['required', 'string', 'in:round_of_16,quarter_final,semi_final,final,third_place'],
             'start_time' => ['nullable', 'date'],
@@ -335,6 +487,12 @@ class TournamentController extends Controller
             'referee_name' => ['nullable', 'string', 'max:120'],
         ]);
 
+        if ($validated['stage'] === 'group' && ! $event->is_group_locked) {
+            throw ValidationException::withMessages([
+                'stage' => 'Pembagian grup harus dikunci terlebih dahulu sebelum menambahkan pertandingan fase grup.',
+            ]);
+        }
+
         $nextMatchNumber = (int) $event->matches()->max('match_number') + 1;
 
         TournamentMatch::create([
@@ -358,6 +516,18 @@ class TournamentController extends Controller
      */
     public function updateMatchResult(Request $request, TournamentMatch $match): RedirectResponse
     {
+        if (! $match->home_team_id || ! $match->away_team_id) {
+            throw ValidationException::withMessages([
+                'status' => 'Pertandingan belum memiliki tim bertanding yang lengkap (home & away).',
+            ]);
+        }
+
+        if ($match->event?->status === 'completed') {
+            throw ValidationException::withMessages([
+                'status' => 'Turnamen telah berstatus selesai. Hasil pertandingan tidak dapat diubah lagi.',
+            ]);
+        }
+
         $validated = $request->validate([
             'status' => ['required', 'in:scheduled,ongoing,completed,postponed'],
             'home_score' => ['nullable', 'integer', 'min:0', 'max:99'],
@@ -501,6 +671,15 @@ class TournamentController extends Controller
      */
     public function toggleCertificateRelease(Event $event): RedirectResponse
     {
+        if (! $event->certificates_released) {
+            $hasUncompleted = $event->matches()->where('status', '!=', 'completed')->exists();
+            if ($event->status !== 'completed' && $hasUncompleted) {
+                throw ValidationException::withMessages([
+                    'certificates' => 'E-Sertifikat belum dapat dirilis. Seluruh rangkaian pertandingan turnamen harus telah berstatus SELESAI (Completed) terlebih dahulu.',
+                ]);
+            }
+        }
+
         $event->certificates_released = ! $event->certificates_released;
         $event->save();
 

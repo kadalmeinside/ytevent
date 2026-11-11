@@ -166,6 +166,17 @@ class Phase5TournamentTest extends TestCase
 
     public function test_admin_can_generate_groups_and_draw_teams_automatically(): void
     {
+        // 1. Guard check: when registration is OPEN and slots not full, drawing is blocked
+        $blocked = $this->actingAs($this->superAdmin)
+            ->post(route('admin.events.groups.generate', ['event' => $this->event->id]), [
+                'group_count' => 1,
+            ]);
+        $blocked->assertRedirect();
+        $blocked->assertSessionHasErrors(['group']);
+
+        // 2. When slots are full / Technical Meeting session: drawing succeeds
+        $this->event->update(['max_teams' => 2]);
+
         $response = $this->actingAs($this->superAdmin)
             ->post(route('admin.events.groups.generate', ['event' => $this->event->id]), [
                 'group_count' => 1,
@@ -193,6 +204,9 @@ class Phase5TournamentTest extends TestCase
         // First generate group
         $service = app(StandingsCalculatorService::class);
         $service->generateGroupsAndDraw($this->event, 1, false);
+
+        // Group must be locked before generating matches
+        $this->event->update(['is_group_locked' => true]);
 
         $response = $this->actingAs($this->superAdmin)
             ->post(route('admin.events.matches.generate', ['event' => $this->event->id]), [
@@ -504,7 +518,11 @@ class Phase5TournamentTest extends TestCase
 
     public function test_admin_can_toggle_group_lock_and_locked_group_rejects_redraw(): void
     {
-        $this->assertFalse((bool) $this->event->is_group_locked);
+        // First draw groups
+        $service = app(StandingsCalculatorService::class);
+        $service->generateGroupsAndDraw($this->event, 1, false);
+
+        $this->assertFalse((bool) $this->event->fresh()->is_group_locked);
 
         // Toggle lock to true
         $res = $this->actingAs($this->superAdmin)
@@ -640,6 +658,8 @@ class Phase5TournamentTest extends TestCase
         \App\Models\EventGroupTeam::create(['event_group_id' => $groupA->id, 'team_id' => $teamC->id]);
         \App\Models\EventGroupTeam::create(['event_group_id' => $groupB->id, 'team_id' => $this->teamB->id]);
         \App\Models\EventGroupTeam::create(['event_group_id' => $groupB->id, 'team_id' => $teamD->id]);
+
+        $this->event->update(['is_group_locked' => true]);
 
         $res = $this->actingAs($this->superAdmin)
             ->post(route('admin.events.matches.generate-knockout', $this->event->id), [

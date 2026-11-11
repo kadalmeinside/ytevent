@@ -41,6 +41,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    controls: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
 const activeTab = ref('groups'); // 'groups', 'matches', 'announcements', 'leaderboard', 'achievements'
@@ -360,6 +364,93 @@ const filteredMatches = computed(() => {
                 </div>
             </div>
 
+            <!-- Banner SOP Siklus Operasional Turnamen -->
+            <div
+                class="rounded-2xl border p-4 sm:p-5 transition-all shadow-2xs"
+                :class="{
+                    'bg-amber-50/90 border-amber-300 text-amber-950': controls?.current_phase === 'registration',
+                    'bg-sky-50/90 border-sky-300 text-sky-950': controls?.current_phase === 'technical_meeting',
+                    'bg-indigo-50/90 border-indigo-300 text-indigo-950': controls?.current_phase === 'group_drawn',
+                    'bg-emerald-50/90 border-emerald-300 text-emerald-950': controls?.current_phase === 'scheduling',
+                    'bg-purple-50/90 border-purple-300 text-purple-950': controls?.current_phase === 'matchday',
+                    'bg-slate-900 border-slate-800 text-white': controls?.current_phase === 'completed',
+                }"
+            >
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div class="flex items-start gap-3">
+                        <span
+                            class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-black text-xs shadow-xs"
+                            :class="{
+                                'bg-amber-500 text-white': controls?.current_phase === 'registration',
+                                'bg-sky-600 text-white': controls?.current_phase === 'technical_meeting',
+                                'bg-indigo-600 text-white': controls?.current_phase === 'group_drawn',
+                                'bg-emerald-600 text-white': controls?.current_phase === 'scheduling',
+                                'bg-purple-600 text-white': controls?.current_phase === 'matchday',
+                                'bg-amber-400 text-slate-950': controls?.current_phase === 'completed',
+                            }"
+                        >
+                            <span v-if="controls?.current_phase === 'registration'">1</span>
+                            <span v-else-if="controls?.current_phase === 'technical_meeting'">2</span>
+                            <span v-else-if="controls?.current_phase === 'group_drawn'">3</span>
+                            <span v-else-if="controls?.current_phase === 'scheduling'">4</span>
+                            <span v-else-if="controls?.current_phase === 'matchday'">5</span>
+                            <span v-else>🏆</span>
+                        </span>
+                        <div class="space-y-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span
+                                    class="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full"
+                                    :class="{
+                                        'bg-amber-200/90 text-amber-900': controls?.current_phase === 'registration',
+                                        'bg-sky-200/90 text-sky-900': controls?.current_phase === 'technical_meeting',
+                                        'bg-indigo-200/90 text-indigo-900': controls?.current_phase === 'group_drawn',
+                                        'bg-emerald-200/90 text-emerald-900': controls?.current_phase === 'scheduling',
+                                        'bg-purple-200/90 text-purple-900': controls?.current_phase === 'matchday',
+                                        'bg-amber-400/20 text-amber-300': controls?.current_phase === 'completed',
+                                    }"
+                                >
+                                    SOP Turnamen
+                                </span>
+                                <h3 class="text-xs font-black uppercase tracking-wide">
+                                    <template v-if="controls?.current_phase === 'registration'">Fase 1: Pendaftaran &amp; Screening Berkas</template>
+                                    <template v-else-if="controls?.current_phase === 'technical_meeting'">Fase 2: Technical Meeting (Siap Drawing Grup)</template>
+                                    <template v-else-if="controls?.current_phase === 'group_drawn'">Fase 3: Penataan Grup Selesai (Menunggu Kunci Grup)</template>
+                                    <template v-else-if="controls?.current_phase === 'scheduling'">Fase 4: Grup Terkunci Resmi (Siap Rilis Jadwal Pertandingan)</template>
+                                    <template v-else-if="controls?.current_phase === 'matchday'">Fase 5: Matchday &amp; Pertandingan Berlangsung</template>
+                                    <template v-else>Fase 6: Turnamen Selesai &amp; E-Sertifikat Siap Dirilis</template>
+                                </h3>
+                            </div>
+                            <p class="text-xs leading-relaxed" :class="controls?.current_phase === 'completed' ? 'text-slate-300' : 'text-slate-700'">
+                                <template v-if="controls?.current_phase === 'registration'">
+                                    Pendaftaran kompetisi masih <strong>OPEN</strong> (slot terisi: {{ event.occupied_slots }} / {{ event.max_teams }} tim).
+                                    Undian grup, kunci grup, dan jadwal pertandingan <strong>terkunci</strong> demi integritas kompetisi. Gunakan tab <strong>Pengumuman &amp; Technical Meeting</strong> untuk mengumumkan jadwal TM kepada para manajer tim.
+                                </template>
+                                <template v-else-if="controls?.current_phase === 'technical_meeting'">
+                                    Kuota tim telah terpenuhi atau pendaftaran resmi ditutup. Silakan lakukan <strong>Undian Grup (Drawing)</strong> bersama perwakilan manajer tim pada sesi Technical Meeting.
+                                </template>
+                                <template v-else-if="controls?.current_phase === 'group_drawn'">
+                                    Undian grup telah selesai. Anda dapat menyesuaikan tim antar-grup jika diperlukan, lalu tekan tombol <strong>Kunci Grup</strong> untuk membekukan grup sebelum jadwal pertandingan dibuat.
+                                </template>
+                                <template v-else-if="controls?.current_phase === 'scheduling'">
+                                    Pembagian grup telah resmi dikunci. Anda kini dapat men-generate jadwal pertandingan fase grup (Round-Robin) secara otomatis.
+                                </template>
+                                <template v-else-if="controls?.current_phase === 'matchday'">
+                                    Pertandingan turnamen sedang berlangsung (sisa {{ controls?.uncompleted_matches_count }} laga). Input skor akhir, pencetak gol, dan kartu disiplin pada setiap kartu pertandingan.
+                                </template>
+                                <template v-else>
+                                    Seluruh rangkaian pertandingan turnamen telah selesai. Anda dapat menetapkan predikat juara dan merilis E-Sertifikat digital resmi kepada para manajer tim.
+                                </template>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 self-start md:self-center shrink-0">
+                        <span class="text-[11px] font-mono font-bold px-2.5 py-1 rounded-lg bg-black/10">
+                            Tim Sah: {{ eligibleTeams.length }} / {{ event.max_teams }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
             <!-- Tab Navigation Bar -->
             <div class="frosted-card p-1.5 flex items-center gap-1 overflow-x-auto">
                 <button
@@ -415,10 +506,18 @@ const filteredMatches = computed(() => {
                         <button
                             type="button"
                             class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all border inline-flex items-center gap-1.5 shadow-2xs"
-                            :class="event.is_group_locked
-                                ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
-                                : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'"
-                            @click="toggleGroupLock"
+                            :disabled="!controls?.can_toggle_group_lock"
+                            :class="[
+                                !controls?.can_toggle_group_lock
+                                    ? 'opacity-50 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200'
+                                    : (
+                                        event.is_group_locked
+                                            ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100 cursor-pointer'
+                                            : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200 cursor-pointer'
+                                    )
+                            ]"
+                            :title="controls?.lock_block_reason || (event.is_group_locked ? 'Buka Kunci Pembagian Grup' : 'Kunci Pembagian Grup Resmi')"
+                            @click="controls?.can_toggle_group_lock && toggleGroupLock()"
                         >
                             <svg v-if="event.is_group_locked" class="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -431,10 +530,11 @@ const filteredMatches = computed(() => {
 
                         <button
                             type="button"
-                            class="btn-pitch text-xs inline-flex items-center gap-1.5"
-                            :disabled="event.is_group_locked"
-                            :class="{ 'opacity-50 cursor-not-allowed': event.is_group_locked }"
-                            @click="!event.is_group_locked && (showDrawModal = true)"
+                            class="btn-pitch text-xs inline-flex items-center gap-1.5 transition-all"
+                            :disabled="!controls?.can_draw_groups"
+                            :class="{ 'opacity-50 cursor-not-allowed': !controls?.can_draw_groups }"
+                            :title="controls?.draw_block_reason || 'Undi penempatan grup'"
+                            @click="controls?.can_draw_groups && (showDrawModal = true)"
                         >
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -450,12 +550,20 @@ const filteredMatches = computed(() => {
                     </div>
                     <h3 class="text-sm font-bold text-slate-800">Belum Ada Grup yang Dibentuk</h3>
                     <p class="text-xs text-slate-500 max-w-md mx-auto">
-                        Klik tombol "Undi &amp; Bentuk Grup Otomatis" di atas untuk membagi tim yang telah lolos verifikasi berkas secara acak dan adil ke dalam grup.
+                        <template v-if="controls?.is_registration_open">
+                            Pendaftaran tim masih berlangsung ({{ event.occupied_slots }}/{{ event.max_teams }} tim). Sesi undian grup baru dapat dibuka setelah pendaftaran penuh atau resmi ditutup pada Technical Meeting.
+                        </template>
+                        <template v-else>
+                            Klik tombol "Undi &amp; Bentuk Grup Otomatis" di atas untuk membagi tim yang telah lolos verifikasi berkas secara acak dan adil ke dalam grup.
+                        </template>
                     </p>
                     <button
                         type="button"
-                        class="btn-secondary text-xs inline-flex items-center gap-1.5"
-                        @click="showDrawModal = true"
+                        class="btn-secondary text-xs inline-flex items-center gap-1.5 transition-all"
+                        :disabled="!controls?.can_draw_groups"
+                        :class="{ 'opacity-50 cursor-not-allowed': !controls?.can_draw_groups }"
+                        :title="controls?.draw_block_reason || 'Mulai drawing grup'"
+                        @click="controls?.can_draw_groups && (showDrawModal = true)"
                     >
                         Mulai Drawing Sekarang
                     </button>
@@ -558,8 +666,11 @@ const filteredMatches = computed(() => {
                         <button
                             v-if="groups.length > 0"
                             type="button"
-                            class="btn-secondary text-xs inline-flex items-center gap-1.5"
-                            @click="showGenMatchesModal = true"
+                            class="btn-secondary text-xs inline-flex items-center gap-1.5 transition-all"
+                            :disabled="!controls?.can_generate_group_matches"
+                            :class="{ 'opacity-50 cursor-not-allowed': !controls?.can_generate_group_matches }"
+                            :title="controls?.group_matches_block_reason || 'Generate jadwal Round-Robin'"
+                            @click="controls?.can_generate_group_matches && (showGenMatchesModal = true)"
                         >
                             <svg class="w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -569,8 +680,15 @@ const filteredMatches = computed(() => {
                         <button
                             v-if="groups.length > 0"
                             type="button"
-                            class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-orange-300 bg-orange-50 text-orange-950 hover:bg-orange-100 inline-flex items-center gap-1.5 shadow-2xs"
-                            @click="showKnockoutModal = true"
+                            class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-orange-300 bg-orange-50 text-orange-950 inline-flex items-center gap-1.5 shadow-2xs"
+                            :disabled="!controls?.can_generate_knockout"
+                            :class="[
+                                !controls?.can_generate_knockout
+                                    ? 'opacity-50 cursor-not-allowed'
+                                    : 'hover:bg-orange-100 cursor-pointer'
+                            ]"
+                            :title="controls?.knockout_block_reason || 'Generate babak gugur dari tim lolos grup'"
+                            @click="controls?.can_generate_knockout && (showKnockoutModal = true)"
                         >
                             <svg class="w-4 h-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -588,6 +706,15 @@ const filteredMatches = computed(() => {
                             Tambah Pertandingan Manual
                         </button>
                     </div>
+                </div>
+
+                <div v-if="!event.is_group_locked && groups.length > 0" class="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2.5">
+                    <svg class="w-5 h-5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span>
+                        <strong>Peringatan Jadwal:</strong> Pembagian grup belum dikunci resmi. Pastikan drawing pada sesi Technical Meeting sudah final dan grup dikunci sebelum menyusun jadwal pertandingan agar urutan tim tidak berubah.
+                    </span>
                 </div>
 
                 <!-- Stage Filter -->
@@ -929,10 +1056,18 @@ const filteredMatches = computed(() => {
                         <button
                             type="button"
                             class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all border inline-flex items-center gap-1.5 shadow-2xs"
-                            :class="event.certificates_released
-                                ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700'
-                                : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'"
-                            @click="toggleCertificateRelease"
+                            :disabled="!controls?.can_release_certificates && !event.certificates_released"
+                            :class="[
+                                (!controls?.can_release_certificates && !event.certificates_released)
+                                    ? 'opacity-50 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200'
+                                    : (
+                                        event.certificates_released
+                                            ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700 cursor-pointer'
+                                            : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200 cursor-pointer'
+                                    )
+                            ]"
+                            :title="controls?.certificates_block_reason || (event.certificates_released ? 'Tutup Akses E-Sertifikat' : 'Rilis E-Sertifikat untuk Manajer Tim')"
+                            @click="(controls?.can_release_certificates || event.certificates_released) && toggleCertificateRelease()"
                         >
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
