@@ -3,6 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Event;
+use App\Models\Payment;
+use App\Models\Player;
+use App\Models\PlayerDocument;
 use App\Models\Team;
 use App\Models\User;
 use App\Modules\Simulation\SimulationService;
@@ -203,6 +206,73 @@ class SimulationModuleTest extends TestCase
                 $this->assertTrue($player->is_locked);
             }
         }
+    }
+
+    public function test_simulation_delete_team_purges_team_payments_and_restores_quota(): void
+    {
+        $service = app(SimulationService::class);
+
+        // 1. Register team
+        $team = $service->simulateRegisterTeam($this->event);
+        $this->assertEquals(1, Team::count());
+        $this->assertEquals(1, $this->event->fresh()->occupiedSlotsCount());
+
+        // 2. Pay team (creates payment and proof file)
+        $payment = $service->simulateManagerPayment($team, instantSettle: true);
+        $this->assertEquals(1, Payment::count());
+        $this->assertEquals('paid', $payment->status);
+
+        // 3. Fill roster (creates players and documents)
+        $service->simulateFillRosterAndDocuments($team, autoSubmit: true);
+        $this->assertGreaterThan(0, Player::count());
+        $this->assertGreaterThan(0, PlayerDocument::count());
+
+        // 4. Delete team via simulation endpoint
+        $response = $this->actingAs($this->superadmin)
+            ->post(route('simulation.delete-team'), [
+                'team_id' => $team->id,
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        // Verify team and all related payments, players, documents are permanently purged
+        $this->assertEquals(0, Team::withTrashed()->count());
+        $this->assertEquals(0, Payment::withTrashed()->count());
+        $this->assertEquals(0, Player::withTrashed()->count());
+        $this->assertEquals(0, PlayerDocument::count());
+
+        // Verify event quota was restored
+        $this->assertEquals(0, $this->event->fresh()->occupiedSlotsCount());
+    }
+
+    public function test_simulation_delete_all_teams_in_event_purges_all_and_resets_quota(): void
+    {
+        $this->event->update(['max_teams' => 3]);
+
+        // Inject 3 teams
+        $this->actingAs($this->superadmin)
+            ->post(route('simulation.fill-event-slots'), [
+                'event_id' => $this->event->id,
+            ]);
+
+        $this->assertEquals(3, Team::where('event_id', $this->event->id)->count());
+        $this->assertEquals(3, Payment::where('event_id', $this->event->id)->count());
+        $this->assertEquals(3, $this->event->fresh()->occupiedSlotsCount());
+
+        // Now delete all teams in this event
+        $response = $this->actingAs($this->superadmin)
+            ->post(route('simulation.delete-all-teams'), [
+                'event_id' => $this->event->id,
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        // Verify all teams and payments in this event are purged
+        $this->assertEquals(0, Team::where('event_id', $this->event->id)->withTrashed()->count());
+        $this->assertEquals(0, Payment::where('event_id', $this->event->id)->withTrashed()->count());
+        $this->assertEquals(0, $this->event->fresh()->occupiedSlotsCount());
     }
 }
 

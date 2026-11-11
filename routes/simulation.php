@@ -14,5 +14,7 @@ Route::middleware('web')->prefix('simulation')->name('simulation.')->group(funct
     Route::post('/fast-forward-team', [SimulationController::class, 'fastForwardFullTeam'])->name('fast-forward-team');
     Route::post('/fill-event-slots', [SimulationController::class, 'fillEventSlots'])->name('fill-event-slots');
     Route::post('/bulk-approve-lock-all', [SimulationController::class, 'bulkApproveAndLockAll'])->name('bulk-approve-lock-all');
+    Route::post('/delete-team', [SimulationController::class, 'deleteTeam'])->name('delete-team');
+    Route::post('/delete-all-teams', [SimulationController::class, 'deleteAllTeamsInEvent'])->name('delete-all-teams');
 });
 

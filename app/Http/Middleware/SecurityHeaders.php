@@ -31,8 +31,8 @@ class SecurityHeaders
             $headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
         }
 
-        // Lewati CSP saat Vite dev server (HMR) aktif agar pengembangan lokal tidak terblokir.
-        if (! file_exists(public_path('hot'))) {
+        // Lewati CSP saat Vite dev server (HMR) aktif agar pengembangan lokal tidak terblokir (kecuali saat unit test).
+        if (! file_exists(public_path('hot')) || app()->runningUnitTests()) {
             $headers->set('Content-Security-Policy', $this->contentSecurityPolicy($nonce));
         }
 

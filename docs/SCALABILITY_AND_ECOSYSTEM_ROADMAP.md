@@ -194,3 +194,4 @@ Platform **YTEvent** saat ini telah memiliki fondasi teknis yang solid, aman, da
 1. **Langkah Terdekat**: Lakukan go-live turnamen pertama dengan konfigurasi cPanel produksi yang telah disiapkan.
 2. **Setelah Event Pertama Berjalan**: Aktifkan fitur *Watermarking Dokumen Anak* dan *Player Career Passport* untuk mengunci nilai strategis data pemain bagi Persija Development.
 3. **Saat Menjelang Event Berskala Nasional**: Lakukan migrasi penyimpanan ke Cloudflare R2 dan pasang caching Redis untuk menjamin kecepatan tanpa batas.
+

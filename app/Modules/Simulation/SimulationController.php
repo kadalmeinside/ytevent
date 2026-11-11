@@ -264,6 +264,62 @@ class SimulationController extends Controller
         return redirect()->back()->with('success', '[SIMULASI] ' . $result['message']);
     }
 
+    /**
+     * 9. Simulasi Hapus Bersih Tim Terdaftar (Beserta Tagihan, Pembayaran, Berkas & Pemain).
+     */
+    public function deleteTeam(Request $request): RedirectResponse
+    {
+        $this->ensureSimulationEnabled();
+
+        $team = $this->resolveTargetTeam($request);
+        if (! $team) {
+            return redirect()->back()->with('error', '[SIMULASI] Pilih tim yang ingin dihapus terlebih dahulu.');
+        }
+
+        $teamName = $team->name;
+        $teamId = $team->id;
+        $managerId = $team->user_id;
+
+        $this->simulationService->purgeTeam($team);
+
+        if ($request->session()->get('active_manager_team_id') == $teamId) {
+            $request->session()->forget('active_manager_team_id');
+        }
+
+        // Jika user yang sedang login adalah manajer tim yang dihapus, logout dan alihkan ke beranda
+        if (Auth::id() === $managerId && ! Auth::user()?->hasAnyRole(['superadmin', 'finance', 'screening_officer'])) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->route('home')
+                ->with('success', "[SIMULASI] Tim '{$teamName}' beserta seluruh tagihan, bukti pembayaran, dan berkas pemain telah dihapus bersih. Slot kuota event dibuka kembali.");
+        }
+
+        return redirect()->back()
+            ->with('success', "[SIMULASI] Tim '{$teamName}' (#{$teamId}) beserta seluruh data tagihan/pembayaran dan berkas pemain telah dihapus bersih dari sistem!");
+    }
+
+    /**
+     * 10. Simulasi Hapus Bersih Seluruh Tim Terdaftar pada Suatu Event.
+     */
+    public function deleteAllTeamsInEvent(Request $request): RedirectResponse
+    {
+        $this->ensureSimulationEnabled();
+
+        $event = $this->resolveTargetEvent($request);
+        if (! $event) {
+            return redirect()->back()->with('error', '[SIMULASI] Pilih event target terlebih dahulu.');
+        }
+
+        $count = $this->simulationService->purgeAllTeamsInEvent($event);
+
+        $request->session()->forget('active_manager_team_id');
+
+        return redirect()->back()
+            ->with('success', "[SIMULASI] Sebanyak {$count} tim terdaftar pada kompetisi '{$event->name}' beserta seluruh data pembayaran dan berkasnya telah dihapus bersih. Kuota event kembali kosong (0 tim).");
+    }
+
     protected function resolveTargetEvent(Request $request): ?Event
     {
         if ($eventId = $request->input('event_id')) {

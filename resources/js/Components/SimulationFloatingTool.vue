@@ -80,6 +80,32 @@ const toggleSimulationMode = (enabledState) => {
     runSimAction('simulation.toggle', { enabled: enabledState });
 };
 
+const confirmDeleteTeam = () => {
+    if (!selectedTeamId.value) return;
+    const currentTeam = simCtx.value?.teams?.find((t) => t.id === Number(selectedTeamId.value));
+    const teamName = currentTeam ? currentTeam.name : `#${selectedTeamId.value}`;
+    if (
+        window.confirm(
+            `Yakin ingin menghapus permanen tim "${teamName}" beserta seluruh invoice, bukti pembayaran, pemain, dan berkasnya?\n\nSlot kuota pendaftaran kompetisi akan otomatis terbuka kembali.`
+        )
+    ) {
+        runSimAction('simulation.delete-team', { team_id: selectedTeamId.value });
+    }
+};
+
+const confirmDeleteAllTeams = () => {
+    if (!selectedEventId.value) return;
+    const currentEvent = simCtx.value?.events?.find((e) => e.id === Number(selectedEventId.value));
+    const eventName = currentEvent ? currentEvent.name : `#${selectedEventId.value}`;
+    if (
+        window.confirm(
+            `PERINGATAN: Yakin ingin menghapus SELURUH tim terdaftar pada kompetisi "${eventName}" beserta seluruh data pembayaran dan pemainnya?\n\nKuota kompetisi akan kembali kosong (0 tim).`
+        )
+    ) {
+        runSimAction('simulation.delete-all-teams', { event_id: selectedEventId.value });
+    }
+};
+
 /**
  * Jika pengguna berada di halaman form pendaftaran (/events/{slug}/register),
  * kita juga menyediakan pengisi form cepat di sisi klien selain 1-klik server-side.
@@ -341,7 +367,58 @@ const fillCurrentDomFormIfPresent = () => {
                     </div>
                 </div>
 
-                <!-- BAGIAN 4: MATIKAN SEMENTARA FITUR SIMULASI -->
+                <!-- BAGIAN 4: BERSIHKAN / RESET DATA SIMULASI (DANGER ZONE) -->
+                <div class="space-y-1.5 pt-2 border-t border-slate-800">
+                    <div class="flex items-center justify-between">
+                        <p class="text-[10px] font-extrabold uppercase tracking-wider text-rose-400">
+                            4. Hapus / Reset Tim &amp; Pembayaran
+                        </p>
+                        <span class="text-[9px] text-rose-300/80 font-mono font-bold">DANGER ZONE</span>
+                    </div>
+
+                    <!-- HAPUS TIM TERPILIH BESERTA PEMBAYARAN -->
+                    <button
+                        type="button"
+                        class="w-full text-left px-3 py-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 text-white flex items-center justify-between gap-2 transition-all cursor-pointer group"
+                        :disabled="isBusy || !selectedTeamId"
+                        @click="confirmDeleteTeam"
+                    >
+                        <div>
+                            <span class="font-bold text-rose-200 group-hover:text-white block">
+                                Hapus Tim Terpilih &amp; Data Pembayarannya
+                            </span>
+                            <span class="text-[10px] text-rose-300/70 block mt-0.5">
+                                Hapus permanen invoice, bukti bayar, pemain &amp; buka slot kuota
+                            </span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-black bg-rose-600/90 text-white shrink-0">
+                            HAPUS TIM
+                        </span>
+                    </button>
+
+                    <!-- RESET SELURUH TIM DI EVENT -->
+                    <button
+                        v-if="simCtx.events?.length"
+                        type="button"
+                        class="w-full text-left px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-rose-950/40 border border-slate-700 hover:border-rose-800/60 text-slate-300 hover:text-rose-200 flex items-center justify-between gap-2 transition-all cursor-pointer group"
+                        :disabled="isBusy || !selectedEventId"
+                        @click="confirmDeleteAllTeams"
+                    >
+                        <div>
+                            <span class="font-bold text-slate-200 group-hover:text-rose-200 block">
+                                Kosongkan Semua Tim di Event Ini
+                            </span>
+                            <span class="text-[10px] text-slate-400 group-hover:text-rose-300/70 block mt-0.5">
+                                Hapus semua tim &amp; seluruh pembayaran event (Reset Kuota 0)
+                            </span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-black bg-slate-700 group-hover:bg-rose-700 text-white shrink-0">
+                            RESET ALL
+                        </span>
+                    </button>
+                </div>
+
+                <!-- BAGIAN 5: MATIKAN SEMENTARA FITUR SIMULASI -->
                 <div class="pt-2 border-t border-slate-800 flex items-center justify-between gap-2 text-[11px]">
                     <span class="text-slate-400">Sembunyikan tombol simulasi?</span>
                     <button

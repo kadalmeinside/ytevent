@@ -652,5 +652,116 @@ class SimulationService
             'message' => "Berhasil mengesahkan {$playersVerified} pemain dan mengunci final {$teamsLocked} tim pada kompetisi '{$event->name}'. Seluruh skuad kini SAH & siap untuk turnamen!",
         ];
     }
+
+    /**
+     * 9. Simulasi Hapus Bersih Tim Terdaftar (Beserta Tagihan, Pembayaran, Berkas, Pemain & Buka Kuota).
+     */
+    public function purgeTeam(Team $team): array
+    {
+        $event = $team->event;
+        $teamId = $team->id;
+        $teamName = $team->name;
+        $manager = $team->manager;
+
+        DB::transaction(function () use ($team, $event, $manager) {
+            // 1. Hapus berkas fisik logo tim
+            if ($team->logo_path) {
+                Storage::disk('public')->delete($team->logo_path);
+            }
+
+            // 2. Hapus berkas dan data pembayaran (force delete)
+            foreach ($team->payments()->withTrashed()->get() as $payment) {
+                if ($payment->proof_file_path) {
+                    Storage::disk('private')->delete($payment->proof_file_path);
+                }
+                $payment->forceDelete();
+            }
+
+            // 3. Hapus berkas fisik & data pemain beserta dokumennya
+            $playerIds = $team->players()->withTrashed()->pluck('id');
+            if ($playerIds->isNotEmpty()) {
+                foreach (PlayerDocument::whereIn('player_id', $playerIds)->get() as $doc) {
+                    if ($doc->file_path) {
+                        Storage::disk('private')->delete($doc->file_path);
+                    }
+                    $doc->delete();
+                }
+                DB::table('screening_logs')->whereIn('player_id', $playerIds)->delete();
+            }
+
+            foreach ($team->players()->withTrashed()->get() as $player) {
+                if ($player->photo_path) {
+                    Storage::disk('public')->delete($player->photo_path);
+                }
+                $player->forceDelete();
+            }
+
+            // 4. Hapus ofisial tim & berkasnya
+            foreach ($team->officials()->withTrashed()->get() as $official) {
+                if ($official->license_file_path) {
+                    Storage::disk('private')->delete($official->license_file_path);
+                }
+                if ($official->photo_path) {
+                    Storage::disk('public')->delete($official->photo_path);
+                }
+                $official->forceDelete();
+            }
+
+            // 5. Bersihkan data turnamen & pertandingan (jika ada)
+            DB::table('match_lineups')->where('team_id', $team->id)->delete();
+            DB::table('match_events')->where('team_id', $team->id)->delete();
+            DB::table('event_group_teams')->where('team_id', $team->id)->delete();
+            DB::table('tournament_matches')->where('home_team_id', $team->id)->update(['home_team_id' => null]);
+            DB::table('tournament_matches')->where('away_team_id', $team->id)->update(['away_team_id' => null]);
+            DB::table('screening_logs')->where('team_id', $team->id)->delete();
+            DB::table('email_notification_logs')->where('team_id', $team->id)->delete();
+
+            // 6. Force delete tim
+            $team->forceDelete();
+
+            // 7. Bersihkan akun manajer jika tidak mengelola tim lain dan bukan staf internal
+            if ($manager && ! $manager->hasAnyRole(['superadmin', 'finance', 'screening_officer'])) {
+                if ($manager->teams()->count() === 0) {
+                    $manager->forceDelete();
+                }
+            }
+
+            // 8. Sinkronisasi kuota event
+            if ($event) {
+                $lockedEvent = Event::whereKey($event->id)->lockForUpdate()->first();
+                if ($lockedEvent) {
+                    $lockedEvent->syncQuotaStatus();
+                }
+            }
+        });
+
+        return [
+            'id' => $teamId,
+            'name' => $teamName,
+            'event_id' => $event?->id,
+            'event_name' => $event?->name,
+        ];
+    }
+
+    /**
+     * 10. Simulasi Hapus Seluruh Tim Terdaftar pada Suatu Event.
+     */
+    public function purgeAllTeamsInEvent(Event $event): int
+    {
+        $teams = Team::withTrashed()->where('event_id', $event->id)->get();
+        $count = 0;
+
+        foreach ($teams as $team) {
+            $this->purgeTeam($team);
+            $count++;
+        }
+
+        $lockedEvent = Event::whereKey($event->id)->lockForUpdate()->first();
+        if ($lockedEvent) {
+            $lockedEvent->syncQuotaStatus();
+        }
+
+        return $count;
+    }
 }
 
