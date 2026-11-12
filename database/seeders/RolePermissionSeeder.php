@@ -34,6 +34,7 @@ class RolePermissionSeeder extends Seeder
             'users.manage',
             'roles.manage',
             'email_logs.manage',
+            'audit_logs.view',
             'manager.portal.access',
             'manager.team.update_own',
             'manager.payment.pay_own',
@@ -67,6 +68,7 @@ class RolePermissionSeeder extends Seeder
             'users.manage',
             'roles.manage',
             'email_logs.manage',
+            'audit_logs.view',
         ]);
 
         $financeRole->syncPermissions([
@@ -98,7 +100,7 @@ class RolePermissionSeeder extends Seeder
         $seedInternalUser = function (string $email, string $name, string $phone, string $role, string $defaultPassword) {
             $user = User::firstOrNew(['email' => $email]);
             if (! $user->exists) {
-                $configured = env('SEEDER_' . strtoupper($role) . '_PASSWORD');
+                $configured = env('SEEDER_'.strtoupper($role).'_PASSWORD');
                 $plain = $configured ?: $defaultPassword;
 
                 if (app()->isProduction() && ! $configured) {
@@ -165,4 +167,3 @@ class RolePermissionSeeder extends Seeder
         );
     }
 }
-

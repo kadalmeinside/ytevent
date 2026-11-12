@@ -106,7 +106,7 @@ class TournamentController extends Controller
             'away_team_name' => $m->awayTeam?->name ?? 'TBD',
             'away_jersey_color' => $m->awayTeam?->away_jersey_color ?: $m->awayTeam?->home_jersey_color,
             'kickoff_at' => $m->kickoff_at?->format('Y-m-d\TH:i'),
-            'kickoff_formatted' => $m->kickoff_at?->translatedFormat('d M Y, H:i') . ($m->kickoff_at ? ' WIB' : ''),
+            'kickoff_formatted' => $m->kickoff_at?->translatedFormat('d M Y, H:i').($m->kickoff_at ? ' WIB' : ''),
             'pitch_name' => $m->pitch_name,
             'status' => $m->status,
             'status_label' => TournamentMatch::STATUSES[$m->status] ?? $m->status,
@@ -714,7 +714,7 @@ class TournamentController extends Controller
         // Jika input berupa URL penuh (misal hasil scan QR: https://.../verify/player/YT-E01-...)
         if (str_contains($raw, '/verify/official/')) {
             $parts = explode('/verify/official/', $raw);
-            $raw = trim( explode('?', end($parts))[0], '/');
+            $raw = trim(explode('?', end($parts))[0], '/');
         } elseif (str_contains($raw, '/verify/player/')) {
             $parts = explode('/verify/player/', $raw);
             $raw = trim(explode('?', end($parts))[0], '/');
@@ -722,10 +722,16 @@ class TournamentController extends Controller
 
         $code = strtoupper($raw);
 
-        // Cek apakah kode Ofisial (OFF-0001)
+        // Kode official publik memakai token acak; fallback ID lama hanya untuk scanner internal.
         if (str_starts_with($code, 'OFF-')) {
-            $officialId = (int) substr($code, 4);
-            $official = TeamOfficial::with(['team.event'])->find($officialId);
+            $official = TeamOfficial::with(['team.event'])
+                ->where('accreditation_code', $code)
+                ->first();
+
+            if (! $official && preg_match('/^OFF-\d+$/', $code)) {
+                $official = TeamOfficial::with(['team.event'])
+                    ->find((int) substr($code, 4));
+            }
 
             if (! $official || ! $official->team) {
                 return response()->json([
@@ -750,7 +756,7 @@ class TournamentController extends Controller
                 'event_name' => $official->team->event?->name,
                 'age_category' => $official->team->event?->age_category,
                 'photo_url' => $official->photo_path
-                    ? route('public.official.verify.photo', ['code' => $code])
+                    ? route('private.official-photo', ['official' => $official->id])
                     : null,
                 'status_label' => $isEligible ? 'OFISIAL SAH & LAYAK DAMPING BENCH' : 'OFISIAL TIDAK AKTIF / DITOLAK',
             ]);
@@ -787,7 +793,7 @@ class TournamentController extends Controller
             'event_name' => $player->team->event?->name,
             'age_category' => $player->team->event?->age_category,
             'photo_url' => $player->photo_path
-                ? route('public.player.verify.photo', ['code' => $player->accreditation_code])
+                ? route('private.player-photo', ['player' => $player->id])
                 : null,
             'is_suspended' => $disciplinary['is_suspended'],
             'suspension_reason' => $disciplinary['reason'],
@@ -799,4 +805,3 @@ class TournamentController extends Controller
         ]);
     }
 }
-

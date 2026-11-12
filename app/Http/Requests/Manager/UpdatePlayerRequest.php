@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests\Manager;
 
-use App\Models\Event;
 use App\Models\Player;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\File;
 use Illuminate\Validation\Validator;
 
 class UpdatePlayerRequest extends StorePlayerRequest
@@ -50,7 +50,7 @@ class UpdatePlayerRequest extends StorePlayerRequest
                 : 'string',
         ];
 
-        $rules['photo'] = ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:2048'];
+        $rules['photo'] = ['nullable', File::image()->max(2048), 'mimes:jpg,jpeg,png'];
 
         return $rules;
     }
@@ -66,4 +66,3 @@ class UpdatePlayerRequest extends StorePlayerRequest
         ];
     }
 }
-

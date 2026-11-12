@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\EmailNotificationLog;
 use App\Models\Event;
 use App\Models\Payment;
 use App\Models\Team;
@@ -18,7 +17,8 @@ use Illuminate\Validation\ValidationException;
 class TeamRegistrationService
 {
     public function __construct(
-        protected QuotaExpirationService $quotaExpiration
+        protected QuotaExpirationService $quotaExpiration,
+        protected ImageOptimizationService $imageOptimization
     ) {}
 
     public function registerNewTeam(
@@ -27,10 +27,10 @@ class TeamRegistrationService
         UploadedFile $logoFile,
         ?User $authenticatedUser = null
     ): Team {
-        $logoPath = $logoFile->store('teams/logos', 'public');
+        $logo = $this->imageOptimization->storeWithOptimizedVariant($logoFile, 'teams/logos', 'public', 1200, 85);
 
         try {
-            $result = DB::transaction(function () use ($event, $validated, $logoPath, $authenticatedUser) {
+            $result = DB::transaction(function () use ($event, $validated, $logo, $authenticatedUser) {
                 $lockedEvent = Event::query()->whereKey($event->id)->lockForUpdate()->firstOrFail();
 
                 // 1. Lazy Expiration Sweep agar slot yang baru saja lewat expires_at langsung tersedia
@@ -119,14 +119,15 @@ class TeamRegistrationService
                 $isFree = ((float) $lockedEvent->registration_fee) <= 0;
 
                 $baseSlug = Str::slug($validated['team_name']);
-                $slug = $baseSlug . '-' . Str::lower(Str::random(5));
+                $slug = $baseSlug.'-'.Str::lower(Str::random(5));
 
                 $team = Team::create([
                     'event_id' => $lockedEvent->id,
                     'user_id' => $managerUser->id,
                     'name' => trim($validated['team_name']),
                     'slug' => $slug,
-                    'logo_path' => $logoPath,
+                    'logo_path' => $logo['original_path'],
+                    'logo_optimized_path' => $logo['optimized_path'],
                     'origin_association' => trim($validated['origin_association']),
                     'secretariat_address' => $validated['secretariat_address'] ?? null,
                     'manager_name' => trim($validated['manager_name']),
@@ -182,12 +183,18 @@ class TeamRegistrationService
                 ];
             });
         } catch (\Throwable $e) {
-            Storage::disk('public')->delete($logoPath);
+            Storage::disk('public')->delete(array_unique([
+                $logo['original_path'],
+                $logo['optimized_path'],
+            ]));
             throw $e;
         }
 
         if (! $result['ok']) {
-            Storage::disk('public')->delete($logoPath);
+            Storage::disk('public')->delete(array_unique([
+                $logo['original_path'],
+                $logo['optimized_path'],
+            ]));
             throw ValidationException::withMessages([
                 $result['field'] => $result['message'],
             ]);
@@ -280,7 +287,7 @@ class TeamRegistrationService
     public function generateInvoiceNumber(Event $lockedEvent): string
     {
         $year = now()->format('Y');
-        $evtCode = 'EVT' . str_pad((string) $lockedEvent->id, 2, '0', STR_PAD_LEFT);
+        $evtCode = 'EVT'.str_pad((string) $lockedEvent->id, 2, '0', STR_PAD_LEFT);
         $seq = Payment::withTrashed()->where('event_id', $lockedEvent->id)->count() + 1;
 
         do {
@@ -292,4 +299,3 @@ class TeamRegistrationService
         return $candidate;
     }
 }
-

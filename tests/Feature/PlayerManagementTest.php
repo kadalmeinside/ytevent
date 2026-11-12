@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Event;
 use App\Models\Payment;
 use App\Models\Player;
-use App\Models\PlayerDocument;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -15,9 +14,13 @@ use Tests\TestCase;
 class PlayerManagementTest extends TestCase
 {
     protected Event $event;
+
     protected User $managerA;
+
     protected Team $teamA;
+
     protected User $managerB;
+
     protected Team $teamB;
 
     protected function setUp(): void
@@ -162,7 +165,9 @@ class PlayerManagementTest extends TestCase
 
         $player = Player::where('full_name', 'Budi Pratama')->first();
         $this->assertNotEmpty($player->photo_path);
+        $this->assertNotEmpty($player->photo_optimized_path);
         Storage::disk('private')->assertExists($player->photo_path);
+        Storage::disk('private')->assertExists($player->photo_optimized_path);
     }
 
     public function test_age_cut_off_filter_rejects_ineligible_birth_dates(): void
@@ -375,4 +380,3 @@ class PlayerManagementTest extends TestCase
         $photoAllowed->assertOk();
     }
 }
-

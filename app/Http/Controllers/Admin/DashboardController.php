@@ -8,8 +8,10 @@ use App\Models\Event;
 use App\Models\Payment;
 use App\Models\Player;
 use App\Models\Team;
+use App\Models\WebhookLog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
@@ -54,6 +56,8 @@ class DashboardController extends Controller
                 'ready_to_lock_teams_count' => Team::query()->where('status', 'active')->where('screening_status', 'all_passed')->count(),
                 'locked_teams_count' => Team::query()->where('status', 'locked_roster')->count(),
                 'failed_emails_count' => EmailNotificationLog::query()->where('status', 'failed')->count(),
+                'failed_webhooks_count' => WebhookLog::query()->where('status', 'failed')->count(),
+                'failed_jobs_count' => DB::table('failed_jobs')->count(),
             ],
             'eventsOverview' => $events,
         ]);
@@ -82,5 +86,3 @@ class DashboardController extends Controller
         return redirect()->back()->with('success', 'Kata sandi akun panitia Anda berhasil diperbarui.');
     }
 }
-
-

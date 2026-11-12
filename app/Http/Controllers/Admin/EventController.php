@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreEventRequest;
 use App\Http\Requests\Admin\UpdateEventRequest;
 use App\Models\Event;
+use App\Services\ImageOptimizationService;
 use App\Services\QuotaExpirationService;
+use App\Support\HtmlSanitizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -17,6 +19,10 @@ use Inertia\Response;
 
 class EventController extends Controller
 {
+    public function __construct(
+        protected ImageOptimizationService $imageOptimization
+    ) {}
+
     public function index(): Response
     {
         $this->authorize('viewAny', Event::class);
@@ -107,8 +113,8 @@ class EventController extends Controller
             $counter++;
         }
 
-        $bannerPath = $request->hasFile('banner_file')
-            ? $request->file('banner_file')->store('events/banners', 'public')
+        $banner = $request->hasFile('banner_file')
+            ? $this->imageOptimization->storeWithOptimizedVariant($request->file('banner_file'), 'events/banners', 'public', 1600, 85)
             : null;
 
         $pdfPath = $request->hasFile('regulation_pdf')
@@ -118,7 +124,8 @@ class EventController extends Controller
         $event = Event::create([
             'name' => trim($validated['name']),
             'slug' => $slug,
-            'banner_path' => $bannerPath,
+            'banner_path' => $banner['original_path'] ?? null,
+            'banner_optimized_path' => $banner['optimized_path'] ?? null,
             'short_description' => $this->sanitizeDescription($validated['short_description'] ?? null),
             'venue_name' => trim($validated['venue_name']),
             'venue_maps_url' => ! empty($validated['venue_maps_url']) ? trim($validated['venue_maps_url']) : null,
@@ -262,11 +269,15 @@ class EventController extends Controller
             ];
 
             if ($request->hasFile('banner_file')) {
-                $newBanner = $request->file('banner_file')->store('events/banners', 'public');
+                $newBanner = $this->imageOptimization->storeWithOptimizedVariant($request->file('banner_file'), 'events/banners', 'public', 1600, 85);
                 if ($lockedEvent->banner_path) {
                     Storage::disk('public')->delete($lockedEvent->banner_path);
                 }
-                $updates['banner_path'] = $newBanner;
+                if ($lockedEvent->banner_optimized_path && $lockedEvent->banner_optimized_path !== $lockedEvent->banner_path) {
+                    Storage::disk('public')->delete($lockedEvent->banner_optimized_path);
+                }
+                $updates['banner_path'] = $newBanner['original_path'];
+                $updates['banner_optimized_path'] = $newBanner['optimized_path'];
             }
 
             if ($request->hasFile('regulation_pdf')) {
@@ -287,6 +298,6 @@ class EventController extends Controller
 
     protected function sanitizeDescription(?string $html): ?string
     {
-        return \App\Support\HtmlSanitizer::clean($html);
+        return HtmlSanitizer::clean($html);
     }
 }

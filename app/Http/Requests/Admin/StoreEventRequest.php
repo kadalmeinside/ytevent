@@ -5,6 +5,7 @@ namespace App\Http\Requests\Admin;
 use App\Models\Event;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\File;
 
 class StoreEventRequest extends FormRequest
 {
@@ -35,7 +36,7 @@ class StoreEventRequest extends FormRequest
             'name' => ['required', 'string', 'min:3', 'max:160'],
             'short_description' => ['nullable', 'string', 'max:20000'],
             'venue_name' => ['required', 'string', 'min:3', 'max:160'],
-            'venue_maps_url' => ['nullable', 'url', 'max:500'],
+            'venue_maps_url' => ['nullable', 'url', 'regex:/^https?:\/\//i', 'max:500'],
             'city' => ['required', 'string', 'min:2', 'max:120'],
             'format' => ['required', Rule::in(array_keys(Event::FORMATS))],
             'match_format' => ['sometimes', 'required', Rule::in(array_keys(Event::MATCH_FORMATS))],
@@ -65,8 +66,8 @@ class StoreEventRequest extends FormRequest
             'contact_person' => ['nullable', 'string', 'max:120'],
             'contact_whatsapp' => ['nullable', 'string', 'max:30'],
             'status' => ['required', Rule::in(array_keys(Event::STATUSES))],
-            'banner_file' => ['nullable', 'file', 'mimes:png,jpg,jpeg', 'max:2048'],
-            'regulation_pdf' => ['nullable', 'file', 'mimes:pdf', 'max:5120'],
+            'banner_file' => ['nullable', File::image()->max(2048), 'mimes:png,jpg,jpeg'],
+            'regulation_pdf' => ['nullable', File::types(['pdf'])->max(5120)],
         ];
     }
 
@@ -101,4 +102,3 @@ class StoreEventRequest extends FormRequest
         ];
     }
 }
-

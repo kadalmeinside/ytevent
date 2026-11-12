@@ -147,6 +147,20 @@ const triggerResync = () => {
                 </div>
             </div>
 
+            <div
+                v-if="(metrics.failed_webhooks_count || 0) > 0 || (metrics.failed_jobs_count || 0) > 0"
+                class="frosted-card p-4 border-rose-300 bg-rose-50/90 flex items-center justify-between gap-3 text-xs text-rose-900"
+            >
+                <div>
+                    <strong>Gangguan Integrasi:</strong>
+                    {{ metrics.failed_webhooks_count || 0 }} webhook gagal dan
+                    {{ metrics.failed_jobs_count || 0 }} job gagal perlu diperiksa.
+                </div>
+                <Link :href="route('admin.email-logs.index')" class="btn-sm-pitch shrink-0">
+                    Buka Monitoring
+                </Link>
+            </div>
+
             <!-- Over-quota / Refund Alert if any -->
             <div
                 v-if="metrics.refund_required_count > 0"

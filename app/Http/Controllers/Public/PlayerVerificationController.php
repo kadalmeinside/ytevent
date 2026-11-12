@@ -34,7 +34,7 @@ class PlayerVerificationController extends Controller
 
         $maskedNik = $player->nik;
         if (strlen($maskedNik) >= 16) {
-            $maskedNik = substr($maskedNik, 0, 6) . '******' . substr($maskedNik, -4);
+            $maskedNik = substr($maskedNik, 0, 6).'******'.substr($maskedNik, -4);
         }
 
         return Inertia::render('Public/PlayerVerification', [
@@ -53,15 +53,19 @@ class PlayerVerificationController extends Controller
                 'nisn' => $player->nisn ?: '-',
                 'height_cm' => $player->height_cm,
                 'weight_kg' => $player->weight_kg,
-                'photo_url' => $player->photo_path ? route('public.player.verify.photo', ['code' => $code]) : null,
+                'photo_url' => $player->photo_path
+                    ? route('public.player.verify.photo', ['code' => $code])
+                    : null,
                 'accreditation_code' => $player->accreditation_code,
-                'verified_at' => $player->verified_at ? $player->verified_at->translatedFormat('d F Y, H:i') . ' WIB' : null,
+                'verified_at' => $player->verified_at ? $player->verified_at->translatedFormat('d F Y, H:i').' WIB' : null,
                 'verified_by_name' => $player->verifiedBy?->name ?: 'Panitia Screening Resmi',
             ],
             'team' => [
                 'name' => $team->name,
                 'origin_association' => $team->origin_association,
-                'logo_url' => $team->logo_path ? asset('storage/' . $team->logo_path) : null,
+                'logo_url' => $team->logo_optimized_path
+                    ? asset('storage/'.$team->logo_optimized_path)
+                    : ($team->logo_path ? asset('storage/'.$team->logo_path) : null),
                 'manager_name' => $team->manager_name,
                 'head_coach_name' => $team->head_coach_name,
                 'is_roster_locked' => $team->isRosterLocked(),
@@ -87,14 +91,15 @@ class PlayerVerificationController extends Controller
             ->where('screening_status', 'passed')
             ->firstOrFail();
 
-        if (! $player->photo_path || ! Storage::disk('private')->exists($player->photo_path)) {
+        $photoPath = $player->photo_optimized_path ?: $player->photo_path;
+        if (! $photoPath || ! Storage::disk('private')->exists($photoPath)) {
             abort(404, 'Foto pemain tidak ditemukan.');
         }
 
-        $mime = Storage::disk('private')->mimeType($player->photo_path) ?: 'image/jpeg';
+        $mime = Storage::disk('private')->mimeType($photoPath) ?: 'image/jpeg';
 
-        return response()->stream(function () use ($player) {
-            $stream = Storage::disk('private')->readStream($player->photo_path);
+        return response()->stream(function () use ($photoPath) {
+            $stream = Storage::disk('private')->readStream($photoPath);
             if (is_resource($stream)) {
                 fpassthru($stream);
                 fclose($stream);
@@ -112,7 +117,7 @@ class PlayerVerificationController extends Controller
     {
         $official = $this->resolveOfficialByCode($code);
 
-        if (! $official || ! $official->team || in_array($official->team->status, ['disqualified', 'expired'], true) || $official->screening_status === 'rejected') {
+        if (! $official || ! $official->team || in_array($official->team->status, ['disqualified', 'expired'], true)) {
             return Inertia::render('Public/OfficialVerification', [
                 'isVerified' => false,
                 'code' => $code,
@@ -132,13 +137,17 @@ class PlayerVerificationController extends Controller
                 'role_label' => TeamOfficial::ROLES[$official->role] ?? $official->role,
                 'license_number' => $official->license_number ?: '-',
                 'screening_status' => $official->screening_status,
-                'photo_url' => $official->photo_path ? route('public.official.verify.photo', ['code' => $official->accreditation_code]) : null,
+                'photo_url' => $official->photo_path
+                    ? route('public.official.verify.photo', ['code' => $official->accreditation_code])
+                    : null,
                 'accreditation_code' => $official->accreditation_code,
             ],
             'team' => [
                 'name' => $team->name,
                 'origin_association' => $team->origin_association,
-                'logo_url' => $team->logo_path ? asset('storage/' . $team->logo_path) : null,
+                'logo_url' => $team->logo_optimized_path
+                    ? asset('storage/'.$team->logo_optimized_path)
+                    : ($team->logo_path ? asset('storage/'.$team->logo_path) : null),
                 'manager_name' => $team->manager_name,
                 'head_coach_name' => $team->head_coach_name,
                 'is_roster_locked' => $team->isRosterLocked(),
@@ -162,14 +171,15 @@ class PlayerVerificationController extends Controller
     {
         $official = $this->resolveOfficialByCode($code);
 
-        if (! $official || ! $official->photo_path || ! Storage::disk('private')->exists($official->photo_path)) {
+        $photoPath = $official?->photo_optimized_path ?: $official?->photo_path;
+        if (! $official || $official->screening_status !== 'passed' || ! $photoPath || ! Storage::disk('private')->exists($photoPath)) {
             abort(404, 'Foto ofisial tidak ditemukan.');
         }
 
-        $mime = Storage::disk('private')->mimeType($official->photo_path) ?: 'image/jpeg';
+        $mime = Storage::disk('private')->mimeType($photoPath) ?: 'image/jpeg';
 
-        return response()->stream(function () use ($official) {
-            $stream = Storage::disk('private')->readStream($official->photo_path);
+        return response()->stream(function () use ($photoPath) {
+            $stream = Storage::disk('private')->readStream($photoPath);
             if (is_resource($stream)) {
                 fpassthru($stream);
                 fclose($stream);
@@ -183,20 +193,14 @@ class PlayerVerificationController extends Controller
     protected function resolveOfficialByCode(string $code): ?TeamOfficial
     {
         $normalized = strtoupper(trim($code));
-        if (str_starts_with($normalized, 'OFF-')) {
-            $id = (int) ltrim(substr($normalized, 4), '0');
-        } elseif (ctype_digit($normalized)) {
-            $id = (int) $normalized;
-        } else {
+        if (! preg_match('/^OFF-[A-Z0-9]{24}$/', $normalized)) {
             return null;
         }
 
-        if ($id <= 0) {
-            return null;
-        }
-
-        return TeamOfficial::query()->with(['team.event'])->find($id);
+        return TeamOfficial::query()
+            ->with(['team.event'])
+            ->where('accreditation_code', $normalized)
+            ->where('screening_status', 'passed')
+            ->first();
     }
 }
-
-

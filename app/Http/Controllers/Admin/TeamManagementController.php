@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Manager\Concerns\ResolvesActiveTeam;
+use App\Models\AuditLog;
 use App\Models\Event;
 use App\Models\Player;
 use App\Models\Team;
@@ -279,8 +280,8 @@ class TeamManagementController extends Controller
             return redirect()->back()->with('error', 'Tim ini tidak sedang dalam status skuad terkunci.');
         }
 
-        $auditLine = '[UNLOCK ROSTER - ' . now()->format('d/m/Y H:i') . ' oleh ' . $request->user()->name . ']: ' . trim($validated['reason']);
-        $updatedNotes = trim(($team->admin_notes ? $team->admin_notes . "\n" : '') . $auditLine);
+        $auditLine = '[UNLOCK ROSTER - '.now()->format('d/m/Y H:i').' oleh '.$request->user()->name.']: '.trim($validated['reason']);
+        $updatedNotes = trim(($team->admin_notes ? $team->admin_notes."\n" : '').$auditLine);
 
         $team->update([
             'status' => 'active',
@@ -301,8 +302,8 @@ class TeamManagementController extends Controller
 
         $this->accreditationService->lockRoster($team, $request->user());
 
-        $auditLine = '[FORCE LOCK ROSTER - ' . now()->format('d/m/Y H:i') . ' oleh ' . $request->user()->name . ']';
-        $updatedNotes = trim(($team->admin_notes ? $team->admin_notes . "\n" : '') . $auditLine);
+        $auditLine = '[FORCE LOCK ROSTER - '.now()->format('d/m/Y H:i').' oleh '.$request->user()->name.']';
+        $updatedNotes = trim(($team->admin_notes ? $team->admin_notes."\n" : '').$auditLine);
         $team->update(['admin_notes' => $updatedNotes]);
 
         return redirect()->back()
@@ -333,8 +334,8 @@ class TeamManagementController extends Controller
             $lockedTeam = Team::query()->whereKey($team->id)->lockForUpdate()->firstOrFail();
 
             if ($targetStatus === 'disqualified') {
-                $auditLine = '[DISKUALIFIKASI - ' . now()->format('d/m/Y H:i') . ' oleh ' . $request->user()->name . ']: ' . $reason;
-                $updatedNotes = trim(($lockedTeam->admin_notes ? $lockedTeam->admin_notes . "\n" : '') . $auditLine);
+                $auditLine = '[DISKUALIFIKASI - '.now()->format('d/m/Y H:i').' oleh '.$request->user()->name.']: '.$reason;
+                $updatedNotes = trim(($lockedTeam->admin_notes ? $lockedTeam->admin_notes."\n" : '').$auditLine);
 
                 $lockedTeam->update([
                     'status' => 'disqualified',
@@ -359,8 +360,8 @@ class TeamManagementController extends Controller
                 ]);
             }
 
-            $auditLine = '[RE-AKTIVASI TIM - ' . now()->format('d/m/Y H:i') . ' oleh ' . $request->user()->name . ']: ' . $reason;
-            $updatedNotes = trim(($lockedTeam->admin_notes ? $lockedTeam->admin_notes . "\n" : '') . $auditLine);
+            $auditLine = '[RE-AKTIVASI TIM - '.now()->format('d/m/Y H:i').' oleh '.$request->user()->name.']: '.$reason;
+            $updatedNotes = trim(($lockedTeam->admin_notes ? $lockedTeam->admin_notes."\n" : '').$auditLine);
 
             $lockedTeam->update([
                 'status' => 'active',
@@ -423,10 +424,20 @@ class TeamManagementController extends Controller
             ]);
         }
 
+        $fromStatus = $official->screening_status;
         $official->update([
             'screening_status' => $validated['screening_status'],
             'verification_notes' => isset($validated['verification_notes']) ? trim($validated['verification_notes']) : null,
         ]);
+
+        AuditLog::record(
+            entity: $official,
+            action: 'official.screening.updated',
+            actor: $request->user(),
+            fromStatus: $fromStatus,
+            toStatus: $validated['screening_status'],
+            reason: $official->verification_notes,
+        );
 
         $statusLabel = $validated['screening_status'] === 'passed' ? 'disahkan (LOLOS)' : 'diminta revisi';
 
@@ -469,7 +480,7 @@ class TeamManagementController extends Controller
         }
 
         $teams = $query->get();
-        $filename = 'rekap-tim-ytevent-' . now()->format('Ymd-His') . '.csv';
+        $filename = 'rekap-tim-ytevent-'.now()->format('Ymd-His').'.csv';
 
         return response()->streamDownload(function () use ($teams) {
             $out = fopen('php://output', 'w');
@@ -551,7 +562,7 @@ class TeamManagementController extends Controller
         }
 
         $players = $query->get();
-        $filename = 'database-pemain-ytevent-' . now()->format('Ymd-His') . '.csv';
+        $filename = 'database-pemain-ytevent-'.now()->format('Ymd-His').'.csv';
 
         return response()->streamDownload(function () use ($players) {
             $out = fopen('php://output', 'w');
@@ -594,8 +605,8 @@ class TeamManagementController extends Controller
                     $player->dominant_foot,
                     $player->birth_place ?? '-',
                     $player->birth_date?->format('Y-m-d') ?? '-',
-                    "'" . $player->nik,
-                    $player->nisn ? "'" . $player->nisn : '-',
+                    "'".$player->nik,
+                    $player->nisn ? "'".$player->nisn : '-',
                     $player->height_cm ?? '-',
                     $player->weight_kg ?? '-',
                     $player->screening_status,

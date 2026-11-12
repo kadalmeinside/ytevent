@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Event;
 use App\Models\EventGroup;
+use App\Models\EventGroupTeam;
 use App\Models\MatchEvent;
 use App\Models\Player;
 use App\Models\Team;
@@ -12,9 +13,9 @@ use App\Models\TournamentMatch;
 use App\Models\User;
 use App\Services\StandingsCalculatorService;
 use Carbon\Carbon;
+use Database\Seeders\RolePermissionSeeder;
+use Database\Seeders\SystemSettingSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class Phase5TournamentTest extends TestCase
@@ -22,20 +23,27 @@ class Phase5TournamentTest extends TestCase
     use RefreshDatabase;
 
     protected User $superAdmin;
+
     protected User $managerUser;
+
     protected Event $event;
+
     protected Team $teamA;
+
     protected Team $teamB;
+
     protected Player $playerA1;
+
     protected Player $playerA2;
+
     protected Player $playerB1;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->seed(\Database\Seeders\RolePermissionSeeder::class);
-        $this->seed(\Database\Seeders\SystemSettingSeeder::class);
+        $this->seed(RolePermissionSeeder::class);
+        $this->seed(SystemSettingSeeder::class);
 
         $this->superAdmin = User::factory()->create([
             'email' => 'admin@ytevent.test',
@@ -473,6 +481,8 @@ class Phase5TournamentTest extends TestCase
 
     public function test_matchday_qr_scanner_lookup_endpoint(): void
     {
+        $this->playerA1->update(['photo_path' => 'players/photos/matchday.jpg']);
+
         // Lookup player
         $response = $this->actingAs($this->superAdmin)
             ->postJson(route('admin.qr-scanner.lookup'), [
@@ -488,6 +498,7 @@ class Phase5TournamentTest extends TestCase
                 'full_name' => 'Rizky Pratama',
                 'team_name' => 'Garuda Muda FC',
             ]);
+        $this->assertStringContainsString('/private-media/players/', (string) $response->json('photo_url'));
 
         // Create official
         $official = TeamOfficial::create([
@@ -503,7 +514,7 @@ class Phase5TournamentTest extends TestCase
         // Lookup official
         $offResponse = $this->actingAs($this->superAdmin)
             ->postJson(route('admin.qr-scanner.lookup'), [
-                'code' => 'OFF-' . str_pad($official->id, 4, '0', STR_PAD_LEFT),
+                'code' => 'OFF-'.str_pad($official->id, 4, '0', STR_PAD_LEFT),
             ]);
 
         $offResponse->assertOk()
@@ -558,7 +569,7 @@ class Phase5TournamentTest extends TestCase
             'sort_order' => 2,
         ]);
 
-        \App\Models\EventGroupTeam::create([
+        EventGroupTeam::create([
             'event_group_id' => $groupA->id,
             'team_id' => $this->teamA->id,
         ]);
@@ -654,10 +665,10 @@ class Phase5TournamentTest extends TestCase
             'status' => 'locked_roster',
         ]);
 
-        \App\Models\EventGroupTeam::create(['event_group_id' => $groupA->id, 'team_id' => $this->teamA->id]);
-        \App\Models\EventGroupTeam::create(['event_group_id' => $groupA->id, 'team_id' => $teamC->id]);
-        \App\Models\EventGroupTeam::create(['event_group_id' => $groupB->id, 'team_id' => $this->teamB->id]);
-        \App\Models\EventGroupTeam::create(['event_group_id' => $groupB->id, 'team_id' => $teamD->id]);
+        EventGroupTeam::create(['event_group_id' => $groupA->id, 'team_id' => $this->teamA->id]);
+        EventGroupTeam::create(['event_group_id' => $groupA->id, 'team_id' => $teamC->id]);
+        EventGroupTeam::create(['event_group_id' => $groupB->id, 'team_id' => $this->teamB->id]);
+        EventGroupTeam::create(['event_group_id' => $groupB->id, 'team_id' => $teamD->id]);
 
         $this->event->update(['is_group_locked' => true]);
 

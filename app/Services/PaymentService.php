@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\EmailNotificationLog;
+use App\Models\AuditLog;
 use App\Models\Event;
 use App\Models\Payment;
 use App\Models\SystemSetting;
@@ -123,9 +123,9 @@ class PaymentService
             $externalRef = $lockedPayment->external_reference_id;
 
             if (config('payment.sandbox_simulator')) {
-                $externalRef = strtoupper($provider) . '-SIM-' . Str::upper(Str::random(10));
+                $externalRef = strtoupper($provider).'-SIM-'.Str::upper(Str::random(10));
                 if ($provider === 'midtrans') {
-                    $snapToken = 'SNAP-SIM-' . Str::uuid()->toString();
+                    $snapToken = 'SNAP-SIM-'.Str::uuid()->toString();
                     $paymentUrl = null;
                 } else {
                     $snapToken = null;
@@ -168,7 +168,7 @@ class PaymentService
                         'external_id' => $lockedPayment->invoice_number,
                         'amount' => (int) round((float) $lockedPayment->total_amount),
                         'payer_email' => $team->manager_email,
-                        'description' => 'Pendaftaran Tim ' . $team->name . ' - ' . $lockedEvent->name,
+                        'description' => 'Pendaftaran Tim '.$team->name.' - '.$lockedEvent->name,
                         'invoice_duration' => $expiryMinutes * 60,
                     ]);
 
@@ -224,7 +224,7 @@ class PaymentService
         if ($provider === 'xendit') {
             return $this->handleXenditWebhook([
                 'external_id' => $payment->invoice_number,
-                'id' => $payment->external_reference_id ?: ('XND-' . Str::random(8)),
+                'id' => $payment->external_reference_id ?: ('XND-'.Str::random(8)),
                 'status' => 'PAID',
                 'paid_amount' => (int) round((float) $payment->total_amount),
                 'payment_channel' => $payment->payment_channel ?: 'QRIS',
@@ -234,7 +234,7 @@ class PaymentService
         $orderId = $payment->invoice_number;
         $statusCode = '200';
         $grossAmount = number_format((float) $payment->total_amount, 2, '.', '');
-        $signature = hash('sha512', $orderId . $statusCode . $grossAmount . self::midtransServerKey());
+        $signature = hash('sha512', $orderId.$statusCode.$grossAmount.self::midtransServerKey());
 
         return $this->handleMidtransWebhook([
             'order_id' => $orderId,
@@ -243,7 +243,7 @@ class PaymentService
             'transaction_status' => 'settlement',
             'fraud_status' => 'accept',
             'payment_type' => $payment->payment_channel ?: 'bca_va',
-            'transaction_id' => $payment->external_reference_id ?: ('MID-' . Str::random(10)),
+            'transaction_id' => $payment->external_reference_id ?: ('MID-'.Str::random(10)),
             'signature_key' => $signature,
         ]);
     }
@@ -257,7 +257,7 @@ class PaymentService
 
         $expectedSignature = hash(
             'sha512',
-            $orderId . $statusCode . $grossAmount . self::midtransServerKey()
+            $orderId.$statusCode.$grossAmount.self::midtransServerKey()
         );
 
         if ($orderId === '' || $signatureKey === '' || ! hash_equals($expectedSignature, $signatureKey)) {
@@ -277,6 +277,7 @@ class PaymentService
             provider: 'midtrans',
             channel: $payload['payment_type'] ?? null,
             externalRef: $payload['transaction_id'] ?? null,
+            callbackAmount: $grossAmount,
             isSettled: $isSettled,
             isExpiredSignal: $isExpired,
             rawPayload: $payload
@@ -305,6 +306,7 @@ class PaymentService
             provider: 'xendit',
             channel: $payload['payment_channel'] ?? null,
             externalRef: $payload['id'] ?? null,
+            callbackAmount: isset($payload['amount']) ? (string) $payload['amount'] : null,
             isSettled: $isSettled,
             isExpiredSignal: $isExpired,
             rawPayload: $payload
@@ -316,6 +318,7 @@ class PaymentService
         string $provider,
         ?string $channel,
         ?string $externalRef,
+        ?string $callbackAmount,
         bool $isSettled,
         bool $isExpiredSignal,
         array $rawPayload
@@ -325,6 +328,7 @@ class PaymentService
             $provider,
             $channel,
             $externalRef,
+            $callbackAmount,
             $isSettled,
             $isExpiredSignal,
             $rawPayload
@@ -334,12 +338,20 @@ class PaymentService
             $lockedPayment = Payment::query()->whereKey($payment->id)->lockForUpdate()->firstOrFail();
             $lockedTeam = $lockedPayment->team()->lockForUpdate()->firstOrFail();
 
+            if (
+                $callbackAmount !== null
+                && (! is_numeric($callbackAmount) || abs((float) $callbackAmount - (float) $lockedPayment->total_amount) > 0.01)
+            ) {
+                throw new AccessDeniedHttpException('Nominal callback pembayaran tidak sesuai dengan invoice.');
+            }
+
             // Idempotency: jika sudah paid atau refund_required, abaikan sinyal duplikat
             if (in_array($lockedPayment->status, ['paid', 'refund_required'], true)) {
                 return $lockedPayment;
             }
 
             if ($isSettled) {
+                $previousStatus = $lockedPayment->status;
                 $wasExpired = $lockedPayment->status === 'expired' || $lockedTeam->status === 'expired';
 
                 if ($wasExpired) {
@@ -357,6 +369,15 @@ class PaymentService
                             'webhook_payload' => $rawPayload,
                         ]);
 
+                        AuditLog::record(
+                            entity: $lockedPayment,
+                            action: 'payment.gateway.settled',
+                            fromStatus: $previousStatus,
+                            toStatus: 'refund_required',
+                            reason: 'Pembayaran diterima setelah slot tidak tersedia.',
+                            metadata: ['provider' => $provider, 'external_reference_id' => $externalRef],
+                        );
+
                         return $lockedPayment->fresh();
                     }
 
@@ -369,6 +390,14 @@ class PaymentService
                         'paid_at' => now(),
                         'webhook_payload' => $rawPayload,
                     ]);
+
+                    AuditLog::record(
+                        entity: $lockedPayment,
+                        action: 'payment.gateway.settled',
+                        fromStatus: $previousStatus,
+                        toStatus: 'paid',
+                        metadata: ['provider' => $provider, 'external_reference_id' => $externalRef],
+                    );
 
                     $lockedTeam->update([
                         'status' => 'active',
@@ -386,6 +415,14 @@ class PaymentService
                         'webhook_payload' => $rawPayload,
                     ]);
 
+                    AuditLog::record(
+                        entity: $lockedPayment,
+                        action: 'payment.gateway.settled',
+                        fromStatus: $previousStatus,
+                        toStatus: 'paid',
+                        metadata: ['provider' => $provider, 'external_reference_id' => $externalRef],
+                    );
+
                     if (! in_array($lockedTeam->status, ['locked_roster', 'disqualified'], true)) {
                         $lockedTeam->update([
                             'status' => 'active',
@@ -402,10 +439,19 @@ class PaymentService
             }
 
             if ($isExpiredSignal && in_array($lockedPayment->status, ['unpaid', 'rejected'], true)) {
+                $previousStatus = $lockedPayment->status;
                 $lockedPayment->update([
                     'status' => 'expired',
                     'webhook_payload' => $rawPayload,
                 ]);
+
+                AuditLog::record(
+                    entity: $lockedPayment,
+                    action: 'payment.gateway.expired',
+                    fromStatus: $previousStatus,
+                    toStatus: 'expired',
+                    metadata: ['provider' => $provider],
+                );
 
                 if ($lockedTeam->status === 'pending_payment') {
                     $lockedTeam->update(['status' => 'expired']);
@@ -517,6 +563,14 @@ class PaymentService
 
             $lockedEvent->syncQuotaStatus();
 
+            AuditLog::record(
+                entity: $lockedPayment,
+                action: 'payment.manual.approved',
+                actor: $verifier,
+                fromStatus: 'waiting_verification',
+                toStatus: 'paid',
+            );
+
             app(EmailNotificationService::class)->sendPaymentConfirmed($lockedTeam, $lockedPayment);
 
             return $lockedPayment->fresh();
@@ -559,6 +613,16 @@ class PaymentService
 
             app(EmailNotificationService::class)->sendPaymentRejected($lockedTeam, $lockedPayment, $reason);
 
+            AuditLog::record(
+                entity: $lockedPayment,
+                action: 'payment.manual.rejected',
+                actor: $verifier,
+                fromStatus: 'waiting_verification',
+                toStatus: 'rejected',
+                reason: trim($reason),
+                metadata: ['expires_at' => $newExpiresAt->toIso8601String()],
+            );
+
             return $lockedPayment->fresh();
         });
     }
@@ -588,8 +652,17 @@ class PaymentService
                 'status' => 'refunded',
                 'verified_by' => $verifier->id,
                 'verified_at' => now(),
-                'rejection_reason' => 'REFUND SELESAI: ' . $cleanNotes,
+                'rejection_reason' => 'REFUND SELESAI: '.$cleanNotes,
             ]);
+
+            AuditLog::record(
+                entity: $lockedPayment,
+                action: 'payment.refund.completed',
+                actor: $verifier,
+                fromStatus: 'refund_required',
+                toStatus: 'refunded',
+                reason: $cleanNotes,
+            );
 
             app(EmailNotificationService::class)->sendPaymentRefunded($lockedTeam, $lockedPayment, $cleanNotes);
 
@@ -597,4 +670,3 @@ class PaymentService
         });
     }
 }
-

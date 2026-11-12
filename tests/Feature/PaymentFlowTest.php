@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Event;
 use App\Models\Payment;
+use App\Models\SystemSetting;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -13,9 +14,13 @@ use Tests\TestCase;
 class PaymentFlowTest extends TestCase
 {
     protected Event $event;
+
     protected User $manager;
+
     protected Team $team;
+
     protected Payment $payment;
+
     protected User $financeUser;
 
     protected function setUp(): void
@@ -138,6 +143,14 @@ class PaymentFlowTest extends TestCase
         $this->assertNotNull($this->payment->paid_at);
         $this->assertEquals('active', $this->team->status);
         $this->assertTrue($this->team->canManageRoster());
+        $this->assertDatabaseHas('audit_logs', [
+            'auditable_type' => Payment::class,
+            'auditable_id' => $this->payment->id,
+            'action' => 'payment.manual.approved',
+            'from_status' => 'waiting_verification',
+            'to_status' => 'paid',
+            'actor_id' => $this->financeUser->id,
+        ]);
     }
 
     public function test_finance_can_reject_manual_payment_with_reason_and_grace_period(): void
@@ -164,6 +177,14 @@ class PaymentFlowTest extends TestCase
         $this->payment->refresh();
         $this->assertEquals('rejected', $this->payment->status);
         $this->assertEquals('Nominal transfer tidak sesuai dengan tagihan resmi.', $this->payment->rejection_reason);
+        $this->assertDatabaseHas('audit_logs', [
+            'auditable_type' => Payment::class,
+            'auditable_id' => $this->payment->id,
+            'action' => 'payment.manual.rejected',
+            'from_status' => 'waiting_verification',
+            'to_status' => 'rejected',
+            'actor_id' => $this->financeUser->id,
+        ]);
         // Memastikan perpanjangan waktu grace period 6 jam
         $this->assertTrue($this->payment->expires_at->gt(now()->addHours(5)));
     }
@@ -175,7 +196,7 @@ class PaymentFlowTest extends TestCase
         $orderId = $this->payment->invoice_number;
         $statusCode = '200';
         $grossAmount = number_format((float) $this->payment->total_amount, 2, '.', '');
-        $signature = hash('sha512', $orderId . $statusCode . $grossAmount . 'test-server-key');
+        $signature = hash('sha512', $orderId.$statusCode.$grossAmount.'test-server-key');
 
         $payload = [
             'order_id' => $orderId,
@@ -198,6 +219,20 @@ class PaymentFlowTest extends TestCase
 
         $this->assertEquals('paid', $this->payment->fresh()->status);
         $this->assertEquals('active', $this->team->fresh()->status);
+        $this->assertDatabaseHas('webhook_logs', [
+            'provider' => 'midtrans',
+            'invoice_number' => $orderId,
+            'status' => 'processed',
+            'http_status' => 200,
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'auditable_type' => Payment::class,
+            'auditable_id' => $this->payment->id,
+            'action' => 'payment.gateway.settled',
+            'from_status' => 'unpaid',
+            'to_status' => 'paid',
+            'actor_id' => null,
+        ]);
     }
 
     public function test_midtrans_webhook_rejects_invalid_signature(): void
@@ -213,7 +248,41 @@ class PaymentFlowTest extends TestCase
         ];
 
         $response = $this->postJson(route('webhooks.midtrans'), $payload);
+
         $response->assertForbidden();
+        $this->assertDatabaseHas('webhook_logs', [
+            'provider' => 'midtrans',
+            'invoice_number' => $this->payment->invoice_number,
+            'status' => 'failed',
+        ]);
+        $this->assertDatabaseMissing('webhook_logs', [
+            'payload->signature_key' => 'forged-fake-signature',
+        ]);
+    }
+
+    public function test_midtrans_webhook_rejects_callback_with_mismatched_amount(): void
+    {
+        config(['payment.midtrans.server_key' => 'test-server-key']);
+
+        $orderId = $this->payment->invoice_number;
+        $statusCode = '200';
+        $grossAmount = '1.00';
+        $signature = hash('sha512', $orderId.$statusCode.$grossAmount.'test-server-key');
+
+        $response = $this->postJson(route('webhooks.midtrans'), [
+            'order_id' => $orderId,
+            'status_code' => $statusCode,
+            'gross_amount' => $grossAmount,
+            'transaction_status' => 'settlement',
+            'fraud_status' => 'accept',
+            'payment_type' => 'bank_transfer',
+            'transaction_id' => 'MID-MISMATCH',
+            'signature_key' => $signature,
+        ]);
+
+        $response->assertForbidden();
+        $this->assertSame('unpaid', $this->payment->fresh()->status);
+        $this->assertSame('pending_payment', $this->team->fresh()->status);
     }
 
     public function test_late_webhook_settlement_on_expired_team_marks_refund_required_if_quota_is_full(): void
@@ -249,7 +318,7 @@ class PaymentFlowTest extends TestCase
         $orderId = $this->payment->invoice_number;
         $statusCode = '200';
         $grossAmount = number_format((float) $this->payment->total_amount, 2, '.', '');
-        $signature = hash('sha512', $orderId . $statusCode . $grossAmount . 'test-server-key');
+        $signature = hash('sha512', $orderId.$statusCode.$grossAmount.'test-server-key');
 
         $payload = [
             'order_id' => $orderId,
@@ -308,7 +377,7 @@ class PaymentFlowTest extends TestCase
     public function test_payment_mode_is_enforced_strictly_on_backend(): void
     {
         // 1. Saat mode MANUAL aktif, gateway call harus ditolak
-        \App\Models\SystemSetting::set('payment_method_mode', 'manual', 'text', 'payment');
+        SystemSetting::set('payment_method_mode', 'manual', 'text', 'payment');
 
         $resGateway = $this->actingAs($this->manager)
             ->post(route('manager.payments.gateway', ['payment' => $this->payment->id]), [
@@ -318,7 +387,7 @@ class PaymentFlowTest extends TestCase
         $resGateway->assertSessionHasErrors('payment');
 
         // 2. Saat mode MIDTRANS aktif, upload bukti manual harus ditolak
-        \App\Models\SystemSetting::set('payment_method_mode', 'midtrans', 'text', 'payment');
+        SystemSetting::set('payment_method_mode', 'midtrans', 'text', 'payment');
 
         $file = UploadedFile::fake()->create('bukti.jpg', 500, 'image/jpeg');
         $resManual = $this->actingAs($this->manager)

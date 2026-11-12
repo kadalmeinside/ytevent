@@ -7,7 +7,10 @@ use App\Models\Event;
 use App\Models\Player;
 use App\Models\SystemSetting;
 use App\Models\Team;
+use App\Models\TournamentMatch;
+use App\Services\StandingsCalculatorService;
 use App\Services\TeamRegistrationService;
+use App\Support\HtmlSanitizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -109,7 +112,7 @@ class PublicEventController extends Controller
                 'origin_association' => $team->origin_association,
                 'status' => $team->status,
                 'home_jersey_color' => $team->home_jersey_color,
-                'logo_url' => $this->publicStorageUrl($team->logo_path),
+                'logo_url' => $this->publicStorageUrl($team->logo_optimized_path ?: $team->logo_path),
             ]);
 
         $groups = $event->groups->map(fn ($g) => [
@@ -133,19 +136,19 @@ class PublicEventController extends Controller
             'id' => $m->id,
             'match_number' => $m->match_number,
             'stage' => $m->stage,
-            'stage_label' => \App\Models\TournamentMatch::stageLabel($m->stage),
+            'stage_label' => TournamentMatch::stageLabel($m->stage),
             'group_name' => $m->group?->name,
             'home_team_name' => $m->homeTeam?->name ?? 'TBD',
             'away_team_name' => $m->awayTeam?->name ?? 'TBD',
-            'kickoff_formatted' => $m->kickoff_at?->translatedFormat('d M Y, H:i') . ($m->kickoff_at ? ' WIB' : ''),
+            'kickoff_formatted' => $m->kickoff_at?->translatedFormat('d M Y, H:i').($m->kickoff_at ? ' WIB' : ''),
             'pitch_name' => $m->pitch_name ?: 'Lapangan Utama',
             'status' => $m->status,
-            'status_label' => \App\Models\TournamentMatch::STATUSES[$m->status] ?? $m->status,
+            'status_label' => TournamentMatch::STATUSES[$m->status] ?? $m->status,
             'home_score' => $m->home_score,
             'away_score' => $m->away_score,
         ])->values();
 
-        $leaderboard = app(\App\Services\StandingsCalculatorService::class)->getEventLeaderboard($event);
+        $leaderboard = app(StandingsCalculatorService::class)->getEventLeaderboard($event);
 
         return Inertia::render('Public/EventDetail', [
             'event' => $this->transformPublicEvent($event, detailed: true),
@@ -221,7 +224,7 @@ class PublicEventController extends Controller
             'id' => $event->id,
             'name' => $event->name,
             'slug' => $event->slug,
-            'short_description' => \App\Support\HtmlSanitizer::clean($event->short_description),
+            'short_description' => HtmlSanitizer::clean($event->short_description),
             'venue_name' => $event->venue_name,
             'venue_maps_url' => $event->venue_maps_url,
             'city' => $event->city,
@@ -242,7 +245,7 @@ class PublicEventController extends Controller
             'match_end_date' => $event->match_end_date?->toDateString(),
             'status' => $effectiveStatus,
             'can_register' => $event->canAcceptRegistration(),
-            'banner_url' => $this->publicStorageUrl($event->banner_path),
+            'banner_url' => $this->publicStorageUrl($event->banner_optimized_path ?: $event->banner_path),
             'regulation_pdf_url' => $this->publicStorageUrl($event->regulation_pdf_path),
         ];
 
@@ -273,16 +276,20 @@ class PublicEventController extends Controller
             return null;
         }
 
-        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+        if (preg_match('/^https?:\/\//i', $path)) {
             return $path;
+        }
+
+        if (preg_match('/^[a-z][a-z0-9+.-]*:/i', $path)) {
+            return null;
         }
 
         $cleanPath = ltrim($path, '/');
         if (str_starts_with($cleanPath, 'storage/')) {
-            return url('/' . $cleanPath);
+            return url('/'.$cleanPath);
         }
 
-        return url('/storage/' . $cleanPath);
+        return url('/storage/'.$cleanPath);
     }
 
     protected function cleanPlainDescription(Event $event, bool $isRegisterPage = false): string
@@ -311,7 +318,7 @@ class PublicEventController extends Controller
         $appName = (string) SystemSetting::get('app_name', config('app.name', 'Persija Development'));
         $occupied = $event->occupiedSlotsCount();
         $available = max(0, $event->max_teams - $occupied);
-        $bannerUrl = $this->publicStorageUrl($event->banner_path);
+        $bannerUrl = $this->publicStorageUrl($event->banner_optimized_path ?: $event->banner_path);
         $description = $this->cleanPlainDescription($event, $isRegisterPage);
         $detailUrl = route('events.show', ['event' => $event->slug]);
         $registerUrl = route('events.register', ['event' => $event->slug]);
@@ -324,7 +331,7 @@ class PublicEventController extends Controller
 
         $sportsEventSchema = array_filter([
             '@type' => 'SportsEvent',
-            '@id' => $detailUrl . '#event',
+            '@id' => $detailUrl.'#event',
             'name' => "{$event->name} ({$event->age_category})",
             'description' => $this->cleanPlainDescription($event, false),
             'sport' => 'Soccer',
@@ -389,4 +396,3 @@ class PublicEventController extends Controller
         ];
     }
 }
-

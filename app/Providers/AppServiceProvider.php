@@ -5,7 +5,9 @@ namespace App\Providers;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
@@ -25,6 +27,18 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if (config('observability.slow_queries.enabled')) {
+            DB::listen(function ($query): void {
+                if ($query->time >= config('observability.slow_queries.threshold_ms')) {
+                    Log::channel(config('observability.slow_queries.channel', 'stack'))->warning('Slow database query detected.', [
+                        'duration_ms' => $query->time,
+                        'sql' => $query->sql,
+                        'bindings_count' => count($query->bindings),
+                    ]);
+                }
+            });
+        }
+
         if ($this->app->isProduction()) {
             // Guard rail konfigurasi: tolak boot bila konfigurasi berbahaya aktif di production.
             if (config('app.debug')) {
@@ -55,7 +69,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('password-reset', function (Request $request) {
             return [
                 Limit::perMinute(5)->by($request->ip()),
-                Limit::perHour(10)->by(strtolower((string) $request->input('email')) . '|' . $request->ip()),
+                Limit::perHour(10)->by(strtolower((string) $request->input('email')).'|'.$request->ip()),
             ];
         });
 

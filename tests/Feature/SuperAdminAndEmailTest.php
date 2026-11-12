@@ -2,16 +2,18 @@
 
 namespace Tests\Feature;
 
-use App\Models\EmailNotificationLog;
+use App\Models\AuditLog;
 use App\Models\Event;
 use App\Models\Payment;
 use App\Models\SystemSetting;
 use App\Models\Team;
 use App\Models\User;
+use App\Models\WebhookLog;
 use App\Services\EmailNotificationService;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\SystemSettingSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -78,7 +80,7 @@ class SuperAdminAndEmailTest extends TestCase
         $putResponse->assertRedirect(route('admin.users.index'));
         $newUser->refresh();
         $this->assertSame('Staf Screening Panitia Updated', $newUser->name);
-        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('NewSecretPassword123!', $newUser->password));
+        $this->assertTrue(Hash::check('NewSecretPassword123!', $newUser->password));
 
         // 5. Reset password via POST request
         $postResponse = $this->actingAs($superadmin)->post(route('admin.users.update', ['user' => $newUser->id]), [
@@ -94,7 +96,76 @@ class SuperAdminAndEmailTest extends TestCase
         $postResponse->assertRedirect(route('admin.users.index'));
         $newUser->refresh();
         $this->assertSame('Staf Screening Panitia Final', $newUser->name);
-        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('AnotherPassword999!', $newUser->password));
+        $this->assertTrue(Hash::check('AnotherPassword999!', $newUser->password));
+    }
+
+    public function test_authorized_admin_can_view_audit_logs_and_unauthorized_user_cannot(): void
+    {
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('superadmin');
+
+        $response = $this->actingAs($superadmin)->get(route('admin.audit-logs.index'));
+        $response->assertOk();
+
+        $finance = User::factory()->create();
+        $finance->assignRole('finance');
+
+        $this->actingAs($finance)
+            ->get(route('admin.audit-logs.index'))
+            ->assertForbidden();
+    }
+
+    public function test_authorized_admin_can_export_filtered_audit_logs(): void
+    {
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('superadmin');
+
+        AuditLog::record(
+            entity: $superadmin,
+            action: 'payment.manual.approved',
+            actor: $superadmin,
+            fromStatus: 'waiting_verification',
+            toStatus: 'paid',
+            reason: 'Bukti transfer sesuai.'
+        );
+
+        $response = $this->actingAs($superadmin)->get(route('admin.audit-logs.export', [
+            'action' => 'payment.manual.approved',
+        ]));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'text/csv; charset=UTF-8');
+        ob_start();
+        $response->sendContent();
+        $csv = ob_get_clean();
+        $this->assertStringContainsString('payment.manual.approved', $csv);
+        $this->assertStringContainsString('Bukti transfer sesuai.', $csv);
+    }
+
+    public function test_authorized_admin_can_view_integration_monitor(): void
+    {
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('superadmin');
+
+        WebhookLog::create([
+            'provider' => 'midtrans',
+            'invoice_number' => 'INV-MONITOR-001',
+            'status' => 'failed',
+            'http_status' => 403,
+            'error_message' => 'Signature tidak valid.',
+            'payload' => ['order_id' => 'INV-MONITOR-001'],
+        ]);
+
+        $this->actingAs($superadmin)
+            ->get(route('admin.integration-monitor.index'))
+            ->assertOk();
+
+        $finance = User::factory()->create();
+        $finance->assignRole('finance');
+
+        $this->actingAs($finance)
+            ->get(route('admin.integration-monitor.index'))
+            ->assertForbidden();
     }
 
     public function test_superadmin_can_update_role_permissions(): void

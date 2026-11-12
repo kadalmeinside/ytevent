@@ -7,6 +7,7 @@ use App\Http\Controllers\Manager\Concerns\ResolvesActiveTeam;
 use App\Http\Requests\Manager\StoreOfficialRequest;
 use App\Models\Team;
 use App\Models\TeamOfficial;
+use App\Services\ImageOptimizationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -16,6 +17,10 @@ use Inertia\Response;
 
 class OfficialController extends Controller
 {
+    public function __construct(
+        protected ImageOptimizationService $imageOptimization
+    ) {}
+
     use ResolvesActiveTeam;
 
     public function index(Request $request): Response
@@ -74,8 +79,8 @@ class OfficialController extends Controller
             ? $request->file('license_file')->store('officials/licenses', 'private')
             : null;
 
-        $photoPath = $request->hasFile('photo')
-            ? $request->file('photo')->store('officials/photos', 'private')
+        $photo = $request->hasFile('photo')
+            ? $this->imageOptimization->storeWithOptimizedVariant($request->file('photo'), 'officials/photos', 'private')
             : null;
 
         TeamOfficial::create([
@@ -86,7 +91,8 @@ class OfficialController extends Controller
             'license_number' => isset($validated['license_number']) ? trim($validated['license_number']) : null,
             'phone' => isset($validated['phone']) ? trim($validated['phone']) : null,
             'license_file_path' => $licensePath,
-            'photo_path' => $photoPath,
+            'photo_path' => $photo['original_path'] ?? null,
+            'photo_optimized_path' => $photo['optimized_path'] ?? null,
             'screening_status' => 'draft',
         ]);
 
@@ -126,11 +132,15 @@ class OfficialController extends Controller
         }
 
         if ($request->hasFile('photo')) {
-            $newPhoto = $request->file('photo')->store('officials/photos', 'private');
+            $newPhoto = $this->imageOptimization->storeWithOptimizedVariant($request->file('photo'), 'officials/photos', 'private');
             if ($official->photo_path) {
                 Storage::disk('private')->delete($official->photo_path);
             }
-            $updates['photo_path'] = $newPhoto;
+            if ($official->photo_optimized_path && $official->photo_optimized_path !== $official->photo_path) {
+                Storage::disk('private')->delete($official->photo_optimized_path);
+            }
+            $updates['photo_path'] = $newPhoto['original_path'];
+            $updates['photo_optimized_path'] = $newPhoto['optimized_path'];
         }
 
         if ($official->screening_status === 'rejected') {
@@ -170,4 +180,3 @@ class OfficialController extends Controller
         return redirect()->back()->with('success', 'Data ofisial tim berhasil dihapus.');
     }
 }
-

@@ -5,6 +5,7 @@ namespace App\Http\Requests\Public;
 use App\Models\Event;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\File;
 
 class RegisterTeamRequest extends FormRequest
 {
@@ -31,7 +32,7 @@ class RegisterTeamRequest extends FormRequest
                         ->whereNull('deleted_at')
                     : 'string',
             ],
-            'logo' => ['required', 'file', 'mimes:png,jpg,jpeg', 'max:2048'],
+            'logo' => ['required', File::image()->max(2048), 'mimes:png,jpg,jpeg'],
             'origin_association' => ['required', 'string', 'min:3', 'max:120'],
             'manager_name' => ['required', 'string', 'min:3', 'max:100'],
             'manager_whatsapp' => [
@@ -95,4 +96,3 @@ class RegisterTeamRequest extends FormRequest
         ];
     }
 }
-

@@ -7,6 +7,7 @@ use App\Models\Payment;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -67,11 +68,16 @@ class TeamRegistrationAndQuotaTest extends TestCase
             'name' => 'Bambang Sutrisno',
         ]);
 
+        $team = Team::where('name', 'SSB Rajawali Emas')->firstOrFail();
         $this->assertDatabaseHas('teams', [
             'name' => 'SSB Rajawali Emas',
             'event_id' => $this->event->id,
             'status' => 'pending_payment',
         ]);
+        $this->assertNotNull($team->logo_path);
+        $this->assertNotNull($team->logo_optimized_path);
+        Storage::disk('public')->assertExists($team->logo_path);
+        Storage::disk('public')->assertExists($team->logo_optimized_path);
 
         $this->assertDatabaseHas('payments', [
             'event_id' => $this->event->id,
@@ -99,7 +105,7 @@ class TeamRegistrationAndQuotaTest extends TestCase
             'logo' => UploadedFile::fake()->image('logo1.png'),
         ]);
 
-        \Illuminate\Support\Facades\Auth::logout();
+        Auth::logout();
         $this->flushSession();
 
         // Pendaftar 2 (slot terakhir dari kuota 2)
@@ -119,7 +125,7 @@ class TeamRegistrationAndQuotaTest extends TestCase
         $this->assertEquals(2, $this->event->fresh()->occupiedSlotsCount());
         $this->assertEquals('quota_full', $this->event->fresh()->status);
 
-        \Illuminate\Support\Facades\Auth::logout();
+        Auth::logout();
         $this->flushSession();
 
         // Pendaftar 3 mencoba mendaftar saat kuota penuh
@@ -156,7 +162,7 @@ class TeamRegistrationAndQuotaTest extends TestCase
             'logo' => UploadedFile::fake()->image('logo1.png'),
         ]);
 
-        \Illuminate\Support\Facades\Auth::logout();
+        Auth::logout();
         $this->flushSession();
 
         // Tim 2 mengisi slot 2 (kuota penuh)
@@ -175,7 +181,7 @@ class TeamRegistrationAndQuotaTest extends TestCase
 
         $this->assertEquals('quota_full', $this->event->fresh()->status);
 
-        \Illuminate\Support\Facades\Auth::logout();
+        Auth::logout();
         $this->flushSession();
 
         // Simulasikan waktu berlalu melebihi expires_at untuk Tim 2
@@ -220,7 +226,7 @@ class TeamRegistrationAndQuotaTest extends TestCase
             'logo' => UploadedFile::fake()->image('logo1.png'),
         ]);
 
-        \Illuminate\Support\Facades\Auth::logout();
+        Auth::logout();
         $this->flushSession();
 
         // Tim 2 mengisi slot 2
@@ -239,7 +245,7 @@ class TeamRegistrationAndQuotaTest extends TestCase
 
         $this->assertEquals('quota_full', $this->event->fresh()->status);
 
-        \Illuminate\Support\Facades\Auth::logout();
+        Auth::logout();
         $this->flushSession();
 
         $team2 = Team::where('name', 'Tim Dua')->first();

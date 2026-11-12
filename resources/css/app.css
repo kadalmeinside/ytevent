@@ -4,7 +4,7 @@
 
 @layer components {
     .frosted-card {
-        @apply bg-white/80 backdrop-blur-xl border border-white/90 shadow-sm rounded-2xl transition-all duration-150;
+        @apply bg-white border border-slate-200 shadow-sm rounded-2xl transition-all duration-150;
     }
 
     .frosted-header {
@@ -12,7 +12,7 @@
     }
 
     .input-field {
-        @apply w-full bg-white/90 backdrop-blur-sm border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 transition-all focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-600;
+        @apply w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 transition-all focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-600;
     }
 
     .input-field-error {
@@ -21,7 +21,7 @@
 
     /* Standard Medium Button (Height 40px / h-10) */
     .btn-pitch {
-        @apply inline-flex items-center justify-center gap-2 h-10 px-4 text-xs sm:text-sm font-semibold rounded-xl bg-gradient-to-r from-orange-600 via-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-white transition-all shadow-sm shadow-orange-500/25 whitespace-nowrap;
+        @apply inline-flex items-center justify-center gap-2 h-10 px-4 text-xs sm:text-sm font-semibold rounded-xl bg-orange-600 hover:bg-orange-700 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-white transition-all shadow-sm shadow-orange-500/25 whitespace-nowrap;
     }
 
     .btn-secondary {
@@ -29,16 +29,16 @@
     }
 
     .btn-danger {
-        @apply inline-flex items-center justify-center gap-2 h-10 px-4 text-xs sm:text-sm font-semibold rounded-xl bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-700 hover:to-red-800 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-white transition-all shadow-sm shadow-rose-500/25 whitespace-nowrap;
+        @apply inline-flex items-center justify-center gap-2 h-10 px-4 text-xs sm:text-sm font-semibold rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-white transition-all shadow-sm shadow-rose-500/25 whitespace-nowrap;
     }
 
     .btn-success {
-        @apply inline-flex items-center justify-center gap-2 h-10 px-4 text-xs sm:text-sm font-semibold rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-white transition-all shadow-sm shadow-emerald-500/25 whitespace-nowrap;
+        @apply inline-flex items-center justify-center gap-2 h-10 px-4 text-xs sm:text-sm font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-white transition-all shadow-sm shadow-emerald-500/25 whitespace-nowrap;
     }
 
     /* Small / Table Action Button (Height 32px / h-8) */
     .btn-sm-pitch {
-        @apply inline-flex items-center justify-center gap-1.5 h-8 px-3 text-xs font-semibold rounded-lg bg-gradient-to-r from-orange-600 via-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-white transition-all shadow-sm shadow-orange-500/20 whitespace-nowrap;
+        @apply inline-flex items-center justify-center gap-1.5 h-8 px-3 text-xs font-semibold rounded-lg bg-orange-600 hover:bg-orange-700 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-white transition-all shadow-sm shadow-orange-500/20 whitespace-nowrap;
     }
 
     .btn-sm-secondary {
@@ -55,7 +55,7 @@
 
     /* Large / Hero Button (Height 48px / h-12) */
     .btn-lg-pitch {
-        @apply inline-flex items-center justify-center gap-2.5 h-12 px-6 text-sm sm:text-base font-bold rounded-xl bg-gradient-to-r from-orange-600 via-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-white transition-all shadow-md shadow-orange-500/30 whitespace-nowrap;
+        @apply inline-flex items-center justify-center gap-2.5 h-12 px-6 text-sm sm:text-base font-bold rounded-xl bg-orange-600 hover:bg-orange-700 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed text-white transition-all shadow-md shadow-orange-500/30 whitespace-nowrap;
     }
 
     .btn-lg-secondary {

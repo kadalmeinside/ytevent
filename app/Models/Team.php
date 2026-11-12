@@ -21,6 +21,7 @@ class Team extends Model
         'name',
         'slug',
         'logo_path',
+        'logo_optimized_path',
         'origin_association',
         'secretariat_address',
         'manager_name',
@@ -132,4 +133,3 @@ class Team extends Model
         return in_array($this->status, ['pending_payment', 'active'], true);
     }
 }
-

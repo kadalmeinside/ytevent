@@ -24,7 +24,7 @@ class PrivateMediaController extends Controller
         $player->loadMissing('team');
         $this->authorize('view', $player);
 
-        return $this->streamPrivateFile($player->photo_path);
+        return $this->streamPrivateFile($player->photo_optimized_path ?: $player->photo_path);
     }
 
     public function playerDocument(PlayerDocument $document): StreamedResponse
@@ -40,7 +40,7 @@ class PrivateMediaController extends Controller
         $official->loadMissing('team');
         $this->authorize('view', $official->team);
 
-        return $this->streamPrivateFile($official->photo_path);
+        return $this->streamPrivateFile($official->photo_optimized_path ?: $official->photo_path);
     }
 
     public function officialLicense(TeamOfficial $official): StreamedResponse
@@ -66,4 +66,3 @@ class PrivateMediaController extends Controller
         ]);
     }
 }
-

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class TeamOfficial extends Model
 {
@@ -27,10 +28,21 @@ class TeamOfficial extends Model
         'license_number',
         'license_file_path',
         'photo_path',
+        'photo_optimized_path',
         'phone',
         'screening_status',
         'verification_notes',
+        'accreditation_code',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (TeamOfficial $official): void {
+            if (! $official->accreditation_code) {
+                $official->accreditation_code = 'OFF-'.Str::upper(Str::random(24));
+            }
+        });
+    }
 
     public function team(): BelongsTo
     {
@@ -41,10 +53,4 @@ class TeamOfficial extends Model
     {
         return $this->belongsTo(Event::class);
     }
-
-    public function getAccreditationCodeAttribute(): string
-    {
-        return 'OFF-' . str_pad((string) $this->id, 4, '0', STR_PAD_LEFT);
-    }
 }
-

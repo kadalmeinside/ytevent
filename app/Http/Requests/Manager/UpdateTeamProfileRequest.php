@@ -4,6 +4,7 @@ namespace App\Http\Requests\Manager;
 
 use App\Models\Team;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rules\File;
 
 class UpdateTeamProfileRequest extends FormRequest
 {
@@ -38,7 +39,7 @@ class UpdateTeamProfileRequest extends FormRequest
             'home_jersey_color' => ['nullable', 'string', 'max:60'],
             'away_jersey_color' => ['nullable', 'string', 'max:60'],
             'gk_jersey_color' => ['nullable', 'string', 'max:60'],
-            'logo' => ['nullable', 'file', 'mimes:png,jpg,jpeg', 'max:2048'],
+            'logo' => ['nullable', File::image()->max(2048), 'mimes:png,jpg,jpeg'],
         ];
     }
 
@@ -57,4 +58,3 @@ class UpdateTeamProfileRequest extends FormRequest
         ];
     }
 }
-

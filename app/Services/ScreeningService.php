@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\AuditLog;
+use App\Models\Event;
 use App\Models\Player;
 use App\Models\PlayerDocument;
 use App\Models\ScreeningLog;
@@ -67,9 +69,11 @@ class ScreeningService
             }
 
             // Perbarui status dokumen jika disertakan
-            if (!empty($documentUpdates)) {
+            if (! empty($documentUpdates)) {
                 foreach ($documentUpdates as $docData) {
-                    if (empty($docData['id'])) continue;
+                    if (empty($docData['id'])) {
+                        continue;
+                    }
                     $doc = $player->documents()->find($docData['id']);
                     if ($doc) {
                         $doc->update([
@@ -86,6 +90,16 @@ class ScreeningService
             }
 
             $player->save();
+
+            AuditLog::record(
+                entity: $player,
+                action: 'player.screening.updated',
+                actor: $officer,
+                fromStatus: $fromStatus,
+                toStatus: $action,
+                reason: $action === 'rejected' ? $reason : 'Pemain dinyatakan sah dan lolos verifikasi.',
+                metadata: ['document_updates' => count($documentUpdates)],
+            );
 
             // Catat log histori
             ScreeningLog::create([
@@ -127,7 +141,7 @@ class ScreeningService
                 $invalidReasons = $player->documents
                     ->where('validation_status', 'invalid')
                     ->map(function (PlayerDocument $doc) {
-                        $label = \App\Models\Event::documentLabel($doc->document_type);
+                        $label = Event::documentLabel($doc->document_type);
                         $note = $doc->notes ?: 'Berkas memerlukan perbaikan';
 
                         return "{$label}: {$note}";
@@ -152,6 +166,16 @@ class ScreeningService
                     'to_status' => 'rejected',
                     'reason' => $autoReason,
                 ]);
+
+                AuditLog::record(
+                    entity: $player,
+                    action: 'player.screening.document_rejected',
+                    actor: $officer,
+                    fromStatus: $fromStatus,
+                    toStatus: 'rejected',
+                    reason: $autoReason,
+                    metadata: ['document_id' => $document->id],
+                );
 
                 $this->syncTeamScreeningStatus($player->team);
             }
@@ -186,6 +210,15 @@ class ScreeningService
                 'reason' => $unlockReason,
             ]);
 
+            AuditLog::record(
+                entity: $player,
+                action: 'player.screening.unlocked',
+                actor: $officer,
+                fromStatus: $fromStatus,
+                toStatus: 'draft',
+                reason: $unlockReason,
+            );
+
             $this->syncTeamScreeningStatus($player->team);
 
             return $player->fresh(['documents', 'team', 'event']);
@@ -197,17 +230,21 @@ class ScreeningService
      */
     public function syncTeamScreeningStatus($team): void
     {
-        if (!$team) return;
+        if (! $team) {
+            return;
+        }
 
         $players = $team->players()->get();
         if ($players->isEmpty()) {
             $team->update(['screening_status' => 'not_started']);
+
             return;
         }
 
         $hasRejected = $players->contains(fn ($p) => $p->screening_status === 'rejected');
         if ($hasRejected) {
             $team->update(['screening_status' => 'partially_rejected']);
+
             return;
         }
 
@@ -216,12 +253,14 @@ class ScreeningService
 
         if ($allPassed && $players->count() >= $minPlayers) {
             $team->update(['screening_status' => 'all_passed']);
+
             return;
         }
 
         $hasSubmitted = $players->contains(fn ($p) => in_array($p->screening_status, ['submitted', 'passed']));
         if ($hasSubmitted) {
             $team->update(['screening_status' => 'in_review']);
+
             return;
         }
 

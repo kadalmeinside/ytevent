@@ -1,15 +1,17 @@
 <?php
 
+use App\Http\Controllers\Admin\AuditLogController as AdminAuditLogController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\EmailLogController as AdminEmailLogController;
+use App\Http\Controllers\Admin\IntegrationMonitorController as AdminIntegrationMonitorController;
 use App\Http\Controllers\Admin\EventController as AdminEventController;
 use App\Http\Controllers\Admin\PaymentVerificationController as AdminPaymentVerificationController;
-use App\Http\Controllers\Admin\TeamManagementController as AdminTeamManagementController;
-use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\RolePermissionController as AdminRolePermissionController;
 use App\Http\Controllers\Admin\ScreeningController as AdminScreeningController;
 use App\Http\Controllers\Admin\SystemSettingController as AdminSystemSettingController;
+use App\Http\Controllers\Admin\TeamManagementController as AdminTeamManagementController;
 use App\Http\Controllers\Admin\TournamentController as AdminTournamentController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Manager\AccreditationController as ManagerAccreditationController;
@@ -241,6 +243,16 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
         ->middleware('permission:payments.view_all')
         ->name('payments.transactions.export');
 
+    Route::get('/system/audit-logs', [AdminAuditLogController::class, 'index'])
+        ->middleware('permission:audit_logs.view')
+        ->name('audit-logs.index');
+    Route::get('/system/audit-logs/export-csv', [AdminAuditLogController::class, 'export'])
+        ->middleware('permission:audit_logs.view')
+        ->name('audit-logs.export');
+    Route::get('/system/integration-monitor', [AdminIntegrationMonitorController::class, 'index'])
+        ->middleware('permission:audit_logs.view')
+        ->name('integration-monitor.index');
+
     // Pemantauan Antrean Email Transaksional
     Route::middleware('permission:email_logs.manage')->group(function () {
         Route::get('/system/email-logs', [AdminEmailLogController::class, 'index'])->name('email-logs.index');
@@ -265,6 +277,6 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
 });
 
 // Modul Simulasi (Take-Out Ready: Hapus baris di bawah ini saat masuk Full Production)
-if (config('simulation.master_enabled', false) && ! app()->isProduction() && file_exists(__DIR__ . '/simulation.php')) {
-    require __DIR__ . '/simulation.php';
+if (config('simulation.master_enabled', false) && ! app()->isProduction() && file_exists(__DIR__.'/simulation.php')) {
+    require __DIR__.'/simulation.php';
 }

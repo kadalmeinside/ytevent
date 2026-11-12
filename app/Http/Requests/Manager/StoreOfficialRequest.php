@@ -6,6 +6,7 @@ use App\Models\Team;
 use App\Models\TeamOfficial;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\File;
 
 class StoreOfficialRequest extends FormRequest
 {
@@ -40,8 +41,8 @@ class StoreOfficialRequest extends FormRequest
                 'string',
                 'regex:/^(\+62|62|0)8[1-9][0-9]{7,12}$/',
             ],
-            'license_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:2048'],
-            'photo' => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:2048'],
+            'license_file' => ['nullable', File::types(['jpg', 'jpeg', 'png', 'pdf'])->max(2048)],
+            'photo' => ['nullable', File::image()->max(2048), 'mimes:jpg,jpeg,png'],
         ];
     }
 
@@ -61,4 +62,3 @@ class StoreOfficialRequest extends FormRequest
         ];
     }
 }
-

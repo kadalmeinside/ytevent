@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Manager;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Manager\Concerns\ResolvesActiveTeam;
 use App\Http\Requests\Manager\UpdateTeamProfileRequest;
+use App\Models\EventAnnouncement;
 use App\Models\Team;
+use App\Services\ImageOptimizationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -15,6 +17,10 @@ use Inertia\Response;
 
 class DashboardController extends Controller
 {
+    public function __construct(
+        protected ImageOptimizationService $imageOptimization
+    ) {}
+
     use ResolvesActiveTeam;
 
     public function index(Request $request): Response
@@ -49,7 +55,7 @@ class DashboardController extends Controller
                 'players_rejected' => $players->where('screening_status', 'rejected')->count(),
                 'players_docs_complete' => $players->filter(fn ($p) => $p->isCompleteForSubmission())->count(),
                 'officials_total' => $officialsCount,
-                'announcements' => \App\Models\EventAnnouncement::query()
+                'announcements' => EventAnnouncement::query()
                     ->where(function ($q) use ($team) {
                         $q->where('event_id', $team->event_id)
                             ->orWhereNull('event_id');
@@ -114,11 +120,15 @@ class DashboardController extends Controller
         ];
 
         if ($request->hasFile('logo')) {
-            $newLogo = $request->file('logo')->store('teams/logos', 'public');
+            $newLogo = $this->imageOptimization->storeWithOptimizedVariant($request->file('logo'), 'teams/logos', 'public', 1200, 85);
             if ($team->logo_path) {
                 Storage::disk('public')->delete($team->logo_path);
             }
-            $updates['logo_path'] = $newLogo;
+            if ($team->logo_optimized_path && $team->logo_optimized_path !== $team->logo_path) {
+                Storage::disk('public')->delete($team->logo_optimized_path);
+            }
+            $updates['logo_path'] = $newLogo['original_path'];
+            $updates['logo_optimized_path'] = $newLogo['optimized_path'];
         }
 
         $team->update($updates);
@@ -156,4 +166,3 @@ class DashboardController extends Controller
         return redirect()->back()->with('success', 'Kata sandi akun Anda berhasil diperbarui.');
     }
 }
-

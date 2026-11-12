@@ -6,6 +6,7 @@ use App\Models\Event;
 use App\Models\Player;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\File;
 
 class UploadPlayerDocumentRequest extends FormRequest
 {
@@ -27,7 +28,7 @@ class UploadPlayerDocumentRequest extends FormRequest
         return [
             'document_type' => ['required', Rule::in(array_keys(Event::DOCUMENT_TYPES))],
             'document_number' => ['nullable', 'string', 'max:100'],
-            'file' => [$hasExisting ? 'nullable' : 'required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:2048'],
+            'file' => [$hasExisting ? 'nullable' : 'required', File::types(['jpg', 'jpeg', 'png', 'pdf'])->max(2048)],
         ];
     }
 
@@ -45,4 +46,3 @@ class UploadPlayerDocumentRequest extends FormRequest
         ];
     }
 }
-

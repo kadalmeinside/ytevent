@@ -12,6 +12,7 @@ use App\Models\Player;
 use App\Models\PlayerDocument;
 use App\Models\ScreeningLog;
 use App\Models\Team;
+use App\Services\ImageOptimizationService;
 use App\Services\ScreeningService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,6 +26,10 @@ use Inertia\Response;
 class PlayerController extends Controller
 {
     use ResolvesActiveTeam;
+
+    public function __construct(
+        protected ImageOptimizationService $imageOptimization
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -101,9 +106,9 @@ class PlayerController extends Controller
         $this->authorize('create', [Player::class, $team]);
 
         $validated = $request->validated();
-        $photoPath = $request->file('photo')->store('players/photos', 'private');
+        $photo = $this->imageOptimization->storeWithOptimizedVariant($request->file('photo'), 'players/photos', 'private');
 
-        $player = DB::transaction(function () use ($team, $validated, $photoPath, $request) {
+        $player = DB::transaction(function () use ($team, $validated, $photo, $request) {
             $newPlayer = Player::create([
                 'team_id' => $team->id,
                 'event_id' => $team->event_id,
@@ -118,7 +123,8 @@ class PlayerController extends Controller
                 'nisn' => isset($validated['nisn']) ? trim($validated['nisn']) : null,
                 'height_cm' => $validated['height_cm'] ?? null,
                 'weight_kg' => $validated['weight_kg'] ?? null,
-                'photo_path' => $photoPath,
+                'photo_path' => $photo['original_path'],
+                'photo_optimized_path' => $photo['optimized_path'],
                 'screening_status' => 'draft',
                 'is_locked' => false,
             ]);
@@ -162,11 +168,15 @@ class PlayerController extends Controller
             ];
 
             if ($request->hasFile('photo')) {
-                $newPhoto = $request->file('photo')->store('players/photos', 'private');
+                $newPhoto = $this->imageOptimization->storeWithOptimizedVariant($request->file('photo'), 'players/photos', 'private');
                 if ($player->photo_path) {
                     Storage::disk('private')->delete($player->photo_path);
                 }
-                $updates['photo_path'] = $newPhoto;
+                if ($player->photo_optimized_path && $player->photo_optimized_path !== $player->photo_path) {
+                    Storage::disk('private')->delete($player->photo_optimized_path);
+                }
+                $updates['photo_path'] = $newPhoto['original_path'];
+                $updates['photo_optimized_path'] = $newPhoto['optimized_path'];
             }
 
             $player->update($updates);
@@ -451,4 +461,3 @@ class PlayerController extends Controller
         );
     }
 }
-

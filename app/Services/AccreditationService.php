@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Event;
 use App\Models\Player;
 use App\Models\Team;
 use App\Models\User;
@@ -76,7 +75,7 @@ class AccreditationService
         return [
             'is_ready' => $canLock,
             'is_locked' => $isLocked,
-            'roster_locked_at' => $team->roster_locked_at ? $team->roster_locked_at->translatedFormat('d F Y, H:i') . ' WIB' : null,
+            'roster_locked_at' => $team->roster_locked_at ? $team->roster_locked_at->translatedFormat('d F Y, H:i').' WIB' : null,
             'passed_players_count' => $passedPlayersCount,
             'min_players_required' => $minPlayers,
             'max_players_allowed' => $maxPlayers,
@@ -151,7 +150,7 @@ class AccreditationService
             $playerPhotoBase64 = null;
             if ($player->photo_path && Storage::disk('private')->exists($player->photo_path)) {
                 $mime = Storage::disk('private')->mimeType($player->photo_path) ?: 'image/jpeg';
-                $playerPhotoBase64 = 'data:' . $mime . ';base64,' . base64_encode(Storage::disk('private')->get($player->photo_path));
+                $playerPhotoBase64 = 'data:'.$mime.';base64,'.base64_encode(Storage::disk('private')->get($player->photo_path));
             }
 
             return [
@@ -166,7 +165,7 @@ class AccreditationService
                 'nisn' => $player->nisn ?: '-',
                 'accreditation_code' => $player->accreditation_code,
                 'photo_base64' => $playerPhotoBase64,
-                'qr_code_svg' => 'data:image/svg+xml;base64,' . base64_encode($qrSvg),
+                'qr_code_svg' => 'data:image/svg+xml;base64,'.base64_encode($qrSvg),
             ];
         });
 
@@ -174,10 +173,10 @@ class AccreditationService
             $officialPhotoBase64 = null;
             if ($official->photo_path && Storage::disk('private')->exists($official->photo_path)) {
                 $mime = Storage::disk('private')->mimeType($official->photo_path) ?: 'image/jpeg';
-                $officialPhotoBase64 = 'data:' . $mime . ';base64,' . base64_encode(Storage::disk('private')->get($official->photo_path));
+                $officialPhotoBase64 = 'data:'.$mime.';base64,'.base64_encode(Storage::disk('private')->get($official->photo_path));
             }
 
-            $officialCode = 'OFF-' . str_pad((string) $official->id, 4, '0', STR_PAD_LEFT);
+            $officialCode = $official->accreditation_code;
             $officialQrTarget = route('public.official.verify', ['code' => $officialCode]);
 
             $officialQrSvg = (string) QrCode::format('svg')
@@ -191,14 +190,14 @@ class AccreditationService
                 'license_number' => $official->license_number ?: '-',
                 'accreditation_code' => $officialCode,
                 'photo_base64' => $officialPhotoBase64,
-                'qr_code_svg' => 'data:image/svg+xml;base64,' . base64_encode($officialQrSvg),
+                'qr_code_svg' => 'data:image/svg+xml;base64,'.base64_encode($officialQrSvg),
             ];
         });
 
         $teamLogoBase64 = null;
         if ($team->logo_path && Storage::disk('public')->exists($team->logo_path)) {
             $mime = Storage::disk('public')->mimeType($team->logo_path) ?: 'image/png';
-            $teamLogoBase64 = 'data:' . $mime . ';base64,' . base64_encode(Storage::disk('public')->get($team->logo_path));
+            $teamLogoBase64 = 'data:'.$mime.';base64,'.base64_encode(Storage::disk('public')->get($team->logo_path));
         }
 
         $data = [
@@ -207,8 +206,8 @@ class AccreditationService
             'players' => $preparedPlayers,
             'officials' => $preparedOfficials,
             'team_logo_base64' => $teamLogoBase64,
-            'generated_at' => now()->translatedFormat('d F Y, H:i') . ' WIB',
-            'locked_at' => $team->roster_locked_at ? $team->roster_locked_at->translatedFormat('d F Y, H:i') . ' WIB' : now()->translatedFormat('d F Y, H:i') . ' WIB',
+            'generated_at' => now()->translatedFormat('d F Y, H:i').' WIB',
+            'locked_at' => $team->roster_locked_at ? $team->roster_locked_at->translatedFormat('d F Y, H:i').' WIB' : now()->translatedFormat('d F Y, H:i').' WIB',
         ];
 
         return Pdf::loadView('pdf.team_roster_sheet', $data)
@@ -236,7 +235,7 @@ class AccreditationService
         $teamLogoBase64 = null;
         if ($team->logo_path && Storage::disk('public')->exists($team->logo_path)) {
             $mime = Storage::disk('public')->mimeType($team->logo_path) ?: 'image/png';
-            $teamLogoBase64 = 'data:' . $mime . ';base64,' . base64_encode(Storage::disk('public')->get($team->logo_path));
+            $teamLogoBase64 = 'data:'.$mime.';base64,'.base64_encode(Storage::disk('public')->get($team->logo_path));
         }
 
         $cards = [];
@@ -250,7 +249,7 @@ class AccreditationService
             $playerPhotoBase64 = null;
             if ($player->photo_path && Storage::disk('private')->exists($player->photo_path)) {
                 $mime = Storage::disk('private')->mimeType($player->photo_path) ?: 'image/jpeg';
-                $playerPhotoBase64 = 'data:' . $mime . ';base64,' . base64_encode(Storage::disk('private')->get($player->photo_path));
+                $playerPhotoBase64 = 'data:'.$mime.';base64,'.base64_encode(Storage::disk('private')->get($player->photo_path));
             }
 
             $cards[] = [
@@ -262,7 +261,7 @@ class AccreditationService
                 'role_label' => 'PEMAIN',
                 'accreditation_code' => $player->accreditation_code,
                 'photo_base64' => $playerPhotoBase64,
-                'qr_code_svg' => 'data:image/svg+xml;base64,' . base64_encode($qrSvg),
+                'qr_code_svg' => 'data:image/svg+xml;base64,'.base64_encode($qrSvg),
             ];
         }
 
@@ -270,10 +269,10 @@ class AccreditationService
             $officialPhotoBase64 = null;
             if ($official->photo_path && Storage::disk('private')->exists($official->photo_path)) {
                 $mime = Storage::disk('private')->mimeType($official->photo_path) ?: 'image/jpeg';
-                $officialPhotoBase64 = 'data:' . $mime . ';base64,' . base64_encode(Storage::disk('private')->get($official->photo_path));
+                $officialPhotoBase64 = 'data:'.$mime.';base64,'.base64_encode(Storage::disk('private')->get($official->photo_path));
             }
 
-            $officialCode = 'OFF-' . str_pad((string) $official->id, 4, '0', STR_PAD_LEFT);
+            $officialCode = $official->accreditation_code;
             $officialQrTarget = route('public.official.verify', ['code' => $officialCode]);
 
             $officialQrSvg = (string) QrCode::format('svg')
@@ -287,11 +286,11 @@ class AccreditationService
                 'jersey_name' => null,
                 'jersey_number' => null,
                 'role' => $official->role,
-                'role_label' => 'OFISIAL / ' . strtoupper($official->role),
+                'role_label' => 'OFISIAL / '.strtoupper($official->role),
                 'license_number' => $official->license_number ?: null,
                 'accreditation_code' => $officialCode,
                 'photo_base64' => $officialPhotoBase64,
-                'qr_code_svg' => 'data:image/svg+xml;base64,' . base64_encode($officialQrSvg),
+                'qr_code_svg' => 'data:image/svg+xml;base64,'.base64_encode($officialQrSvg),
             ];
         }
 
@@ -300,7 +299,7 @@ class AccreditationService
             'event' => $team->event,
             'cards' => $cards,
             'team_logo_base64' => $teamLogoBase64,
-            'generated_at' => now()->translatedFormat('d F Y, H:i') . ' WIB',
+            'generated_at' => now()->translatedFormat('d F Y, H:i').' WIB',
         ];
 
         return Pdf::loadView('pdf.id_cards', $data)
@@ -312,4 +311,3 @@ class AccreditationService
             ]);
     }
 }
-

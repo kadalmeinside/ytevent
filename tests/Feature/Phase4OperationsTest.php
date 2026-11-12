@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\EmailNotificationLog;
 use App\Models\Event;
 use App\Models\Payment;
 use App\Models\Player;
@@ -13,9 +12,11 @@ use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\SystemSettingSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -24,9 +25,13 @@ class Phase4OperationsTest extends TestCase
     use RefreshDatabase;
 
     protected User $superadmin;
+
     protected User $finance;
+
     protected User $manager;
+
     protected Event $event;
+
     protected Team $team;
 
     protected function setUp(): void
@@ -135,7 +140,7 @@ class Phase4OperationsTest extends TestCase
                 'photo_path' => 'players/photos/dummy.jpg',
                 'screening_status' => 'passed',
                 'is_locked' => true,
-                'accreditation_code' => 'YTC-P4-00' . $i,
+                'accreditation_code' => 'YTC-P4-00'.$i,
             ]);
         }
 
@@ -376,6 +381,14 @@ class Phase4OperationsTest extends TestCase
 
         $this->assertSame('rejected', $official->fresh()->screening_status);
         $this->assertSame('Mohon unggah scan sertifikat UEFA Pro asli.', $official->fresh()->verification_notes);
+        $this->assertDatabaseHas('audit_logs', [
+            'auditable_type' => TeamOfficial::class,
+            'auditable_id' => $official->id,
+            'action' => 'official.screening.updated',
+            'from_status' => 'draft',
+            'to_status' => 'rejected',
+            'actor_id' => $this->superadmin->id,
+        ]);
 
         // Rejected official should not pass public QR verification
         $rejectedVerify = $this->get(route('public.official.verify', ['code' => $official->accreditation_code]));
@@ -393,6 +406,14 @@ class Phase4OperationsTest extends TestCase
             ->assertRedirect();
 
         $this->assertSame('passed', $official->fresh()->screening_status);
+        $this->assertDatabaseHas('audit_logs', [
+            'auditable_type' => TeamOfficial::class,
+            'auditable_id' => $official->id,
+            'action' => 'official.screening.updated',
+            'from_status' => 'rejected',
+            'to_status' => 'passed',
+            'actor_id' => $this->superadmin->id,
+        ]);
 
         // Approved official passes public QR verification
         $passedVerify = $this->get(route('public.official.verify', ['code' => $official->accreditation_code]));
@@ -409,5 +430,34 @@ class Phase4OperationsTest extends TestCase
             ->assertRedirect();
 
         $this->assertTrue(Hash::check('SuperAdmin999', $this->superadmin->fresh()->password));
+    }
+
+    public function test_public_official_photo_requires_passed_status_and_random_accreditation_code(): void
+    {
+        Storage::fake('private');
+
+        $official = TeamOfficial::create([
+            'team_id' => $this->team->id,
+            'event_id' => $this->event->id,
+            'full_name' => 'Coach Private',
+            'role' => 'Head Coach',
+            'screening_status' => 'rejected',
+        ]);
+        $official->update([
+            'photo_path' => UploadedFile::fake()->image('official.jpg')->store('officials', 'private'),
+        ]);
+
+        $this->assertMatchesRegularExpression('/^OFF-[A-Z0-9]{24}$/', $official->accreditation_code);
+
+        $this->get(route('public.official.verify.photo', ['code' => $official->accreditation_code]))
+            ->assertNotFound();
+
+        $this->get(route('public.official.verify.photo', ['code' => 'OFF-'.str_pad((string) $official->id, 4, '0', STR_PAD_LEFT)]))
+            ->assertNotFound();
+
+        $official->update(['screening_status' => 'passed']);
+
+        $this->get(route('public.official.verify.photo', ['code' => $official->accreditation_code]))
+            ->assertOk();
     }
 }

@@ -155,6 +155,24 @@ const navSections = computed(() => {
                         : null,
                 },
                 {
+                    label: 'Audit Trail',
+                    href: route('admin.audit-logs.index'),
+                    match: '/admin/system/audit-logs',
+                    icon: 'transactions',
+                    show: can('audit_logs.view'),
+                    badge: null,
+                },
+                {
+                    label: 'Monitoring Integrasi',
+                    href: route('admin.integration-monitor.index'),
+                    match: '/admin/system/integration-monitor',
+                    icon: 'transactions',
+                    show: can('audit_logs.view'),
+                    badge: notif.failed_webhooks_count > 0 || notif.failed_jobs_count > 0
+                        ? { text: String((notif.failed_webhooks_count || 0) + (notif.failed_jobs_count || 0)), variant: 'red', title: 'Webhook atau job gagal' }
+                        : null,
+                },
+                {
                     label: 'Pengaturan Global',
                     href: route('admin.settings.index'),
                     match: '/admin/settings',
@@ -514,4 +532,3 @@ const submitPasswordUpdate = () => {
         <SimulationFloatingTool context-area="admin" />
     </div>
 </template>
-

@@ -8,6 +8,7 @@ use App\Models\Team;
 use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\File;
 use Illuminate\Validation\Validator;
 
 class StorePlayerRequest extends FormRequest
@@ -56,12 +57,12 @@ class StorePlayerRequest extends FormRequest
             'nisn' => ['nullable', 'string', 'max:20'],
             'height_cm' => ['nullable', 'integer', 'min:90', 'max:230'],
             'weight_kg' => ['nullable', 'integer', 'min:15', 'max:150'],
-            'photo' => ['required', 'file', 'mimes:jpg,jpeg,png', 'max:2048'],
+            'photo' => ['required', File::image()->max(2048), 'mimes:jpg,jpeg,png'],
             'documents' => ['nullable', 'array'],
         ];
 
         foreach (array_keys(Event::DOCUMENT_TYPES) as $docType) {
-            $rules["documents.{$docType}"] = ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:2048'];
+            $rules["documents.{$docType}"] = ['nullable', File::types(['jpg', 'jpeg', 'png', 'pdf'])->max(2048)];
         }
 
         return $rules;
@@ -150,4 +151,3 @@ class StorePlayerRequest extends FormRequest
         return $messages;
     }
 }
-

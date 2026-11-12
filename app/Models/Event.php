@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -71,6 +72,7 @@ class Event extends Model
         'name',
         'slug',
         'banner_path',
+        'banner_optimized_path',
         'short_description',
         'venue_name',
         'venue_maps_url',
@@ -227,11 +229,11 @@ class Event extends Model
             return null;
         }
 
-        if (!$this->min_birth_date && !$this->max_birth_date) {
+        if (! $this->min_birth_date && ! $this->max_birth_date) {
             return true;
         }
 
-        $date = \Carbon\Carbon::parse($birthDate);
+        $date = Carbon::parse($birthDate);
 
         if ($this->min_birth_date && $date->lt($this->min_birth_date)) {
             return false;
@@ -277,4 +279,3 @@ class Event extends Model
         return self::DOCUMENT_TYPES[$type] ?? $type;
     }
 }
-

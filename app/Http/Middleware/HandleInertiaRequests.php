@@ -8,8 +8,10 @@ use App\Models\Payment;
 use App\Models\Player;
 use App\Models\SystemSetting;
 use App\Models\Team;
+use App\Models\WebhookLog;
 use App\Modules\Simulation\SimulationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Middleware;
 
@@ -81,6 +83,10 @@ class HandleInertiaRequests extends Middleware
                 $failedEmails = EmailNotificationLog::query()
                     ->where('status', 'failed')
                     ->count();
+                $failedWebhooks = WebhookLog::query()
+                    ->where('status', 'failed')
+                    ->count();
+                $failedJobs = DB::table('failed_jobs')->count();
 
                 return [
                     'pending_payments_count' => $pendingPayments,
@@ -90,7 +96,9 @@ class HandleInertiaRequests extends Middleware
                     'ready_to_lock_teams_count' => $readyToLockTeams,
                     'locked_teams_count' => $lockedTeams,
                     'failed_emails_count' => $failedEmails,
-                    'total_actionable' => $pendingPayments + $refundRequired + $pendingScreeningPlayers + $failedEmails,
+                    'failed_webhooks_count' => $failedWebhooks,
+                    'failed_jobs_count' => $failedJobs,
+                    'total_actionable' => $pendingPayments + $refundRequired + $pendingScreeningPlayers + $failedEmails + $failedWebhooks + $failedJobs,
                 ];
             })() : null,
             'systemSettings' => fn () => [

@@ -34,6 +34,7 @@ class Player extends Model
         'height_cm',
         'weight_kg',
         'photo_path',
+        'photo_optimized_path',
         'screening_status',
         'is_locked',
         'rejection_reason',
@@ -112,4 +113,3 @@ class Player extends Model
             && ! $this->hasInvalidDocuments();
     }
 }
-

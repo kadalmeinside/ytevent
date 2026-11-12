@@ -4,6 +4,7 @@ namespace App\Http\Requests\Manager;
 
 use App\Models\Payment;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rules\File;
 
 class UploadPaymentProofRequest extends FormRequest
 {
@@ -22,7 +23,7 @@ class UploadPaymentProofRequest extends FormRequest
             'sender_account_holder' => ['required', 'string', 'min:3', 'max:120'],
             'sender_account_number' => ['nullable', 'string', 'max:64'],
             'transfer_date' => ['required', 'date'],
-            'proof_file' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:2048'],
+            'proof_file' => ['required', File::types(['jpg', 'jpeg', 'png', 'pdf'])->max(2048)],
         ];
     }
 
@@ -39,4 +40,3 @@ class UploadPaymentProofRequest extends FormRequest
         ];
     }
 }
-
