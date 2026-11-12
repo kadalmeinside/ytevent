@@ -249,8 +249,11 @@ const submit = () => {
                 </Link>
                 <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
                     <div>
-                        <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-orange-100 text-orange-700">
-                            ⭐ Pendaftaran Seleksi &amp; Audisi Bakat
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-orange-100 text-orange-700">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            <span>{{ event.event_type === 'coaching_clinic' ? 'Pendaftaran Coaching Clinic & Workshop' : (event.event_type === 'audition' ? 'Pendaftaran Audisi & Seleksi Bakat' : 'Pendaftaran Event Perorangan') }}</span>
                         </span>
                         <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-1">
                             {{ event.name }}

@@ -432,9 +432,17 @@ onUnmounted(() => {
                             }"
                         >
                             <div class="flex items-center gap-2.5">
-                                <span class="text-xl">
-                                    {{ result.gatekeeper_status === 'CHECK_IN_SUCCESS' ? '✓' : (result.gatekeeper_status === 'ALREADY_PRESENT' ? 'ℹ' : '✕') }}
-                                </span>
+                                <div class="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+                                    <svg v-if="result.gatekeeper_status === 'CHECK_IN_SUCCESS'" class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    <svg v-else-if="result.gatekeeper_status === 'ALREADY_PRESENT'" class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <svg v-else class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </div>
                                 <div>
                                     <div class="text-xs font-black uppercase tracking-wider">
                                         {{ result.gatekeeper_status === 'CHECK_IN_SUCCESS' ? 'Check-in Berhasil' : (result.gatekeeper_status === 'ALREADY_PRESENT' ? 'Peserta Sudah Hadir' : 'Akses Ditolak') }}
@@ -504,14 +512,14 @@ onUnmounted(() => {
                                 <div class="p-3 rounded-xl border" :class="result.participant.is_paid ? 'bg-emerald-50/80 border-emerald-200' : 'bg-rose-50/80 border-rose-200'">
                                     <div class="text-[10px] font-bold uppercase text-slate-500">Status Pembayaran</div>
                                     <div class="text-xs font-black mt-0.5" :class="result.participant.is_paid ? 'text-emerald-700' : 'text-rose-700'">
-                                        {{ result.participant.is_paid ? '✓ LUNAS' : '✕ BELUM LUNAS' }}
+                                        {{ result.participant.is_paid ? 'Lunas' : 'Belum Lunas' }}
                                     </div>
                                 </div>
 
                                 <div class="p-3 rounded-xl border" :class="result.participant.screening_status === 'passed' ? 'bg-emerald-50/80 border-emerald-200' : 'bg-rose-50/80 border-rose-200'">
                                     <div class="text-[10px] font-bold uppercase text-slate-500">Screening Berkas</div>
                                     <div class="text-xs font-black mt-0.5" :class="result.participant.screening_status === 'passed' ? 'text-emerald-700' : 'text-rose-700'">
-                                        {{ result.participant.screening_status === 'passed' ? '✓ SAH (LOLOS)' : '✕ BELUM SAH' }}
+                                        {{ result.participant.screening_status === 'passed' ? 'Sah (Lolos)' : 'Belum Sah' }}
                                     </div>
                                 </div>
 

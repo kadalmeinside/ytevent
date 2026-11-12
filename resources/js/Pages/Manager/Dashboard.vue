@@ -48,7 +48,10 @@ const calculatePercent = (current, total) => {
                 :class="activeTab === 'team' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'"
                 @click="activeTab = 'team'"
             >
-                <span>🏆 Tim Turnamen</span>
+                <svg class="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <span>Tim Turnamen</span>
                 <span v-if="teamsList.length > 0" class="px-1.5 py-0.5 rounded-full text-[10px] font-black" :class="activeTab === 'team' ? 'bg-orange-100 text-orange-700' : 'bg-slate-200 text-slate-600'">
                     {{ teamsList.length }}
                 </span>
@@ -59,7 +62,10 @@ const calculatePercent = (current, total) => {
                 :class="activeTab === 'audition' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'"
                 @click="activeTab = 'audition'"
             >
-                <span>⭐ Pendaftaran Audisi Anak</span>
+                <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span>Pendaftaran Perorangan</span>
                 <span v-if="auditionParticipants.length > 0" class="px-1.5 py-0.5 rounded-full text-[10px] font-black" :class="activeTab === 'audition' ? 'bg-orange-100 text-orange-700' : 'bg-slate-200 text-slate-600'">
                     {{ auditionParticipants.length }}
                 </span>
@@ -569,13 +575,13 @@ const calculatePercent = (current, total) => {
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     <h2 class="text-lg sm:text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                        <span>⭐ Pendaftaran Audisi &amp; Seleksi Bakat</span>
+                        <span>Pendaftaran Kegiatan Perorangan</span>
                         <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700">
                             {{ auditionParticipants.length }} Peserta
                         </span>
                     </h2>
                     <p class="text-xs text-slate-500 mt-0.5">
-                        Pantau proses verifikasi berkas, tahapan seleksi, dan nomor dada anak Anda.
+                        Pantau proses verifikasi berkas, tahapan kegiatan, nomor dada, atau sertifikat peserta Anda.
                     </p>
                 </div>
                 <Link :href="route('home')" class="btn-pitch text-xs sm:text-sm self-start sm:self-auto inline-flex items-center gap-1.5">
@@ -642,7 +648,7 @@ const calculatePercent = (current, total) => {
                                 class="text-[10px] font-bold px-2 py-0.5 rounded border"
                                 :class="p.is_paid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'"
                             >
-                                {{ p.is_paid ? '✓ LUNAS' : 'MENUNGGU PEMBAYARAN' }}
+                                {{ p.is_paid ? 'LUNAS' : 'MENUNGGU PEMBAYARAN' }}
                             </span>
 
                             <!-- Screening Status -->

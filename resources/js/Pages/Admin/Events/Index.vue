@@ -71,19 +71,25 @@ const triggerResyncEvent = (evt) => {
                     </button>
                     <button
                         type="button"
-                        class="px-3 py-1 rounded-lg text-xs font-bold transition"
+                        class="px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5"
                         :class="activeFilter === 'team' ? 'bg-white text-orange-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'"
                         @click="activeFilter = 'team'"
                     >
-                        🏆 Turnamen Tim ({{ teamEventsCount }})
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        <span>Turnamen Tim ({{ teamEventsCount }})</span>
                     </button>
                     <button
                         type="button"
-                        class="px-3 py-1 rounded-lg text-xs font-bold transition"
+                        class="px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5"
                         :class="activeFilter === 'individual' ? 'bg-white text-orange-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'"
                         @click="activeFilter = 'individual'"
                     >
-                        ⭐ Audisi Atlet ({{ auditionEventsCount }})
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <span>Event Perorangan ({{ auditionEventsCount }})</span>
                     </button>
                 </div>
 
@@ -109,16 +115,22 @@ const triggerResyncEvent = (evt) => {
 
                     <Link
                         :href="route('admin.events.create', { participant_type: 'team' })"
-                        class="btn-secondary text-xs inline-flex items-center gap-1 font-bold border-slate-300"
+                        class="btn-secondary text-xs inline-flex items-center gap-1.5 font-bold border-slate-300"
                     >
-                        <span>🏆 + Turnamen Tim</span>
+                        <svg class="w-3.5 h-3.5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span>+ Turnamen Tim</span>
                     </Link>
 
                     <Link
                         :href="route('admin.events.create', { participant_type: 'individual' })"
-                        class="btn-pitch text-xs inline-flex items-center gap-1 font-bold shadow-sm"
+                        class="btn-pitch text-xs inline-flex items-center gap-1.5 font-bold shadow-sm"
                     >
-                        <span>⭐ + Audisi Pemain</span>
+                        <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span>+ Event Perorangan</span>
                     </Link>
                 </div>
             </div>
@@ -143,24 +155,29 @@ const triggerResyncEvent = (evt) => {
                         <div class="flex flex-wrap items-center justify-between gap-3 pb-3 mb-3 border-b border-slate-100">
                             <div class="flex items-center gap-3">
                                 <div
-                                    class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-base shadow-2xs shrink-0 border"
-                                    :class="evt.participant_type === 'individual' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-orange-100 text-orange-700 border-orange-200'"
+                                    class="w-10 h-10 rounded-xl flex items-center justify-center shadow-2xs shrink-0 border"
+                                    :class="evt.participant_type === 'individual' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-orange-50 text-orange-700 border-orange-200'"
                                 >
-                                    {{ evt.participant_type === 'individual' ? '⭐' : '🏆' }}
+                                    <svg v-if="evt.participant_type === 'individual'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                    </svg>
+                                    <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                    </svg>
                                 </div>
                                 <div>
                                     <div class="flex items-center gap-2 flex-wrap">
                                         <h4 class="text-sm sm:text-base font-bold text-slate-900 leading-tight">{{ evt.name }}</h4>
                                         <span
-                                            class="px-2 py-0.5 text-[10px] font-bold rounded-full border"
-                                            :class="evt.participant_type === 'individual' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-orange-50 text-orange-800 border-orange-200'"
+                                            class="px-2 py-0.5 text-[10px] font-bold rounded-md border"
+                                            :class="evt.participant_type === 'individual' ? 'bg-amber-50 text-amber-900 border-amber-200' : 'bg-orange-50 text-orange-900 border-orange-200'"
                                         >
-                                            {{ evt.participant_type === 'individual' ? 'Audisi Atlet (Individu)' : 'Turnamen Tim Beregu' }}
+                                            {{ evt.participant_type === 'individual' ? (evt.event_type === 'coaching_clinic' ? 'Coaching Clinic' : (evt.event_type === 'audition' ? 'Audisi Atlet' : 'Perorangan')) : 'Turnamen Tim' }}
                                         </span>
                                     </div>
                                     <div class="flex items-center gap-2 mt-0.5 text-xs">
                                         <span class="font-semibold text-slate-600">
-                                            {{ evt.participant_type === 'individual' ? 'Seleksi Bakat' : evt.format_label }}
+                                            {{ evt.participant_type === 'individual' ? (evt.event_type === 'coaching_clinic' ? 'Workshop Pelatihan' : (evt.event_type === 'audition' ? 'Seleksi Bakat' : 'Fun Event')) : evt.format_label }}
                                         </span>
                                         <span class="text-slate-300">&bull;</span>
                                         <span class="font-mono text-[11px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-800 border border-slate-200">
@@ -281,7 +298,7 @@ const triggerResyncEvent = (evt) => {
                                         </svg>
                                     </Link>
                                     <Link
-                                        v-if="evt.participant_type === 'individual'"
+                                        v-if="evt.participant_type === 'individual' && evt.event_type === 'audition'"
                                         :href="route('scout.events.show', { event: evt.id })"
                                         target="_blank"
                                         class="btn-sm-secondary border-slate-300 text-slate-700 hover:bg-slate-50 justify-center"
@@ -294,10 +311,10 @@ const triggerResyncEvent = (evt) => {
                                         :href="route('admin.events.auditions.qualifications', { event: evt.id })"
                                         class="btn-sm-secondary border-orange-300 text-orange-800 hover:bg-orange-50 justify-center"
                                     >
-                                        Kelolosan &amp; Piagam
+                                        {{ evt.event_type === 'audition' ? 'Kelolosan & Piagam' : 'Presensi & Sertifikat' }}
                                     </Link>
                                     <Link
-                                        v-else
+                                        v-else-if="evt.participant_type === 'team'"
                                         :href="route('admin.events.tournament', { event: evt.id })"
                                         class="btn-sm-secondary border-orange-300 text-orange-800 hover:bg-orange-50 justify-center"
                                     >

@@ -120,9 +120,9 @@ const saveEvaluation = async (participantId) => {
         });
 
         if (response.data.success) {
-            data.saved_at = 'Tersimpan ✓';
+            data.saved_at = 'Tersimpan';
             setTimeout(() => {
-                if (data.saved_at === 'Tersimpan ✓') data.saved_at = null;
+                if (data.saved_at === 'Tersimpan') data.saved_at = null;
             }, 2500);
         }
     } catch (err) {

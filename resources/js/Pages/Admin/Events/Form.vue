@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed } from 'vue';
 import { useForm, Head, Link } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import InputError from '@/Components/InputError.vue';
@@ -56,7 +56,6 @@ const isEdit = computed(() => Boolean(props.event?.id));
 const bannerPreview = ref(props.event?.banner_url || null);
 const { applyValidation, isEmpty } = useFormValidator();
 
-// Tentukan default participant_type awal dari event edit, query param, atau prop
 const getInitialType = () => {
     if (props.event?.participant_type) return props.event.participant_type;
     if (typeof window !== 'undefined') {
@@ -119,6 +118,9 @@ const form = useForm({
 });
 
 const isIndividual = computed(() => form.participant_type === 'individual');
+const isAudition = computed(() => isIndividual.value && form.event_type === 'audition');
+const isCoachingClinic = computed(() => isIndividual.value && form.event_type === 'coaching_clinic');
+const isFestival = computed(() => form.event_type === 'festival');
 
 const selectParticipantType = (type) => {
     form.participant_type = type;
@@ -128,7 +130,7 @@ const selectParticipantType = (type) => {
         }
         form.format = 'festival';
     } else {
-        if (form.event_type === 'audition') {
+        if (form.event_type === 'audition' || form.event_type === 'coaching_clinic') {
             form.event_type = 'tournament';
         }
         if (form.format === 'festival') {
@@ -165,10 +167,18 @@ const submit = () => {
     const ok = applyValidation(form, () => {
         const errs = {};
         if (isEmpty(form.name)) {
-            errs.name = isIndividual.value ? 'Nama event audisi/seleksi wajib diisi.' : 'Nama kompetisi turnamen wajib diisi.';
+            if (isCoachingClinic.value) {
+                errs.name = 'Nama coaching clinic / workshop wajib diisi.';
+            } else if (isAudition.value) {
+                errs.name = 'Nama event audisi / seleksi wajib diisi.';
+            } else if (isIndividual.value) {
+                errs.name = 'Nama event perorangan wajib diisi.';
+            } else {
+                errs.name = 'Nama kompetisi turnamen wajib diisi.';
+            }
         }
         if (isEmpty(form.venue_name)) {
-            errs.venue_name = isIndividual.value ? 'Lokasi atau venue audisi wajib diisi.' : 'Lokasi atau stadion utama wajib diisi.';
+            errs.venue_name = isIndividual.value ? 'Lokasi atau venue kegiatan wajib diisi.' : 'Lokasi atau stadion utama wajib diisi.';
         }
         if (isEmpty(form.city)) errs.city = 'Kota penyelenggaraan wajib diisi.';
         if (isEmpty(form.age_category)) errs.age_category = 'Label kategori usia wajib diisi.';
@@ -183,7 +193,7 @@ const submit = () => {
                 }
             } else {
                 if (isEmpty(form.max_participants) || Number(form.max_participants) < 2) {
-                    errs.max_participants = 'Kuota maksimal peserta atlet wajib berupa angka minimal 2 orang.';
+                    errs.max_participants = 'Kuota maksimal peserta wajib berupa angka minimal 2 orang.';
                 }
             }
         }
@@ -213,34 +223,43 @@ const submit = () => {
 <template>
     <AdminLayout
         :page-title="isEdit
-            ? `Edit ${isIndividual ? 'Event Audisi' : 'Kompetisi'}: ${event.name}`
-            : (isIndividual ? 'Buat Event Audisi / Seleksi Pemain Baru' : 'Buat Turnamen Sepak Bola Baru')"
+            ? `Edit Event: ${event.name}`
+            : (isIndividual ? (isCoachingClinic ? 'Buat Coaching Clinic / Workshop Baru' : (isAudition ? 'Buat Event Audisi / Seleksi Pemain Baru' : 'Buat Event Perorangan Baru')) : 'Buat Turnamen Sepak Bola Baru')"
         :subtitle="isIndividual
-            ? 'Atur kuota atlet, kelompok usia & cut-off, form preset pendaftaran, berkas screening, serta jadwal audisi.'
+            ? (isCoachingClinic
+                ? 'Atur kuota peserta, kelompok usia, silabus pelatihan, fasilitas peserta, dan jadwal kegiatan.'
+                : 'Atur kuota peserta, kelompok usia & cut-off, form preset pendaftaran, berkas screening, serta jadwal kegiatan.')
             : 'Atur batas kuota tim (anti-overbooking), kelompok umur kelayakan pemain, format pertandingan, dan dokumen wajib.'"
     >
-        <Head :title="isEdit ? `Edit ${event.name}` : (isIndividual ? 'Buat Event Audisi Baru' : 'Buat Turnamen Baru')" />
+        <Head :title="isEdit ? `Edit ${event.name}` : (isIndividual ? 'Buat Event Baru' : 'Buat Turnamen Baru')" />
 
         <div class="max-w-4xl space-y-6">
             <div class="flex items-center justify-between">
                 <Link :href="route('admin.events.index')" class="text-xs font-semibold text-slate-600 hover:text-orange-600 transition-colors">
                     &larr; Kembali ke Daftar Event &amp; Kompetisi
                 </Link>
-                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"
-                    :class="isIndividual ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-red-100 text-red-800 border border-red-200'"
+                <span
+                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold"
+                    :class="isIndividual ? 'bg-amber-50 text-amber-900 border border-amber-300' : 'bg-orange-50 text-orange-950 border border-orange-300'"
                 >
-                    {{ isIndividual ? '⭐ Mode Audisi Individu' : '🏆 Mode Turnamen Beregu' }}
+                    <svg v-if="isIndividual" class="w-3.5 h-3.5 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <svg v-else class="w-3.5 h-3.5 text-orange-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span>{{ isIndividual ? 'Mode Event Perorangan / Mandiri' : 'Mode Turnamen Beregu / Tim' }}</span>
                 </span>
             </div>
 
             <!-- STEP 0: MODEL EVENT SELECTOR (CARD SWITCHER) -->
-            <div class="frosted-card p-5 sm:p-6 bg-gradient-to-br from-white via-orange-50/20 to-red-50/10 border-orange-200">
+            <div class="frosted-card p-5 sm:p-6 border border-slate-200">
                 <div class="flex items-center justify-between mb-3">
                     <div>
-                        <h2 class="text-sm font-bold text-slate-900">Pilih Model Penyelenggaraan Event</h2>
-                        <p class="text-xs text-slate-500">Pilih tipe event untuk menyesuaikan formulir secara otomatis.</p>
+                        <h2 class="text-sm font-bold text-slate-900">Model Kepesertaan Event</h2>
+                        <p class="text-xs text-slate-500">Pilih model pendaftaran untuk menyesuaikan formulir secara otomatis.</p>
                     </div>
-                    <span v-if="isEdit" class="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                    <span v-if="isEdit" class="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                         Model Terkunci saat Edit
                     </span>
                 </div>
@@ -252,49 +271,61 @@ const submit = () => {
                         class="p-4 rounded-xl border-2 transition-all relative"
                         :class="[
                             !isIndividual
-                                ? 'border-orange-500 bg-white shadow-md shadow-orange-500/10 ring-2 ring-orange-500/20'
-                                : 'border-slate-200 bg-slate-50/60 hover:bg-white hover:border-slate-300 opacity-70',
+                                ? 'border-orange-600 bg-orange-50/20 shadow-sm'
+                                : 'border-slate-200 bg-slate-50/60 hover:bg-white hover:border-slate-300 opacity-75',
                             isEdit ? 'cursor-not-allowed' : 'cursor-pointer'
                         ]"
                     >
                         <div class="flex items-start justify-between">
-                            <div class="flex items-center gap-2">
-                                <span class="text-2xl">🏆</span>
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" :class="!isIndividual ? 'bg-orange-600 text-white' : 'bg-slate-200 text-slate-600'">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                    </svg>
+                                </div>
                                 <div>
-                                    <h3 class="text-xs font-bold text-slate-900">Turnamen / Kompetisi Tim</h3>
-                                    <span class="text-[10px] font-semibold text-orange-700 uppercase tracking-wider">Format Beregu (SSB / Klub)</span>
+                                    <h3 class="text-xs font-bold text-slate-900">Format Beregu / Tim</h3>
+                                    <span class="text-[10px] font-semibold text-orange-700 uppercase tracking-wider">SSB / Klub / Sekolah</span>
                                 </div>
                             </div>
-                            <span v-if="!isIndividual" class="h-4 w-4 rounded-full bg-orange-600 text-white flex items-center justify-center text-[10px] font-bold">✓</span>
+                            <span v-if="!isIndividual" class="text-[11px] font-semibold text-orange-700 bg-orange-100 px-2 py-0.5 rounded border border-orange-200">
+                                Aktif
+                            </span>
                         </div>
                         <p class="text-[11px] text-slate-600 mt-2.5 leading-relaxed">
                             Pendaftaran per tim, pembagian grup &amp; bagan gugur, susunan DSP starting lineup (11v11 / 7v7), jadwal tanding, dan klasemen/top score.
                         </p>
                     </div>
 
-                    <!-- Card 2: Audisi Individu -->
+                    <!-- Card 2: Individu / Perorangan -->
                     <div
                         @click="!isEdit && selectParticipantType('individual')"
                         class="p-4 rounded-xl border-2 transition-all relative"
                         :class="[
                             isIndividual
-                                ? 'border-amber-500 bg-white shadow-md shadow-amber-500/10 ring-2 ring-amber-500/20'
-                                : 'border-slate-200 bg-slate-50/60 hover:bg-white hover:border-slate-300 opacity-70',
+                                ? 'border-orange-600 bg-orange-50/20 shadow-sm'
+                                : 'border-slate-200 bg-slate-50/60 hover:bg-white hover:border-slate-300 opacity-75',
                             isEdit ? 'cursor-not-allowed' : 'cursor-pointer'
                         ]"
                     >
                         <div class="flex items-start justify-between">
-                            <div class="flex items-center gap-2">
-                                <span class="text-2xl">⭐</span>
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" :class="isIndividual ? 'bg-orange-600 text-white' : 'bg-slate-200 text-slate-600'">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                    </svg>
+                                </div>
                                 <div>
-                                    <h3 class="text-xs font-bold text-slate-900">Audisi / Seleksi Pemain</h3>
-                                    <span class="text-[10px] font-semibold text-amber-700 uppercase tracking-wider">Format Atlet Individu</span>
+                                    <h3 class="text-xs font-bold text-slate-900">Format Perorangan / Individu</h3>
+                                    <span class="text-[10px] font-semibold text-orange-700 uppercase tracking-wider">Atlet / Anak / Mandiri</span>
                                 </div>
                             </div>
-                            <span v-if="isIndividual" class="h-4 w-4 rounded-full bg-amber-600 text-white flex items-center justify-center text-[10px] font-bold">✓</span>
+                            <span v-if="isIndividual" class="text-[11px] font-semibold text-orange-700 bg-orange-100 px-2 py-0.5 rounded border border-orange-200">
+                                Aktif
+                            </span>
                         </div>
                         <p class="text-[11px] text-slate-600 mt-2.5 leading-relaxed">
-                            Pendaftaran mandiri atlet/orang tua, form preset (posisi, antropometri, SSB asal), QR Bib Tag, presensi gerbang, panel talent scouting &amp; piagam kelolosan.
+                            Pendaftaran mandiri peserta, form preset profil (posisi, antropometri, SSB asal), kartu nomor dada / tiket QR, presensi gerbang, dan sertifikat partisipasi atau seleksi.
                         </p>
                     </div>
                 </div>
@@ -308,18 +339,22 @@ const submit = () => {
                     <div>
                         <h2 class="text-sm font-bold text-slate-900 pb-2 border-b border-slate-200 flex items-center gap-2">
                             <span>1.</span>
-                            <span>{{ isIndividual ? 'Informasi Dasar Event Audisi / Seleksi' : 'Informasi Dasar Kompetisi Turnamen' }}</span>
+                            <span>{{ isIndividual ? 'Informasi Dasar Event Perorangan' : 'Informasi Dasar Kompetisi Turnamen' }}</span>
                         </h2>
 
                         <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div data-field="name" class="sm:col-span-2">
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">
-                                    {{ isIndividual ? 'Nama Event Audisi / Seleksi Pemain' : 'Nama Kompetisi / Turnamen' }}
+                                    {{ isCoachingClinic
+                                        ? 'Nama Coaching Clinic / Workshop'
+                                        : (isAudition ? 'Nama Event Audisi / Seleksi' : (isIndividual ? 'Nama Event' : 'Nama Kompetisi / Turnamen')) }}
                                 </label>
                                 <input
                                     v-model="form.name"
                                     type="text"
-                                    :placeholder="isIndividual ? 'Contoh: Audisi Terbuka Talent Scouting EPA Persija U-16 2026' : 'Contoh: Piala Nusantara U-15 2026'"
+                                    :placeholder="isCoachingClinic
+                                        ? 'Contoh: Persija Youth Masterclass Coaching Clinic 2026'
+                                        : (isAudition ? 'Contoh: Audisi Terbuka EPA Persija U-16 2026' : 'Contoh: Piala Nusantara U-15 2026')"
                                     class="input-field"
                                     :class="{ 'input-field-error': form.errors.name }"
                                     @input="form.clearErrors('name')"
@@ -331,12 +366,12 @@ const submit = () => {
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Jenis Penyelenggaraan</label>
                                 <select v-model="form.event_type" class="input-field">
                                     <template v-if="isIndividual">
-                                        <option value="audition">Audisi / Seleksi Pemain Mandiri</option>
+                                        <option value="audition">Audisi / Seleksi Pemain Berjenjang</option>
                                         <option value="coaching_clinic">Coaching Clinic / Workshop Pelatihan</option>
-                                        <option value="festival">Festival Grassroots / Fun Day</option>
+                                        <option value="festival">Festival Grassroots / Fun Day Mandiri</option>
                                     </template>
                                     <template v-else>
-                                        <option value="tournament">Turnamen Tim Beregu</option>
+                                        <option value="tournament">Turnamen Kompetisi Tim Beregu</option>
                                         <option value="festival">Festival Sepak Bola Beregu</option>
                                     </template>
                                 </select>
@@ -349,7 +384,7 @@ const submit = () => {
                                 </select>
                             </div>
 
-                            <!-- KHUSUS TURNAMEN TIM: FORMAT PERTANDINGAN & DSP (SEMBUNYI SAAT AUDISI) -->
+                            <!-- KHUSUS TURNAMEN TIM: FORMAT PERTANDINGAN & DSP (SEMBUNYI SAAT PERORANGAN / INDIVIDU) -->
                             <template v-if="!isIndividual">
                                 <div data-field="format">
                                     <label class="block text-xs font-semibold text-slate-700 mb-1">Sistem Turnamen</label>
@@ -380,8 +415,6 @@ const submit = () => {
                                         <input
                                             v-model="form.starting_players_count"
                                             type="number"
-                                            min="3"
-                                            max="11"
                                             class="input-field tabular-data w-28"
                                         />
                                         <span class="text-xs text-slate-500">Pemain (termasuk 1 Kiper)</span>
@@ -397,8 +430,6 @@ const submit = () => {
                                         <input
                                             v-model="form.dsp_cutoff_minutes"
                                             type="number"
-                                            min="0"
-                                            max="180"
                                             class="input-field tabular-data w-28"
                                         />
                                         <span class="text-xs text-slate-500">Menit sebelum kick-off (Default: 30 menit)</span>
@@ -407,20 +438,9 @@ const submit = () => {
                                 </div>
                             </template>
 
-                            <!-- INFORMASI PENJELASAN UNTUK AUDISI INDIVIDU -->
-                            <div v-else class="sm:col-span-2 p-3.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-950 text-xs flex items-center gap-3">
-                                <span class="text-xl">💡</span>
-                                <div>
-                                    <span class="font-bold block">Format Pertandingan (11v11 / Starting DSP) Dinonaktifkan:</span>
-                                    <span class="text-[11px] text-amber-800">
-                                        Event audisi fokus pada penilaian talenta atlet secara individual (screening fisik, tes keterampilan teknis, game internal). Penilaian menggunakan Panel Scouting terpadu.
-                                    </span>
-                                </div>
-                            </div>
-
                             <div data-field="venue_name">
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">
-                                    {{ isIndividual ? 'Venue / Stadion / Lapangan Audisi' : 'Stadion / Lapangan Utama' }}
+                                    {{ isIndividual ? 'Venue / Lokasi Kegiatan' : 'Stadion / Lapangan Utama' }}
                                 </label>
                                 <input
                                     v-model="form.venue_name"
@@ -448,7 +468,7 @@ const submit = () => {
 
                             <div data-field="venue_maps_url" class="sm:col-span-2">
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">
-                                    Link Google Maps Lokasi Lapangan <span class="text-slate-400 font-normal">(Sangat Disarankan)</span>
+                                    Link Google Maps Lokasi Lapangan <span class="text-slate-400 font-normal">(Disarankan)</span>
                                 </label>
                                 <input
                                     v-model="form.venue_maps_url"
@@ -459,7 +479,7 @@ const submit = () => {
                                     @input="form.clearErrors('venue_maps_url')"
                                 />
                                 <p class="text-[11px] text-slate-500 mt-1">
-                                    Memudahkan atlet dan orang tua langsung membuka petunjuk arah via Google Maps saat hari seleksi.
+                                    Memudahkan peserta langsung membuka navigasi Google Maps menuju lokasi acara.
                                 </p>
                                 <InputError :message="form.errors.venue_maps_url" />
                             </div>
@@ -467,8 +487,14 @@ const submit = () => {
                             <div class="sm:col-span-2">
                                 <RichTextEditor
                                     v-model="form.short_description"
-                                    :label="isIndividual ? 'Deskripsi &amp; Petunjuk Teknis Audisi' : 'Deskripsi &amp; Informasi Kompetisi'"
-                                    :placeholder="isIndividual ? 'Uraikan jadwal sesi, materi tes (antropometri, agility, mini games), pakaian yang wajib dibawa, dan kriteria penilaian...' : 'Uraian lengkap mengenai kejuaraan, peserta yang disasar, babak turnamen, dan informasi teknis...'"
+                                    :label="isCoachingClinic
+                                        ? 'Silabus, Materi Pelatihan &amp; Kurikulum'
+                                        : (isAudition ? 'Petunjuk Teknis &amp; Tahapan Seleksi' : 'Deskripsi &amp; Informasi Kegiatan')"
+                                    :placeholder="isCoachingClinic
+                                        ? 'Uraikan kurikulum pelatihan, profil instruktur/pelatih, sesi teori & praktik, serta perlengkapan yang wajib dibawa peserta...'
+                                        : (isAudition
+                                            ? 'Uraikan jadwal sesi, materi tes (antropometri, agility, mini games), pakaian yang wajib dibawa, dan kriteria penilaian...'
+                                            : 'Uraian lengkap mengenai kejuaraan, peserta yang disasar, babak turnamen, dan informasi teknis...')"
                                     :error="form.errors.short_description"
                                 />
                             </div>
@@ -498,7 +524,7 @@ const submit = () => {
                                     <div class="text-xs">
                                         <span class="font-bold block text-slate-900">Kuota Terbatas (Fixed Quota)</span>
                                         <span class="text-slate-500 text-[11px] block mt-0.5">
-                                            {{ isIndividual ? 'Dibatasi kuota pasti (misal: 150 atlet). Pendaftaran otomatis ditutup saat penuh.' : 'Dibatasi angka kuota pasti (misal: 16 atau 32 tim). Pendaftaran tutup saat slot penuh.' }}
+                                            {{ isIndividual ? 'Dibatasi kuota pasti (misal: 50 atau 150 peserta). Pendaftaran otomatis ditutup saat penuh.' : 'Dibatasi angka kuota pasti (misal: 16 atau 32 tim). Pendaftaran tutup saat slot penuh.' }}
                                         </span>
                                     </div>
                                 </label>
@@ -531,7 +557,6 @@ const submit = () => {
                                 <input
                                     v-model="form.max_teams"
                                     type="number"
-                                    min="2"
                                     class="input-field tabular-data"
                                     :class="{ 'input-field-error': form.errors.max_teams }"
                                     @input="form.clearErrors('max_teams')"
@@ -542,35 +567,35 @@ const submit = () => {
                                 <InputError :message="form.errors.max_teams" />
                             </div>
 
-                            <!-- Kuota Atlet (Hanya untuk Individu) -->
+                            <!-- Kuota Peserta (Hanya untuk Individu) -->
                             <div v-else-if="form.quota_type === 'fixed' && isIndividual" data-field="max_participants">
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">
-                                    Kuota Maksimal Peserta (Atlet)
+                                    Kuota Maksimal Peserta (Slot)
                                 </label>
                                 <input
                                     v-model="form.max_participants"
                                     type="number"
-                                    min="2"
                                     class="input-field tabular-data"
                                     :class="{ 'input-field-error': form.errors.max_participants }"
                                     @input="form.clearErrors('max_participants')"
                                 />
-                                <p class="text-[10px] text-slate-500 mt-0.5">Contoh: 100 atlet audisi per angkatan.</p>
+                                <p class="text-[10px] text-slate-500 mt-0.5">
+                                    {{ isCoachingClinic ? 'Contoh: 50 peserta workshop' : 'Contoh: 100 atlet seleksi' }}
+                                </p>
                                 <InputError :message="form.errors.max_participants" />
                             </div>
 
                             <div v-else class="sm:col-span-1 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center">
-                                <span>🟢 Kuota terbuka tanpa batas awal. Akses pendaftaran otomatis dikunci saat batas waktu penutupan tiba.</span>
+                                <span>Kuota terbuka tanpa batas awal. Akses pendaftaran otomatis dikunci saat batas waktu penutupan tiba.</span>
                             </div>
 
                             <div data-field="registration_fee">
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">
-                                    {{ isIndividual ? 'Biaya Pendaftaran per Atlet (Rp)' : 'Biaya Pendaftaran per Tim (Rp)' }}
+                                    {{ isIndividual ? 'Biaya Pendaftaran per Peserta (Rp)' : 'Biaya Pendaftaran per Tim (Rp)' }}
                                 </label>
                                 <input
                                     v-model="form.registration_fee"
                                     type="number"
-                                    min="0"
                                     step="10000"
                                     placeholder="0"
                                     class="input-field tabular-data"
@@ -584,8 +609,6 @@ const submit = () => {
                                 <input
                                     v-model="form.payment_deadline_hours"
                                     type="number"
-                                    min="1"
-                                    max="168"
                                     class="input-field tabular-data"
                                 />
                                 <p class="text-[10px] text-slate-500 mt-0.5">Slot dilepas otomatis jika unpaid lewat durasi ini.</p>
@@ -593,12 +616,16 @@ const submit = () => {
 
                             <div class="sm:col-span-2">
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">
-                                    {{ isIndividual ? 'Informasi Beasiswa / Benefit Kelolosan' : 'Informasi Hadiah / Trofi' }}
+                                    {{ isCoachingClinic
+                                        ? 'Fasilitas &amp; Paket Peserta'
+                                        : (isAudition ? 'Informasi Beasiswa / Benefit Kelolosan' : 'Informasi Hadiah / Trofi') }}
                                 </label>
                                 <input
                                     v-model="form.prize_info"
                                     type="text"
-                                    :placeholder="isIndividual ? 'Beasiswa Penuh Akademi + Kontrak EPA Persija U-16' : 'Total Hadiah Rp 50.000.000 + Trofi Bergilir'"
+                                    :placeholder="isCoachingClinic
+                                        ? 'Contoh: Jersey Latihan Resmi, Bola, Sertifikat, Konsumsi, Sesi Pelatih Berlisensi'
+                                        : (isAudition ? 'Contoh: Beasiswa Penuh Akademi + Kontrak EPA Persija U-16' : 'Total Hadiah Rp 50.000.000 + Trofi Bergilir')"
                                     class="input-field"
                                 />
                             </div>
@@ -608,8 +635,6 @@ const submit = () => {
                                 <input
                                     v-model="form.reupload_grace_hours"
                                     type="number"
-                                    min="1"
-                                    max="72"
                                     class="input-field tabular-data"
                                 />
                             </div>
@@ -632,7 +657,7 @@ const submit = () => {
                     <div>
                         <h2 class="text-sm font-bold text-slate-900 pb-2 border-b border-slate-200 flex items-center gap-2">
                             <span>3.</span>
-                            <span>{{ isIndividual ? 'Kelayakan Usia Atlet &amp; Dokumen Screening Wajib' : 'Regulasi Kelayakan Usia Pemain &amp; Dokumen Skuad' }}</span>
+                            <span>{{ isIndividual ? 'Kelayakan Usia &amp; Dokumen Verifikasi Wajib' : 'Regulasi Kelayakan Usia Pemain &amp; Dokumen Skuad' }}</span>
                         </h2>
 
                         <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -641,7 +666,7 @@ const submit = () => {
                                 <input
                                     v-model="form.age_category"
                                     type="text"
-                                    placeholder="Contoh: U-12 / U-15 / Senior"
+                                    placeholder="Contoh: U-12 / U-15 / Umum"
                                     class="input-field"
                                     :class="{ 'input-field-error': form.errors.age_category }"
                                     @input="form.clearErrors('age_category')"
@@ -663,17 +688,17 @@ const submit = () => {
                             <template v-if="!isIndividual">
                                 <div>
                                     <label class="block text-xs font-semibold text-slate-700 mb-1">Min. Pemain per Tim</label>
-                                    <input v-model="form.min_players_per_team" type="number" min="5" class="input-field tabular-data" />
+                                    <input v-model="form.min_players_per_team" type="number" class="input-field tabular-data" />
                                 </div>
 
                                 <div>
                                     <label class="block text-xs font-semibold text-slate-700 mb-1">Maks. Pemain per Tim</label>
-                                    <input v-model="form.max_players_per_team" type="number" min="5" class="input-field tabular-data" />
+                                    <input v-model="form.max_players_per_team" type="number" class="input-field tabular-data" />
                                 </div>
 
                                 <div>
                                     <label class="block text-xs font-semibold text-slate-700 mb-1">Maks. Ofisial per Tim</label>
-                                    <input v-model="form.max_officials_per_team" type="number" min="1" class="input-field tabular-data" />
+                                    <input v-model="form.max_officials_per_team" type="number" class="input-field tabular-data" />
                                 </div>
 
                                 <!-- Pengaturan Syarat Minimal Kiper & Lisensi Pelatih -->
@@ -768,10 +793,10 @@ const submit = () => {
                                 </div>
                             </template>
 
-                            <!-- Checkbox Dokumen Wajib Screening (Berlaku untuk Tim & Audisi) -->
+                            <!-- Checkbox Dokumen Wajib Screening (Berlaku untuk Tim & Individu) -->
                             <div data-field="required_documents" class="sm:col-span-3">
                                 <label class="block text-xs font-semibold text-slate-700 mb-2">
-                                    {{ isIndividual ? 'Dokumen Screening Wajib Diunggah Atlet (Anti Pencurian Umur):' : 'Dokumen Wajib Diunggah per Pemain saat Screening Tim:' }}
+                                    {{ isIndividual ? 'Dokumen Screening Wajib Diunggah Peserta:' : 'Dokumen Wajib Diunggah per Pemain saat Screening Tim:' }}
                                 </label>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                                     <label
@@ -794,19 +819,19 @@ const submit = () => {
                         </div>
                     </div>
 
-                    <!-- SECTION 4: KUSTOMISASI FORMULIR PENDAFTARAN ATLET (FORM PRESETS) -->
-                    <div :class="isIndividual ? 'p-5 rounded-2xl bg-amber-50/40 border-2 border-amber-300 ring-4 ring-amber-500/5' : ''">
-                        <div class="flex items-center justify-between pb-2 border-b" :class="isIndividual ? 'border-amber-200' : 'border-slate-200'">
+                    <!-- SECTION 4: KUSTOMISASI FORMULIR PENDAFTARAN PESERTA (FORM PRESETS) -->
+                    <div :class="isIndividual ? 'p-5 rounded-xl bg-slate-50 border border-slate-200' : ''">
+                        <div class="flex items-center justify-between pb-2 border-b border-slate-200">
                             <h2 class="text-sm font-bold text-slate-900 flex items-center gap-2">
                                 <span>4.</span>
-                                <span>Kustomisasi Kolom Formulir Atlet (Form Presets)</span>
+                                <span>Kustomisasi Kolom Formulir Peserta (Form Presets)</span>
                             </h2>
-                            <span v-if="isIndividual" class="text-[10px] font-bold text-amber-900 bg-amber-200 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                                Krusial untuk Audisi
+                            <span v-if="isIndividual" class="text-[10px] font-semibold text-slate-700 bg-slate-200 px-2 py-0.5 rounded uppercase tracking-wider">
+                                Profil Peserta
                             </span>
                         </div>
                         <p class="text-xs text-slate-500 mt-1.5">
-                            Pilih kolom profil yang wajib diisi oleh pendaftar atlet saat pendaftaran online. Data ini akan ditampilkan pada lembar scouting dan nomor dada (Bib Tag).
+                            Pilih kolom profil apa saja yang wajib diisi oleh pendaftar. Data ini akan ditampilkan pada lembar presensi, nomor dada, atau berkas kegiatan.
                         </p>
 
                         <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -821,7 +846,7 @@ const submit = () => {
                                 />
                                 <div class="text-xs">
                                     <span class="font-bold block">Posisi Lapangan</span>
-                                    <span class="text-slate-500 text-[11px] block mt-0.5">Wajibkan pemilihan posisi utama (GK, Bek, Mid, Penyerang) &amp; posisi sekunder.</span>
+                                    <span class="text-slate-500 text-[11px] block mt-0.5">Pemilihan posisi utama (Kiper, Bek, Gelandang, Penyerang) &amp; posisi sekunder.</span>
                                 </div>
                             </label>
 
@@ -836,7 +861,7 @@ const submit = () => {
                                 />
                                 <div class="text-xs">
                                     <span class="font-bold block">Kaki Dominan</span>
-                                    <span class="text-slate-500 text-[11px] block mt-0.5">Wajibkan atlet mengisi kaki dominan (Kanan, Kiri, atau Kedua Kaki).</span>
+                                    <span class="text-slate-500 text-[11px] block mt-0.5">Pengisian kaki dominan (Kanan, Kiri, atau Kedua Kaki).</span>
                                 </div>
                             </label>
 
@@ -851,7 +876,7 @@ const submit = () => {
                                 />
                                 <div class="text-xs">
                                     <span class="font-bold block">Asal SSB / Klub / Sekolah</span>
-                                    <span class="text-slate-500 text-[11px] block mt-0.5">Wajibkan pengisian nama klub pembinaan atau sekolah asal atlet.</span>
+                                    <span class="text-slate-500 text-[11px] block mt-0.5">Pengisian nama klub pembinaan atau sekolah asal peserta.</span>
                                 </div>
                             </label>
 
@@ -866,7 +891,7 @@ const submit = () => {
                                 />
                                 <div class="text-xs">
                                     <span class="font-bold block">Antropometri Fisik</span>
-                                    <span class="text-slate-500 text-[11px] block mt-0.5">Tampilkan kolom Tinggi Badan (cm) dan Berat Badan (kg) atlet.</span>
+                                    <span class="text-slate-500 text-[11px] block mt-0.5">Kolom Tinggi Badan (cm) dan Berat Badan (kg).</span>
                                 </div>
                             </label>
 
@@ -881,7 +906,7 @@ const submit = () => {
                                 />
                                 <div class="text-xs">
                                     <span class="font-bold block">Riwayat Prestasi / Pengalaman</span>
-                                    <span class="text-slate-500 text-[11px] block mt-0.5">Kolom riwayat turnamen atau kejuaraan yang pernah diikuti atlet.</span>
+                                    <span class="text-slate-500 text-[11px] block mt-0.5">Kolom riwayat turnamen atau pelatihan yang pernah diikuti sebelumnya.</span>
                                 </div>
                             </label>
 
@@ -895,8 +920,8 @@ const submit = () => {
                                     class="mt-0.5 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
                                 />
                                 <div class="text-xs">
-                                    <span class="font-bold block">Ukuran Kaos / Rompi Seleksi</span>
-                                    <span class="text-slate-500 text-[11px] block mt-0.5">Pilihan ukuran baju (S/M/L/XL/XXL) jika panitia membagikan jersey seleksi.</span>
+                                    <span class="font-bold block">Ukuran Kaos / Rompi</span>
+                                    <span class="text-slate-500 text-[11px] block mt-0.5">Pilihan ukuran baju (S/M/L/XL/XXL) jika panitia membagikan perlengkapan.</span>
                                 </div>
                             </label>
                         </div>
@@ -921,20 +946,24 @@ const submit = () => {
 
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">
-                                    {{ isIndividual ? 'Tanggal Audisi Dimulai (Hari ke-1)' : 'Pertandingan Dimulai (Kick-Off)' }}
+                                    {{ isCoachingClinic
+                                        ? 'Tanggal Mulai Pelatihan'
+                                        : (isAudition ? 'Tanggal Audisi Hari ke-1' : (isIndividual ? 'Tanggal Kegiatan Dimulai' : 'Pertandingan Dimulai (Kick-Off)')) }}
                                 </label>
                                 <input v-model="form.match_start_date" type="date" class="input-field tabular-data" />
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">
-                                    {{ isIndividual ? 'Tanggal Audisi Selesai (Final Day)' : 'Pertandingan Selesai' }}
+                                    {{ isCoachingClinic
+                                        ? 'Tanggal Selesai Pelatihan'
+                                        : (isAudition ? 'Tanggal Audisi Selesai (Final Day)' : (isIndividual ? 'Tanggal Kegiatan Selesai' : 'Pertandingan Selesai')) }}
                                 </label>
                                 <input v-model="form.match_end_date" type="date" class="input-field tabular-data" />
                             </div>
 
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Kontak PIC Panitia</label>
-                                <input v-model="form.contact_person" type="text" placeholder="Sekretariat Panitia / Tim Talent Scout" class="input-field" />
+                                <input v-model="form.contact_person" type="text" placeholder="Sekretariat Panitia Pelaksana" class="input-field" />
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">WhatsApp PIC Panitia</label>
@@ -943,13 +972,13 @@ const submit = () => {
 
                             <div class="sm:col-span-2">
                                 <label class="block text-xs font-bold text-slate-800 mb-1.5">
-                                    {{ isIndividual ? 'Poster / Banner Event Audisi (Format JPG/PNG/WebP, Rasio 16:9)' : 'Banner Gambar Kompetisi (Format JPG/PNG/WebP, Rasio 16:9)' }}
+                                    Poster / Banner Kegiatan (Format JPG/PNG/WebP, Rasio 16:9)
                                 </label>
                                 <FileInput
                                     v-model="form.banner_file"
                                     accept=".jpg,.jpeg,.png,.webp"
                                     :preview-url="bannerPreview"
-                                    :label="isIndividual ? 'Pilih Banner Poster Audisi' : 'Pilih Banner Kompetisi'"
+                                    label="Pilih Banner Kegiatan"
                                     hint="Gambar berukuran besar dikompresi otomatis sebelum diunggah."
                                     :error="form.errors.banner_file"
                                     @change="handleBannerFile"
@@ -958,13 +987,15 @@ const submit = () => {
 
                             <div class="sm:col-span-2">
                                 <label class="block text-xs font-bold text-slate-800 mb-1.5">
-                                    {{ isIndividual ? 'Berkas PDF Petunjuk Teknis &amp; SOP Audisi (Maks. 5 MB)' : 'Berkas PDF Regulasi Teknis Kompetisi (Maks. 5 MB)' }}
+                                    {{ isCoachingClinic
+                                        ? 'Berkas PDF Silabus &amp; Panduan Kegiatan (Maks. 5 MB)'
+                                        : (isAudition ? 'Berkas PDF SOP &amp; Petunjuk Teknis Seleksi (Maks. 5 MB)' : 'Berkas PDF Regulasi Teknis Kompetisi (Maks. 5 MB)') }}
                                 </label>
                                 <FileInput
                                     v-model="form.regulation_pdf"
                                     accept=".pdf"
                                     :preview-url="event?.regulation_pdf_url"
-                                    :label="isIndividual ? 'Pilih PDF Juknis Audisi' : 'Pilih Berkas PDF Regulasi'"
+                                    label="Pilih Berkas PDF"
                                     hint="Format berkas: Dokumen PDF resmi (Maksimal 5 MB)"
                                     :error="form.errors.regulation_pdf"
                                     @change="handlePdfFile"
@@ -976,7 +1007,7 @@ const submit = () => {
                     <div class="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
                         <Link :href="route('admin.events.index')" class="btn-secondary">Batal</Link>
                         <button type="submit" class="btn-pitch" :disabled="form.processing">
-                            {{ form.processing ? 'Menyimpan...' : (isEdit ? (isIndividual ? 'Perbarui Event Audisi' : 'Perbarui Pengaturan Kompetisi') : (isIndividual ? '⭐ Simpan &amp; Publikasikan Event Audisi' : '🏆 Simpan Kompetisi Baru')) }}
+                            {{ form.processing ? 'Menyimpan...' : (isEdit ? 'Perbarui Pengaturan Event' : 'Simpan &amp; Publikasikan Event') }}
                         </button>
                     </div>
                 </form>

@@ -147,31 +147,43 @@ const submitAdvance = () => {
                 <div class="flex flex-wrap items-center gap-2">
                     <button
                         type="button"
-                        class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition"
+                        class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition inline-flex items-center gap-1.5"
                         @click="openAdvanceModal('day_1_passed')"
                     >
-                        ✓ Lolos ke Hari 2
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Lolos ke Hari 2</span>
                     </button>
                     <button
                         type="button"
-                        class="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm transition"
+                        class="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm transition inline-flex items-center gap-1.5"
                         @click="openAdvanceModal('day_1_eliminated')"
                     >
-                        ✕ Gugur Hari 1
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        <span>Gugur Hari 1</span>
                     </button>
                     <button
                         type="button"
-                        class="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow-sm transition"
+                        class="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow-sm transition inline-flex items-center gap-1.5"
                         @click="openAdvanceModal('day_2_passed')"
                     >
-                        ✓ Lolos ke Final Day
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Lolos ke Final Day</span>
                     </button>
                     <button
                         type="button"
-                        class="px-3 py-1.5 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-xl text-xs font-black shadow-md transition"
+                        class="px-3 py-1.5 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-xl text-xs font-black shadow-md transition inline-flex items-center gap-1.5"
                         @click="openAdvanceModal('final_selected')"
                     >
-                        ⭐ Terpilih Skuad Utama
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                        </svg>
+                        <span>Terpilih Skuad Utama</span>
                     </button>
                 </div>
             </div>
