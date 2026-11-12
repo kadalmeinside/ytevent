@@ -234,4 +234,55 @@ class Phase8DynamicQuotaAndFormPresetsTest extends TestCase
         $this->assertNull($eventData['available_slots']);
         $this->assertTrue($eventData['form_presets']['jersey_size']);
     }
+
+    public function test_superadmin_can_update_audition_event_with_audition_format(): void
+    {
+        $event = Event::create([
+            'name' => 'Persija EPA Future Stars Scouting Fest 2026',
+            'slug' => 'persija-epa-future-stars-scouting-fest-2026',
+            'venue_name' => 'Persija Training Ground, Bojongsari',
+            'city' => 'Kota Depok',
+            'format' => 'audition',
+            'event_type' => 'audition',
+            'participant_type' => 'individual',
+            'quota_type' => 'fixed',
+            'max_participants' => 150,
+            'max_teams' => 150,
+            'age_category' => 'U-14',
+            'required_documents' => ['birth_certificate', 'family_card'],
+            'registration_fee' => 250000,
+            'lock_roster_until_paid' => true,
+            'payment_deadline_hours' => 24,
+            'reupload_grace_hours' => 6,
+            'status' => 'open',
+            'form_presets' => Event::DEFAULT_FORM_PRESETS,
+        ]);
+
+        $payload = [
+            'name' => 'Persija EPA Future Stars Scouting Fest 2026 Updated',
+            'city' => 'Kota Depok',
+            'venue_name' => 'Persija Training Ground, Bojongsari',
+            'event_type' => 'audition',
+            'participant_type' => 'individual',
+            'quota_type' => 'fixed',
+            'max_participants' => 150,
+            'max_teams' => 150,
+            'format' => 'audition',
+            'age_category' => 'U-14',
+            'required_documents' => ['birth_certificate', 'family_card'],
+            'registration_fee' => 250000,
+            'status' => 'open',
+            'payment_deadline_hours' => 24,
+            'reupload_grace_hours' => 6,
+        ];
+
+        $response = $this->actingAs($this->superadmin)
+            ->post(route('admin.events.update', ['event' => $event->id]), $payload);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect(route('admin.events.index'));
+
+        $this->assertEquals('audition', $event->fresh()->format);
+        $this->assertEquals('Persija EPA Future Stars Scouting Fest 2026 Updated', $event->fresh()->name);
+    }
 }

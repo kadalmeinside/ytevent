@@ -31,8 +31,19 @@ class StoreEventRequest extends FormRequest
 
         // Jika event individual (Audisi/Seleksi/Clinic), berikan nilai default yang aman untuk parameter teknis skuad tim
         if ($this->input('participant_type') === 'individual') {
+            $defaultFormat = match ($this->input('event_type')) {
+                'coaching_clinic' => 'coaching_clinic',
+                'festival' => 'festival',
+                default => 'audition',
+            };
+
+            $chosenFormat = $this->input('format');
+            if (empty($chosenFormat) || ! in_array($chosenFormat, array_keys(Event::FORMATS), true)) {
+                $chosenFormat = $defaultFormat;
+            }
+
             $this->merge([
-                'format' => $this->input('format', 'festival'),
+                'format' => $chosenFormat,
                 'match_format' => $this->input('match_format', '11_vs_11'),
                 'starting_players_count' => 11,
                 'dsp_cutoff_minutes' => 30,

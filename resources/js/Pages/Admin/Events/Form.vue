@@ -87,7 +87,7 @@ const form = useForm({
     venue_name: props.event?.venue_name || '',
     venue_maps_url: props.event?.venue_maps_url || '',
     city: props.event?.city || '',
-    format: props.event?.format || (initialType === 'individual' ? 'festival' : 'cup'),
+    format: props.event?.format || (initialType === 'individual' ? 'audition' : 'cup'),
     match_format: props.event?.match_format || '11_vs_11',
     starting_players_count: props.event?.starting_players_count ?? 11,
     dsp_cutoff_minutes: props.event?.dsp_cutoff_minutes ?? 30,
@@ -123,18 +123,31 @@ const isAudition = computed(() => isIndividual.value && form.event_type === 'aud
 const isCoachingClinic = computed(() => isIndividual.value && form.event_type === 'coaching_clinic');
 const isFestival = computed(() => form.event_type === 'festival');
 
+const availableFormats = computed(() => {
+    if (isIndividual.value) {
+        return props.formats || {};
+    }
+    const teamFormats = {};
+    for (const [k, v] of Object.entries(props.formats || {})) {
+        if (k !== 'audition' && k !== 'coaching_clinic') {
+            teamFormats[k] = v;
+        }
+    }
+    return teamFormats;
+});
+
 const selectParticipantType = (type) => {
     form.participant_type = type;
     if (type === 'individual') {
         if (form.event_type === 'tournament') {
             form.event_type = 'audition';
         }
-        form.format = 'festival';
+        form.format = form.event_type === 'coaching_clinic' ? 'coaching_clinic' : (form.event_type === 'festival' ? 'festival' : 'audition');
     } else {
         if (form.event_type === 'audition' || form.event_type === 'coaching_clinic') {
             form.event_type = 'tournament';
         }
-        if (form.format === 'festival') {
+        if (form.format === 'audition' || form.format === 'coaching_clinic') {
             form.format = 'cup';
         }
     }
@@ -390,7 +403,7 @@ const submit = () => {
                                 <div data-field="format">
                                     <label class="block text-xs font-semibold text-slate-700 mb-1">Sistem Turnamen</label>
                                     <select v-model="form.format" class="input-field">
-                                        <option v-for="(label, key) in formats" :key="key" :value="key">{{ label }}</option>
+                                        <option v-for="(label, key) in availableFormats" :key="key" :value="key">{{ label }}</option>
                                     </select>
                                 </div>
 

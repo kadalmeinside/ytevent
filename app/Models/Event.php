@@ -24,6 +24,8 @@ class Event extends Model
         'league' => 'League (Kompetisi Penuh)',
         'group_knockout' => 'Group + Knockout',
         'festival' => 'Grassroots Festival',
+        'audition' => 'Audisi / Seleksi Bertahap',
+        'coaching_clinic' => 'Coaching Clinic / Workshop',
     ];
 
     public const EVENT_TYPES = [
