@@ -231,18 +231,34 @@ trait ResolvesActiveTeam
                 'cta_label' => 'Kunci Skuad Final Sekarang',
                 'cta_route' => 'manager.accreditation.index',
             ];
+        } elseif ($team->status === 'expired') {
+            $banner = [
+                'type' => 'slot_expired',
+                'variant' => 'red',
+                'step_label' => 'STATUS KUOTA — RESERVASI SLOT KEDALUWARSA',
+                'title' => 'Reservasi Slot Kedaluwarsa (Batas Waktu Pembayaran Terlewati)',
+                'message' => 'Batas waktu pembayaran pendaftaran telah terlewati sehingga slot kuota dilepas ke publik. Anda dapat mengajukan ulang slot pendaftaran selama kuota event masih tersedia.',
+                'cta_label' => 'Ajukan Ulang Slot Pendaftaran',
+                'cta_route' => 'manager.payments',
+            ];
         } elseif (! $isPaid) {
+            $slotExpiresAt = $team->latestPayment?->expires_at ?? $team->slot_expires_at;
             $banner = [
                 'type' => 'payment_required',
                 'variant' => $paymentStatus === 'waiting_verification' ? 'amber' : 'red',
-                'step_label' => 'TAHAP 1 DARI 5 — PEMBAYARAN PENDAFTARAN',
+                'step_label' => $paymentStatus === 'waiting_verification'
+                    ? 'TAHAP 1 DARI 5 — VERIFIKASI PEMBAYARAN'
+                    : 'TAHAP 1 DARI 5 — PEMBAYARAN PENDAFTARAN',
                 'title' => $paymentStatus === 'waiting_verification'
                     ? 'Bukti Pembayaran Sedang Diverifikasi Panitia Keuangan'
                     : 'Segera Selesaikan Pembayaran Pendaftaran Tim',
                 'message' => $paymentStatus === 'waiting_verification'
                     ? 'Panitia sedang memverifikasi bukti transfer Anda. Akses pendaftaran pemain dan berkas screening akan terbuka otomatis setelah pembayaran dinyatakan LUNAS.'
-                    : 'Kuota tim Anda masih bersifat reservasi sementara. Selesaikan pembayaran sebelum batas waktu berakhir agar akses input pemain dan berkas screening terbuka.',
-                'cta_label' => 'Buka Halaman Pembayaran',
+                    : 'Kuota tim Anda masih bersifat reservasi sementara. Selesaikan pembayaran sebelum batas waktu berakhir agar slot tidak kedaluwarsa dan akses pengisian pemain terbuka.',
+                'deadline' => $paymentStatus === 'waiting_verification' ? null : $slotExpiresAt?->toIso8601String(),
+                'cta_label' => $paymentStatus === 'waiting_verification'
+                    ? 'Pantau Status Pembayaran'
+                    : 'Buka Halaman Pembayaran',
                 'cta_route' => 'manager.payments',
             ];
         } elseif ($playersRejected > 0) {

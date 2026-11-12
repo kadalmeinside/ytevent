@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
+import { useFormatters } from '@/Composables/useFormatters';
 
 const props = defineProps({
     banner: {
@@ -14,6 +15,7 @@ const props = defineProps({
 });
 
 const page = usePage();
+const { formatDateTime } = useFormatters();
 const currentPath = computed(() => page.url.split('?')[0]);
 
 const isCurrentCtaPage = computed(() => {
@@ -98,9 +100,13 @@ const variantStyles = computed(() => {
                     <svg v-else-if="banner.type === 'ready_to_lock'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
-                    <!-- Warning / Revision Icon -->
+                    <!-- Warning / Revision / Payment Required Icon -->
                     <svg v-else-if="banner.type === 'revision_required' || banner.type === 'payment_required'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <!-- Slot Expired Icon -->
+                    <svg v-else-if="banner.type === 'slot_expired'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <!-- Screening / Roster Progress Icon -->
                     <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -117,7 +123,7 @@ const variantStyles = computed(() => {
                             {{ banner.step_label }}
                         </span>
                         <span
-                            v-if="team?.workflow"
+                            v-if="team?.workflow && banner.type !== 'slot_expired'"
                             class="text-[11px] font-semibold opacity-85"
                         >
                             • Progres Tahap {{ team.workflow.current_step }}/{{ team.workflow.total_steps }}
@@ -129,6 +135,15 @@ const variantStyles = computed(() => {
                     <p class="text-xs sm:text-sm leading-relaxed" :class="variantStyles.message">
                         {{ banner.message }}
                     </p>
+                    <div
+                        v-if="banner.deadline"
+                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white/80 border border-current/20 text-current mt-1.5 shadow-2xs"
+                    >
+                        <svg class="w-3.5 h-3.5 shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Batas Waktu Reservasi Slot: <strong class="tabular-data font-bold">{{ formatDateTime(banner.deadline) }}</strong></span>
+                    </div>
                 </div>
             </div>
 

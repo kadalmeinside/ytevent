@@ -42,55 +42,6 @@ const calculatePercent = (current, total) => {
         </div>
 
         <div v-else class="space-y-6">
-            <!-- Liquid Status Banner: Slot Kuota Ditahan Sementara -->
-            <div
-                v-if="team.status === 'pending_payment'"
-                class="frosted-card p-5 border-orange-300/80 bg-gradient-to-r from-orange-50/90 via-amber-50/70 to-red-50/80 backdrop-blur-xl shadow-[0_4px_24px_rgba(234,88,12,0.06)] flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-            >
-                <div class="flex items-start gap-3.5">
-                    <div class="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-400/30 text-orange-600 flex items-center justify-center shrink-0 shadow-sm mt-0.5">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                    </div>
-                    <div>
-                        <p class="text-sm font-bold text-orange-950 flex items-center gap-2">
-                            <span>Slot Kuota Ditahan Sementara &mdash; Menunggu Pelunasan</span>
-                        </p>
-                        <p class="text-xs text-orange-900/80 mt-1 leading-relaxed">
-                            Batas waktu reservasi slot: <strong class="tabular-data font-semibold text-orange-950">{{ formatDateTime(summary?.latest_payment?.expires_at || team.slot_expires_at) }}</strong>.
-                            Selesaikan pembayaran sebelum batas waktu berakhir agar slot tidak kedaluwarsa dan pengisian pemain terbuka.
-                        </p>
-                    </div>
-                </div>
-                <Link :href="route('manager.payments')" class="btn-pitch shrink-0">
-                    Selesaikan Pembayaran &rarr;
-                </Link>
-            </div>
-
-            <!-- Liquid Status Banner: Slot Kedaluwarsa -->
-            <div
-                v-else-if="team.status === 'expired'"
-                class="frosted-card p-5 border-rose-300/80 bg-gradient-to-r from-rose-50/90 via-red-50/60 to-rose-50/80 backdrop-blur-xl shadow-[0_4px_24px_rgba(225,29,72,0.06)] flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-            >
-                <div class="flex items-start gap-3.5">
-                    <div class="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-400/30 text-rose-600 flex items-center justify-center shrink-0 shadow-sm mt-0.5">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                    </div>
-                    <div>
-                        <p class="text-sm font-bold text-rose-950">Reservasi Slot Kedaluwarsa</p>
-                        <p class="text-xs text-rose-900/80 mt-1 leading-relaxed">
-                            Batas waktu pembayaran telah terlewati sehingga slot kuota dilepas ke publik. Anda dapat mengajukan ulang slot pendaftaran selama kuota event masih tersedia.
-                        </p>
-                    </div>
-                </div>
-                <Link :href="route('manager.payments')" class="btn-pitch shrink-0">
-                    Ajukan Ulang Slot &rarr;
-                </Link>
-            </div>
-
             <!-- Fase 6.1: Papan Pengumuman & Undangan Technical Meeting dari Panitia -->
             <div
                 v-if="summary?.announcements?.length > 0"
@@ -166,6 +117,39 @@ const calculatePercent = (current, total) => {
                         <p class="text-xl sm:text-2xl font-black text-slate-900 tabular-data mt-2 tracking-tight">
                             {{ formatRupiah(summary?.latest_payment?.total_amount || team.event?.registration_fee) }}
                         </p>
+
+                        <!-- Contextual Payment Due / Paid Information -->
+                        <div
+                            v-if="team.status === 'pending_payment' && (summary?.latest_payment?.expires_at || team.slot_expires_at)"
+                            class="mt-2.5 flex items-center gap-1.5 text-[11px] text-amber-800 bg-amber-50/90 border border-amber-200/80 px-2 py-1 rounded-lg"
+                        >
+                            <svg class="w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="truncate">
+                                Batas Bayar: <strong class="tabular-data font-semibold text-amber-950">{{ formatDateTime(summary?.latest_payment?.expires_at || team.slot_expires_at) }}</strong>
+                            </span>
+                        </div>
+                        <div
+                            v-else-if="team.status === 'expired'"
+                            class="mt-2.5 flex items-center gap-1.5 text-[11px] text-rose-800 bg-rose-50/90 border border-rose-200/80 px-2 py-1 rounded-lg"
+                        >
+                            <svg class="w-3.5 h-3.5 text-rose-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="truncate font-semibold text-rose-950">Slot Telah Kedaluwarsa</span>
+                        </div>
+                        <div
+                            v-else-if="summary?.latest_payment?.paid_at"
+                            class="mt-2.5 flex items-center gap-1.5 text-[11px] text-emerald-800 bg-emerald-50/90 border border-emerald-200/80 px-2 py-1 rounded-lg"
+                        >
+                            <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span class="truncate">
+                                Lunas: <strong class="tabular-data font-semibold text-emerald-950">{{ formatDateTime(summary.latest_payment.paid_at) }}</strong>
+                            </span>
+                        </div>
                     </div>
                     <div class="mt-4 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
                         <span class="text-[11px] font-medium text-slate-400">No. Invoice</span>

@@ -161,14 +161,26 @@ class WorkflowAndNotificationBadgeTest extends TestCase
         $team = $env['team'];
         $manager = $env['manager'];
 
-        // Step 1: Unpaid -> current_step = 1, payment_required banner
+        // Step 1: Unpaid -> current_step = 1, payment_required banner with deadline
+        $team->update(['slot_expires_at' => now()->addHours(24)]);
         $this->actingAs($manager)
             ->get(route('manager.dashboard'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('team.workflow.current_step', 1)
                 ->where('team.workflow.banner.type', 'payment_required')
+                ->where('team.workflow.banner.deadline', fn ($val) => ! empty($val))
                 ->where('team.workflow.badges.payment.text', 'WAJIB')
+            );
+
+        // Expired status -> slot_expired banner
+        $team->update(['status' => 'expired']);
+        $this->actingAs($manager)
+            ->get(route('manager.dashboard'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('team.workflow.banner.type', 'slot_expired')
+                ->where('team.workflow.banner.cta_label', 'Ajukan Ulang Slot Pendaftaran')
             );
 
         // Mark team paid/active -> Step 2 (Roster incomplete)
