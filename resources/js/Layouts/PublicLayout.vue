@@ -93,9 +93,12 @@ const logout = () => {
                     <template v-if="user">
                         <Link
                             :href="isAdmin ? route('admin.dashboard') : route('manager.dashboard')"
-                            class="btn-pitch text-xs sm:text-sm h-8 sm:h-10 px-2.5 sm:px-4"
+                            class="btn-pitch text-xs sm:text-sm h-8 sm:h-10 px-2.5 sm:px-4 flex items-center gap-1.5"
                         >
-                            {{ isAdmin ? 'Dashboard' : 'Portal Tim' }}
+                            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-100 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            <span>{{ isAdmin ? 'Dashboard Admin' : 'Akun Saya' }}</span>
                         </Link>
                         <button
                             type="button"
@@ -108,13 +111,12 @@ const logout = () => {
                     <template v-else>
                         <Link
                             :href="route('login')"
-                            class="btn-pitch h-8 sm:h-10 px-2.5 sm:px-4 text-xs sm:text-sm font-bold shadow-md shadow-orange-500/20"
+                            class="btn-pitch h-8 sm:h-10 px-3 sm:px-4 text-xs sm:text-sm font-bold shadow-md shadow-orange-500/20 flex items-center gap-1.5"
                         >
                             <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-100 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                             </svg>
-                            <span class="hidden sm:inline">Login Manajer Tim</span>
-                            <span class="sm:hidden">Login Manajer</span>
+                            <span>Masuk</span>
                         </Link>
                     </template>
                 </nav>
@@ -137,7 +139,7 @@ const logout = () => {
                 <div class="flex items-center justify-center gap-4 text-slate-400">
                     <Link :href="route('home')" class="hover:text-slate-700">Katalog Kompetisi</Link>
                     <span>&bull;</span>
-                    <Link :href="route('login')" class="hover:text-slate-700">Portal Manajer Tim</Link>
+                    <Link :href="route('login')" class="hover:text-slate-700">Portal Akun & Pendaftaran</Link>
                 </div>
             </div>
         </footer>

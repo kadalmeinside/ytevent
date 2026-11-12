@@ -26,12 +26,12 @@ class EnsureManagerPortalAccess
                 ->with('error', 'Akun Anda saat ini dinonaktifkan oleh panitia.');
         }
 
-        if (! $user->hasRole('team_manager')) {
+        if (! $user->hasAnyRole(['team_manager', 'participant_parent']) && ! $user->can('manager.portal.access')) {
             if ($request->isMethodSafe() && $user->hasAnyRole(['superadmin', 'finance'])) {
                 return redirect()->route('admin.dashboard');
             }
 
-            abort(403, 'Akses ditolak. Halaman ini khusus untuk Manajer Tim.');
+            abort(403, 'Akses ditolak. Halaman ini khusus untuk Akun Peserta & Manajer Tim.');
         }
 
         return $next($request);

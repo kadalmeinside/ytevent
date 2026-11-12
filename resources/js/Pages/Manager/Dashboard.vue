@@ -1,4 +1,6 @@
 <script setup>
+import { ref, computed } from 'vue';
+import { Link, Head } from '@inertiajs/vue3';
 import ManagerLayout from '@/Layouts/ManagerLayout.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import { useFormatters } from '@/Composables/useFormatters';
@@ -16,9 +18,17 @@ const props = defineProps({
         type: Object,
         default: null,
     },
+    auditionParticipants: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const { formatRupiah, formatDateTime } = useFormatters();
+
+const activeTab = ref(
+    props.team || props.teamsList.length > 0 ? 'team' : (props.auditionParticipants.length > 0 ? 'audition' : 'team')
+);
 
 const calculatePercent = (current, total) => {
     if (!total || total <= 0) return 0;
@@ -27,21 +37,49 @@ const calculatePercent = (current, total) => {
 </script>
 
 <template>
-    <ManagerLayout :team="team" :teams-list="teamsList" page-title="Ringkasan Tim & Status Pendaftaran">
-        <Head title="Dashboard Manajer Tim" />
+    <ManagerLayout :team="team" :teams-list="teamsList" page-title="Portal Akun Terpadu">
+        <Head title="Dasbor Akun Saya" />
 
-        <div v-if="!team" class="frosted-card p-8 text-center max-w-xl mx-auto my-12">
-            <div class="w-12 h-12 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center mx-auto mb-3 shadow-sm">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-            </div>
-            <h2 class="text-base font-bold text-slate-900">Anda Belum Memiliki Tim Terdaftar</h2>
-            <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">Silakan pilih kompetisi di Katalog Event untuk mendaftarkan tim baru.</p>
-            <Link :href="route('home')" class="btn-pitch mt-5">Lihat Katalog Kompetisi</Link>
+        <!-- Tab Selector: Tim Turnamen vs Audisi Anak -->
+        <div v-if="teamsList.length > 0 || auditionParticipants.length > 0" class="flex items-center gap-2 p-1.5 bg-slate-100/90 rounded-2xl w-fit border border-slate-200/80 mb-6">
+            <button
+                type="button"
+                class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all"
+                :class="activeTab === 'team' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'"
+                @click="activeTab = 'team'"
+            >
+                <span>🏆 Tim Turnamen</span>
+                <span v-if="teamsList.length > 0" class="px-1.5 py-0.5 rounded-full text-[10px] font-black" :class="activeTab === 'team' ? 'bg-orange-100 text-orange-700' : 'bg-slate-200 text-slate-600'">
+                    {{ teamsList.length }}
+                </span>
+            </button>
+            <button
+                type="button"
+                class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all"
+                :class="activeTab === 'audition' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'"
+                @click="activeTab = 'audition'"
+            >
+                <span>⭐ Pendaftaran Audisi Anak</span>
+                <span v-if="auditionParticipants.length > 0" class="px-1.5 py-0.5 rounded-full text-[10px] font-black" :class="activeTab === 'audition' ? 'bg-orange-100 text-orange-700' : 'bg-slate-200 text-slate-600'">
+                    {{ auditionParticipants.length }}
+                </span>
+            </button>
         </div>
 
-        <div v-else class="space-y-6">
+        <!-- Section: Tim Turnamen -->
+        <div v-if="activeTab === 'team'">
+            <div v-if="!team" class="frosted-card p-8 text-center max-w-xl mx-auto my-6">
+                <div class="w-12 h-12 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center mx-auto mb-3 shadow-sm">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <h2 class="text-base font-bold text-slate-900">Anda Belum Memiliki Tim Terdaftar</h2>
+                <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">Silakan pilih kompetisi di Katalog Event untuk mendaftarkan tim baru.</p>
+                <Link :href="route('home')" class="btn-pitch mt-5 inline-flex items-center gap-1.5">Lihat Katalog Kompetisi</Link>
+            </div>
+
+            <div v-else class="space-y-6">
             <!-- Fase 6.1: Papan Pengumuman & Undangan Technical Meeting dari Panitia -->
             <div
                 v-if="summary?.announcements?.length > 0"
@@ -522,6 +560,194 @@ const calculatePercent = (current, total) => {
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+        <!-- Section: Pendaftaran Audisi Anak -->
+        <div v-if="activeTab === 'audition'" class="space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                    <h2 class="text-lg sm:text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                        <span>⭐ Pendaftaran Audisi &amp; Seleksi Bakat</span>
+                        <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700">
+                            {{ auditionParticipants.length }} Peserta
+                        </span>
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        Pantau proses verifikasi berkas, tahapan seleksi, dan nomor dada anak Anda.
+                    </p>
+                </div>
+                <Link :href="route('home')" class="btn-pitch text-xs sm:text-sm self-start sm:self-auto inline-flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span>Daftar Audisi / Event Lain</span>
+                </Link>
+            </div>
+
+            <div v-if="auditionParticipants.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div
+                    v-for="p in auditionParticipants"
+                    :key="p.id"
+                    class="frosted-card p-5 flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow border-slate-200/90"
+                >
+                    <div class="space-y-3">
+                        <!-- Header: Photo & Child Identity -->
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <img
+                                    v-if="p.photo_url"
+                                    :src="p.photo_url"
+                                    :alt="p.full_name"
+                                    class="w-12 h-12 rounded-xl object-cover border border-slate-200 shadow-2xs shrink-0"
+                                />
+                                <div
+                                    v-else
+                                    class="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-2xs"
+                                >
+                                    {{ p.full_name.substring(0, 2).toUpperCase() }}
+                                </div>
+                                <div class="min-w-0">
+                                    <h3 class="text-sm sm:text-base font-black text-slate-900 truncate">
+                                        {{ p.full_name }}
+                                        <span v-if="p.nickname" class="text-xs font-semibold text-slate-500">({{ p.nickname }})</span>
+                                    </h3>
+                                    <p class="text-xs font-semibold text-orange-600 truncate mt-0.5">
+                                        {{ p.event?.name }} <span v-if="p.event?.age_category" class="text-slate-400 font-normal">({{ p.event.age_category }})</span>
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Bib Number Badge -->
+                            <div class="shrink-0 text-right">
+                                <div v-if="p.bib_number" class="px-2.5 py-1 rounded-xl bg-orange-600 text-white font-black text-xs shadow-2xs">
+                                    Bib #{{ p.bib_number }}
+                                </div>
+                                <div v-else class="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
+                                    Bib Belum Terbit
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Registration & Status Badges -->
+                        <div class="flex flex-wrap items-center gap-1.5 pt-1">
+                            <!-- Reg Number -->
+                            <span class="text-[10px] font-bold font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                                {{ p.registration_number }}
+                            </span>
+
+                            <!-- Payment Status -->
+                            <span
+                                class="text-[10px] font-bold px-2 py-0.5 rounded border"
+                                :class="p.is_paid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'"
+                            >
+                                {{ p.is_paid ? '✓ LUNAS' : 'MENUNGGU PEMBAYARAN' }}
+                            </span>
+
+                            <!-- Screening Status -->
+                            <span
+                                class="text-[10px] font-bold px-2 py-0.5 rounded border"
+                                :class="
+                                    p.screening_status === 'passed'
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                        : p.screening_status === 'rejected'
+                                          ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                          : 'bg-blue-50 text-blue-700 border-blue-200'
+                                "
+                            >
+                                {{ p.screening_status_label }}
+                            </span>
+
+                            <!-- Stage Status -->
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                                {{ p.stage_status_label }}
+                            </span>
+                        </div>
+
+                        <!-- Technical Details Table -->
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2.5 rounded-xl bg-slate-50/80 border border-slate-200/70 text-xs">
+                            <div>
+                                <span class="block text-[10px] text-slate-400 font-bold uppercase">Posisi</span>
+                                <span class="font-bold text-slate-800">{{ p.preferred_position || '-' }}</span>
+                            </div>
+                            <div>
+                                <span class="block text-[10px] text-slate-400 font-bold uppercase">Kaki Dominan</span>
+                                <span class="font-bold text-slate-800 capitalize">{{ p.dominant_foot || '-' }}</span>
+                            </div>
+                            <div>
+                                <span class="block text-[10px] text-slate-400 font-bold uppercase">Postur (TB/BB)</span>
+                                <span class="font-bold text-slate-800">{{ p.height_cm ? `${p.height_cm} cm / ${p.weight_kg} kg` : '-' }}</span>
+                            </div>
+                            <div class="col-span-2 sm:col-span-3 pt-1 border-t border-slate-200/60 flex items-center justify-between">
+                                <span class="text-[11px] text-slate-500 truncate">Asal: <strong class="text-slate-700">{{ p.current_club_ssb || 'Independen' }}</strong></span>
+                                <span v-if="p.session" class="text-[11px] text-orange-600 font-semibold">{{ p.session.session_name }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Screening Rejection Warning -->
+                        <div v-if="p.screening_status === 'rejected' && p.screening_notes" class="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800">
+                            <p class="font-bold">Catatan Perbaikan Berkas:</p>
+                            <p class="mt-0.5">{{ p.screening_notes }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Card Actions -->
+                    <div class="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <a
+                                v-if="p.can_download_bib"
+                                :href="route().has('audition.bib.download') ? route('audition.bib.download', { participant: p.id }) : '#'"
+                                target="_blank"
+                                class="btn-pitch text-xs inline-flex items-center gap-1.5 shadow-2xs"
+                            >
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                <span>Cetak Nomor Dada</span>
+                            </a>
+
+                            <a
+                                v-if="p.can_download_certificate"
+                                :href="route().has('audition.certificate.download') ? route('audition.certificate.download', { participant: p.id }) : '#'"
+                                target="_blank"
+                                class="btn-sm-secondary text-xs inline-flex items-center gap-1.5 border-orange-300 text-orange-800 hover:bg-orange-50"
+                            >
+                                <span>📜 Piagam</span>
+                            </a>
+                        </div>
+                        <div
+                            v-if="!p.can_download_bib"
+                            class="text-[11px] text-slate-400 italic"
+                        >
+                            Nomor dada aktif setelah berkas sah &amp; lunas.
+                        </div>
+
+                        <Link
+                            v-if="!p.is_paid && p.latest_payment"
+                            :href="route('manager.payments')"
+                            class="btn-pitch text-xs inline-flex items-center gap-1"
+                        >
+                            <span>Bayar Tagihan</span>
+                        </Link>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Empty State for Auditions -->
+            <div v-else class="frosted-card p-8 text-center max-w-xl mx-auto my-6">
+                <div class="w-12 h-12 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center mx-auto mb-3 shadow-sm">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                    </svg>
+                </div>
+                <h3 class="text-base font-bold text-slate-900">Belum Ada Pendaftaran Audisi Anak</h3>
+                <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                    Daftarkan anak Anda pada program seleksi bakat, audisi akademi, atau coaching clinic resmi.
+                </p>
+                <Link :href="route('home')" class="btn-pitch mt-5 inline-flex items-center gap-1.5">
+                    <span>Lihat Program Audisi di Katalog</span>
+                </Link>
             </div>
         </div>
     </ManagerLayout>

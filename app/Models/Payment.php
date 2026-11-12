@@ -14,6 +14,7 @@ class Payment extends Model
     protected $fillable = [
         'invoice_number',
         'team_id',
+        'audition_participant_id',
         'event_id',
         'amount',
         'gateway_fee',
@@ -54,6 +55,11 @@ class Payment extends Model
     public function team(): BelongsTo
     {
         return $this->belongsTo(Team::class);
+    }
+
+    public function auditionParticipant(): BelongsTo
+    {
+        return $this->belongsTo(AuditionParticipant::class);
     }
 
     public function event(): BelongsTo

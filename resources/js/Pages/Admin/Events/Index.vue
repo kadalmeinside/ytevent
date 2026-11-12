@@ -216,6 +216,23 @@ const triggerResyncEvent = (evt) => {
                                         </svg>
                                     </Link>
                                     <Link
+                                        v-if="evt.participant_type === 'individual'"
+                                        :href="route('scout.events.show', { event: evt.id })"
+                                        target="_blank"
+                                        class="btn-sm-secondary border-slate-300 text-slate-700 hover:bg-slate-50 justify-center"
+                                        title="Buka Panel Mobile Pemandu Bakat"
+                                    >
+                                        Panel Scout
+                                    </Link>
+                                    <Link
+                                        v-if="evt.participant_type === 'individual'"
+                                        :href="route('admin.events.auditions.qualifications', { event: evt.id })"
+                                        class="btn-sm-secondary border-orange-300 text-orange-800 hover:bg-orange-50 justify-center"
+                                    >
+                                        Kelolosan &amp; Piagam
+                                    </Link>
+                                    <Link
+                                        v-else
                                         :href="route('admin.events.tournament', { event: evt.id })"
                                         class="btn-sm-secondary border-orange-300 text-orange-800 hover:bg-orange-50 justify-center"
                                     >

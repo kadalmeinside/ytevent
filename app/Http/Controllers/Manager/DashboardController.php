@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Manager;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Manager\Concerns\ResolvesActiveTeam;
 use App\Http\Requests\Manager\UpdateTeamProfileRequest;
+use App\Models\AuditionParticipant;
 use App\Models\EventAnnouncement;
 use App\Models\Team;
 use App\Services\ImageOptimizationService;
@@ -76,10 +77,71 @@ class DashboardController extends Controller
             ];
         }
 
+        $user = $request->user();
+        $auditionParticipants = AuditionParticipant::query()
+            ->where('user_id', $user->id)
+            ->with(['event', 'latestPayment', 'eventSession'])
+            ->latest()
+            ->get()
+            ->map(function (AuditionParticipant $p) {
+                return [
+                    'id' => $p->id,
+                    'registration_number' => $p->registration_number,
+                    'bib_number' => $p->bib_number,
+                    'full_name' => $p->full_name,
+                    'nickname' => $p->nickname,
+                    'nik' => $p->nik,
+                    'birth_date' => $p->birth_date?->format('d/m/Y'),
+                    'gender' => $p->gender,
+                    'preferred_position' => $p->preferred_position,
+                    'secondary_position' => $p->secondary_position,
+                    'dominant_foot' => $p->dominant_foot,
+                    'height_cm' => $p->height_cm,
+                    'weight_kg' => $p->weight_kg,
+                    'current_club_ssb' => $p->current_club_ssb,
+                    'jersey_size' => $p->jersey_size,
+                    'emergency_contact_name' => $p->emergency_contact_name,
+                    'emergency_contact_phone' => $p->emergency_contact_phone,
+                    'screening_status' => $p->screening_status,
+                    'screening_notes' => $p->screening_notes,
+                    'stage_status' => $p->stage_status,
+                    'stage_status_label' => $p->stageStatusLabel(),
+                    'screening_status_label' => $p->screeningStatusLabel(),
+                    'status' => $p->status,
+                    'is_paid' => $p->isPaid(),
+                    'can_download_bib' => $p->canDownloadBib(),
+                    'can_download_certificate' => $p->canDownloadCertificate(),
+                    'photo_url' => $p->photo_path ? Storage::disk('public')->url($p->photo_path) : null,
+                    'event' => $p->event ? [
+                        'id' => $p->event->id,
+                        'name' => $p->event->name,
+                        'slug' => $p->event->slug,
+                        'age_category' => $p->event->age_category,
+                        'city' => $p->event->city,
+                        'match_start_date' => $p->event->match_start_date?->format('d/m/Y'),
+                    ] : null,
+                    'session' => $p->eventSession ? [
+                        'id' => $p->eventSession->id,
+                        'session_name' => $p->eventSession->session_name,
+                        'start_time' => $p->eventSession->start_time,
+                        'end_time' => $p->eventSession->end_time,
+                    ] : null,
+                    'latest_payment' => $p->latestPayment ? [
+                        'id' => $p->latestPayment->id,
+                        'invoice_number' => $p->latestPayment->invoice_number,
+                        'total_amount' => (float) $p->latestPayment->total_amount,
+                        'status' => $p->latestPayment->status,
+                        'method' => $p->latestPayment->method,
+                    ] : null,
+                ];
+            })
+            ->values();
+
         return Inertia::render('Manager/Dashboard', [
             'team' => $ctx['teamPayload'],
             'teamsList' => $ctx['teamsList'],
             'summary' => $summary,
+            'auditionParticipants' => $auditionParticipants,
         ]);
     }
 

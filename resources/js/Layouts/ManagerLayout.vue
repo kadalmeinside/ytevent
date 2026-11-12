@@ -17,7 +17,7 @@ const props = defineProps({
     },
     pageTitle: {
         type: String,
-        default: 'Portal Manajer Tim',
+        default: 'Portal Akun Peserta & Manajer',
     },
 });
 
@@ -53,68 +53,77 @@ const badgeColorClass = (badge) => {
     }
 };
 
-const navItems = computed(() => [
-    {
-        label: 'Ringkasan Tim',
-        href: route('manager.dashboard'),
-        match: '/manager/dashboard',
-        icon: 'dashboard',
-        badge: props.team?.workflow
-            ? {
-                  text: `${props.team.workflow.current_step}/${props.team.workflow.total_steps}`,
-                  variant: props.team.workflow.is_roster_locked
-                      ? 'emerald'
-                      : props.team.workflow.is_ready_to_lock
-                        ? 'orange'
-                        : 'slate',
-              }
-            : null,
-    },
-    {
-        label: 'Pembayaran Pendaftaran',
-        href: route('manager.payments'),
-        match: '/manager/payments',
-        icon: 'payment',
-        badge: workflowBadges.value.payment || null,
-    },
-    {
-        label: 'Daftar Pemain & Berkas',
-        href: route('manager.players'),
-        match: '/manager/players',
-        locked: isUnpaidLocked.value,
-        icon: 'players',
-        badge: workflowBadges.value.players || null,
-    },
-    {
-        label: 'Pelatih & Ofisial',
-        href: route('manager.officials'),
-        match: '/manager/officials',
-        locked: isUnpaidLocked.value,
-        icon: 'officials',
-        badge: workflowBadges.value.officials || null,
-    },
-    {
-        label: 'Akreditasi & Skuad',
-        href: route('manager.accreditation.index'),
-        match: '/manager/accreditation',
-        icon: 'accreditation',
-        badge: workflowBadges.value.accreditation || null,
-    },
-    {
-        label: 'Jadwal & DSP Tanding',
-        href: route('manager.matches.index'),
-        match: '/manager/matches',
-        icon: 'accreditation',
-        badge: null,
-    },
-    {
-        label: 'Profil Tim',
-        href: route('manager.team-profile'),
-        match: '/manager/team-profile',
-        icon: 'profile',
-        badge: null,
-    },
-]);
+const navItems = computed(() => {
+    const items = [
+        {
+            label: 'Dasbor Akun',
+            href: route('manager.dashboard'),
+            match: '/manager/dashboard',
+            icon: 'dashboard',
+            badge: props.team?.workflow
+                ? {
+                      text: `${props.team.workflow.current_step}/${props.team.workflow.total_steps}`,
+                      variant: props.team.workflow.is_roster_locked
+                          ? 'emerald'
+                          : props.team.workflow.is_ready_to_lock
+                            ? 'orange'
+                            : 'slate',
+                  }
+                : null,
+        },
+    ];
+
+    if (props.team) {
+        items.push(
+            {
+                label: 'Pembayaran Pendaftaran',
+                href: route('manager.payments'),
+                match: '/manager/payments',
+                icon: 'payment',
+                badge: workflowBadges.value.payment || null,
+            },
+            {
+                label: 'Daftar Pemain & Berkas',
+                href: route('manager.players'),
+                match: '/manager/players',
+                locked: isUnpaidLocked.value,
+                icon: 'players',
+                badge: workflowBadges.value.players || null,
+            },
+            {
+                label: 'Pelatih & Ofisial',
+                href: route('manager.officials'),
+                match: '/manager/officials',
+                locked: isUnpaidLocked.value,
+                icon: 'officials',
+                badge: workflowBadges.value.officials || null,
+            },
+            {
+                label: 'Akreditasi & Skuad',
+                href: route('manager.accreditation.index'),
+                match: '/manager/accreditation',
+                icon: 'accreditation',
+                badge: workflowBadges.value.accreditation || null,
+            },
+            {
+                label: 'Jadwal & DSP Tanding',
+                href: route('manager.matches.index'),
+                match: '/manager/matches',
+                icon: 'accreditation',
+                badge: null,
+            },
+            {
+                label: 'Profil Tim',
+                href: route('manager.team-profile'),
+                match: '/manager/team-profile',
+                icon: 'profile',
+                badge: null,
+            }
+        );
+    }
+
+    return items;
+});
 
 const switchTeam = (event) => {
     const teamId = event.target.value;

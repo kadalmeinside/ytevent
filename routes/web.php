@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Admin\AuditLogController as AdminAuditLogController;
+use App\Http\Controllers\Admin\AuditionAttendanceController as AdminAuditionAttendanceController;
+use App\Http\Controllers\Admin\AuditionQualificationController as AdminAuditionQualificationController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\EmailLogController as AdminEmailLogController;
 use App\Http\Controllers\Admin\EventController as AdminEventController;
@@ -15,15 +17,19 @@ use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Manager\AccreditationController as ManagerAccreditationController;
+use App\Http\Controllers\Manager\AuditionParticipantController as ManagerAuditionParticipantController;
 use App\Http\Controllers\Manager\DashboardController as ManagerDashboardController;
 use App\Http\Controllers\Manager\MatchLineupController as ManagerMatchLineupController;
 use App\Http\Controllers\Manager\OfficialController as ManagerOfficialController;
 use App\Http\Controllers\Manager\PaymentController as ManagerPaymentController;
 use App\Http\Controllers\Manager\PlayerController as ManagerPlayerController;
 use App\Http\Controllers\PrivateMediaController;
+use App\Http\Controllers\Public\AuditionVerificationController;
+use App\Http\Controllers\Public\CertificateVerificationController;
 use App\Http\Controllers\Public\PlayerVerificationController;
 use App\Http\Controllers\Public\SeoAndGeoController;
 use App\Http\Controllers\PublicEventController;
+use App\Http\Controllers\Scout\AuditionScoutingController;
 use Illuminate\Support\Facades\Route;
 
 // SEO & AI Generative Engine Optimization (GEO) Endpoints
@@ -39,11 +45,18 @@ Route::get('/events/{event:slug}/register', [PublicEventController::class, 'show
 Route::post('/events/{event:slug}/register', [PublicEventController::class, 'register'])
     ->middleware('throttle:team-registration')
     ->name('events.register.store');
+Route::get('/events/{event:slug}/register-audition', [PublicEventController::class, 'showRegisterAudition'])->name('events.register-audition');
+Route::post('/events/{event:slug}/register-audition', [PublicEventController::class, 'registerAudition'])
+    ->middleware('throttle:team-registration')
+    ->name('events.register-audition.store');
 Route::middleware('throttle:public-verify')->group(function () {
     Route::get('/verify/player/{code}', [PlayerVerificationController::class, 'verify'])->name('public.player.verify');
     Route::get('/verify/player/{code}/photo', [PlayerVerificationController::class, 'photo'])->name('public.player.verify.photo');
     Route::get('/verify/official/{code}', [PlayerVerificationController::class, 'verifyOfficial'])->name('public.official.verify');
     Route::get('/verify/official/{code}/photo', [PlayerVerificationController::class, 'officialPhoto'])->name('public.official.verify.photo');
+    Route::get('/verify/audition/{code}', [AuditionVerificationController::class, 'verify'])->name('public.audition.verify');
+    Route::get('/verify/audition/{code}/photo', [AuditionVerificationController::class, 'photo'])->name('public.audition.verify.photo');
+    Route::get('/verify/certificate/{code}', [CertificateVerificationController::class, 'verify'])->name('public.certificate.verify');
 });
 
 // Autentikasi Manajer Tim & Pemulihan Kata Sandi Mandiri
@@ -72,6 +85,9 @@ Route::middleware('auth')->prefix('private-media')->name('private.')->group(func
     Route::get('/player-documents/{document}', [PrivateMediaController::class, 'playerDocument'])->name('player-document');
     Route::get('/officials/{official}/photo', [PrivateMediaController::class, 'officialPhoto'])->name('official-photo');
     Route::get('/officials/{official}/license', [PrivateMediaController::class, 'officialLicense'])->name('official-license');
+    Route::get('/auditions/{participant}/birth-certificate', [PrivateMediaController::class, 'auditionBirthCertificate'])->name('audition.birth-certificate');
+    Route::get('/auditions/{participant}/family-card', [PrivateMediaController::class, 'auditionFamilyCard'])->name('audition.family-card');
+    Route::get('/auditions/{participant}/additional-doc', [PrivateMediaController::class, 'auditionAdditionalDoc'])->name('audition.additional-doc');
 });
 
 // Area Portal Manajer Tim
@@ -114,6 +130,19 @@ Route::middleware(['auth', 'manager.portal'])->prefix('manager')->name('manager.
     Route::get('/matches', [ManagerMatchLineupController::class, 'index'])->name('matches.index');
     Route::post('/matches/{match}/lineup', [ManagerMatchLineupController::class, 'saveLineup'])->name('matches.lineup.save');
     Route::get('/matches/{match}/lineup-pdf', [ManagerMatchLineupController::class, 'downloadLineupPdf'])->name('matches.lineup.pdf');
+});
+
+// Unduh Dokumen Resmi Audisi (Nomor Dada & Piagam)
+Route::middleware('auth')->group(function () {
+    Route::get('/auditions/{participant}/bib-tag', [ManagerAuditionParticipantController::class, 'downloadBibTag'])->name('audition.bib.download');
+    Route::get('/auditions/{participant}/certificate', [ManagerAuditionParticipantController::class, 'downloadCertificate'])->name('audition.certificate.download');
+});
+
+// Panel Pemandu Bakat (Mobile Quick Scouting Web Panel)
+Route::middleware(['auth', 'permission:auditions.scout.grade'])->prefix('scout')->name('scout.')->group(function () {
+    Route::get('/events/{event}', [AuditionScoutingController::class, 'index'])->name('events.show');
+    Route::post('/events/{event}/grade', [AuditionScoutingController::class, 'grade'])->name('events.grade');
+    Route::post('/events/{event}/lock-session', [AuditionScoutingController::class, 'lockSession'])->name('events.lock-session');
 });
 
 // Area Operasional Admin & Finance
@@ -200,11 +229,20 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
         ->name('teams.accreditation.id-cards');
 
     // Area Operasional Screening Berkas Pemain & QR Scanner Lapangan
-    Route::middleware('permission:screening.view_queue')->group(function () {
+    Route::middleware('permission:screening.view_queue|auditions.attendance.scan')->group(function () {
         Route::get('/screening', [AdminScreeningController::class, 'index'])->name('screening.index');
+        Route::get('/screening/auditions', [AdminScreeningController::class, 'auditionsIndex'])->name('screening.auditions');
         Route::get('/screening/events/{event}/teams/{team}', [AdminScreeningController::class, 'teamReview'])->name('screening.team');
         Route::get('/qr-scanner', [AdminTournamentController::class, 'qrScanner'])->name('qr-scanner');
         Route::post('/qr-scanner/lookup', [AdminTournamentController::class, 'qrLookup'])->middleware('throttle:qr-lookup')->name('qr-scanner.lookup');
+        Route::get('/auditions/scanner', [AdminAuditionAttendanceController::class, 'scanner'])->name('auditions.scanner');
+        Route::post('/auditions/scanner/check-in', [AdminAuditionAttendanceController::class, 'checkIn'])->name('auditions.scanner.check-in');
+    });
+
+    // Keputusan Kelolosan & Piagam Audisi Multi-Stage
+    Route::middleware('permission:events.update|auditions.qualify.manage')->group(function () {
+        Route::get('/events/{event}/auditions/qualifications', [AdminAuditionQualificationController::class, 'index'])->name('events.auditions.qualifications');
+        Route::post('/events/{event}/auditions/advance', [AdminAuditionQualificationController::class, 'advanceStage'])->name('events.auditions.advance');
     });
 
     Route::get('/players/{player}/certificate', [ManagerMatchLineupController::class, 'downloadPlayerCertificate'])
@@ -214,6 +252,10 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
     Route::post('/screening/players/{player}/verify', [AdminScreeningController::class, 'verifyPlayer'])
         ->middleware('permission:screening.verify_player')
         ->name('screening.player.verify');
+
+    Route::post('/screening/auditions/{participant}/verify', [AdminScreeningController::class, 'verifyAuditionParticipant'])
+        ->middleware('permission:screening.verify_player')
+        ->name('screening.auditions.verify');
 
     Route::post('/screening/documents/{document}/verify', [AdminScreeningController::class, 'verifyDocument'])
         ->middleware('permission:screening.verify_player')

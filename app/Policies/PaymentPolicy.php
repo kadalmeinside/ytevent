@@ -18,15 +18,27 @@ class PaymentPolicy
             return true;
         }
 
-        return $user->can('manager.payment.pay_own')
-            && (int) $payment->team?->user_id === (int) $user->id;
+        if ($payment->team_id && (int) $payment->team?->user_id === (int) $user->id) {
+            return true;
+        }
+
+        if ($payment->audition_participant_id && (int) $payment->auditionParticipant?->user_id === (int) $user->id) {
+            return true;
+        }
+
+        return false;
     }
 
     public function pay(User $user, Payment $payment): bool
     {
-        return $user->can('manager.payment.pay_own')
-            && (int) $payment->team?->user_id === (int) $user->id
-            && in_array($payment->status, ['unpaid', 'rejected'], true);
+        $isOwner = false;
+        if ($payment->team_id && (int) $payment->team?->user_id === (int) $user->id) {
+            $isOwner = true;
+        } elseif ($payment->audition_participant_id && (int) $payment->auditionParticipant?->user_id === (int) $user->id) {
+            $isOwner = true;
+        }
+
+        return $isOwner && in_array($payment->status, ['unpaid', 'rejected'], true);
     }
 
     public function verifyManual(User $user, Payment $payment): bool

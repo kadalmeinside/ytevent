@@ -80,6 +80,24 @@ const getStatusBadge = (status) => {
         <Head title="Antrean Screening Pemain" />
 
         <div class="space-y-6">
+            <!-- Header Switcher Tab Turnamen vs Audisi -->
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
+                    <Link
+                        :href="route('admin.screening.index')"
+                        class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white text-orange-600 shadow-xs"
+                    >
+                        🏆 Tim Turnamen
+                    </Link>
+                    <Link
+                        :href="route('admin.screening.auditions')"
+                        class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+                    >
+                        ⭐ Atlet Audisi
+                    </Link>
+                </div>
+            </div>
+
             <!-- Top Operational Metrics Grid -->
             <div class="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
                 <div class="frosted-card p-4 space-y-1">

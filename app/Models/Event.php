@@ -179,6 +179,21 @@ class Event extends Model
         return $this->hasMany(Team::class);
     }
 
+    public function eventSessions(): HasMany
+    {
+        return $this->hasMany(EventSession::class);
+    }
+
+    public function auditionStages(): HasMany
+    {
+        return $this->hasMany(AuditionStage::class);
+    }
+
+    public function auditionParticipants(): HasMany
+    {
+        return $this->hasMany(AuditionParticipant::class);
+    }
+
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);

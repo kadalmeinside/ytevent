@@ -118,6 +118,14 @@ const navSections = computed(() => {
                     show: can('screening.view_queue'),
                     badge: null,
                 },
+                {
+                    label: 'Absensi Audisi (Gatekeeper)',
+                    href: safeRoute('admin.auditions.scanner', {}, '/admin/auditions/scanner'),
+                    match: '/admin/auditions/scanner',
+                    icon: 'screening',
+                    show: can('screening.view_queue') || can('auditions.attendance.scan'),
+                    badge: null,
+                },
             ],
         },
         {

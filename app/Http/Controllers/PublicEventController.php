@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Public\RegisterAuditionRequest;
 use App\Http\Requests\Public\RegisterTeamRequest;
 use App\Models\Event;
 use App\Models\Player;
 use App\Models\SystemSetting;
 use App\Models\Team;
 use App\Models\TournamentMatch;
+use App\Services\AuditionRegistrationService;
 use App\Services\StandingsCalculatorService;
 use App\Services\TeamRegistrationService;
 use App\Support\HtmlSanitizer;
@@ -167,6 +169,10 @@ class PublicEventController extends Controller
             abort(404);
         }
 
+        if ($event->isIndividual()) {
+            return redirect()->route('events.register-audition', ['event' => $event->slug]);
+        }
+
         $event->loadCount([
             'teams as occupied_slots_count' => fn ($q) => $q->occupyingQuotaAt(now()),
         ]);
@@ -183,6 +189,73 @@ class PublicEventController extends Controller
         ])->withViewData([
             'seoMeta' => $this->buildEventSeoMeta($event, isRegisterPage: true),
         ]);
+    }
+
+    public function showRegisterAudition(Request $request, Event $event): Response|RedirectResponse
+    {
+        if ($event->status === 'draft') {
+            abort(404);
+        }
+
+        if (! $event->isIndividual()) {
+            return redirect()->route('events.register', ['event' => $event->slug]);
+        }
+
+        $event->load(['eventSessions' => fn ($q) => $q->orderBy('session_date')->orderBy('start_time')]);
+
+        $user = $request->user();
+
+        return Inertia::render('Public/RegisterAudition', [
+            'event' => array_merge($this->transformPublicEvent($event, detailed: true), [
+                'sessions' => $event->eventSessions->map(fn ($s) => [
+                    'id' => $s->id,
+                    'session_name' => $s->session_name,
+                    'session_date' => $s->session_date?->format('d/m/Y'),
+                    'start_time' => $s->start_time,
+                    'end_time' => $s->end_time,
+                    'quota' => $s->quota,
+                    'is_full' => $s->isFull(),
+                ])->values(),
+            ]),
+            'prefillUser' => $user ? [
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+            ] : null,
+        ])->withViewData([
+            'seoMeta' => $this->buildEventSeoMeta($event, isRegisterPage: true),
+        ]);
+    }
+
+    public function registerAudition(
+        RegisterAuditionRequest $request,
+        Event $event,
+        AuditionRegistrationService $registrationService
+    ): RedirectResponse {
+        if ($event->status === 'draft') {
+            abort(404);
+        }
+
+        $result = $registrationService->registerAuditionParticipant(
+            event: $event,
+            validated: $request->validated(),
+            photoFile: $request->file('photo'),
+            birthCertFile: $request->file('birth_certificate'),
+            familyCardFile: $request->file('family_card'),
+            additionalDocFile: $request->file('additional_doc'),
+            authenticatedUser: $request->user()
+        );
+
+        $user = $result['user'];
+        $participant = $result['participant'];
+
+        if (! $request->user()) {
+            Auth::login($user);
+            $request->session()->regenerate();
+        }
+
+        return redirect()->route('manager.dashboard')
+            ->with('success', "Pendaftaran atlet {$participant->full_name} berhasil dicatat (No. Reg: {$participant->registration_number})! Silakan pantau tahapan verifikasi berkas di akun Anda.");
     }
 
     public function register(

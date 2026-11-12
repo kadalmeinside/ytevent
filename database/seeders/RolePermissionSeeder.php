@@ -40,6 +40,9 @@ class RolePermissionSeeder extends Seeder
             'manager.team.update_own',
             'manager.payment.pay_own',
             'manager.players.manage_own',
+            'auditions.attendance.scan',
+            'auditions.scout.grade',
+            'auditions.qualify.manage',
         ];
 
         foreach ($allPermissions as $permName) {
@@ -50,6 +53,8 @@ class RolePermissionSeeder extends Seeder
         $financeRole = Role::findOrCreate('finance', 'web');
         $screeningRole = Role::findOrCreate('screening_officer', 'web');
         $managerRole = Role::findOrCreate('team_manager', 'web');
+        $parentRole = Role::findOrCreate('participant_parent', 'web');
+        $scoutRole = Role::findOrCreate('talent_scout', 'web');
 
         $superadminRole->syncPermissions([
             'dashboard.admin.view',
@@ -71,6 +76,9 @@ class RolePermissionSeeder extends Seeder
             'email_logs.manage',
             'audit_logs.view',
             'system.queue.manage',
+            'auditions.attendance.scan',
+            'auditions.scout.grade',
+            'auditions.qualify.manage',
         ]);
 
         $financeRole->syncPermissions([
@@ -88,6 +96,7 @@ class RolePermissionSeeder extends Seeder
             'screening.view_queue',
             'screening.verify_player',
             'screening.unlock_player',
+            'auditions.attendance.scan',
         ]);
 
         $managerRole->syncPermissions([
@@ -95,6 +104,15 @@ class RolePermissionSeeder extends Seeder
             'manager.team.update_own',
             'manager.payment.pay_own',
             'manager.players.manage_own',
+        ]);
+
+        $parentRole->syncPermissions([
+            'manager.portal.access',
+        ]);
+
+        $scoutRole->syncPermissions([
+            'dashboard.admin.view',
+            'auditions.scout.grade',
         ]);
 
         // Helper untuk membuat user internal tanpa menimpa kata sandi jika sudah ada.
@@ -167,6 +185,15 @@ class RolePermissionSeeder extends Seeder
             phone: '081128021930',
             role: 'screening_officer',
             defaultPassword: 'Screening12345'
+        );
+
+        // Akun Talent Scout Persija Development
+        $seedInternalUser(
+            email: 'scout@persijadevelopment.id',
+            name: 'Pemandu Bakat (Talent Scout) Persija',
+            phone: '081128021931',
+            role: 'talent_scout',
+            defaultPassword: 'Scout12345'
         );
     }
 }

@@ -118,6 +118,11 @@ class PaymentService
             }
 
             $team = $lockedPayment->team;
+            $participant = $lockedPayment->auditionParticipant;
+            $payerName = $team?->manager_name ?? $participant?->emergency_contact_name ?? $participant?->full_name ?? 'Peserta';
+            $payerEmail = $team?->manager_email ?? $participant?->user?->email ?? 'peserta@persijadevelopment.id';
+            $payerPhone = $team?->manager_whatsapp ?? $participant?->emergency_contact_phone ?? '081234567890';
+
             $expiryMinutes = $lockedPayment->expires_at
                 ? max(5, (int) now()->diffInMinutes($lockedPayment->expires_at, false))
                 : 1440;
@@ -194,9 +199,9 @@ class PaymentService
                         'gross_amount' => (int) round($totalAmount),
                     ],
                     'customer_details' => [
-                        'first_name' => $team->manager_name,
-                        'email' => $team->manager_email,
-                        'phone' => $team->manager_whatsapp,
+                        'first_name' => $payerName,
+                        'email' => $payerEmail,
+                        'phone' => $payerPhone,
                     ],
                     'expiry' => [
                         'unit' => 'minute',
@@ -517,7 +522,8 @@ class PaymentService
 
             $lockedEvent = Event::query()->whereKey($payment->event_id)->lockForUpdate()->firstOrFail();
             $lockedPayment = Payment::query()->whereKey($payment->id)->lockForUpdate()->firstOrFail();
-            $lockedTeam = $lockedPayment->team()->lockForUpdate()->firstOrFail();
+            $lockedTeam = $lockedPayment->team_id ? $lockedPayment->team()->lockForUpdate()->first() : null;
+            $lockedParticipant = $lockedPayment->audition_participant_id ? $lockedPayment->auditionParticipant()->lockForUpdate()->first() : null;
 
             if ($callbackAmount !== null) {
                 $cbFloat = (float) $callbackAmount;
@@ -537,14 +543,17 @@ class PaymentService
 
             if ($isSettled) {
                 $previousStatus = $lockedPayment->status;
-                $wasExpired = $lockedPayment->status === 'expired' || $lockedTeam->status === 'expired';
+                $wasExpired = $lockedPayment->status === 'expired'
+                    || ($lockedTeam && $lockedTeam->status === 'expired')
+                    || ($lockedParticipant && $lockedParticipant->status === 'cancelled');
 
                 if ($wasExpired) {
                     $this->quotaExpiration->sweepExpiredForEvent($lockedEvent);
-                    $occupied = $lockedEvent->teams()->occupyingQuotaAt(now())->count();
+                    $occupied = $lockedEvent->occupiedSlotsCount();
 
-                    // Over-Quota Guard: dilarang melampaui max_teams meskipun ada late webhook settlement
-                    if ($occupied >= $lockedEvent->max_teams) {
+                    // Over-Quota Guard: dilarang melampaui kuota meskipun ada late webhook settlement
+                    $limit = $lockedEvent->max_participants ?: $lockedEvent->max_teams;
+                    if (! $lockedEvent->isUnlimitedQuota() && $limit !== null && $occupied >= $limit) {
                         $lockedPayment->update([
                             'method' => $provider,
                             'payment_channel' => $channel ?: $lockedPayment->payment_channel,
@@ -584,10 +593,18 @@ class PaymentService
                         metadata: ['provider' => $provider, 'external_reference_id' => $externalRef],
                     );
 
-                    $lockedTeam->update([
-                        'status' => 'active',
-                        'slot_expires_at' => null,
-                    ]);
+                    if ($lockedTeam) {
+                        $lockedTeam->update([
+                            'status' => 'active',
+                            'slot_expires_at' => null,
+                        ]);
+                    }
+                    if ($lockedParticipant) {
+                        $lockedParticipant->update([
+                            'status' => 'active',
+                            'slot_expires_at' => null,
+                        ]);
+                    }
 
                     $lockedEvent->syncQuotaStatus($occupied + 1);
                 } else {
@@ -608,8 +625,14 @@ class PaymentService
                         metadata: ['provider' => $provider, 'external_reference_id' => $externalRef],
                     );
 
-                    if (! in_array($lockedTeam->status, ['locked_roster', 'disqualified'], true)) {
+                    if ($lockedTeam && ! in_array($lockedTeam->status, ['locked_roster', 'disqualified'], true)) {
                         $lockedTeam->update([
+                            'status' => 'active',
+                            'slot_expires_at' => null,
+                        ]);
+                    }
+                    if ($lockedParticipant) {
+                        $lockedParticipant->update([
                             'status' => 'active',
                             'slot_expires_at' => null,
                         ]);
@@ -618,7 +641,9 @@ class PaymentService
                     $lockedEvent->syncQuotaStatus();
                 }
 
-                app(EmailNotificationService::class)->sendPaymentConfirmed($lockedTeam, $lockedPayment);
+                if ($lockedTeam) {
+                    app(EmailNotificationService::class)->sendPaymentConfirmed($lockedTeam, $lockedPayment);
+                }
 
                 return $lockedPayment->fresh();
             }
@@ -717,7 +742,8 @@ class PaymentService
         return DB::transaction(function () use ($payment, $verifier) {
             $lockedEvent = Event::query()->whereKey($payment->event_id)->lockForUpdate()->firstOrFail();
             $lockedPayment = Payment::query()->whereKey($payment->id)->lockForUpdate()->firstOrFail();
-            $lockedTeam = $lockedPayment->team()->lockForUpdate()->firstOrFail();
+            $lockedTeam = $lockedPayment->team_id ? $lockedPayment->team()->lockForUpdate()->first() : null;
+            $lockedParticipant = $lockedPayment->audition_participant_id ? $lockedPayment->auditionParticipant()->lockForUpdate()->first() : null;
 
             if ($lockedPayment->status === 'paid') {
                 return $lockedPayment;
@@ -739,8 +765,15 @@ class PaymentService
                 'rejection_reason' => null,
             ]);
 
-            if (! in_array($lockedTeam->status, ['locked_roster', 'disqualified'], true)) {
+            if ($lockedTeam && ! in_array($lockedTeam->status, ['locked_roster', 'disqualified'], true)) {
                 $lockedTeam->update([
+                    'status' => 'active',
+                    'slot_expires_at' => null,
+                ]);
+            }
+
+            if ($lockedParticipant) {
+                $lockedParticipant->update([
                     'status' => 'active',
                     'slot_expires_at' => null,
                 ]);
@@ -756,7 +789,9 @@ class PaymentService
                 toStatus: 'paid',
             );
 
-            app(EmailNotificationService::class)->sendPaymentConfirmed($lockedTeam, $lockedPayment);
+            if ($lockedTeam) {
+                app(EmailNotificationService::class)->sendPaymentConfirmed($lockedTeam, $lockedPayment);
+            }
 
             return $lockedPayment->fresh();
         });
@@ -767,7 +802,8 @@ class PaymentService
         return DB::transaction(function () use ($payment, $verifier, $reason) {
             $lockedEvent = Event::query()->whereKey($payment->event_id)->lockForUpdate()->firstOrFail();
             $lockedPayment = Payment::query()->whereKey($payment->id)->lockForUpdate()->firstOrFail();
-            $lockedTeam = $lockedPayment->team()->lockForUpdate()->firstOrFail();
+            $lockedTeam = $lockedPayment->team_id ? $lockedPayment->team()->lockForUpdate()->first() : null;
+            $lockedParticipant = $lockedPayment->audition_participant_id ? $lockedPayment->auditionParticipant()->lockForUpdate()->first() : null;
 
             if ($lockedPayment->status !== 'waiting_verification') {
                 throw ValidationException::withMessages([
@@ -790,13 +826,21 @@ class PaymentService
                 'expires_at' => $newExpiresAt,
             ]);
 
-            if ($lockedTeam->status === 'pending_payment') {
+            if ($lockedTeam && $lockedTeam->status === 'pending_payment') {
                 $lockedTeam->update([
                     'slot_expires_at' => $newExpiresAt,
                 ]);
             }
 
-            app(EmailNotificationService::class)->sendPaymentRejected($lockedTeam, $lockedPayment, $reason);
+            if ($lockedParticipant && $lockedParticipant->status === 'pending_payment') {
+                $lockedParticipant->update([
+                    'slot_expires_at' => $newExpiresAt,
+                ]);
+            }
+
+            if ($lockedTeam) {
+                app(EmailNotificationService::class)->sendPaymentRejected($lockedTeam, $lockedPayment, $reason);
+            }
 
             AuditLog::record(
                 entity: $lockedPayment,
@@ -819,7 +863,8 @@ class PaymentService
     {
         return DB::transaction(function () use ($payment, $verifier, $refundNotes) {
             $lockedPayment = Payment::query()->whereKey($payment->id)->lockForUpdate()->firstOrFail();
-            $lockedTeam = $lockedPayment->team()->lockForUpdate()->firstOrFail();
+            $lockedTeam = $lockedPayment->team_id ? $lockedPayment->team()->lockForUpdate()->first() : null;
+            $lockedParticipant = $lockedPayment->audition_participant_id ? $lockedPayment->auditionParticipant()->lockForUpdate()->first() : null;
 
             if ($lockedPayment->status === 'refunded') {
                 return $lockedPayment;
@@ -840,6 +885,18 @@ class PaymentService
                 'rejection_reason' => 'REFUND SELESAI: '.$cleanNotes,
             ]);
 
+            if ($lockedTeam) {
+                $lockedTeam->update([
+                    'status' => 'expired',
+                ]);
+            }
+
+            if ($lockedParticipant) {
+                $lockedParticipant->update([
+                    'status' => 'cancelled',
+                ]);
+            }
+
             AuditLog::record(
                 entity: $lockedPayment,
                 action: 'payment.refund.completed',
@@ -849,7 +906,9 @@ class PaymentService
                 reason: $cleanNotes,
             );
 
-            app(EmailNotificationService::class)->sendPaymentRefunded($lockedTeam, $lockedPayment, $cleanNotes);
+            if ($lockedTeam) {
+                app(EmailNotificationService::class)->sendPaymentRefunded($lockedTeam, $lockedPayment, $cleanNotes);
+            }
 
             return $lockedPayment->fresh();
         });

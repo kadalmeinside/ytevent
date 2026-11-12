@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\VerifyDocumentRequest;
 use App\Http\Requests\Admin\VerifyPlayerRequest;
+use App\Models\AuditLog;
+use App\Models\AuditionParticipant;
 use App\Models\Event;
 use App\Models\Player;
 use App\Models\PlayerDocument;
@@ -14,6 +16,8 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -295,5 +299,178 @@ class ScreeningController extends Controller
         $this->screeningService->unlockPlayer($player, $request->user(), $reason);
 
         return redirect()->back()->with('success', "Kunci pemain {$player->full_name} berhasil dibuka dan dikembalikan ke draft.");
+    }
+
+    /**
+     * Menampilkan daftar antrean verifikasi berkas atlet audisi / seleksi individual.
+     */
+    public function auditionsIndex(Request $request): Response
+    {
+        $eventId = $request->query('event_id');
+        $status = $request->query('status');
+        $search = $request->query('search');
+
+        $events = Event::query()
+            ->where(function ($q) {
+                $q->where('participant_type', 'individual')
+                    ->orWhere('event_type', 'audition');
+            })
+            ->orderByDesc('id')
+            ->get(['id', 'name', 'slug', 'age_category']);
+
+        $query = AuditionParticipant::query()
+            ->with(['event:id,name,slug,age_category', 'user:id,name,email,phone', 'eventSession:id,session_name']);
+
+        if ($eventId) {
+            $query->where('event_id', $eventId);
+        }
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('full_name', 'like', "%{$search}%")
+                    ->orWhere('nickname', 'like', "%{$search}%")
+                    ->orWhere('nik', 'like', "%{$search}%")
+                    ->orWhere('registration_number', 'like', "%{$search}%");
+            });
+        }
+
+        if ($status && in_array($status, ['submitted', 'passed', 'rejected', 'draft'])) {
+            $query->where('screening_status', $status);
+        }
+
+        $participants = $query
+            ->orderByRaw("CASE screening_status WHEN 'submitted' THEN 1 WHEN 'rejected' THEN 2 WHEN 'passed' THEN 3 ELSE 4 END")
+            ->latest('id')
+            ->paginate(20)
+            ->withQueryString()
+            ->through(fn (AuditionParticipant $p) => [
+                'id' => $p->id,
+                'registration_number' => $p->registration_number,
+                'bib_number' => $p->bib_number,
+                'full_name' => $p->full_name,
+                'nickname' => $p->nickname,
+                'nik' => $p->nik,
+                'birth_date' => $p->birth_date?->format('d/m/Y'),
+                'gender' => $p->gender,
+                'preferred_position' => $p->preferred_position,
+                'dominant_foot' => $p->dominant_foot,
+                'height_cm' => $p->height_cm,
+                'weight_kg' => $p->weight_kg,
+                'current_club_ssb' => $p->current_club_ssb,
+                'jersey_size' => $p->jersey_size,
+                'emergency_contact_name' => $p->emergency_contact_name,
+                'emergency_contact_phone' => $p->emergency_contact_phone,
+                'screening_status' => $p->screening_status,
+                'screening_status_label' => $p->screeningStatusLabel(),
+                'screening_notes' => $p->screening_notes,
+                'stage_status' => $p->stage_status,
+                'stage_status_label' => $p->stageStatusLabel(),
+                'status' => $p->status,
+                'is_paid' => $p->isPaid(),
+                'photo_url' => $p->photo_path ? Storage::disk('public')->url($p->photo_path) : null,
+                'birth_cert_url' => route('private.audition.birth-certificate', ['participant' => $p->id]),
+                'family_card_url' => route('private.audition.family-card', ['participant' => $p->id]),
+                'additional_doc_url' => $p->additional_doc_path ? route('private.audition.additional-doc', ['participant' => $p->id]) : null,
+                'event' => [
+                    'id' => $p->event?->id,
+                    'name' => $p->event?->name,
+                    'age_category' => $p->event?->age_category,
+                ],
+                'session_name' => $p->eventSession?->session_name,
+                'user' => [
+                    'name' => $p->user?->name,
+                    'email' => $p->user?->email,
+                    'phone' => $p->user?->phone,
+                ],
+            ]);
+
+        return Inertia::render('Admin/Screening/Auditions', [
+            'events' => $events,
+            'participants' => $participants,
+            'filters' => [
+                'event_id' => $eventId,
+                'status' => $status,
+                'search' => $search,
+            ],
+            'counts' => [
+                'total' => AuditionParticipant::count(),
+                'submitted' => AuditionParticipant::where('screening_status', 'submitted')->count(),
+                'passed' => AuditionParticipant::where('screening_status', 'passed')->count(),
+                'rejected' => AuditionParticipant::where('screening_status', 'rejected')->count(),
+            ],
+        ]);
+    }
+
+    /**
+     * Keputusan verifikasi berkas atlet audisi (Lolos / Tolak Revisi).
+     */
+    public function verifyAuditionParticipant(Request $request, AuditionParticipant $participant): RedirectResponse
+    {
+        $validated = $request->validate([
+            'status' => ['required', 'in:passed,rejected'],
+            'notes' => ['required_if:status,rejected', 'nullable', 'string', 'min:10'],
+        ], [
+            'status.required' => 'Keputusan verifikasi wajib ditentukan.',
+            'notes.required_if' => 'Alasan penolakan / catatan revisi wajib diisi jika berkas ditolak (min. 10 karakter).',
+            'notes.min' => 'Catatan revisi minimal berjumlah 10 karakter.',
+        ]);
+
+        $status = $validated['status'];
+        $notes = $validated['notes'] ?? null;
+        $user = $request->user();
+
+        if ($status === 'passed') {
+            // Assign next bib number jika belum ada
+            $bib = $participant->bib_number;
+            if (! $bib) {
+                $maxBib = AuditionParticipant::query()
+                    ->where('event_id', $participant->event_id)
+                    ->max('bib_number') ?? 0;
+                $bib = $maxBib + 1;
+            }
+
+            $screeningCode = $participant->screening_code ?: ('SCR-AUD-' . strtoupper(Str::random(10)));
+
+            $participant->update([
+                'screening_status' => 'passed',
+                'bib_number' => $bib,
+                'screening_code' => $screeningCode,
+                'screening_notes' => null,
+                'screening_verified_by' => $user->id,
+                'screening_verified_at' => now(),
+            ]);
+
+            AuditLog::record(
+                entity: $participant,
+                action: 'audition.screening.passed',
+                actor: $user,
+                metadata: [
+                    'bib_number' => $bib,
+                    'screening_code' => $screeningCode,
+                ]
+            );
+
+            return redirect()->back()->with('success', "Peserta {$participant->full_name} dinyatakan LOLOS SCREENING dengan Nomor Dada #{$bib}!");
+        }
+
+        // Status rejected
+        $participant->update([
+            'screening_status' => 'rejected',
+            'screening_notes' => trim($notes),
+            'screening_verified_by' => $user->id,
+            'screening_verified_at' => now(),
+        ]);
+
+        AuditLog::record(
+            entity: $participant,
+            action: 'audition.screening.rejected',
+            actor: $user,
+            reason: trim($notes),
+            metadata: [
+                'participant_name' => $participant->full_name,
+            ]
+        );
+
+        return redirect()->back()->with('success', "Peserta {$participant->full_name} berstatus REVISI BERKAS dengan catatan panitia.");
     }
 }

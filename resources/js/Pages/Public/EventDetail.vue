@@ -621,10 +621,10 @@ const eventJsonLd = computed(() => {
                         <div class="mt-5">
                             <Link
                                 v-if="event.can_register"
-                                :href="route('events.register', { event: event.slug })"
-                                class="btn-pitch w-full py-2.5"
+                                :href="event.participant_type === 'individual' ? route('events.register-audition', { event: event.slug }) : route('events.register', { event: event.slug })"
+                                class="btn-pitch w-full py-2.5 flex items-center justify-center gap-2 shadow-md shadow-orange-500/20"
                             >
-                                Daftar Sekarang
+                                <span>{{ event.participant_type === 'individual' ? 'Daftar Audisi Sekarang' : 'Daftar Sekarang' }}</span>
                             </Link>
                             <button
                                 v-else

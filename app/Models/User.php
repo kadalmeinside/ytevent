@@ -58,4 +58,14 @@ class User extends Authenticatable
     {
         return $this->hasMany(Team::class);
     }
+
+    public function auditionParticipants(): HasMany
+    {
+        return $this->hasMany(AuditionParticipant::class);
+    }
+
+    public function scoutingEvaluations(): HasMany
+    {
+        return $this->hasMany(ScoutingEvaluation::class, 'scout_id');
+    }
 }

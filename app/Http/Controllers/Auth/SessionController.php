@@ -42,7 +42,7 @@ class SessionController extends Controller
         }
 
         return redirect()->route('manager.dashboard')
-            ->with('warning', 'Akun Manajer Tim tidak memiliki akses ke portal internal panitia.');
+            ->with('warning', 'Akun Peserta/Manajer tidak memiliki akses ke portal internal panitia.');
     }
 
     public function showAdminLogin(Request $request): Response|RedirectResponse
