@@ -234,19 +234,22 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <AdminLayout title="Scanner Absensi Audisi Multi-Hari">
-        <Head title="Gatekeeper Absensi Audisi" />
+    <AdminLayout title="Presensi &amp; Check-in Peserta">
+        <Head title="Presensi &amp; Check-in Peserta" />
 
         <div class="space-y-6">
             <!-- Header Bar -->
             <div class="frosted-card p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-800 text-xs font-bold uppercase tracking-wider mb-1">
-                        <span>🛡️ Gatekeeper Guard</span>
+                    <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-orange-50 text-orange-950 border border-orange-200 text-xs font-bold uppercase tracking-wider mb-1">
+                        <svg class="w-3.5 h-3.5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                        <span>Gatekeeper Check-in</span>
                     </div>
-                    <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Scanner Absensi Peserta Audisi</h1>
+                    <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Presensi &amp; Check-in Peserta</h1>
                     <p class="text-xs sm:text-sm text-slate-500 mt-0.5">
-                        Pemeriksaan keabsahan multi-hari, pencegahan joki, dan validasi kelolosan bertahap.
+                        Pemindaian tiket barcode/QR, pemeriksaan identitas peserta, dan pencatatan presensi kehadiran gerbang.
                     </p>
                 </div>
 

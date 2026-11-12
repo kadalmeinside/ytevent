@@ -16,5 +16,13 @@ Route::middleware('web')->prefix('simulation')->name('simulation.')->group(funct
     Route::post('/bulk-approve-lock-all', [SimulationController::class, 'bulkApproveAndLockAll'])->name('bulk-approve-lock-all');
     Route::post('/delete-team', [SimulationController::class, 'deleteTeam'])->name('delete-team');
     Route::post('/delete-all-teams', [SimulationController::class, 'deleteAllTeamsInEvent'])->name('delete-all-teams');
+
+    // Multi-Event & Individual Participant Simulation Routes
+    Route::post('/register-individual', [SimulationController::class, 'registerIndividual'])->name('register-individual');
+    Route::post('/bulk-inject-individuals', [SimulationController::class, 'bulkInjectIndividuals'])->name('bulk-inject-individuals');
+    Route::post('/bulk-check-in', [SimulationController::class, 'bulkCheckIn'])->name('bulk-check-in');
+    Route::post('/bulk-scout-grade', [SimulationController::class, 'bulkScoutGrade'])->name('bulk-scout-grade');
+    Route::post('/bulk-advance-stage', [SimulationController::class, 'bulkAdvanceStage'])->name('bulk-advance-stage');
+    Route::post('/delete-all-individuals', [SimulationController::class, 'deleteAllIndividualsInEvent'])->name('delete-all-individuals');
 });
 

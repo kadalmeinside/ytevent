@@ -197,11 +197,13 @@ const submit = () => {
         }
 
         // 5. Berkas Unggahan
-        const photoCheck = checkFile(form.photo, ['image/png', 'image/jpeg', 'image/webp'], 3 * 1024 * 1024);
-        if (!photoCheck.valid) {
-            if (photoCheck.reason === 'missing') errs.photo = 'Pas foto resmi atlet wajib diunggah.';
-            else if (photoCheck.reason === 'mime') errs.photo = 'Pas foto harus berformat JPG, PNG, atau WEBP.';
-            else if (photoCheck.reason === 'size') errs.photo = 'Ukuran pas foto maksimal 3 MB.';
+        if (props.event?.form_presets?.photo) {
+            const photoCheck = checkFile(form.photo, ['image/png', 'image/jpeg', 'image/webp'], 3 * 1024 * 1024);
+            if (!photoCheck.valid) {
+                if (photoCheck.reason === 'missing') errs.photo = 'Pas foto resmi peserta wajib diunggah.';
+                else if (photoCheck.reason === 'mime') errs.photo = 'Pas foto harus berformat JPG, PNG, atau WEBP.';
+                else if (photoCheck.reason === 'size') errs.photo = 'Ukuran pas foto maksimal 3 MB.';
+            }
         }
 
         const birthCheck = checkFile(form.birth_certificate, ['image/png', 'image/jpeg', 'application/pdf'], 4 * 1024 * 1024);
@@ -653,13 +655,13 @@ const submit = () => {
                     </p>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <!-- Pas Foto -->
-                        <div data-field="photo">
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">Pas Foto Resmi Atlet *</label>
+                        <!-- Pas Foto (Hanya jika preset photo aktif) -->
+                        <div v-if="event.form_presets?.photo" data-field="photo">
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Pas Foto Resmi Peserta *</label>
                             <FileInput
                                 accept="image/png,image/jpeg,image/webp"
                                 :max-size-m-b="3"
-                                placeholder="Pilih berkas foto atlet (JPG/PNG)"
+                                placeholder="Pilih berkas foto peserta (JPG/PNG)"
                                 @change="handlePhotoChange"
                             />
                             <p class="text-[11px] text-slate-400 mt-1">Foto wajah jelas setengah badan, latar polos.</p>

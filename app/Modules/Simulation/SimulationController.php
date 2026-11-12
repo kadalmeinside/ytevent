@@ -52,7 +52,7 @@ class SimulationController extends Controller
         $this->ensureSimulationEnabled();
 
         $validated = $request->validate([
-            'role' => ['required', 'string', 'in:superadmin,finance,screening_officer,team_manager'],
+            'role' => ['required', 'string', 'in:superadmin,finance,screening_officer,team_manager,scout,talent_scout,participant_parent'],
             'team_id' => ['nullable', 'integer', 'exists:teams,id'],
         ]);
 
@@ -73,6 +73,41 @@ class SimulationController extends Controller
 
             return redirect()->route('manager.dashboard')
                 ->with('success', "[SIMULASI] Beralih ke akun Manajer Tim: {$team->name} ({$team->manager_email}).");
+        }
+
+        if ($role === 'participant_parent') {
+            $parent = User::role('participant_parent')->first();
+            if (! $parent) {
+                $participant = $this->simulationService->simulateRegisterIndividualParticipant();
+                $parent = $participant->user;
+            }
+
+            Auth::login($parent);
+            $request->session()->regenerate();
+
+            return redirect()->route('manager.dashboard')
+                ->with('success', "[SIMULASI] Beralih ke akun Orang Tua / Peserta Perorangan: {$parent->name} ({$parent->email}).");
+        }
+
+        if ($role === 'scout' || $role === 'talent_scout') {
+            $scoutUser = User::role('talent_scout')->first();
+            if (! $scoutUser) {
+                $scoutUser = User::create([
+                    'name' => 'Coach Scout Simulator',
+                    'email' => 'scout.simulasi@persijadev.id',
+                    'password' => bcrypt('password'),
+                ]);
+                $scoutUser->assignRole('talent_scout');
+            }
+
+            Auth::login($scoutUser);
+            $request->session()->regenerate();
+
+            $event = Event::where('participant_type', 'individual')->where('event_type', 'audition')->latest('id')->first();
+            $targetRoute = $event ? route('scout.events.show', ['event' => $event->id]) : route('admin.dashboard');
+
+            return redirect()->to($targetRoute)
+                ->with('success', "[SIMULASI] Beralih ke akun Pemandu Bakat / Scout ({$scoutUser->name}).");
         }
 
         $adminUser = User::role($role)->first();
@@ -318,6 +353,127 @@ class SimulationController extends Controller
 
         return redirect()->back()
             ->with('success', "[SIMULASI] Sebanyak {$count} tim terdaftar pada kompetisi '{$event->name}' beserta seluruh data pembayaran dan berkasnya telah dihapus bersih. Kuota event kembali kosong (0 tim).");
+    }
+
+    /**
+     * 11. Simulasi Pendaftaran 1 Peserta Perorangan (Audisi / Clinic).
+     */
+    public function registerIndividual(Request $request): RedirectResponse
+    {
+        $this->ensureSimulationEnabled();
+
+        $event = $this->resolveTargetEvent($request);
+        $participant = $this->simulationService->simulateRegisterIndividualParticipant($event, $request->user());
+
+        return redirect()->back()
+            ->with('success', "[SIMULASI] Peserta baru '{$participant->full_name}' ({$participant->registration_number}) berhasil didaftarkan pada event {$participant->event?->name}!");
+    }
+
+    /**
+     * 12. Simulasi Inject Massal Peserta Perorangan (Default: 6 Peserta Lunas & Sah).
+     */
+    public function bulkInjectIndividuals(Request $request): RedirectResponse
+    {
+        $this->ensureSimulationEnabled();
+
+        $event = $this->resolveTargetEvent($request);
+        if (! $event || $event->participant_type !== 'individual') {
+            $event = Event::where('participant_type', 'individual')->latest('id')->first();
+        }
+        if (! $event) {
+            $dummy = $this->simulationService->simulateRegisterIndividualParticipant();
+            $event = $dummy->event;
+        }
+
+        $count = (int) $request->input('count', 6);
+        $result = $this->simulationService->simulateBulkInjectIndividualParticipants($event, $count);
+
+        return redirect()->back()
+            ->with('success', "[SIMULASI] Berhasil menyuntikkan {$result['count']} peserta perorangan sekaligus ke event '{$result['event_name']}'!");
+    }
+
+    /**
+     * 13. Simulasi Presensi Hadir Gerbang (Check-in Massal).
+     */
+    public function bulkCheckIn(Request $request): RedirectResponse
+    {
+        $this->ensureSimulationEnabled();
+
+        $event = $this->resolveTargetEvent($request);
+        if (! $event || $event->participant_type !== 'individual') {
+            $event = Event::where('participant_type', 'individual')->latest('id')->first();
+        }
+        if (! $event) {
+            return redirect()->back()->with('error', '[SIMULASI] Belum ada event perorangan untuk check-in.');
+        }
+
+        $stageNum = (int) $request->input('stage_number', 1);
+        $count = $this->simulationService->simulateBulkCheckInAttendance($event, $stageNum);
+
+        return redirect()->back()
+            ->with('success', "[SIMULASI GATEKEEPER] {$count} peserta berhasil dicatat hadir (Presensi Tahap {$stageNum}) pada event {$event->name}!");
+    }
+
+    /**
+     * 14. Simulasi Penilaian Scout Massal (Grading A/B/C & Rating Bintang).
+     */
+    public function bulkScoutGrade(Request $request): RedirectResponse
+    {
+        $this->ensureSimulationEnabled();
+
+        $event = $this->resolveTargetEvent($request);
+        if (! $event || $event->participant_type !== 'individual') {
+            $event = Event::where('participant_type', 'individual')->latest('id')->first();
+        }
+        if (! $event) {
+            return redirect()->back()->with('error', '[SIMULASI] Belum ada event audisi untuk penilaian.');
+        }
+
+        $stageNum = (int) $request->input('stage_number', 1);
+        $count = $this->simulationService->simulateBulkScoutGrading($event, $stageNum, $request->user());
+
+        return redirect()->back()
+            ->with('success', "[SIMULASI SCOUT] {$count} evaluasi penilaian pemandu bakat berhasil digenerate otomatis untuk Tahap {$stageNum}!");
+    }
+
+    /**
+     * 15. Simulasi Loloskan Peserta ke Tahap Lanjutan.
+     */
+    public function bulkAdvanceStage(Request $request): RedirectResponse
+    {
+        $this->ensureSimulationEnabled();
+
+        $event = $this->resolveTargetEvent($request);
+        if (! $event || $event->participant_type !== 'individual') {
+            $event = Event::where('participant_type', 'individual')->latest('id')->first();
+        }
+        if (! $event) {
+            return redirect()->back()->with('error', '[SIMULASI] Belum ada event audisi untuk kelolosan.');
+        }
+
+        $targetStatus = $request->input('target_status', 'day_1_passed');
+        $count = $this->simulationService->simulateBulkAdvanceStage($event, $targetStatus);
+
+        return redirect()->back()
+            ->with('success', "[SIMULASI KELOLOSAN] {$count} peserta berhasil dipromosikan status kelolosannya ({$targetStatus})!");
+    }
+
+    /**
+     * 16. Simulasi Hapus Bersih Seluruh Peserta pada Suatu Event Perorangan.
+     */
+    public function deleteAllIndividualsInEvent(Request $request): RedirectResponse
+    {
+        $this->ensureSimulationEnabled();
+
+        $event = $this->resolveTargetEvent($request);
+        if (! $event) {
+            return redirect()->back()->with('error', '[SIMULASI] Pilih event perorangan terlebih dahulu.');
+        }
+
+        $count = $this->simulationService->purgeAllIndividualsInEvent($event);
+
+        return redirect()->back()
+            ->with('success', "[SIMULASI RESET] Seluruh data ({$count} peserta perorangan, presensi, berkas & penilaian) pada event '{$event->name}' berhasil dibersihkan.");
     }
 
     protected function resolveTargetEvent(Request $request): ?Event

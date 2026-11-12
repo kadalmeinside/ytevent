@@ -44,6 +44,7 @@ class Event extends Model
     ];
 
     public const DEFAULT_FORM_PRESETS = [
+        'photo' => false,
         'position' => true,
         'foot_dominance' => true,
         'team_origin' => true,

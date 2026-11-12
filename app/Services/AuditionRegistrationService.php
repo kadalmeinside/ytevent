@@ -24,7 +24,7 @@ class AuditionRegistrationService
     public function registerAuditionParticipant(
         Event $event,
         array $validated,
-        UploadedFile $photoFile,
+        ?UploadedFile $photoFile,
         UploadedFile $birthCertFile,
         UploadedFile $familyCardFile,
         ?UploadedFile $additionalDocFile = null,
@@ -120,15 +120,18 @@ class AuditionRegistrationService
             }
 
             // Upload Files
-            // Pas Foto (Public Storage dengan WebP/JPEG optimization)
-            $photoStored = $this->imageOptimization->storeWithOptimizedVariant(
-                $photoFile,
-                'auditions/photos',
-                disk: 'public',
-                maxDimension: 800,
-                quality: 85
-            );
-            $photoPath = $photoStored['optimized_path'] ?: $photoStored['original_path'];
+            // Pas Foto (Public Storage dengan WebP/JPEG optimization jika ada)
+            $photoPath = null;
+            if ($photoFile) {
+                $photoStored = $this->imageOptimization->storeWithOptimizedVariant(
+                    $photoFile,
+                    'auditions/photos',
+                    disk: 'public',
+                    maxDimension: 800,
+                    quality: 85
+                );
+                $photoPath = $photoStored['optimized_path'] ?: $photoStored['original_path'];
+            }
 
             // Dokumen Keabsahan (Private Storage)
             $birthCertExt = $birthCertFile->getClientOriginalExtension() ?: 'pdf';

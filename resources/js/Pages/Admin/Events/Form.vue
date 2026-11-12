@@ -74,6 +74,7 @@ const form = useForm({
     quota_type: props.event?.quota_type || 'fixed',
     max_participants: props.event?.max_participants ?? 100,
     form_presets: {
+        photo: props.event?.form_presets?.photo ?? false,
         position: props.event?.form_presets?.position ?? true,
         foot_dominance: props.event?.form_presets?.foot_dominance ?? true,
         team_origin: props.event?.form_presets?.team_origin ?? true,
@@ -835,6 +836,21 @@ const submit = () => {
                         </p>
 
                         <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            <label
+                                class="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors"
+                                :class="form.form_presets.photo ? 'border-orange-500 bg-orange-50/50 text-orange-950 font-medium' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'"
+                            >
+                                <input
+                                    v-model="form.form_presets.photo"
+                                    type="checkbox"
+                                    class="mt-0.5 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                                />
+                                <div class="text-xs">
+                                    <span class="font-bold block">Unggah Pas Foto Peserta</span>
+                                    <span class="text-slate-500 text-[11px] block mt-0.5">Wajibkan unggah pas foto wajah atlet/peserta untuk verifikasi &amp; kartu peserta.</span>
+                                </div>
+                            </label>
+
                             <label
                                 class="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors"
                                 :class="form.form_presets.position ? 'border-orange-500 bg-orange-50/50 text-orange-950 font-medium' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'"

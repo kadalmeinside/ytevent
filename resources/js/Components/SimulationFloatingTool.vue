@@ -22,9 +22,28 @@ const simCtx = computed(() => page.props.simulationContext || { enabled: false, 
 const isOpen = ref(false);
 const isBusy = ref(false);
 
+const activeTab = ref('team'); // 'team' | 'individual'
+
+const teamEvents = computed(() => {
+    return (simCtx.value?.events || []).filter((e) => e.participant_type !== 'individual');
+});
+
+const individualEvents = computed(() => {
+    return (simCtx.value?.events || []).filter((e) => e.participant_type === 'individual');
+});
+
 const selectedEventId = ref(
     props.currentEventId ||
         page.props.event?.id ||
+        teamEvents.value?.[0]?.id ||
+        simCtx.value?.events?.[0]?.id ||
+        ''
+);
+
+const selectedIndividualEventId = ref(
+    (page.props.event?.participant_type === 'individual' ? page.props.event.id : null) ||
+        props.currentEventId ||
+        individualEvents.value?.[0]?.id ||
         simCtx.value?.events?.[0]?.id ||
         ''
 );
@@ -36,6 +55,9 @@ const selectedTeamId = ref(
         simCtx.value?.teams?.[0]?.id ||
         ''
 );
+
+const individualStageNumber = ref(1);
+const individualTargetAdvanceStatus = ref('day_1_passed');
 
 watch(
     () => [props.currentTeamId, page.props.team?.id, simCtx.value?.active_team?.id],
@@ -52,14 +74,26 @@ watch(
 );
 
 watch(
-    () => [props.currentEventId, page.props.event?.id, simCtx.value?.events],
-    ([propEvtId, pageEvtId, evts]) => {
-        if (propEvtId) {
-            selectedEventId.value = propEvtId;
-        } else if (pageEvtId) {
-            selectedEventId.value = pageEvtId;
+    () => [props.currentEventId, page.props.event, simCtx.value?.events],
+    ([propEvtId, pageEvt, evts]) => {
+        if (pageEvt && pageEvt.participant_type === 'individual') {
+            activeTab.value = 'individual';
+            selectedIndividualEventId.value = pageEvt.id;
+        } else if (pageEvt && pageEvt.id) {
+            selectedEventId.value = pageEvt.id;
+        } else if (propEvtId) {
+            const found = evts?.find((e) => e.id === Number(propEvtId));
+            if (found && found.participant_type === 'individual') {
+                activeTab.value = 'individual';
+                selectedIndividualEventId.value = found.id;
+            } else if (found) {
+                selectedEventId.value = found.id;
+            }
         } else if (!selectedEventId.value && evts?.length > 0) {
-            selectedEventId.value = evts[0].id;
+            const tEvt = evts.find((e) => e.participant_type !== 'individual');
+            if (tEvt) selectedEventId.value = tEvt.id;
+            const iEvt = evts.find((e) => e.participant_type === 'individual');
+            if (iEvt) selectedIndividualEventId.value = iEvt.id;
         }
     },
     { immediate: true }
@@ -95,7 +129,7 @@ const confirmDeleteTeam = () => {
 
 const confirmDeleteAllTeams = () => {
     if (!selectedEventId.value) return;
-    const currentEvent = simCtx.value?.events?.find((e) => e.id === Number(selectedEventId.value));
+    const currentEvent = (simCtx.value?.events || []).find((e) => e.id === Number(selectedEventId.value));
     const eventName = currentEvent ? currentEvent.name : `#${selectedEventId.value}`;
     if (
         window.confirm(
@@ -106,10 +140,19 @@ const confirmDeleteAllTeams = () => {
     }
 };
 
-/**
- * Jika pengguna berada di halaman form pendaftaran (/events/{slug}/register),
- * kita juga menyediakan pengisi form cepat di sisi klien selain 1-klik server-side.
- */
+const confirmDeleteAllIndividuals = () => {
+    if (!selectedIndividualEventId.value) return;
+    const currentEvent = (simCtx.value?.events || []).find((e) => e.id === Number(selectedIndividualEventId.value));
+    const eventName = currentEvent ? currentEvent.name : `#${selectedIndividualEventId.value}`;
+    if (
+        window.confirm(
+            `PERINGATAN: Yakin ingin menghapus SELURUH peserta terdaftar pada event perorangan "${eventName}" beserta seluruh data presensi, berkas, dan evaluasi scout-nya?\n\nKuota event akan kembali kosong (0 peserta).`
+        )
+    ) {
+        runSimAction('simulation.delete-all-individuals', { event_id: selectedIndividualEventId.value });
+    }
+};
+
 const fillCurrentDomFormIfPresent = () => {
     const rand = Math.floor(100 + Math.random() * 900);
     const setInputValue = (selector, val) => {
@@ -129,6 +172,27 @@ const fillCurrentDomFormIfPresent = () => {
     setInputValue('input[type="email"]', `sim.manager.${rand}@persijadevelopment.id`);
     setInputValue('input[placeholder*="0812"]', `081288990${rand}`);
 };
+
+const fillIndividualDomFormIfPresent = () => {
+    const rand = Math.floor(100 + Math.random() * 900);
+    const setInputValue = (selector, val) => {
+        const el = document.querySelector(selector);
+        if (!el) return false;
+        el.value = val;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+    };
+
+    setInputValue('input[placeholder*="3171"], input[name="nik"]', `317101${rand}0001`);
+    setInputValue('input[name="full_name"]', `Rizky Pratama ${rand}`);
+    setInputValue('input[placeholder*="Rizky"], input[placeholder*="Nama Lengkap"]', `Rizky Pratama ${rand}`);
+    setInputValue('input[name="position"], select[name="position"]', 'Gelandang Serang (AMF)');
+    setInputValue('input[name="current_club"], input[placeholder*="Klub Asal"]', 'SSB Jayakarta Muda');
+    setInputValue('input[name="parent_name"], input[placeholder*="Orang Tua"]', `Bapak Hartono ${rand}`);
+    setInputValue('input[name="parent_phone"], input[placeholder*="0812"]', `081288990${rand}`);
+    setInputValue('input[name="parent_email"], input[type="email"]', `wali.atlet.${rand}@persijadevelopment.id`);
+};
 </script>
 
 <template>
@@ -147,7 +211,7 @@ const fillCurrentDomFormIfPresent = () => {
                     </svg>
                     <div>
                         <h3 class="text-xs font-black uppercase tracking-wider leading-none">Modul Simulasi &amp; Isi Paksa</h3>
-                        <p class="text-[10px] text-orange-100 mt-0.5">Area Aktif: {{ contextArea.toUpperCase() }} (Take-Out Ready)</p>
+                        <p class="text-[10px] text-orange-100 mt-0.5">Area Aktif: {{ contextArea.toUpperCase() }}</p>
                     </div>
                 </div>
                 <button
@@ -159,18 +223,45 @@ const fillCurrentDomFormIfPresent = () => {
                 </button>
             </div>
 
-            <div class="p-4 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
+            <!-- Segmented Control Mode Switcher: Beregu vs Perorangan -->
+            <div class="p-2 bg-slate-950/70 border-b border-slate-800 flex items-center gap-1.5">
+                <button
+                    type="button"
+                    class="flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                    :class="activeTab === 'team' ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'"
+                    @click="activeTab = 'team'"
+                >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span>Beregu (Tim)</span>
+                </button>
+                <button
+                    type="button"
+                    class="flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                    :class="activeTab === 'individual' ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-xs' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'"
+                    @click="activeTab = 'individual'"
+                >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <span>Perorangan</span>
+                </button>
+            </div>
+
+            <!-- TAB 1: EVENT BEREGU / TIM (Turnamen & Liga) -->
+            <div v-if="activeTab === 'team'" class="p-4 space-y-4 max-h-[72vh] overflow-y-auto text-xs">
                 <!-- Pemilih Konteks Kompetisi & Tim Target -->
                 <div class="grid grid-cols-1 gap-2.5 p-3 rounded-xl bg-slate-800/90 border border-slate-700">
-                    <div v-if="simCtx.events?.length">
+                    <div v-if="teamEvents.length || simCtx.events?.length">
                         <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Target Kompetisi (Untuk Daftar Tim Baru)
+                            Target Kompetisi (Turnamen / Liga)
                         </label>
                         <select
                             v-model="selectedEventId"
                             class="w-full rounded-lg bg-slate-900 border border-slate-700 text-white text-xs px-2.5 py-1.5 focus:outline-none focus:border-orange-500"
                         >
-                            <option v-for="evt in simCtx.events" :key="evt.id" :value="evt.id">
+                            <option v-for="evt in (teamEvents.length ? teamEvents : simCtx.events)" :key="evt.id" :value="evt.id">
                                 {{ evt.name }} ({{ evt.age_category }})
                             </option>
                         </select>
@@ -255,7 +346,7 @@ const fillCurrentDomFormIfPresent = () => {
                         <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-sky-600 text-white shrink-0">SKUAD</span>
                     </button>
 
-                    <!-- INJECT SISAH KEKURANGAN TIM & PEMAIN EVENT -->
+                    <!-- INJECT SISA KEKURANGAN TIM & PEMAIN EVENT -->
                     <button
                         type="button"
                         class="w-full text-left px-3 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white shadow-md flex items-center justify-between gap-2 transition-all cursor-pointer"
@@ -308,7 +399,7 @@ const fillCurrentDomFormIfPresent = () => {
                             <span class="font-black text-xs block uppercase tracking-wide">Simulasi Penuh Sampai Kunci Skuad Final (1 Tim)</span>
                             <span class="text-[10px] text-emerald-100 block">Bayar Lunas &rarr; Isi Skuad &rarr; Lolos Screening &rarr; Kunci Roster</span>
                         </div>
-                        <span class="px-2 py-0.5 rounded text-[10px] font-black bg-black/25">FINISH</span>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-black bg-black/25 shrink-0">FINISH</span>
                     </button>
 
                     <!-- SAHKAN SEMUA TIM DI EVENT SEKALIGUS -->
@@ -376,7 +467,6 @@ const fillCurrentDomFormIfPresent = () => {
                         <span class="text-[9px] text-rose-300/80 font-mono font-bold">DANGER ZONE</span>
                     </div>
 
-                    <!-- HAPUS TIM TERPILIH BESERTA PEMBAYARAN -->
                     <button
                         type="button"
                         class="w-full text-left px-3 py-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 text-white flex items-center justify-between gap-2 transition-all cursor-pointer group"
@@ -396,9 +486,8 @@ const fillCurrentDomFormIfPresent = () => {
                         </span>
                     </button>
 
-                    <!-- RESET SELURUH TIM DI EVENT -->
                     <button
-                        v-if="simCtx.events?.length"
+                        v-if="teamEvents.length || simCtx.events?.length"
                         type="button"
                         class="w-full text-left px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-rose-950/40 border border-slate-700 hover:border-rose-800/60 text-slate-300 hover:text-rose-200 flex items-center justify-between gap-2 transition-all cursor-pointer group"
                         :disabled="isBusy || !selectedEventId"
@@ -410,6 +499,237 @@ const fillCurrentDomFormIfPresent = () => {
                             </span>
                             <span class="text-[10px] text-slate-400 group-hover:text-rose-300/70 block mt-0.5">
                                 Hapus semua tim &amp; seluruh pembayaran event (Reset Kuota 0)
+                            </span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-black bg-slate-700 group-hover:bg-rose-700 text-white shrink-0">
+                            RESET ALL
+                        </span>
+                    </button>
+                </div>
+
+                <!-- BAGIAN 5: MATIKAN SEMENTARA FITUR SIMULASI -->
+                <div class="pt-2 border-t border-slate-800 flex items-center justify-between gap-2 text-[11px]">
+                    <span class="text-slate-400">Sembunyikan tombol simulasi?</span>
+                    <button
+                        type="button"
+                        class="text-rose-400 hover:text-rose-300 font-bold underline cursor-pointer"
+                        :disabled="isBusy"
+                        @click="toggleSimulationMode(false)"
+                    >
+                        Matikan Sementara
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB 2: EVENT PERORANGAN (Audisi & Coaching Clinic) -->
+            <div v-else class="p-4 space-y-4 max-h-[72vh] overflow-y-auto text-xs">
+                <!-- Pemilih Konteks Event Perorangan Target -->
+                <div class="grid grid-cols-1 gap-2.5 p-3 rounded-xl bg-slate-800/90 border border-slate-700">
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                            Target Event Perorangan (Audisi / Clinic)
+                        </label>
+                        <select
+                            v-model="selectedIndividualEventId"
+                            class="w-full rounded-lg bg-slate-900 border border-slate-700 text-white text-xs px-2.5 py-1.5 focus:outline-none focus:border-orange-500"
+                        >
+                            <option
+                                v-for="evt in (individualEvents.length ? individualEvents : simCtx.events)"
+                                :key="evt.id"
+                                :value="evt.id"
+                            >
+                                {{ evt.name }} [{{ evt.event_type === 'audition' ? 'Audisi' : (evt.event_type === 'coaching_clinic' ? 'Clinic' : (evt.participant_type === 'individual' ? 'Individu' : 'Event')) }}]
+                            </option>
+                        </select>
+                        <p v-if="!individualEvents.length" class="text-[10px] text-amber-400 mt-1 leading-tight">
+                            * Belum ada event audisi/clinic khusus. Mengklik simulasi akan otomatis mengaitkan atau membuat event perorangan.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- BAGIAN 1: PENDAFTARAN PESERTA & INJECT MASSAL -->
+                <div class="space-y-1.5">
+                    <p class="text-[10px] font-extrabold uppercase tracking-wider text-orange-400">
+                        1. Simulasi Pendaftaran Atlet &amp; Berkas
+                    </p>
+
+                    <!-- DAFTAR 1 PESERTA PERORANGAN -->
+                    <button
+                        type="button"
+                        class="w-full text-left px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center justify-between gap-2 transition-colors cursor-pointer"
+                        :disabled="isBusy"
+                        @click="runSimAction('simulation.register-individual', { event_id: selectedIndividualEventId })"
+                    >
+                        <div>
+                            <span class="font-bold text-white block">Daftar 1 Atlet Perorangan + Berkas</span>
+                            <span class="text-[10px] text-slate-400">NIK, foto, berkas, lunas, lolos screening &amp; no dada/tiket</span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-orange-600 text-white shrink-0">1-KLIK</span>
+                    </button>
+
+                    <button
+                        v-if="contextArea === 'public'"
+                        type="button"
+                        class="w-full text-left px-3 py-1.5 rounded-xl bg-slate-800/60 hover:bg-slate-700 border border-slate-700/80 flex items-center justify-between gap-2 transition-colors cursor-pointer"
+                        @click="fillIndividualDomFormIfPresent"
+                    >
+                        <span class="text-[11px] font-semibold text-slate-300">Isi Otomatis Form Pendaftaran Atlet</span>
+                        <span class="text-[10px] text-slate-400">DOM Fill</span>
+                    </button>
+
+                    <!-- INJECT 6 PESERTA SEKALIGUS -->
+                    <button
+                        type="button"
+                        class="w-full text-left px-3 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white shadow-md flex items-center justify-between gap-2 transition-all cursor-pointer"
+                        :disabled="isBusy"
+                        @click="runSimAction('simulation.bulk-inject-individuals', { event_id: selectedIndividualEventId, count: 6 })"
+                    >
+                        <div>
+                            <span class="font-black text-xs block uppercase tracking-wide">Inject 6 Peserta Sekaligus (Siap Seleksi)</span>
+                            <span class="text-[10px] text-orange-100 block">6 atlet baru langsung berstatus PAID, berkas sah &amp; masuk Tahap 1</span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-black bg-black/25 shrink-0">BULK 6</span>
+                    </button>
+                </div>
+
+                <!-- BAGIAN 2: HARI-H SELEKSI: CHECK-IN GATEKEEPER & SCOUTING -->
+                <div class="space-y-1.5 pt-2 border-t border-slate-800">
+                    <p class="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400">
+                        2. Presensi Gatekeeper &amp; Scouting Tahap
+                    </p>
+
+                    <!-- Selector Tahap / Hari -->
+                    <div class="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-800/60 border border-slate-700/80">
+                        <span class="text-[10px] font-bold text-slate-300 uppercase">Tahap / Hari Seleksi:</span>
+                        <select
+                            v-model="individualStageNumber"
+                            class="rounded bg-slate-900 border border-slate-700 text-white text-[11px] px-2 py-1 focus:outline-none focus:border-orange-500"
+                        >
+                            <option :value="1">Tahap 1 / Hari Ke-1</option>
+                            <option :value="2">Tahap 2 / Hari Ke-2</option>
+                            <option :value="3">Tahap 3 / Final Day</option>
+                        </select>
+                    </div>
+
+                    <!-- PRESENSI CHECK-IN GATEKEEPER MASSAL -->
+                    <button
+                        type="button"
+                        class="w-full text-left px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center justify-between gap-2 transition-colors cursor-pointer"
+                        :disabled="isBusy"
+                        @click="runSimAction('simulation.bulk-check-in', { event_id: selectedIndividualEventId, stage_number: individualStageNumber })"
+                    >
+                        <div>
+                            <span class="font-bold text-white block">Presensi Hadir Gerbang (Check-in Massal)</span>
+                            <span class="text-[10px] text-slate-400">Catat hadir scan gatekeeper untuk seluruh peserta di Tahap {{ individualStageNumber }}</span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-sky-600 text-white shrink-0">CHECK-IN</span>
+                    </button>
+
+                    <!-- PENILAIAN SCOUT MASSAL -->
+                    <button
+                        type="button"
+                        class="w-full text-left px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center justify-between gap-2 transition-colors cursor-pointer"
+                        :disabled="isBusy"
+                        @click="runSimAction('simulation.bulk-scout-grade', { event_id: selectedIndividualEventId, stage_number: individualStageNumber })"
+                    >
+                        <div>
+                            <span class="font-bold text-white block">Scouting Massal (Rating &amp; Evaluasi)</span>
+                            <span class="text-[10px] text-slate-400">Beri nilai teknik/fisik/taktik A/B/C dan rating bintang otomatis</span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-600 text-white shrink-0">SCOUT</span>
+                    </button>
+
+                    <!-- ADVANCE STAGE / KELOLOSAN -->
+                    <div class="p-2.5 rounded-xl bg-slate-800/90 border border-slate-700 space-y-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-[10px] font-bold text-emerald-400 uppercase">Target Status Kelolosan:</span>
+                            <select
+                                v-model="individualTargetAdvanceStatus"
+                                class="rounded bg-slate-900 border border-slate-700 text-white text-[11px] px-2 py-1 focus:outline-none focus:border-orange-500"
+                            >
+                                <option value="day_1_passed">Lolos Tahap 1 (Day 1 Passed)</option>
+                                <option value="day_2_passed">Lolos Tahap 2 (Day 2 Passed)</option>
+                                <option value="qualified">Lolos Final / Terpilih (Qualified)</option>
+                            </select>
+                        </div>
+
+                        <button
+                            type="button"
+                            class="w-full text-left px-3 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-xs flex items-center justify-between gap-2 transition-all cursor-pointer"
+                            :disabled="isBusy"
+                            @click="runSimAction('simulation.bulk-advance-stage', { event_id: selectedIndividualEventId, target_status: individualTargetAdvanceStatus })"
+                        >
+                            <div>
+                                <span class="font-bold text-xs block">Loloskan Peserta ke Tahap Terpilih</span>
+                                <span class="text-[10px] text-emerald-100 block">Promosikan kelolosan peserta ke {{ individualTargetAdvanceStatus }}</span>
+                            </div>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-black bg-black/25 shrink-0">PROMOSI</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- BAGIAN 3: PINDAH PERAN INSTAN (PERSONA SWITCHER) -->
+                <div class="space-y-1.5 pt-2 border-t border-slate-800">
+                    <p class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                        3. Pindah Akun / Portal Instan (Tanpa Ketik Login)
+                    </p>
+                    <div class="grid grid-cols-2 gap-1.5">
+                        <button
+                            type="button"
+                            class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-amber-300 cursor-pointer text-center"
+                            :disabled="isBusy"
+                            @click="runSimAction('simulation.switch-persona', { role: 'scout' })"
+                        >
+                            Login Pemandu Bakat (Scout)
+                        </button>
+                        <button
+                            type="button"
+                            class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-orange-300 cursor-pointer text-center"
+                            :disabled="isBusy"
+                            @click="runSimAction('simulation.switch-persona', { role: 'participant_parent' })"
+                        >
+                            Login Orang Tua Peserta
+                        </button>
+                        <button
+                            type="button"
+                            class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-sky-300 cursor-pointer text-center"
+                            :disabled="isBusy"
+                            @click="runSimAction('simulation.switch-persona', { role: 'screening_officer' })"
+                        >
+                            Login Gatekeeper / Screening
+                        </button>
+                        <button
+                            type="button"
+                            class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-white cursor-pointer text-center"
+                            :disabled="isBusy"
+                            @click="runSimAction('simulation.switch-persona', { role: 'superadmin' })"
+                        >
+                            Login Superadmin
+                        </button>
+                    </div>
+                </div>
+
+                <!-- BAGIAN 4: BERSIHKAN / RESET DATA SIMULASI (DANGER ZONE) -->
+                <div class="space-y-1.5 pt-2 border-t border-slate-800">
+                    <div class="flex items-center justify-between">
+                        <p class="text-[10px] font-extrabold uppercase tracking-wider text-rose-400">
+                            4. Hapus / Reset Peserta Perorangan
+                        </p>
+                        <span class="text-[9px] text-rose-300/80 font-mono font-bold">DANGER ZONE</span>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="w-full text-left px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-rose-950/40 border border-slate-700 hover:border-rose-800/60 text-slate-300 hover:text-rose-200 flex items-center justify-between gap-2 transition-all cursor-pointer group"
+                        :disabled="isBusy || !selectedIndividualEventId"
+                        @click="confirmDeleteAllIndividuals"
+                    >
+                        <div>
+                            <span class="font-bold text-slate-200 group-hover:text-rose-200 block">
+                                Kosongkan Semua Peserta di Event Ini
+                            </span>
+                            <span class="text-[10px] text-slate-400 group-hover:text-rose-300/70 block mt-0.5">
+                                Hapus semua peserta, presensi &amp; evaluasi scout (Reset Kuota 0)
                             </span>
                         </div>
                         <span class="px-2 py-0.5 rounded text-[10px] font-black bg-slate-700 group-hover:bg-rose-700 text-white shrink-0">
@@ -453,4 +773,3 @@ const fillCurrentDomFormIfPresent = () => {
         </div>
     </div>
 </template>
-

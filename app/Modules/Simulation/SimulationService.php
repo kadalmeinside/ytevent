@@ -2,10 +2,15 @@
 
 namespace App\Modules\Simulation;
 
+use App\Models\AuditionAttendance;
+use App\Models\AuditionParticipant;
+use App\Models\AuditionStage;
+use App\Models\AuditionStageParticipant;
 use App\Models\Event;
 use App\Models\Payment;
 use App\Models\Player;
 use App\Models\PlayerDocument;
+use App\Models\ScoutingEvaluation;
 use App\Models\SystemSetting;
 use App\Models\Team;
 use App\Models\TeamOfficial;
@@ -758,6 +763,346 @@ class SimulationService
         $lockedEvent = Event::whereKey($event->id)->lockForUpdate()->first();
         if ($lockedEvent) {
             $lockedEvent->syncQuotaStatus();
+        }
+
+        return $count;
+    }
+
+    /**
+     * 11. Simulasi Pendaftaran Peserta Perorangan Baru (Audisi / Coaching Clinic).
+     */
+    public function simulateRegisterIndividualParticipant(
+        ?Event $event = null,
+        ?User $authenticatedUser = null,
+        bool $isPaid = true,
+        string $screeningStatus = 'passed',
+        string $eventType = 'audition'
+    ): AuditionParticipant {
+        if (! $event || $event->participant_type !== 'individual') {
+            $event = Event::query()
+                ->where('participant_type', 'individual')
+                ->where('status', 'open')
+                ->latest('id')
+                ->first();
+        }
+
+        if (! $event) {
+            $event = Event::create([
+                'name' => $eventType === 'coaching_clinic'
+                    ? 'Persija Youth Masterclass Clinic ' . now()->format('Y')
+                    : 'Audisi Terbuka EPA Persija U-16 ' . now()->format('Y'),
+                'slug' => ($eventType === 'coaching_clinic' ? 'sim-clinic-' : 'sim-audisi-') . Str::lower(Str::random(5)),
+                'event_type' => $eventType,
+                'participant_type' => 'individual',
+                'quota_type' => 'fixed',
+                'max_participants' => 100,
+                'form_presets' => [
+                    'photo' => true,
+                    'position' => true,
+                    'foot_dominance' => true,
+                    'team_origin' => true,
+                    'body_measurements' => true,
+                    'experience' => true,
+                    'jersey_size' => true,
+                ],
+                'short_description' => 'Program resmi pembinaan talenta sepak bola usia muda.',
+                'venue_name' => 'Persija Training Ground Sawangan',
+                'city' => 'Depok',
+                'format' => 'festival',
+                'age_category' => 'U-16',
+                'min_birth_date' => '2010-01-01',
+                'max_birth_date' => '2011-12-31',
+                'required_documents' => ['birth_certificate', 'family_card', 'student_card_kia'],
+                'registration_fee' => 150000,
+                'payment_deadline_hours' => 24,
+                'status' => 'open',
+            ]);
+        }
+
+        $guardian = $authenticatedUser;
+        if (! $guardian) {
+            $guardian = User::create([
+                'name' => 'Wali Peserta Simulasi ' . Str::upper(Str::random(4)),
+                'email' => 'wali.simulasi.' . Str::lower(Str::random(6)) . '@persijadev.id',
+                'phone' => '0812' . random_int(10000000, 99999999),
+                'password' => bcrypt('password'),
+            ]);
+            $guardian->assignRole('participant_parent');
+        }
+
+        $names = [
+            'Rizky Ramadhan', 'Alif Pratama', 'Dimas Anggara', 'Bagas Saputra',
+            'Rafi Firmansyah', 'Fajar Nugraha', 'Arya Mahendra', 'Ilham Wahyudi',
+            'Zidan Maulana', 'Dafa Setiawan', 'Gibran Ardiansyah', 'Rendy Pratama'
+        ];
+        $fullName = $names[array_rand($names)] . ' ' . Str::upper(Str::random(3));
+        $positions = ['Kiper', 'Bek Tengah', 'Bek Sayap Kanan', 'Bek Sayap Kiri', 'Gelandang Bertahan', 'Gelandang Serang', 'Penyerang Sayap', 'Penyerang Tengah'];
+        $feet = ['right', 'left', 'both'];
+        $clubs = ['SSB Macan Kemayoran', 'Akademi Persija Muda', 'SSB Bintang Timur', 'SSB Garuda Menteng', 'SSB Bina Taruna'];
+
+        $nik = '317' . (string) random_int(1000000000000, 9999999999999);
+        while (AuditionParticipant::where('event_id', $event->id)->where('nik', $nik)->exists()) {
+            $nik = '317' . (string) random_int(1000000000000, 9999999999999);
+        }
+
+        $birthDate = '2010-' . str_pad((string) random_int(1, 12), 2, '0', STR_PAD_LEFT) . '-' . str_pad((string) random_int(1, 28), 2, '0', STR_PAD_LEFT);
+
+        $photoPath = $this->storeDummyPngOnDisk('auditions/photos', 'public', 'sim-atlet-foto');
+        $birthCertPath = $this->storeDummyPngOnDisk('auditions/documents/birth_cert', 'private', 'sim-akta');
+        $familyCardPath = $this->storeDummyPngOnDisk('auditions/documents/family_card', 'private', 'sim-kk');
+
+        $maxBib = (int) AuditionParticipant::where('event_id', $event->id)->max('bib_number');
+        $bibNumber = $maxBib + 1;
+
+        $participant = AuditionParticipant::create([
+            'event_id' => $event->id,
+            'user_id' => $guardian->id,
+            'registration_number' => 'AUD-' . now()->format('Y') . '-' . Str::upper(Str::random(6)),
+            'bib_number' => $bibNumber,
+            'full_name' => $fullName,
+            'nickname' => explode(' ', $fullName)[0],
+            'nik' => $nik,
+            'birth_date' => $birthDate,
+            'gender' => 'male',
+            'preferred_position' => $positions[array_rand($positions)],
+            'secondary_position' => $positions[array_rand($positions)],
+            'dominant_foot' => $feet[array_rand($feet)],
+            'height_cm' => random_int(162, 184),
+            'weight_kg' => random_int(52, 74),
+            'current_club_ssb' => $clubs[array_rand($clubs)],
+            'playing_experience' => 'Piala Soeratin U-15 2025 (Juara 2), Liga Topskor 2024',
+            'jersey_size' => 'M',
+            'emergency_contact_name' => 'Bapak ' . $fullName,
+            'emergency_contact_phone' => '0812' . random_int(10000000, 99999999),
+            'emergency_contact_relation' => 'Ayah Kandung',
+            'medical_notes' => null,
+            'liability_accepted_at' => now(),
+            'photo_path' => $photoPath,
+            'birth_certificate_path' => $birthCertPath,
+            'family_card_path' => $familyCardPath,
+            'screening_status' => $screeningStatus,
+            'screening_notes' => $screeningStatus === 'passed' ? 'Dokumen lengkap dan diverifikasi sah otomatis via simulasi.' : null,
+            'screening_verified_at' => $screeningStatus === 'passed' ? now() : null,
+            'screening_code' => 'AUD-VERIF-' . Str::upper(Str::random(10)),
+            'stage_status' => 'registered',
+            'status' => $screeningStatus === 'passed' ? 'active' : ($isPaid ? 'in_review' : 'pending_payment'),
+            'slot_reserved_at' => now(),
+        ]);
+
+        if ($isPaid && (float) $event->registration_fee > 0) {
+            Payment::create([
+                'event_id' => $event->id,
+                'audition_participant_id' => $participant->id,
+                'user_id' => $guardian->id,
+                'invoice_number' => 'INV-AUD-' . date('Ymd') . '-' . Str::upper(Str::random(6)),
+                'amount' => $event->registration_fee,
+                'base_amount' => $event->registration_fee,
+                'total_amount' => $event->registration_fee,
+                'payment_mode' => 'manual',
+                'payment_method' => 'manual_transfer',
+                'status' => 'paid',
+                'paid_at' => now(),
+                'verified_at' => now(),
+                'proof_path' => $this->storeDummyPngOnDisk('simulation/payments', 'public', 'sim-aud-pay'),
+            ]);
+        }
+
+        // Pastikan Tahap 1 terdaftar
+        AuditionStage::firstOrCreate([
+            'event_id' => $event->id,
+            'stage_number' => 1,
+        ], [
+            'stage_name' => 'Tahap 1: Screening & Uji Fisik',
+            'stage_date' => $event->match_start_date ?: now(),
+        ]);
+
+        return $participant;
+    }
+
+    /**
+     * 12. Simulasi Inject Sejumlah Peserta Perorangan Sekaligus.
+     */
+    public function simulateBulkInjectIndividualParticipants(Event $event, int $count = 6): array
+    {
+        $participants = [];
+        for ($i = 0; $i < $count; $i++) {
+            $participants[] = $this->simulateRegisterIndividualParticipant(
+                event: $event,
+                authenticatedUser: null,
+                isPaid: true,
+                screeningStatus: 'passed',
+                eventType: $event->event_type ?? 'audition'
+            );
+        }
+
+        return [
+            'count' => count($participants),
+            'event_id' => $event->id,
+            'event_name' => $event->name,
+        ];
+    }
+
+    /**
+     * 13. Simulasi Presensi Hadir Gerbang (Check-in Massal).
+     */
+    public function simulateBulkCheckInAttendance(Event $event, int $stageNumber = 1): int
+    {
+        $stage = AuditionStage::where('event_id', $event->id)->where('stage_number', $stageNumber)->first();
+        if (! $stage) {
+            $stage = AuditionStage::create([
+                'event_id' => $event->id,
+                'stage_number' => $stageNumber,
+                'stage_name' => "Tahap {$stageNumber}: Seleksi Lapangan",
+                'stage_date' => now(),
+            ]);
+        }
+
+        $officer = User::role('screening_officer')->first()
+            ?? User::role('superadmin')->first()
+            ?? User::first();
+
+        $participants = AuditionParticipant::where('event_id', $event->id)
+            ->whereIn('status', ['confirmed', 'active'])
+            ->get();
+
+        $checkInCount = 0;
+        foreach ($participants as $p) {
+            $att = AuditionAttendance::firstOrCreate([
+                'audition_participant_id' => $p->id,
+                'audition_stage_id' => $stage->id,
+            ], [
+                'scanned_by' => $officer ? $officer->id : 1,
+                'status' => 'present',
+                'check_in_at' => now(),
+                'notes' => 'Simulasi check-in presensi gerbang',
+            ]);
+
+            if ($att->wasRecentlyCreated) {
+                $checkInCount++;
+            }
+        }
+
+        return $checkInCount;
+    }
+
+    /**
+     * 14. Simulasi Penilaian Scout Massal (Grading A/B/C & Rating).
+     */
+    public function simulateBulkScoutGrading(Event $event, int $stageNumber = 1, ?User $scoutUser = null): int
+    {
+        $stage = AuditionStage::where('event_id', $event->id)->where('stage_number', $stageNumber)->first();
+        if (! $stage) {
+            $stage = AuditionStage::create([
+                'event_id' => $event->id,
+                'stage_number' => $stageNumber,
+                'stage_name' => "Tahap {$stageNumber}: Seleksi Lapangan",
+                'stage_date' => now(),
+            ]);
+        }
+
+        if (! $scoutUser) {
+            $scoutUser = User::role('talent_scout')->first()
+                ?? User::role('superadmin')->first();
+            if (! $scoutUser) {
+                $scoutUser = User::create([
+                    'name' => 'Coach Scout Simulator',
+                    'email' => 'scout.simulasi@persijadev.id',
+                    'password' => bcrypt('password'),
+                ]);
+                $scoutUser->assignRole('talent_scout');
+            }
+        }
+
+        $participants = AuditionParticipant::where('event_id', $event->id)
+            ->whereIn('status', ['confirmed', 'active'])
+            ->get();
+
+        $grades = ['A', 'B', 'C'];
+        $notes = [
+            'Visi bermain luar biasa, first touch tenang di bawah tekanan.',
+            'Kecepatan sprint tinggi dan postur tubuh sangat atletis.',
+            'Disiplin posisi bagus, tekel bersih dan berani duel udara.',
+            'Kemampuan passing akurat, mobilitas lapangan luas.',
+            'Potensi talenta tinggi, butuh peningkatan kekuatan fisik.',
+        ];
+        $tagPool = ['Speed', 'Vision', 'First Touch', 'Tackling', 'Stamina', 'Leadership'];
+
+        $count = 0;
+        foreach ($participants as $p) {
+            ScoutingEvaluation::updateOrCreate([
+                'audition_participant_id' => $p->id,
+                'audition_stage_id' => $stage->id,
+                'scout_id' => $scoutUser->id,
+            ], [
+                'quick_grade' => $grades[array_rand($grades)],
+                'rating_stars' => random_int(3, 5),
+                'tags' => array_slice($tagPool, 0, random_int(2, 4)),
+                'coach_notes' => $notes[array_rand($notes)],
+                'is_locked' => false,
+            ]);
+            $count++;
+        }
+
+        return $count;
+    }
+
+    /**
+     * 15. Simulasi Loloskan Peserta ke Tahap Berikutnya.
+     */
+    public function simulateBulkAdvanceStage(Event $event, string $targetStatus = 'day_1_passed'): int
+    {
+        $participants = AuditionParticipant::where('event_id', $event->id)
+            ->whereIn('status', ['confirmed', 'active'])
+            ->get();
+
+        $count = 0;
+        $nextStageNumber = match ($targetStatus) {
+            'day_1_passed' => 2,
+            'day_2_passed' => 3,
+            default => 2,
+        };
+
+        AuditionStage::firstOrCreate([
+            'event_id' => $event->id,
+            'stage_number' => $nextStageNumber,
+        ], [
+            'stage_name' => "Tahap {$nextStageNumber}: Seleksi Lanjutan",
+            'stage_date' => now()->addDays($nextStageNumber - 1),
+        ]);
+
+        foreach ($participants as $p) {
+            $p->update(['stage_status' => $targetStatus]);
+            $count++;
+        }
+
+        return $count;
+    }
+
+    /**
+     * 16. Simulasi Bersihkan Seluruh Peserta Perorangan pada Suatu Event.
+     */
+    public function purgeAllIndividualsInEvent(Event $event): int
+    {
+        $participants = AuditionParticipant::withTrashed()->where('event_id', $event->id)->get();
+        $count = 0;
+
+        foreach ($participants as $p) {
+            if ($p->photo_path) {
+                Storage::disk('public')->delete($p->photo_path);
+            }
+            if ($p->birth_certificate_path) {
+                Storage::disk('private')->delete($p->birth_certificate_path);
+            }
+            if ($p->family_card_path) {
+                Storage::disk('private')->delete($p->family_card_path);
+            }
+
+            Payment::where('audition_participant_id', $p->id)->forceDelete();
+            AuditionAttendance::where('audition_participant_id', $p->id)->delete();
+            ScoutingEvaluation::where('audition_participant_id', $p->id)->delete();
+
+            $p->forceDelete();
+            $count++;
         }
 
         return $count;

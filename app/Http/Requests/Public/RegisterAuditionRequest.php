@@ -59,7 +59,9 @@ class RegisterAuditionRequest extends FormRequest
             'liability_waiver' => ['accepted'],
 
             // Berkas Unggahan
-            'photo' => ['required', 'image', 'mimes:jpeg,png,jpg,webp', 'max:3072'],
+            'photo' => ! empty($presets['photo'])
+                ? ['required', 'image', 'mimes:jpeg,png,jpg,webp', 'max:3072']
+                : ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:3072'],
             'birth_certificate' => ['required', 'file', 'mimes:jpeg,png,jpg,pdf', 'max:4096'],
             'family_card' => ['required', 'file', 'mimes:jpeg,png,jpg,pdf', 'max:4096'],
             'additional_doc' => ['nullable', 'file', 'mimes:jpeg,png,jpg,pdf', 'max:4096'],

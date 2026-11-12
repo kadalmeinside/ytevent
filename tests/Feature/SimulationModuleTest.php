@@ -2,10 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditionAttendance;
+use App\Models\AuditionParticipant;
 use App\Models\Event;
 use App\Models\Payment;
 use App\Models\Player;
 use App\Models\PlayerDocument;
+use App\Models\ScoutingEvaluation;
 use App\Models\Team;
 use App\Models\User;
 use App\Modules\Simulation\SimulationService;
@@ -22,6 +25,7 @@ class SimulationModuleTest extends TestCase
     use RefreshDatabase;
 
     protected Event $event;
+    protected Event $auditionEvent;
     protected User $superadmin;
 
     protected function setUp(): void
@@ -63,6 +67,26 @@ class SimulationModuleTest extends TestCase
             'lock_roster_until_paid' => true,
             'payment_deadline_hours' => 24,
             'status' => 'open',
+        ]);
+
+        $this->auditionEvent = Event::create([
+            'name' => 'Persija Development Talent Audition 2026',
+            'slug' => 'persija-audition-2026',
+            'event_type' => 'audition',
+            'participant_type' => 'individual',
+            'venue_name' => 'Persija Training Ground, Bojongsari',
+            'city' => 'Depok',
+            'format' => 'audition',
+            'age_category' => 'U-12',
+            'registration_fee' => 150000,
+            'max_teams' => 50,
+            'status' => 'open',
+            'required_documents' => ['birth_certificate', 'family_card'],
+            'audition_stages' => [
+                ['stage' => 1, 'name' => 'Screening Fisik & Tes Keterampilan', 'date' => '2026-11-20'],
+                ['stage' => 2, 'name' => 'Game Internal 11v11', 'date' => '2026-11-21'],
+                ['stage' => 3, 'name' => 'Final Selection Day', 'date' => '2026-11-22'],
+            ],
         ]);
     }
 
@@ -273,6 +297,147 @@ class SimulationModuleTest extends TestCase
         $this->assertEquals(0, Team::where('event_id', $this->event->id)->withTrashed()->count());
         $this->assertEquals(0, Payment::where('event_id', $this->event->id)->withTrashed()->count());
         $this->assertEquals(0, $this->event->fresh()->occupiedSlotsCount());
+    }
+
+    public function test_simulation_register_individual_participant(): void
+    {
+        $response = $this->actingAs($this->superadmin)
+            ->post(route('simulation.register-individual'), [
+                'event_id' => $this->auditionEvent->id,
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $participant = AuditionParticipant::where('event_id', $this->auditionEvent->id)->first();
+        $this->assertNotNull($participant);
+        $this->assertSame('passed', $participant->screening_status);
+        $this->assertNotEmpty($participant->registration_number);
+        $this->assertNotEmpty($participant->bib_number);
+        $this->assertSame('paid', $participant->latestPayment?->status);
+        $this->assertTrue($participant->isPaid());
+        $this->assertTrue($participant->canDownloadBib());
+    }
+
+    public function test_simulation_bulk_inject_individual_participants(): void
+    {
+        $response = $this->actingAs($this->superadmin)
+            ->post(route('simulation.bulk-inject-individuals'), [
+                'event_id' => $this->auditionEvent->id,
+                'count' => 6,
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $this->assertEquals(6, AuditionParticipant::where('event_id', $this->auditionEvent->id)->count());
+        $this->assertEquals(6, AuditionParticipant::where('event_id', $this->auditionEvent->id)->where('screening_status', 'passed')->count());
+    }
+
+    public function test_simulation_bulk_check_in_attendance(): void
+    {
+        // First inject 4 participants
+        $this->actingAs($this->superadmin)
+            ->post(route('simulation.bulk-inject-individuals'), [
+                'event_id' => $this->auditionEvent->id,
+                'count' => 4,
+            ]);
+
+        // Bulk check-in for Stage 1
+        $response = $this->actingAs($this->superadmin)
+            ->post(route('simulation.bulk-check-in'), [
+                'event_id' => $this->auditionEvent->id,
+                'stage_number' => 1,
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $this->assertEquals(4, AuditionAttendance::whereHas('participant', fn ($q) => $q->where('event_id', $this->auditionEvent->id))->where('status', 'present')->count());
+    }
+
+    public function test_simulation_bulk_scout_grade(): void
+    {
+        // First inject 3 participants
+        $this->actingAs($this->superadmin)
+            ->post(route('simulation.bulk-inject-individuals'), [
+                'event_id' => $this->auditionEvent->id,
+                'count' => 3,
+            ]);
+
+        // Bulk scout grade for Stage 1
+        $response = $this->actingAs($this->superadmin)
+            ->post(route('simulation.bulk-scout-grade'), [
+                'event_id' => $this->auditionEvent->id,
+                'stage_number' => 1,
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $this->assertEquals(3, ScoutingEvaluation::whereHas('participant', fn ($q) => $q->where('event_id', $this->auditionEvent->id))->count());
+    }
+
+    public function test_simulation_bulk_advance_stage(): void
+    {
+        // Inject 4 participants
+        $this->actingAs($this->superadmin)
+            ->post(route('simulation.bulk-inject-individuals'), [
+                'event_id' => $this->auditionEvent->id,
+                'count' => 4,
+            ]);
+
+        // Advance to day_1_passed
+        $response = $this->actingAs($this->superadmin)
+            ->post(route('simulation.bulk-advance-stage'), [
+                'event_id' => $this->auditionEvent->id,
+                'target_status' => 'day_1_passed',
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $this->assertGreaterThan(0, AuditionParticipant::where('event_id', $this->auditionEvent->id)->where('stage_status', 'day_1_passed')->count());
+    }
+
+    public function test_simulation_delete_all_individuals_in_event(): void
+    {
+        // Inject 4 participants
+        $this->actingAs($this->superadmin)
+            ->post(route('simulation.bulk-inject-individuals'), [
+                'event_id' => $this->auditionEvent->id,
+                'count' => 4,
+            ]);
+
+        $this->assertEquals(4, AuditionParticipant::where('event_id', $this->auditionEvent->id)->count());
+
+        // Now purge
+        $response = $this->actingAs($this->superadmin)
+            ->post(route('simulation.delete-all-individuals'), [
+                'event_id' => $this->auditionEvent->id,
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $this->assertEquals(0, AuditionParticipant::where('event_id', $this->auditionEvent->id)->count());
+    }
+
+    public function test_simulation_switch_persona_scout_and_parent(): void
+    {
+        // Switch to scout
+        $response = $this->post(route('simulation.switch-persona'), [
+            'role' => 'scout',
+        ]);
+        $response->assertRedirect();
+        $this->assertTrue(auth()->user()->hasRole('talent_scout'));
+
+        // Switch to participant_parent
+        $response = $this->post(route('simulation.switch-persona'), [
+            'role' => 'participant_parent',
+        ]);
+        $response->assertRedirect();
+        $this->assertTrue(auth()->user()->hasRole('participant_parent'));
     }
 }
 

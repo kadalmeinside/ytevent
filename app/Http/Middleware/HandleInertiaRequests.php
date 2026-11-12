@@ -132,9 +132,9 @@ class HandleInertiaRequests extends Middleware
                 }
 
                 $openEvents = Event::query()
-                    ->select(['id', 'name', 'slug', 'age_category', 'status'])
+                    ->select(['id', 'name', 'slug', 'age_category', 'status', 'participant_type', 'event_type'])
                     ->orderByDesc('id')
-                    ->limit(8)
+                    ->limit(12)
                     ->get();
 
                 $recentTeams = Team::query()

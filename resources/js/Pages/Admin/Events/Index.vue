@@ -298,6 +298,14 @@ const triggerResyncEvent = (evt) => {
                                         </svg>
                                     </Link>
                                     <Link
+                                        v-if="evt.participant_type === 'individual'"
+                                        :href="route('admin.auditions.scanner', { event_id: evt.id })"
+                                        class="btn-sm-secondary border-slate-300 text-slate-700 hover:bg-slate-50 justify-center"
+                                        title="Buka Scanner Presensi Gerbang untuk Event Ini"
+                                    >
+                                        Scan Presensi
+                                    </Link>
+                                    <Link
                                         v-if="evt.participant_type === 'individual' && evt.event_type === 'audition'"
                                         :href="route('scout.events.show', { event: evt.id })"
                                         target="_blank"
