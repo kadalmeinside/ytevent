@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed } from 'vue';
-import { useForm } from '@inertiajs/vue3';
+import { ref, computed, onMounted } from 'vue';
+import { useForm, router } from '@inertiajs/vue3';
 import ManagerLayout from '@/Layouts/ManagerLayout.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import InputError from '@/Components/InputError.vue';
@@ -45,6 +45,18 @@ const props = defineProps({
             cc_fee_percent: 2.9,
             cc_fee_fixed: 2000,
         }),
+    },
+    midtransClientKey: {
+        type: String,
+        default: '',
+    },
+    midtransSnapJsUrl: {
+        type: String,
+        default: 'https://app.midtrans.com/snap/snap.js',
+    },
+    midtransIsProduction: {
+        type: Boolean,
+        default: false,
     },
     sandboxSimulatorEnabled: {
         type: Boolean,
@@ -143,11 +155,68 @@ const calculatedTotalPayable = computed(() => {
     return feeBorneByTeam.value ? base + calculatedMdrFee.value : base;
 });
 
+const loadSnapScript = () => {
+    if (!props.midtransClientKey || props.sandboxSimulatorEnabled) return;
+    const existing = document.getElementById('midtrans-snap-script');
+    if (existing) return;
+
+    const script = document.createElement('script');
+    script.id = 'midtrans-snap-script';
+    script.src = props.midtransSnapJsUrl;
+    script.setAttribute('data-client-key', props.midtransClientKey);
+    script.async = true;
+    document.head.appendChild(script);
+};
+
+onMounted(() => {
+    loadSnapScript();
+});
+
+const openSnapPopup = (token = null) => {
+    const snapToken = token || props.payment?.snap_token;
+    if (!snapToken) return;
+
+    if (props.sandboxSimulatorEnabled) return;
+
+    if (typeof window.snap === 'undefined') {
+        if (props.payment?.payment_url) {
+            window.open(props.payment.payment_url, '_blank');
+        } else {
+            alert('Pustaka Midtrans Snap sedang disiapkan. Silakan coba kembali dalam beberapa detik.');
+        }
+        return;
+    }
+
+    window.snap.pay(snapToken, {
+        onSuccess: function (result) {
+            router.reload({ preserveScroll: true });
+        },
+        onPending: function (result) {
+            router.reload({ preserveScroll: true });
+        },
+        onError: function (result) {
+            console.error('Midtrans Snap Error:', result);
+            router.reload({ preserveScroll: true });
+        },
+        onClose: function () {
+            console.log('Customer closed Midtrans Snap popup');
+        },
+    });
+};
+
 const initiateGateway = () => {
     if (!props.payment) return;
     gatewayForm.provider = 'midtrans';
     gatewayForm.post(route('manager.payments.gateway', { payment: props.payment.id }), {
         preserveScroll: true,
+        onSuccess: (page) => {
+            const freshPayment = page.props?.payment;
+            if (freshPayment?.snap_token && !props.sandboxSimulatorEnabled) {
+                setTimeout(() => {
+                    openSnapPopup(freshPayment.snap_token);
+                }, 150);
+            }
+        },
     });
 };
 
@@ -569,28 +638,49 @@ const reclaimSlot = () => {
                     <!-- Active Gateway Reference Box -->
                     <div
                         v-if="payment.external_reference_id && payment.method === 'midtrans'"
-                        class="p-4 rounded-xl bg-orange-50/60 border border-orange-200/80 space-y-3 text-xs"
+                        class="p-5 rounded-2xl bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50/50 border border-orange-200/90 shadow-sm space-y-3.5 text-xs"
                     >
-                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                            <div>
-                                <p class="font-bold text-orange-950 uppercase">
-                                    Instruksi Midtrans Aktif &mdash; {{ payment.payment_channel }}
-                                </p>
-                                <p class="text-slate-600 mt-0.5">
-                                    No. Order / Ref: <strong class="tabular-data text-slate-900">{{ payment.external_reference_id }}</strong>
-                                    <span v-if="payment.snap_token" class="ml-2 text-slate-500 font-mono">
-                                        (Token: {{ payment.snap_token.slice(0, 15) }}...)
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-orange-600 text-white">
+                                        {{ payment.payment_channel || 'Midtrans' }}
+                                    </span>
+                                    <p class="font-bold text-orange-950 text-sm">
+                                        Instruksi Pembayaran Aktif
+                                    </p>
+                                </div>
+                                <p class="text-slate-600">
+                                    No. Order / Ref: <strong class="tabular-data text-slate-900 font-mono">{{ payment.external_reference_id }}</strong>
+                                    <span v-if="payment.snap_token" class="ml-2 text-slate-500 font-mono text-[11px]">
+                                        (Token: {{ payment.snap_token.slice(0, 16) }}...)
                                     </span>
                                 </p>
                             </div>
-                            <a
-                                v-if="payment.payment_url && !sandboxSimulatorEnabled"
-                                :href="payment.payment_url"
-                                target="_blank"
-                                class="btn-pitch text-xs"
-                            >
-                                Buka Halaman Bayar Midtrans
-                            </a>
+
+                            <div class="flex flex-wrap items-center gap-2">
+                                <button
+                                    v-if="payment.snap_token && !sandboxSimulatorEnabled"
+                                    type="button"
+                                    class="btn-pitch text-xs shadow-xs inline-flex items-center gap-1.5"
+                                    @click="openSnapPopup()"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                                    </svg>
+                                    <span>Buka Pop-up Snap Midtrans</span>
+                                </button>
+                                <a
+                                    v-if="payment.payment_url && !sandboxSimulatorEnabled"
+                                    :href="payment.payment_url"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="btn-secondary text-xs inline-flex items-center gap-1"
+                                >
+                                    <span>Buka di Tab Baru</span>
+                                    <span>&rarr;</span>
+                                </a>
+                            </div>
                         </div>
 
                         <div

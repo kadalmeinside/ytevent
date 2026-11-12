@@ -73,6 +73,9 @@ class PaymentController extends Controller
                 'cc_fee_percent' => (float) SystemSetting::get('midtrans_cc_fee_percent', 2.9),
                 'cc_fee_fixed' => (int) SystemSetting::get('midtrans_cc_fee_fixed', 2000),
             ],
+            'midtransClientKey' => PaymentService::midtransClientKey(),
+            'midtransSnapJsUrl' => PaymentService::midtransSnapJsUrl(),
+            'midtransIsProduction' => PaymentService::midtransIsProduction(),
             'sandboxSimulatorEnabled' => (bool) config('payment.sandbox_simulator'),
         ]);
     }

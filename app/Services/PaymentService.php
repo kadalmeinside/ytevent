@@ -52,9 +52,16 @@ class PaymentService
     {
         $fromSettings = SystemSetting::get('midtrans_is_production');
 
-        return $fromSettings === null
-            ? (bool) config('payment.midtrans.is_production')
-            : filter_var($fromSettings, FILTER_VALIDATE_BOOLEAN);
+        if ($fromSettings !== null && $fromSettings !== '') {
+            return filter_var($fromSettings, FILTER_VALIDATE_BOOLEAN);
+        }
+
+        $serverKey = self::midtransServerKey();
+        if (str_starts_with($serverKey, 'Mid-server-')) {
+            return true;
+        }
+
+        return (bool) config('payment.midtrans.is_production', false);
     }
 
     public static function midtransSnapUrl(): string
@@ -62,6 +69,13 @@ class PaymentService
         return self::midtransIsProduction()
             ? (string) config('payment.midtrans.snap_url_production')
             : (string) config('payment.midtrans.snap_url_sandbox');
+    }
+
+    public static function midtransSnapJsUrl(): string
+    {
+        return self::midtransIsProduction()
+            ? (string) config('payment.midtrans.snap_js_url_production', 'https://app.midtrans.com/snap/snap.js')
+            : (string) config('payment.midtrans.snap_js_url_sandbox', 'https://app.sandbox.midtrans.com/snap/snap.js');
     }
 
     public function initiateGatewayPayment(Payment $payment, string $provider, string $channel): Payment
@@ -132,28 +146,62 @@ class PaymentService
                     $paymentUrl = route('manager.payments', ['invoice' => $lockedPayment->invoice_number]);
                 }
             } elseif ($provider === 'midtrans') {
+                $channelMap = [
+                    'BCA Virtual Account' => ['bca_va'],
+                    'Mandiri Bill' => ['echannel'],
+                    'BNI Virtual Account' => ['bni_va'],
+                    'BRI Virtual Account' => ['bri_va'],
+                    'Permata Virtual Account' => ['permata_va'],
+                    'QRIS' => ['gopay', 'qris', 'shopeepay'],
+                    'GoPay' => ['gopay'],
+                    'ShopeePay' => ['shopeepay'],
+                    'Credit Card' => ['credit_card'],
+                ];
+
+                $snapPayload = [
+                    'transaction_details' => [
+                        'order_id' => $lockedPayment->invoice_number,
+                        'gross_amount' => (int) round($totalAmount),
+                    ],
+                    'customer_details' => [
+                        'first_name' => $team->manager_name,
+                        'email' => $team->manager_email,
+                        'phone' => $team->manager_whatsapp,
+                    ],
+                    'expiry' => [
+                        'unit' => 'minute',
+                        'duration' => $expiryMinutes,
+                    ],
+                ];
+
+                if (isset($channelMap[$channel])) {
+                    $snapPayload['enabled_payments'] = $channelMap[$channel];
+                }
+
                 $response = Http::withBasicAuth(self::midtransServerKey(), '')
                     ->acceptJson()
-                    ->post(self::midtransSnapUrl(), [
-                        'transaction_details' => [
-                            'order_id' => $lockedPayment->invoice_number,
-                            'gross_amount' => (int) round($totalAmount),
-                        ],
-                        'customer_details' => [
-                            'first_name' => $team->manager_name,
-                            'email' => $team->manager_email,
-                            'phone' => $team->manager_whatsapp,
-                        ],
-                        'expiry' => [
-                            'unit' => 'minute',
-                            'duration' => $expiryMinutes,
-                        ],
-                    ]);
+                    ->post(self::midtransSnapUrl(), $snapPayload);
+
+                // Jika filter enabled_payments gagal di akun Midtrans (misal bank tertentu belum diaktifkan), coba kembali tanpa filter
+                if (! $response->successful() && isset($snapPayload['enabled_payments'])) {
+                    unset($snapPayload['enabled_payments']);
+                    $response = Http::withBasicAuth(self::midtransServerKey(), '')
+                        ->acceptJson()
+                        ->post(self::midtransSnapUrl(), $snapPayload);
+                }
 
                 if (! $response->successful()) {
+                    \Illuminate\Support\Facades\Log::error('Midtrans Snap initiation failed', [
+                        'status' => $response->status(),
+                        'body' => $response->body(),
+                        'invoice' => $lockedPayment->invoice_number,
+                    ]);
+
+                    $errorMsg = $response->json('error_messages.0');
+
                     return [
                         'ok' => false,
-                        'message' => 'Gagal menghubungi penyedia pembayaran Midtrans. Silakan coba kembali atau gunakan transfer manual.',
+                        'message' => 'Gagal menghubungi penyedia pembayaran Midtrans' . ($errorMsg ? ': ' . $errorMsg : '. Silakan coba kembali atau gunakan transfer manual.'),
                     ];
                 }
 

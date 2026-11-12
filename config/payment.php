@@ -21,6 +21,8 @@ return [
         'client_key' => env('MIDTRANS_CLIENT_KEY', ''),
         'snap_url_production' => 'https://app.midtrans.com/snap/v1/transactions',
         'snap_url_sandbox' => 'https://app.sandbox.midtrans.com/snap/v1/transactions',
+        'snap_js_url_production' => 'https://app.midtrans.com/snap/snap.js',
+        'snap_js_url_sandbox' => 'https://app.sandbox.midtrans.com/snap/snap.js',
         'snap_url' => env('MIDTRANS_IS_PRODUCTION', false)
             ? 'https://app.midtrans.com/snap/v1/transactions'
             : 'https://app.sandbox.midtrans.com/snap/v1/transactions',
