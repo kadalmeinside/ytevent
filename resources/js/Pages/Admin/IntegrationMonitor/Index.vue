@@ -17,8 +17,21 @@ const filterState = reactive({
     provider: props.filters.provider || '',
 });
 
+const safeRoute = (name, params = {}, fallback = '') => {
+    try {
+        const routeFn = typeof window !== 'undefined' && typeof window.route === 'function' ? window.route : null;
+        if (routeFn && typeof routeFn().has === 'function' && routeFn().has(name)) {
+            return routeFn(name, params);
+        }
+    } catch {
+        // Fallback
+    }
+    return fallback;
+};
+
 const applyFilters = () => {
-    router.get(route('admin.integration-monitor.index'), {
+    const url = safeRoute('admin.integration-monitor.index', {}, '/admin/system/integration-monitor');
+    router.get(url, {
         search: filterState.search || undefined,
         status: filterState.status || undefined,
         provider: filterState.provider || undefined,
@@ -35,12 +48,14 @@ const resetFilters = () => {
 const truncate = (value, length = 180) => value && value.length > length ? `${value.slice(0, length)}...` : value;
 
 const retryJob = (job) => {
-    router.post(route('admin.integration-monitor.jobs.retry', job.id), {}, { preserveScroll: true });
+    const url = safeRoute('admin.integration-monitor.jobs.retry', { id: job.id }, `/admin/system/integration-monitor/jobs/${job.id}/retry`);
+    router.post(url, {}, { preserveScroll: true });
 };
 
 const forgetJob = (job) => {
     if (window.confirm('Hapus failed job ini dari daftar? Tindakan ini tidak dapat dibatalkan.')) {
-        router.delete(route('admin.integration-monitor.jobs.forget', job.id), { preserveScroll: true });
+        const url = safeRoute('admin.integration-monitor.jobs.forget', { id: job.id }, `/admin/system/integration-monitor/jobs/${job.id}`);
+        router.delete(url, { preserveScroll: true });
     }
 };
 </script>

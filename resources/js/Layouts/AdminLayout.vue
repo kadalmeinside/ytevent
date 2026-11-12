@@ -44,6 +44,18 @@ const badgeColorClass = (variant) => {
     }
 };
 
+const safeRoute = (name, params = {}, fallback = '#') => {
+    try {
+        const routeFn = typeof window !== 'undefined' && typeof window.route === 'function' ? window.route : null;
+        if (routeFn && typeof routeFn().has === 'function' && routeFn().has(name)) {
+            return routeFn(name, params);
+        }
+    } catch {
+        // Fallback gracefully
+    }
+    return fallback;
+};
+
 const navSections = computed(() => {
     const notif = adminNotifications.value || {};
     const sections = [
@@ -52,7 +64,7 @@ const navSections = computed(() => {
             items: [
                 {
                     label: 'Dashboard',
-                    href: route('admin.dashboard'),
+                    href: safeRoute('admin.dashboard', {}, '/admin/dashboard'),
                     match: '/admin/dashboard',
                     icon: 'dashboard',
                     show: can('dashboard.admin.view'),
@@ -62,7 +74,7 @@ const navSections = computed(() => {
                 },
                 {
                     label: 'Kompetisi',
-                    href: route('admin.events.index'),
+                    href: safeRoute('admin.events.index', {}, '/admin/events'),
                     match: '/admin/events',
                     icon: 'trophy',
                     show: can('events.view'),
@@ -70,7 +82,7 @@ const navSections = computed(() => {
                 },
                 {
                     label: 'Daftar Tim',
-                    href: route('admin.teams.index'),
+                    href: safeRoute('admin.teams.index', {}, '/admin/teams'),
                     match: '/admin/teams',
                     icon: 'teams',
                     show: can('teams.view_all'),
@@ -82,7 +94,7 @@ const navSections = computed(() => {
                 },
                 {
                     label: 'Screening Pemain',
-                    href: route('admin.screening.index'),
+                    href: safeRoute('admin.screening.index', {}, '/admin/screening'),
                     match: '/admin/screening',
                     icon: 'screening',
                     show: can('screening.view_queue'),
@@ -92,7 +104,7 @@ const navSections = computed(() => {
                 },
                 {
                     label: 'QR Scanner Lapangan',
-                    href: route('admin.qr-scanner'),
+                    href: safeRoute('admin.qr-scanner', {}, '/admin/qr-scanner'),
                     match: '/admin/qr-scanner',
                     icon: 'screening',
                     show: can('screening.view_queue'),
@@ -105,7 +117,7 @@ const navSections = computed(() => {
             items: [
                 {
                     label: 'Verifikasi Transfer',
-                    href: route('admin.payments.manual-verification'),
+                    href: safeRoute('admin.payments.manual-verification', {}, '/admin/payments/manual-verification'),
                     match: '/admin/payments/manual-verification',
                     icon: 'verify',
                     show: can('payments.verify_manual'),
@@ -115,7 +127,7 @@ const navSections = computed(() => {
                 },
                 {
                     label: 'Riwayat Transaksi',
-                    href: route('admin.payments.transactions'),
+                    href: safeRoute('admin.payments.transactions', {}, '/admin/payments/transactions'),
                     match: '/admin/payments/transactions',
                     icon: 'transactions',
                     show: can('payments.view_all'),
@@ -130,7 +142,7 @@ const navSections = computed(() => {
             items: [
                 {
                     label: 'Manajemen Pengguna',
-                    href: route('admin.users.index'),
+                    href: safeRoute('admin.users.index', {}, '/admin/users'),
                     match: '/admin/users',
                     icon: 'users',
                     show: user.value?.roles?.includes('superadmin'),
@@ -138,7 +150,7 @@ const navSections = computed(() => {
                 },
                 {
                     label: 'Hak Akses & Role',
-                    href: route('admin.roles.index'),
+                    href: safeRoute('admin.roles.index', {}, '/admin/roles'),
                     match: '/admin/roles',
                     icon: 'roles',
                     show: user.value?.roles?.includes('superadmin'),
@@ -146,7 +158,7 @@ const navSections = computed(() => {
                 },
                 {
                     label: 'Antrean Email',
-                    href: route('admin.email-logs.index'),
+                    href: safeRoute('admin.email-logs.index', {}, '/admin/system/email-logs'),
                     match: '/admin/system/email-logs',
                     icon: 'mail',
                     show: can('email_logs.manage'),
@@ -156,7 +168,7 @@ const navSections = computed(() => {
                 },
                 {
                     label: 'Audit Trail',
-                    href: route('admin.audit-logs.index'),
+                    href: safeRoute('admin.audit-logs.index', {}, '/admin/system/audit-logs'),
                     match: '/admin/system/audit-logs',
                     icon: 'transactions',
                     show: can('audit_logs.view'),
@@ -164,17 +176,17 @@ const navSections = computed(() => {
                 },
                 {
                     label: 'Monitoring Integrasi',
-                    href: route('admin.integration-monitor.index'),
+                    href: safeRoute('admin.integration-monitor.index', {}, '/admin/system/integration-monitor'),
                     match: '/admin/system/integration-monitor',
                     icon: 'transactions',
-                    show: can('audit_logs.view'),
+                    show: can('audit_logs.view') || can('system.queue.manage'),
                     badge: notif.failed_webhooks_count > 0 || notif.failed_jobs_count > 0
                         ? { text: String((notif.failed_webhooks_count || 0) + (notif.failed_jobs_count || 0)), variant: 'red', title: 'Webhook atau job gagal' }
                         : null,
                 },
                 {
                     label: 'Pengaturan Global',
-                    href: route('admin.settings.index'),
+                    href: safeRoute('admin.settings.index', {}, '/admin/settings'),
                     match: '/admin/settings',
                     icon: 'settings',
                     show: user.value?.roles?.includes('superadmin'),

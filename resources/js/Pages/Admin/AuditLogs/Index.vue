@@ -18,8 +18,21 @@ const filterState = reactive({
     actor_id: props.filters.actor_id || '',
 });
 
+const safeRoute = (name, params = {}, fallback = '') => {
+    try {
+        const routeFn = typeof window !== 'undefined' && typeof window.route === 'function' ? window.route : null;
+        if (routeFn && typeof routeFn().has === 'function' && routeFn().has(name)) {
+            return routeFn(name, params);
+        }
+    } catch {
+        // Fallback
+    }
+    return fallback;
+};
+
 const applyFilters = () => {
-    router.get(route('admin.audit-logs.index'), {
+    const url = safeRoute('admin.audit-logs.index', {}, '/admin/system/audit-logs');
+    router.get(url, {
         search: filterState.search || undefined,
         action: filterState.action || undefined,
         entity_type: filterState.entity_type || undefined,
@@ -36,12 +49,16 @@ const resetFilters = () => {
 };
 
 const exportLogs = () => {
-    window.location.href = route('admin.audit-logs.export', {
+    const query = {
         search: filterState.search || undefined,
         action: filterState.action || undefined,
         entity_type: filterState.entity_type || undefined,
         actor_id: filterState.actor_id || undefined,
-    });
+    };
+    const cleanQuery = Object.fromEntries(Object.entries(query).filter(([_, v]) => v !== undefined));
+    const qs = new URLSearchParams(cleanQuery).toString();
+    const fallback = '/admin/system/audit-logs/export-csv' + (qs ? `?${qs}` : '');
+    window.location.href = safeRoute('admin.audit-logs.export', query, fallback);
 };
 
 const actionLabel = (action) => action.replaceAll('_', ' ');
