@@ -46,6 +46,22 @@ class PaymentController extends Controller
             $latest = $payments->first();
 
             if ($latest) {
+                if ($latest->status === 'unpaid'
+                    && empty($latest->snap_token)
+                    && SystemSetting::get('payment_method_mode') === 'midtrans'
+                    && ! config('payment.sandbox_simulator')
+                ) {
+                    try {
+                        $paymentService = app(PaymentService::class);
+                        $latest = $paymentService->initiateGatewayPayment(
+                            payment: $latest,
+                            provider: 'midtrans',
+                            channel: 'BCA Virtual Account'
+                        );
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::warning('Auto initiate Midtrans on payment page load failed: ' . $e->getMessage());
+                    }
+                }
                 $activePayment = $this->formatPayment($latest);
             }
 

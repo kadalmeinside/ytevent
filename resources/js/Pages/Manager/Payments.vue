@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { useForm, router } from '@inertiajs/vue3';
+import { useForm, router, usePage } from '@inertiajs/vue3';
 import ManagerLayout from '@/Layouts/ManagerLayout.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import InputError from '@/Components/InputError.vue';
@@ -9,6 +9,8 @@ import PaymentProofModal from '@/Components/PaymentProofModal.vue';
 import FileInput from '@/Components/FileInput.vue';
 import { useFormValidator } from '@/Composables/useFormValidator';
 import { useFormatters } from '@/Composables/useFormatters';
+
+const page = usePage();
 
 const props = defineProps({
     team: {
@@ -155,23 +157,6 @@ const calculatedTotalPayable = computed(() => {
     return feeBorneByTeam.value ? base + calculatedMdrFee.value : base;
 });
 
-const loadSnapScript = () => {
-    if (!props.midtransClientKey || props.sandboxSimulatorEnabled) return;
-    const existing = document.getElementById('midtrans-snap-script');
-    if (existing) return;
-
-    const script = document.createElement('script');
-    script.id = 'midtrans-snap-script';
-    script.src = props.midtransSnapJsUrl;
-    script.setAttribute('data-client-key', props.midtransClientKey);
-    script.async = true;
-    document.head.appendChild(script);
-};
-
-onMounted(() => {
-    loadSnapScript();
-});
-
 const openSnapPopup = (token = null) => {
     const snapToken = token || props.payment?.snap_token;
     if (!snapToken) return;
@@ -204,13 +189,52 @@ const openSnapPopup = (token = null) => {
     });
 };
 
+const loadSnapScript = () => {
+    if (!props.midtransClientKey || props.sandboxSimulatorEnabled) return;
+
+    const checkAutoOpen = () => {
+        const queryParams = new URLSearchParams(window.location.search);
+        const hasSnapParam = queryParams.has('snap');
+        const hasFlashSnap = Boolean(page.props?.flash?.auto_open_snap);
+        const alreadyOpenedKey = `snap_opened_${props.payment?.id}`;
+        const hasBeenOpened = sessionStorage.getItem(alreadyOpenedKey);
+
+        if ((hasSnapParam || hasFlashSnap || !hasBeenOpened) && props.payment?.snap_token && props.payment?.status === 'unpaid') {
+            sessionStorage.setItem(alreadyOpenedKey, '1');
+            setTimeout(() => {
+                openSnapPopup(props.payment.snap_token);
+            }, 300);
+        }
+    };
+
+    const existing = document.getElementById('midtrans-snap-script');
+    if (existing) {
+        checkAutoOpen();
+        return;
+    }
+
+    const script = document.createElement('script');
+    script.id = 'midtrans-snap-script';
+    script.src = props.midtransSnapJsUrl;
+    script.setAttribute('data-client-key', props.midtransClientKey);
+    script.async = true;
+    script.onload = () => {
+        checkAutoOpen();
+    };
+    document.head.appendChild(script);
+};
+
+onMounted(() => {
+    loadSnapScript();
+});
+
 const initiateGateway = () => {
     if (!props.payment) return;
     gatewayForm.provider = 'midtrans';
     gatewayForm.post(route('manager.payments.gateway', { payment: props.payment.id }), {
         preserveScroll: true,
-        onSuccess: (page) => {
-            const freshPayment = page.props?.payment;
+        onSuccess: (res) => {
+            const freshPayment = res.props?.payment;
             if (freshPayment?.snap_token && !props.sandboxSimulatorEnabled) {
                 setTimeout(() => {
                     openSnapPopup(freshPayment.snap_token);
@@ -218,6 +242,20 @@ const initiateGateway = () => {
             }
         },
     });
+};
+
+const handlePayNow = () => {
+    if (!props.payment) return;
+
+    // Jika payment sudah memiliki snap_token dan channel tidak berubah, langsung buka Snap secara instan!
+    const channelMatches = props.payment.payment_channel === gatewayForm.payment_channel;
+    if (props.payment.snap_token && channelMatches && !props.sandboxSimulatorEnabled) {
+        openSnapPopup(props.payment.snap_token);
+        return;
+    }
+
+    // Jika channel berubah atau belum ada token, submit initiateGateway yang otomatis memicu Snap di onSuccess
+    initiateGateway();
 };
 
 const simulateForm = useForm({});
@@ -567,7 +605,7 @@ const reclaimSlot = () => {
 
                     <FormErrorBanner :errors="gatewayForm.errors" />
 
-                    <form @submit.prevent="initiateGateway" novalidate class="space-y-5">
+                    <form @submit.prevent="handlePayNow" novalidate class="space-y-5">
                         <!-- Channel Grid Selector -->
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2.5">
@@ -625,69 +663,49 @@ const reclaimSlot = () => {
                             </div>
                         </div>
 
-                        <div class="flex items-center justify-between pt-2">
-                            <p class="text-[11px] text-slate-400">
-                                Selesaikan sebelum: <strong class="tabular-data text-slate-700">{{ formatDateTime(payment.expires_at) }}</strong>
-                            </p>
-                            <button type="submit" class="btn-pitch" :disabled="gatewayForm.processing">
-                                {{ gatewayForm.processing ? 'Membuat Instruksi Bayar...' : 'Lanjutkan Pembayaran Midtrans &rarr;' }}
-                            </button>
-                        </div>
-                    </form>
-
-                    <!-- Active Gateway Reference Box -->
-                    <div
-                        v-if="payment.external_reference_id && payment.method === 'midtrans'"
-                        class="p-5 rounded-2xl bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50/50 border border-orange-200/90 shadow-sm space-y-3.5 text-xs"
-                    >
-                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <!-- Single Unified Action Footer -->
+                        <div class="pt-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <div class="space-y-1">
-                                <div class="flex items-center gap-2">
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-orange-600 text-white">
-                                        {{ payment.payment_channel || 'Midtrans' }}
-                                    </span>
-                                    <p class="font-bold text-orange-950 text-sm">
-                                        Instruksi Pembayaran Aktif
-                                    </p>
-                                </div>
-                                <p class="text-slate-600">
-                                    No. Order / Ref: <strong class="tabular-data text-slate-900 font-mono">{{ payment.external_reference_id }}</strong>
-                                    <span v-if="payment.snap_token" class="ml-2 text-slate-500 font-mono text-[11px]">
-                                        (Token: {{ payment.snap_token.slice(0, 16) }}...)
-                                    </span>
+                                <p class="text-[11px] text-slate-500">
+                                    Batas waktu: <strong class="tabular-data text-slate-800 font-semibold">{{ formatDateTime(payment.expires_at) }}</strong>
+                                </p>
+                                <p v-if="payment.external_reference_id" class="text-[11px] text-slate-400 font-mono">
+                                    No. Invoice: <strong class="text-slate-700">{{ payment.external_reference_id }}</strong>
                                 </p>
                             </div>
 
-                            <div class="flex flex-wrap items-center gap-2">
+                            <div class="flex flex-col sm:items-end gap-1.5">
                                 <button
-                                    v-if="payment.snap_token && !sandboxSimulatorEnabled"
-                                    type="button"
-                                    class="btn-pitch text-xs shadow-xs inline-flex items-center gap-1.5"
-                                    @click="openSnapPopup()"
+                                    type="submit"
+                                    class="btn-pitch px-6 py-2.5 text-xs font-bold shadow-sm inline-flex items-center justify-center gap-2"
+                                    :disabled="gatewayForm.processing"
                                 >
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                                     </svg>
-                                    <span>Buka Pop-up Snap Midtrans</span>
+                                    <span>{{ gatewayForm.processing ? 'Menyiapkan Midtrans Snap...' : 'Bayar Sekarang via Midtrans Snap &rarr;' }}</span>
                                 </button>
-                                <a
-                                    v-if="payment.payment_url && !sandboxSimulatorEnabled"
-                                    :href="payment.payment_url"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    class="btn-secondary text-xs inline-flex items-center gap-1"
-                                >
-                                    <span>Buka di Tab Baru</span>
-                                    <span>&rarr;</span>
-                                </a>
+
+                                <div v-if="payment.payment_url && !sandboxSimulatorEnabled" class="text-[11px] text-slate-400">
+                                    <span>Pop-up Snap terhalang blocker browser? </span>
+                                    <a
+                                        :href="payment.payment_url"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="text-orange-600 hover:text-orange-700 underline font-semibold"
+                                    >
+                                        Buka di tab baru &rarr;
+                                    </a>
+                                </div>
                             </div>
                         </div>
 
+                        <!-- Sandbox Simulator Action -->
                         <div
                             v-if="sandboxSimulatorEnabled"
-                            class="pt-3 border-t border-orange-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/70 p-3 rounded-lg"
+                            class="pt-3 border-t border-orange-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-orange-50/80 p-3.5 rounded-xl border border-orange-200/60"
                         >
-                            <p class="text-orange-900 font-medium">
+                            <p class="text-orange-950 font-medium text-xs">
                                 Mode Sandbox Simulator Aktif &mdash; Simulasikan pembayaran lunas instan tanpa kartu/bank asli.
                             </p>
                             <button
@@ -699,7 +717,7 @@ const reclaimSlot = () => {
                                 {{ simulateForm.processing ? 'Memproses Webhook...' : 'Simulasikan Lunas Instan' }}
                             </button>
                         </div>
-                    </div>
+                    </form>
                 </div>
             </div>
 

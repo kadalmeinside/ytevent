@@ -64,6 +64,7 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
                 'warning' => fn () => $request->session()->get('warning'),
                 'info' => fn () => $request->session()->get('info'),
+                'auto_open_snap' => fn () => (bool) ($request->session()->get('auto_open_snap', false) || $request->has('snap')),
             ],
             'adminNotifications' => fn () => $user && $user->hasAnyRole(['superadmin', 'finance', 'screening_officer']) ? (function () {
                 $pendingPayments = Payment::query()->where('status', 'waiting_verification')->count();

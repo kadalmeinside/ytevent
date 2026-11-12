@@ -208,6 +208,31 @@ class PublicEventController extends Controller
 
         $request->session()->put('active_manager_team_id', $team->id);
 
+        $latestPayment = $team->latestPayment;
+        $autoSnap = false;
+
+        if ($latestPayment
+            && $latestPayment->status === 'unpaid'
+            && \App\Services\PaymentService::activeMode() === 'midtrans'
+            && ! config('payment.sandbox_simulator')
+        ) {
+            try {
+                $paymentService = app(\App\Services\PaymentService::class);
+                $paymentService->initiateGatewayPayment(
+                    payment: $latestPayment,
+                    provider: 'midtrans',
+                    channel: 'BCA Virtual Account'
+                );
+                $autoSnap = true;
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Auto initiate Midtrans Snap on registration failed: ' . $e->getMessage());
+            }
+        }
+
+        if ($autoSnap) {
+            $request->session()->flash('auto_open_snap', true);
+        }
+
         return redirect()->route('manager.payments')
             ->with('success', "Pendaftaran tim {$team->name} berhasil diamankan! Silakan selesaikan pembayaran sebelum batas waktu reservasi berakhir.");
     }
