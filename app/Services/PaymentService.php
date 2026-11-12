@@ -52,16 +52,9 @@ class PaymentService
     {
         $fromSettings = SystemSetting::get('midtrans_is_production');
 
-        if ($fromSettings !== null && $fromSettings !== '') {
-            return filter_var($fromSettings, FILTER_VALIDATE_BOOLEAN);
-        }
-
-        $serverKey = self::midtransServerKey();
-        if (str_starts_with($serverKey, 'Mid-server-')) {
-            return true;
-        }
-
-        return (bool) config('payment.midtrans.is_production', false);
+        return $fromSettings === null
+            ? (bool) config('payment.midtrans.is_production', false)
+            : (bool) $fromSettings;
     }
 
     public static function midtransSnapUrl(): string
