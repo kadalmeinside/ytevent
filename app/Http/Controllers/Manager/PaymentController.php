@@ -48,12 +48,17 @@ class PaymentController extends Controller
             if ($latest) {
                 $paymentService = app(PaymentService::class);
 
-                // Auto-sync jika manajer dialihkan kembali dari Midtrans (halaman feedback / callback URL)
+                // Auto-sync jika manajer dialihkan kembali dari Midtrans (halaman feedback / callback URL / check_status)
                 if ($latest->status === 'unpaid'
-                    && ($request->has('order_id') || $request->has('feedback') || $request->has('transaction_status'))
+                    && ($request->has('order_id') || $request->has('feedback') || $request->has('transaction_status') || $request->has('check_status'))
                     && SystemSetting::get('payment_method_mode') === 'midtrans'
                 ) {
                     $latest = $paymentService->syncMidtransTransactionStatus($latest);
+                    if ($latest->status === 'paid') {
+                        session()->flash('success', 'Pembayaran sebelumnya telah terverifikasi lunas di Midtrans! Status tim Anda kini telah aktif.');
+                    } elseif ($request->has('check_status') && $latest->status === 'unpaid') {
+                        session()->flash('info', 'Transaksi belum terkonfirmasi lunas di sistem Midtrans. Silakan selesaikan pembayaran sesuai petunjuk.');
+                    }
                 }
 
                 if ($latest->status === 'unpaid'
@@ -113,6 +118,29 @@ class PaymentController extends Controller
         $this->authorize('pay', $payment);
 
         $validated = $request->validated();
+
+        // 1. Cek status asli ke Midtrans terlebih dahulu sebelum melakukan regenerasi atau pembayaran baru.
+        // Jika ternyata transaksi sebelumnya sudah berhasil dibayar (misal via BCA VA / QRIS / Kartu),
+        // pembayaran langsung diverifikasi lunas dan tim diaktifkan tanpa membuat Snap token baru.
+        if ($validated['provider'] === 'midtrans' && SystemSetting::get('payment_method_mode') === 'midtrans') {
+            $payment = $paymentService->syncMidtransTransactionStatus($payment);
+
+            if ($payment->status === 'paid') {
+                return redirect()->route('manager.payments')
+                    ->with('success', 'Pembayaran sebelumnya telah terverifikasi lunas di Midtrans! Status tim Anda kini telah aktif.');
+            }
+
+            if ($payment->status === 'refund_required') {
+                return redirect()->route('manager.payments')
+                    ->with('warning', 'Pembayaran terdeteksi namun slot kuota kompetisi telah habis. Tagihan dialihkan ke status Perlu Refund untuk ditindaklanjuti panitia.');
+            }
+        }
+
+        if ($payment->status === 'paid') {
+            return redirect()->route('manager.payments')
+                ->with('success', 'Tagihan ini telah berstatus lunas. Tim Anda telah aktif.');
+        }
+
         $paymentService->initiateGatewayPayment(
             payment: $payment,
             provider: $validated['provider'],
@@ -120,8 +148,11 @@ class PaymentController extends Controller
             forceRegenerate: (bool) ($validated['force_regenerate'] ?? false)
         );
 
-        return redirect()->back()
-            ->with('success', 'Instruksi pembayaran instan berhasil dibuat. Silakan selesaikan pembayaran sebelum waktu kedaluwarsa.');
+        $message = ! empty($validated['force_regenerate'])
+            ? 'Metode pembayaran berhasil diatur ulang. Silakan selesaikan pembayaran.'
+            : 'Instruksi pembayaran instan berhasil dibuat. Silakan selesaikan pembayaran sebelum waktu kedaluwarsa.';
+
+        return redirect()->back()->with('success', $message);
     }
 
     public function simulateSandbox(

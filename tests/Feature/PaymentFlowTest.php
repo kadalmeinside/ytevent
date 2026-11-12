@@ -8,6 +8,7 @@ use App\Models\SystemSetting;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -467,5 +468,77 @@ class PaymentFlowTest extends TestCase
             ->has('totalManualEver')
             ->has('totalVerified')
         );
+    }
+
+    public function test_clicking_change_payment_method_syncs_with_midtrans_and_settles_if_already_paid(): void
+    {
+        config(['payment.sandbox_simulator' => false]);
+        config(['payment.midtrans.server_key' => 'test-server-key']);
+        SystemSetting::set('payment_method_mode', 'midtrans', 'text', 'payment');
+
+        $this->payment->update([
+            'snap_token' => 'SNAP-OLD-TOKEN-123',
+            'external_reference_id' => $this->payment->invoice_number,
+        ]);
+
+        Http::fake([
+            'https://api.sandbox.midtrans.com/v2/*/status' => Http::response([
+                'status_code' => '200',
+                'transaction_status' => 'settlement',
+                'payment_type' => 'bca_va',
+                'transaction_id' => 'MID-SETTLED-888',
+                'gross_amount' => number_format((float) $this->payment->total_amount, 2, '.', ''),
+            ], 200),
+            'https://app.sandbox.midtrans.com/snap/v1/transactions' => Http::response([
+                'token' => 'SHOULD-NOT-BE-CALLED',
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($this->manager)
+            ->post(route('manager.payments.gateway', ['payment' => $this->payment->id]), [
+                'provider' => 'midtrans',
+                'force_regenerate' => true,
+            ]);
+
+        $response->assertRedirect(route('manager.payments'));
+        $response->assertSessionHas('success', 'Pembayaran sebelumnya telah terverifikasi lunas di Midtrans! Status tim Anda kini telah aktif.');
+
+        $this->assertEquals('paid', $this->payment->fresh()->status);
+        $this->assertEquals('active', $this->team->fresh()->status);
+
+        // Snap create API should NOT have been called because status was already settled!
+        Http::assertNotSent(function ($request) {
+            return str_contains($request->url(), '/snap/v1/transactions');
+        });
+    }
+
+    public function test_manager_payments_check_status_syncs_with_midtrans(): void
+    {
+        config(['payment.sandbox_simulator' => false]);
+        config(['payment.midtrans.server_key' => 'test-server-key']);
+        SystemSetting::set('payment_method_mode', 'midtrans', 'text', 'payment');
+
+        $this->payment->update([
+            'snap_token' => 'SNAP-OLD-TOKEN-123',
+            'external_reference_id' => $this->payment->invoice_number,
+        ]);
+
+        Http::fake([
+            'https://api.sandbox.midtrans.com/v2/*/status' => Http::response([
+                'status_code' => '200',
+                'transaction_status' => 'settlement',
+                'payment_type' => 'qris',
+                'transaction_id' => 'MID-QRIS-SETTLED',
+                'gross_amount' => number_format((float) $this->payment->total_amount, 2, '.', ''),
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($this->manager)
+            ->get(route('manager.payments', ['check_status' => 1]));
+
+        $response->assertOk();
+        $response->assertSessionHas('success', 'Pembayaran sebelumnya telah terverifikasi lunas di Midtrans! Status tim Anda kini telah aktif.');
+        $this->assertEquals('paid', $this->payment->fresh()->status);
+        $this->assertEquals('active', $this->team->fresh()->status);
     }
 }

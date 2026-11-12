@@ -103,6 +103,13 @@ class PaymentService
 
             $lockedPayment = Payment::query()->whereKey($payment->id)->lockForUpdate()->firstOrFail();
 
+            if ($lockedPayment->status === 'paid') {
+                return [
+                    'ok' => true,
+                    'payment' => $lockedPayment,
+                ];
+            }
+
             if (! in_array($lockedPayment->status, ['unpaid', 'rejected'], true) || $lockedPayment->isPastExpiry()) {
                 return [
                     'ok' => false,
@@ -283,6 +290,16 @@ class PaymentService
 
             $savedChannel = $channel ?: 'Midtrans Snap (Multi-Channel)';
 
+            $webhookPayload = (array) ($lockedPayment->webhook_payload ?? []);
+            $attemptedOrderIds = (array) ($webhookPayload['attempted_order_ids'] ?? []);
+            if (! empty($externalRef) && ! in_array($externalRef, $attemptedOrderIds, true)) {
+                $attemptedOrderIds[] = $externalRef;
+            }
+            if (! in_array($baseOrderId, $attemptedOrderIds, true)) {
+                $attemptedOrderIds[] = $baseOrderId;
+            }
+            $webhookPayload['attempted_order_ids'] = array_values(array_unique(array_filter($attemptedOrderIds)));
+
             $lockedPayment->update([
                 'method' => $provider,
                 'payment_channel' => $savedChannel,
@@ -291,6 +308,7 @@ class PaymentService
                 'external_reference_id' => $externalRef,
                 'snap_token' => $snapToken,
                 'payment_url' => $paymentUrl,
+                'webhook_payload' => $webhookPayload,
             ]);
 
             return [
@@ -352,40 +370,47 @@ class PaymentService
             return $payment;
         }
 
-        $orderId = $payment->external_reference_id ?: $payment->invoice_number;
+        $attempted = (array) ($payment->webhook_payload['attempted_order_ids'] ?? []);
+        $orderIds = array_values(array_unique(array_filter(array_merge(
+            [$payment->external_reference_id],
+            $attempted,
+            [$payment->invoice_number]
+        ))));
+
         $baseUrl = self::midtransIsProduction()
             ? 'https://api.midtrans.com/v2/'
             : 'https://api.sandbox.midtrans.com/v2/';
 
-        try {
-            $response = Http::withBasicAuth(self::midtransServerKey(), '')
-                ->acceptJson()
-                ->get($baseUrl.$orderId.'/status');
+        foreach ($orderIds as $orderId) {
+            try {
+                $response = Http::withBasicAuth(self::midtransServerKey(), '')
+                    ->acceptJson()
+                    ->get($baseUrl.$orderId.'/status');
 
-            if ($response->successful()) {
-                $payload = $response->json();
-                $txStatus = strtolower((string) ($payload['transaction_status'] ?? ''));
-                $fraudStatus = strtolower((string) ($payload['fraud_status'] ?? 'accept'));
+                if ($response->successful()) {
+                    $payload = $response->json();
+                    $txStatus = strtolower((string) ($payload['transaction_status'] ?? ''));
+                    $fraudStatus = strtolower((string) ($payload['fraud_status'] ?? 'accept'));
 
-                $isSettled = $txStatus === 'settlement'
-                    || ($txStatus === 'capture' && $fraudStatus === 'accept');
-                $isExpired = in_array($txStatus, ['expire', 'cancel', 'deny'], true);
+                    $isSettled = $txStatus === 'settlement'
+                        || ($txStatus === 'capture' && $fraudStatus === 'accept');
 
-                if ($isSettled || $isExpired) {
-                    return $this->processVerifiedGatewayCallback(
-                        invoiceNumber: $orderId,
-                        provider: 'midtrans',
-                        channel: $payload['payment_type'] ?? null,
-                        externalRef: $payload['transaction_id'] ?? null,
-                        callbackAmount: (string) ($payload['gross_amount'] ?? $payment->total_amount),
-                        isSettled: $isSettled,
-                        isExpiredSignal: $isExpired,
-                        rawPayload: $payload
-                    );
+                    if ($isSettled) {
+                        return $this->processVerifiedGatewayCallback(
+                            invoiceNumber: $orderId,
+                            provider: 'midtrans',
+                            channel: $payload['payment_type'] ?? null,
+                            externalRef: $payload['transaction_id'] ?? null,
+                            callbackAmount: (string) ($payload['gross_amount'] ?? $payment->total_amount),
+                            isSettled: true,
+                            isExpiredSignal: false,
+                            rawPayload: $payload
+                        );
+                    }
                 }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Sync Midtrans status failed for order '.$orderId.': '.$e->getMessage());
             }
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Sync Midtrans status failed: '.$e->getMessage());
         }
 
         return $payment;
@@ -479,6 +504,7 @@ class PaymentService
             $payment = Payment::query()
                 ->where('external_reference_id', $invoiceNumber)
                 ->orWhere('invoice_number', $invoiceNumber)
+                ->orWhereJsonContains('webhook_payload->attempted_order_ids', $invoiceNumber)
                 ->first();
 
             if (! $payment && preg_match('/^(INV-\d{4}-EVT\d+-\d+)/', $invoiceNumber, $matches)) {
