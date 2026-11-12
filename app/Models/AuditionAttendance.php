@@ -41,3 +41,4 @@ class AuditionAttendance extends Model
         return $this->belongsTo(User::class, 'scanned_by');
     }
 }
+

@@ -96,3 +96,4 @@ class AuditionVerificationController extends Controller
         return Storage::response($participant->photo_path);
     }
 }
+

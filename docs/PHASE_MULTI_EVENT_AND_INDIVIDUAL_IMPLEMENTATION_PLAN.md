@@ -154,3 +154,4 @@ Dokumen ini adalah panduan teknis langkah-demi-langkah (*step-by-step technical 
 * Template PDF Sertifikat Keikutsertaan (Hari 1), Finalis (Hari 2/3), dan Pemain Terpilih (Akademi).
 * Halaman verifikasi publik QR Code sertifikat.
 * Unduhan Rapor Evaluasi Pelatih untuk orang tua murid.
+

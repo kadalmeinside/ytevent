@@ -347,3 +347,4 @@ class Phase8AuditionRegistrationAndScreeningTest extends TestCase
             ->assertStatus(403);
     }
 }
+

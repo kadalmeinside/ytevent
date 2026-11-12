@@ -47,3 +47,4 @@ class AuditionStageResultMail extends Mailable
         );
     }
 }
+

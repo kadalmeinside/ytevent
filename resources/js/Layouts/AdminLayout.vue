@@ -81,7 +81,7 @@ const navSections = computed(() => {
                         : null,
                 },
                 {
-                    label: 'Kompetisi',
+                    label: 'Event & Kompetisi',
                     href: safeRoute('admin.events.index', {}, '/admin/events'),
                     match: '/admin/events',
                     icon: 'trophy',

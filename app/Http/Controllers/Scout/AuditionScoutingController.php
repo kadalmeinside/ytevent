@@ -202,3 +202,4 @@ class AuditionScoutingController extends Controller
         ]);
     }
 }
+

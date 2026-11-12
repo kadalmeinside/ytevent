@@ -97,3 +97,4 @@ class CertificateVerificationController extends Controller
         ]);
     }
 }
+

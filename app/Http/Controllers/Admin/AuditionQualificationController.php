@@ -178,3 +178,4 @@ class AuditionQualificationController extends Controller
         return back()->with('success', "Berhasil memperbarui status " . count($ids) . " peserta menjadi '{$statusLabel}'. Email pengumuman telah dikirim.");
     }
 }
+

@@ -92,12 +92,18 @@ class EventController extends Controller
         return back()->with('info', "Kapasitas slot event {$event->name} sudah sesuai. Tidak ada pendaftaran kedaluwarsa.");
     }
 
-    public function create(): Response
+    public function create(\Illuminate\Http\Request $request): Response
     {
         $this->authorize('create', Event::class);
 
+        $initialParticipantType = $request->query('participant_type');
+        if (! in_array($initialParticipantType, ['team', 'individual'], true)) {
+            $initialParticipantType = 'team';
+        }
+
         return Inertia::render('Admin/Events/Form', [
             'event' => null,
+            'initialParticipantType' => $initialParticipantType,
             'formats' => Event::FORMATS,
             'matchFormats' => Event::MATCH_FORMATS,
             'eventTypes' => Event::EVENT_TYPES,

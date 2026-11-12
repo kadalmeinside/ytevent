@@ -224,3 +224,4 @@ class AuditionAttendanceController extends Controller
         ];
     }
 }
+

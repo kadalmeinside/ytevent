@@ -51,3 +51,4 @@ class ScoutingEvaluation extends Model
         return $this->belongsTo(User::class, 'scout_id');
     }
 }
+

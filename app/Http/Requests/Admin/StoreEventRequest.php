@@ -28,22 +28,40 @@ class StoreEventRequest extends FormRequest
         if (! $this->has('form_presets') || empty($this->input('form_presets'))) {
             $this->merge(['form_presets' => Event::DEFAULT_FORM_PRESETS]);
         }
-        if (! $this->has('match_format')) {
-            $this->merge(['match_format' => '11_vs_11']);
-        }
-        if (! $this->has('starting_players_count')) {
-            $format = $this->input('match_format', '11_vs_11');
+
+        // Jika event individual (Audisi/Seleksi/Clinic), berikan nilai default yang aman untuk parameter teknis skuad tim
+        if ($this->input('participant_type') === 'individual') {
             $this->merge([
-                'starting_players_count' => Event::MATCH_FORMATS[$format]['starting_count'] ?? 11,
+                'format' => $this->input('format', 'festival'),
+                'match_format' => $this->input('match_format', '11_vs_11'),
+                'starting_players_count' => 11,
+                'dsp_cutoff_minutes' => 30,
+                'min_players_per_team' => 1,
+                'max_players_per_team' => 1,
+                'min_gk_per_team' => 1,
+                'max_officials_per_team' => 1,
+                'lock_roster_until_paid' => true,
             ]);
-        }
-        if (! $this->has('dsp_cutoff_minutes')) {
-            $this->merge(['dsp_cutoff_minutes' => 30]);
+        } else {
+            if (! $this->has('match_format')) {
+                $this->merge(['match_format' => '11_vs_11']);
+            }
+            if (! $this->has('starting_players_count')) {
+                $format = $this->input('match_format', '11_vs_11');
+                $this->merge([
+                    'starting_players_count' => Event::MATCH_FORMATS[$format]['starting_count'] ?? 11,
+                ]);
+            }
+            if (! $this->has('dsp_cutoff_minutes')) {
+                $this->merge(['dsp_cutoff_minutes' => 30]);
+            }
         }
     }
 
     public function rules(): array
     {
+        $isTeam = $this->input('participant_type', 'team') === 'team';
+
         return [
             'name' => ['required', 'string', 'min:3', 'max:160'],
             'short_description' => ['nullable', 'string', 'max:20000'],
@@ -65,21 +83,38 @@ class StoreEventRequest extends FormRequest
             'custom_fields_schema' => ['nullable', 'array'],
             'format' => ['required', Rule::in(array_keys(Event::FORMATS))],
             'match_format' => ['sometimes', 'required', Rule::in(array_keys(Event::MATCH_FORMATS))],
-            'starting_players_count' => ['sometimes', 'required', 'integer', 'min:3', 'max:11'],
+            'starting_players_count' => ['sometimes', 'required', 'integer', 'min:1', 'max:11'],
             'dsp_cutoff_minutes' => ['sometimes', 'required', 'integer', 'min:0', 'max:180'],
             'age_category' => ['required', 'string', 'max:32'],
             'min_birth_date' => ['nullable', 'date'],
             'max_birth_date' => ['nullable', 'date', 'after_or_equal:min_birth_date'],
-            'min_players_per_team' => ['required', 'integer', 'min:5', 'max:50'],
-            'max_players_per_team' => ['required', 'integer', 'gte:min_players_per_team', 'max:60'],
-            'min_gk_per_team' => ['sometimes', 'required', 'integer', Rule::in([1, 2])],
-            'max_officials_per_team' => ['required', 'integer', 'min:1', 'max:15'],
-            'show_coach_license' => ['sometimes', 'required', 'boolean'],
-            'require_coach_license' => ['sometimes', 'required', 'boolean'],
+            'min_players_per_team' => [
+                Rule::requiredIf(fn () => $isTeam),
+                'nullable',
+                'integer',
+                'min:1',
+                'max:50',
+            ],
+            'max_players_per_team' => [
+                Rule::requiredIf(fn () => $isTeam),
+                'nullable',
+                'integer',
+                'max:60',
+            ],
+            'min_gk_per_team' => ['sometimes', 'nullable', 'integer', Rule::in([1, 2])],
+            'max_officials_per_team' => [
+                Rule::requiredIf(fn () => $isTeam),
+                'nullable',
+                'integer',
+                'min:1',
+                'max:15',
+            ],
+            'show_coach_license' => ['sometimes', 'nullable', 'boolean'],
+            'require_coach_license' => ['sometimes', 'nullable', 'boolean'],
             'required_documents' => ['required', 'array', 'min:1'],
             'required_documents.*' => ['required', Rule::in(array_keys(Event::DOCUMENT_TYPES))],
             'max_teams' => [
-                Rule::requiredIf(fn () => ($this->input('quota_type', 'fixed') === 'fixed') && ($this->input('participant_type', 'team') === 'team')),
+                Rule::requiredIf(fn () => ($this->input('quota_type', 'fixed') === 'fixed') && $isTeam),
                 'nullable',
                 'integer',
                 'min:2',
@@ -87,7 +122,7 @@ class StoreEventRequest extends FormRequest
             ],
             'registration_fee' => ['required', 'numeric', 'min:0'],
             'prize_info' => ['nullable', 'string', 'max:255'],
-            'lock_roster_until_paid' => ['required', 'boolean'],
+            'lock_roster_until_paid' => ['sometimes', 'nullable', 'boolean'],
             'payment_deadline_hours' => ['required', 'integer', 'min:1', 'max:168'],
             'reupload_grace_hours' => ['required', 'integer', 'min:1', 'max:72'],
             'registration_open_at' => ['nullable', 'date'],

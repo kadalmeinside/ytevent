@@ -25,7 +25,8 @@ class UpdateEventRequest extends StoreEventRequest
                     return;
                 }
 
-                if ($this->input('quota_type', 'fixed') === 'fixed') {
+                $participantType = $this->input('participant_type', $event->participant_type ?? 'team');
+                if ($this->input('quota_type', 'fixed') === 'fixed' && $participantType === 'team') {
                     $occupied = $event->teams()->occupyingQuotaAt(now())->count();
                     $requestedMax = (int) $this->input('max_teams', 0);
 
@@ -33,6 +34,16 @@ class UpdateEventRequest extends StoreEventRequest
                         $validator->errors()->add(
                             'max_teams',
                             "Kuota maksimal tidak boleh dikurangi di bawah jumlah tim yang saat ini sedang memegang slot ({$occupied} tim)."
+                        );
+                    }
+                } elseif ($this->input('quota_type', 'fixed') === 'fixed' && $participantType === 'individual') {
+                    $occupied = $event->auditionParticipants()->whereIn('status', ['registered', 'verified', 'passed', 'failed'])->count();
+                    $requestedMax = (int) $this->input('max_participants', 0);
+
+                    if ($requestedMax > 0 && $requestedMax < $occupied) {
+                        $validator->errors()->add(
+                            'max_participants',
+                            "Kuota maksimal atlet tidak boleh dikurangi di bawah jumlah peserta yang saat ini terdaftar ({$occupied} atlet)."
                         );
                     }
                 }

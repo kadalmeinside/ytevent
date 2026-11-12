@@ -46,3 +46,4 @@ class EventSession extends Model
         return $this->quota !== null && $this->occupied_slots >= $this->quota;
     }
 }
+

@@ -51,3 +51,4 @@ class AuditionStage extends Model
         return $this->hasMany(ScoutingEvaluation::class);
     }
 }
+
