@@ -669,8 +669,8 @@ const reclaimSlot = () => {
                                 <p class="text-[11px] text-slate-500">
                                     Batas waktu: <strong class="tabular-data text-slate-800 font-semibold">{{ formatDateTime(payment.expires_at) }}</strong>
                                 </p>
-                                <p v-if="payment.external_reference_id" class="text-[11px] text-slate-400 font-mono">
-                                    No. Invoice: <strong class="text-slate-700">{{ payment.external_reference_id }}</strong>
+                                <p v-if="payment.invoice_number" class="text-[11px] text-slate-400 font-mono">
+                                    No. Invoice: <strong class="text-slate-700">{{ payment.invoice_number }}</strong>
                                 </p>
                             </div>
 

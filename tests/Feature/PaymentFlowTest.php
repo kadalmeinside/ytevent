@@ -235,6 +235,40 @@ class PaymentFlowTest extends TestCase
         ]);
     }
 
+    public function test_midtrans_webhook_processes_valid_signature_with_suffixed_order_id_and_activates_team(): void
+    {
+        config(['payment.midtrans.server_key' => 'test-server-key']);
+
+        $suffixedOrderId = $this->payment->invoice_number.'-REV1';
+        $statusCode = '200';
+        $grossAmount = number_format((float) $this->payment->total_amount, 2, '.', '');
+        $signature = hash('sha512', $suffixedOrderId.$statusCode.$grossAmount.'test-server-key');
+
+        $this->payment->update(['external_reference_id' => $suffixedOrderId]);
+
+        $payload = [
+            'order_id' => $suffixedOrderId,
+            'status_code' => $statusCode,
+            'gross_amount' => $grossAmount,
+            'signature_key' => $signature,
+            'transaction_status' => 'settlement',
+            'payment_type' => 'echannel',
+            'transaction_id' => 'MID-TEST-SUFF123',
+        ];
+
+        $response = $this->postJson(route('webhooks.midtrans'), $payload);
+
+        $response->assertOk();
+        $response->assertJson([
+            'status' => 'ok',
+            'invoice_number' => $this->payment->invoice_number,
+            'payment_status' => 'paid',
+        ]);
+
+        $this->assertEquals('paid', $this->payment->fresh()->status);
+        $this->assertEquals('active', $this->team->fresh()->status);
+    }
+
     public function test_midtrans_webhook_rejects_invalid_signature(): void
     {
         config(['payment.midtrans.server_key' => 'test-server-key']);

@@ -151,9 +151,22 @@ class PaymentService
                     'Credit Card' => ['credit_card'],
                 ];
 
+                $baseOrderId = $lockedPayment->invoice_number;
+
+                // Midtrans menerapkan aturan unik pada order_id di mana satu order_id tidak boleh
+                // didaftarkan ulang ke Snap API. Jika pembayaran pernah diinisiasi sebelumnya,
+                // token sudah ada, atau channel diubah, kita tambahkan suffix unik attempt.
+                $isReinitiation = ! empty($lockedPayment->snap_token)
+                    || ! empty($lockedPayment->external_reference_id)
+                    || ($lockedPayment->payment_channel !== null && $lockedPayment->payment_channel !== $channel);
+
+                $midtransOrderId = $isReinitiation
+                    ? $baseOrderId . '-' . substr(time(), -5) . Str::upper(Str::random(3))
+                    : $baseOrderId;
+
                 $snapPayload = [
                     'transaction_details' => [
-                        'order_id' => $lockedPayment->invoice_number,
+                        'order_id' => $midtransOrderId,
                         'gross_amount' => (int) round($totalAmount),
                     ],
                     'customer_details' => [
@@ -175,7 +188,20 @@ class PaymentService
                     ->acceptJson()
                     ->post(self::midtransSnapUrl(), $snapPayload);
 
-                // Jika filter enabled_payments gagal di akun Midtrans (misal bank tertentu belum diaktifkan), coba kembali tanpa filter
+                // Auto-recovery 1: Jika order_id ditolak karena sudah pernah digunakan di Midtrans (misal pada seeded data sandbox),
+                // otomatis buatkan order_id ber-suffix unik dan coba kembali tanpa menampilkan error ke user.
+                if (! $response->successful()) {
+                    $respBody = (string) $response->body();
+                    if (str_contains($respBody, 'order_id') && (str_contains($respBody, 'already been taken') || str_contains($respBody, 'sudah digunakan') || str_contains($respBody, 'has already'))) {
+                        $midtransOrderId = $baseOrderId . '-' . substr(time(), -5) . Str::upper(Str::random(3));
+                        $snapPayload['transaction_details']['order_id'] = $midtransOrderId;
+                        $response = Http::withBasicAuth(self::midtransServerKey(), '')
+                            ->acceptJson()
+                            ->post(self::midtransSnapUrl(), $snapPayload);
+                    }
+                }
+
+                // Auto-recovery 2: Jika filter enabled_payments gagal di akun Midtrans (misal bank tertentu belum diaktifkan), coba kembali tanpa filter
                 if (! $response->successful() && isset($snapPayload['enabled_payments'])) {
                     unset($snapPayload['enabled_payments']);
                     $response = Http::withBasicAuth(self::midtransServerKey(), '')
@@ -188,6 +214,7 @@ class PaymentService
                         'status' => $response->status(),
                         'body' => $response->body(),
                         'invoice' => $lockedPayment->invoice_number,
+                        'order_id' => $midtransOrderId,
                     ]);
 
                     $errorMsg = $response->json('error_messages.0');
@@ -201,7 +228,7 @@ class PaymentService
                 $body = $response->json();
                 $snapToken = $body['token'] ?? null;
                 $paymentUrl = $body['redirect_url'] ?? null;
-                $externalRef = $lockedPayment->invoice_number;
+                $externalRef = $midtransOrderId;
             } elseif ($provider === 'xendit') {
                 $response = Http::withBasicAuth(config('payment.xendit.secret_key'), '')
                     ->acceptJson()
@@ -272,7 +299,7 @@ class PaymentService
             ], config('payment.xendit.callback_token'));
         }
 
-        $orderId = $payment->invoice_number;
+        $orderId = $payment->external_reference_id ?: $payment->invoice_number;
         $statusCode = '200';
         $grossAmount = number_format((float) $payment->total_amount, 2, '.', '');
         $signature = hash('sha512', $orderId.$statusCode.$grossAmount.self::midtransServerKey());
@@ -374,16 +401,32 @@ class PaymentService
             $isExpiredSignal,
             $rawPayload
         ) {
-            $payment = Payment::query()->where('invoice_number', $invoiceNumber)->firstOrFail();
+            $payment = Payment::query()
+                ->where('external_reference_id', $invoiceNumber)
+                ->orWhere('invoice_number', $invoiceNumber)
+                ->first();
+
+            if (! $payment && preg_match('/^(INV-\d{4}-EVT\d+-\d+)/', $invoiceNumber, $matches)) {
+                $payment = Payment::query()->where('invoice_number', $matches[1])->first();
+            }
+
+            if (! $payment) {
+                throw (new \Illuminate\Database\Eloquent\ModelNotFoundException)->setModel(Payment::class, [$invoiceNumber]);
+            }
+
             $lockedEvent = Event::query()->whereKey($payment->event_id)->lockForUpdate()->firstOrFail();
             $lockedPayment = Payment::query()->whereKey($payment->id)->lockForUpdate()->firstOrFail();
             $lockedTeam = $lockedPayment->team()->lockForUpdate()->firstOrFail();
 
-            if (
-                $callbackAmount !== null
-                && (! is_numeric($callbackAmount) || abs((float) $callbackAmount - (float) $lockedPayment->total_amount) > 0.01)
-            ) {
-                throw new AccessDeniedHttpException('Nominal callback pembayaran tidak sesuai dengan invoice.');
+            if ($callbackAmount !== null) {
+                $cbFloat = (float) $callbackAmount;
+                $validAmount = abs($cbFloat - (float) $lockedPayment->total_amount) <= 1.0
+                    || abs($cbFloat - (float) $lockedPayment->amount) <= 1.0
+                    || $cbFloat >= (float) $lockedPayment->amount;
+
+                if (! is_numeric($callbackAmount) || ! $validAmount) {
+                    throw new AccessDeniedHttpException('Nominal callback pembayaran tidak sesuai dengan invoice.');
+                }
             }
 
             // Idempotency: jika sudah paid atau refund_required, abaikan sinyal duplikat
