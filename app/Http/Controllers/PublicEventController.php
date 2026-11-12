@@ -220,8 +220,7 @@ class PublicEventController extends Controller
                 $paymentService = app(\App\Services\PaymentService::class);
                 $paymentService->initiateGatewayPayment(
                     payment: $latestPayment,
-                    provider: 'midtrans',
-                    channel: 'BCA Virtual Account'
+                    provider: 'midtrans'
                 );
                 $autoSnap = true;
             } catch (\Throwable $e) {

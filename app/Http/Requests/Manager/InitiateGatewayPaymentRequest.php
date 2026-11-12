@@ -20,7 +20,8 @@ class InitiateGatewayPaymentRequest extends FormRequest
     {
         return [
             'provider' => ['required', Rule::in(['midtrans', 'xendit'])],
-            'payment_channel' => ['required', 'string', 'max:64'],
+            'payment_channel' => ['nullable', 'string', 'max:64'],
+            'force_regenerate' => ['nullable', 'boolean'],
         ];
     }
 

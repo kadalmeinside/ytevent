@@ -71,15 +71,33 @@ class PaymentService
             : (string) config('payment.midtrans.snap_js_url_sandbox', 'https://app.sandbox.midtrans.com/snap/snap.js');
     }
 
-    public function initiateGatewayPayment(Payment $payment, string $provider, string $channel): Payment
-    {
+    public const MIDTRANS_AVAILABLE_CHANNELS = [
+        'bca_va' => 'BCA Virtual Account',
+        'echannel' => 'Mandiri Bill (VA)',
+        'bni_va' => 'BNI Virtual Account',
+        'bri_va' => 'BRI Virtual Account',
+        'permata_va' => 'Permata Virtual Account',
+        'cimb_va' => 'CIMB Niaga Virtual Account',
+        'other_va' => 'Bank Lainnya (ATM Bersama / Prima)',
+        'qris' => 'QRIS (BCA Mobile, Livin, GoPay, OVO, Dana)',
+        'gopay' => 'GoPay E-Wallet',
+        'shopeepay' => 'ShopeePay E-Wallet',
+        'credit_card' => 'Kartu Kredit / Debit Online (Visa/Mastercard/JCB)',
+    ];
+
+    public function initiateGatewayPayment(
+        Payment $payment,
+        string $provider = 'midtrans',
+        ?string $channel = null,
+        bool $forceRegenerate = false
+    ): Payment {
         if (self::activeMode() !== 'midtrans') {
             throw ValidationException::withMessages([
                 'payment' => 'Metode pembayaran payment gateway sedang tidak diaktifkan oleh panitia.',
             ]);
         }
 
-        $result = DB::transaction(function () use ($payment, $provider, $channel) {
+        $result = DB::transaction(function () use ($payment, $provider, $channel, $forceRegenerate) {
             $lockedEvent = Event::query()->whereKey($payment->event_id)->lockForUpdate()->firstOrFail();
             $this->quotaExpiration->sweepExpiredForEvent($lockedEvent);
 
@@ -97,7 +115,7 @@ class PaymentService
                 ? max(5, (int) now()->diffInMinutes($lockedPayment->expires_at, false))
                 : 1440;
 
-            // Hitung Biaya MDR / Fee Layanan Midtrans Berdasarkan Channel yang Dipilih
+            // Hitung Biaya MDR / Fee Layanan Midtrans Berdasarkan Pengaturan Global
             $feeBorneBy = SystemSetting::get('fee_borne_by', 'team');
             $vaFee = (float) SystemSetting::get('midtrans_va_fee', 4000);
             $qrisFeePercent = (float) SystemSetting::get('midtrans_qris_fee_percent', 0.7);
@@ -105,18 +123,16 @@ class PaymentService
             $ccFeePercent = (float) SystemSetting::get('midtrans_cc_fee_percent', 2.9);
             $ccFeeFixed = (float) SystemSetting::get('midtrans_cc_fee_fixed', 2000);
 
-            $channelLower = strtolower($channel);
-            $calculatedFee = 0;
-
-            if (str_contains($channelLower, 'qris') || str_contains($channelLower, 'qr')) {
-                $calculatedFee = round((float) $lockedPayment->amount * ($qrisFeePercent / 100));
-            } elseif (str_contains($channelLower, 'gopay') || str_contains($channelLower, 'shopeepay') || str_contains($channelLower, 'wallet') || str_contains($channelLower, 'ewallet')) {
-                $calculatedFee = round((float) $lockedPayment->amount * ($ewalletFeePercent / 100));
-            } elseif (str_contains($channelLower, 'credit') || str_contains($channelLower, 'card') || str_contains($channelLower, 'kartu')) {
-                $calculatedFee = round(((float) $lockedPayment->amount * ($ccFeePercent / 100)) + $ccFeeFixed);
-            } else {
-                // Virtual Account default (BCA, Mandiri, BNI, BRI, Permata)
-                $calculatedFee = $vaFee;
+            $calculatedFee = $vaFee; // Standard VA flat fee sebagai baseline default pendaftaran klub
+            if ($channel) {
+                $channelLower = strtolower($channel);
+                if (str_contains($channelLower, 'qris') || str_contains($channelLower, 'qr')) {
+                    $calculatedFee = round((float) $lockedPayment->amount * ($qrisFeePercent / 100));
+                } elseif (str_contains($channelLower, 'gopay') || str_contains($channelLower, 'shopeepay') || str_contains($channelLower, 'wallet') || str_contains($channelLower, 'ewallet')) {
+                    $calculatedFee = round((float) $lockedPayment->amount * ($ewalletFeePercent / 100));
+                } elseif (str_contains($channelLower, 'credit') || str_contains($channelLower, 'card') || str_contains($channelLower, 'kartu')) {
+                    $calculatedFee = round(((float) $lockedPayment->amount * ($ccFeePercent / 100)) + $ccFeeFixed);
+                }
             }
 
             $gatewayFee = $feeBorneBy === 'team' ? $calculatedFee : 0;
@@ -154,11 +170,12 @@ class PaymentService
                 $baseOrderId = $lockedPayment->invoice_number;
 
                 // Midtrans menerapkan aturan unik pada order_id di mana satu order_id tidak boleh
-                // didaftarkan ulang ke Snap API. Jika pembayaran pernah diinisiasi sebelumnya,
-                // token sudah ada, atau channel diubah, kita tambahkan suffix unik attempt.
-                $isReinitiation = ! empty($lockedPayment->snap_token)
+                // didaftarkan ulang ke Snap API. Jika dipaksa regenerasi, atau token lama sudah ada,
+                // kita tambahkan suffix unik attempt.
+                $isReinitiation = $forceRegenerate
+                    || ! empty($lockedPayment->snap_token)
                     || ! empty($lockedPayment->external_reference_id)
-                    || ($lockedPayment->payment_channel !== null && $lockedPayment->payment_channel !== $channel);
+                    || ($channel !== null && $lockedPayment->payment_channel !== null && $lockedPayment->payment_channel !== $channel);
 
                 $midtransOrderId = $isReinitiation
                     ? $baseOrderId . '-' . substr(time(), -5) . Str::upper(Str::random(3))
@@ -180,9 +197,15 @@ class PaymentService
                     ],
                 ];
 
-                if (isset($channelMap[$channel])) {
+                $channelsMode = SystemSetting::get('midtrans_channels_mode', 'all');
+                $customChannels = (array) SystemSetting::get('midtrans_active_channels', []);
+
+                if ($channel && isset($channelMap[$channel])) {
                     $snapPayload['enabled_payments'] = $channelMap[$channel];
+                } elseif ($channelsMode === 'custom' && ! empty($customChannels)) {
+                    $snapPayload['enabled_payments'] = array_values($customChannels);
                 }
+                // Jika mode 'all', jangan kirim enabled_payments sehingga seluruh metode yang diizinkan Midtrans otomatis tampil di Snap.
 
                 $response = Http::withBasicAuth(self::midtransServerKey(), '')
                     ->acceptJson()
@@ -253,9 +276,11 @@ class PaymentService
                 $snapToken = null;
             }
 
+            $savedChannel = $channel ?: 'Midtrans Snap (Multi-Channel)';
+
             $lockedPayment->update([
                 'method' => $provider,
-                'payment_channel' => $channel,
+                'payment_channel' => $savedChannel,
                 'gateway_fee' => $gatewayFee,
                 'total_amount' => $totalAmount,
                 'external_reference_id' => $externalRef,

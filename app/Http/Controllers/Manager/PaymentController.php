@@ -55,8 +55,7 @@ class PaymentController extends Controller
                         $paymentService = app(PaymentService::class);
                         $latest = $paymentService->initiateGatewayPayment(
                             payment: $latest,
-                            provider: 'midtrans',
-                            channel: 'BCA Virtual Account'
+                            provider: 'midtrans'
                         );
                     } catch (\Throwable $e) {
                         \Illuminate\Support\Facades\Log::warning('Auto initiate Midtrans on payment page load failed: ' . $e->getMessage());
@@ -108,7 +107,8 @@ class PaymentController extends Controller
         $paymentService->initiateGatewayPayment(
             payment: $payment,
             provider: $validated['provider'],
-            channel: $validated['payment_channel']
+            channel: $validated['payment_channel'] ?? null,
+            forceRegenerate: (bool) ($validated['force_regenerate'] ?? false)
         );
 
         return redirect()->back()

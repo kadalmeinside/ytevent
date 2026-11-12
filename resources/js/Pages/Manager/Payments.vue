@@ -104,57 +104,27 @@ const copyAccountNumber = (accNumber, index) => {
     });
 };
 
-// Available Midtrans Payment Channels
-const midtransChannels = [
-    { id: 'BCA Virtual Account', name: 'BCA Virtual Account', type: 'va' },
-    { id: 'Mandiri Bill', name: 'Mandiri Bill (VA)', type: 'va' },
-    { id: 'BNI Virtual Account', name: 'BNI Virtual Account', type: 'va' },
-    { id: 'BRI Virtual Account', name: 'BRI Virtual Account', type: 'va' },
-    { id: 'Permata Virtual Account', name: 'Permata Virtual Account', type: 'va' },
-    { id: 'QRIS', name: 'QRIS (GoPay / BCA Mobile / All e-Wallet)', type: 'qris' },
-    { id: 'GoPay', name: 'GoPay E-Wallet', type: 'ewallet' },
-    { id: 'ShopeePay', name: 'ShopeePay E-Wallet', type: 'ewallet' },
-    { id: 'Credit Card', name: 'Kartu Kredit / Debit Visa/Mastercard', type: 'cc' },
-];
-
 // Gateway Form
 const gatewayForm = useForm({
     provider: 'midtrans',
-    payment_channel: props.payment?.payment_channel || 'BCA Virtual Account',
-});
-
-const currentSelectedChannel = computed(() => {
-    return midtransChannels.find((c) => c.id === gatewayForm.payment_channel) || midtransChannels[0];
-});
-
-// Dynamic MDR Fee Calculation for Midtrans
-const calculatedMdrFee = computed(() => {
-    if (!props.payment) return 0;
-    const base = Number(props.payment.amount || props.payment.total_amount);
-    const cfg = props.midtransFeeConfig || {};
-    const type = currentSelectedChannel.value?.type;
-
-    if (type === 'qris') {
-        return Math.round(base * ((cfg.qris_fee_percent ?? 0.7) / 100));
-    }
-    if (type === 'ewallet') {
-        return Math.round(base * ((cfg.ewallet_fee_percent ?? 1.5) / 100));
-    }
-    if (type === 'cc') {
-        return Math.round((base * ((cfg.cc_fee_percent ?? 2.9) / 100)) + (cfg.cc_fee_fixed ?? 2000));
-    }
-    // Default Virtual Account (flat Rp)
-    return Number(cfg.va_fee ?? 4000);
+    payment_channel: null,
+    force_regenerate: false,
 });
 
 const feeBorneByTeam = computed(() => {
     return (props.midtransFeeConfig?.fee_borne_by ?? 'team') === 'team';
 });
 
-const calculatedTotalPayable = computed(() => {
+const activeGatewayFee = computed(() => {
     if (!props.payment) return 0;
-    const base = Number(props.payment.amount || props.payment.total_amount);
-    return feeBorneByTeam.value ? base + calculatedMdrFee.value : base;
+    if (!feeBorneByTeam.value) return 0;
+    return Number(props.payment.gateway_fee ?? props.midtransFeeConfig?.va_fee ?? 4000);
+});
+
+const totalPayable = computed(() => {
+    if (!props.payment) return 0;
+    const base = Number(props.payment.amount);
+    return feeBorneByTeam.value ? base + activeGatewayFee.value : base;
 });
 
 const openSnapPopup = (token = null) => {
@@ -228,9 +198,19 @@ onMounted(() => {
     loadSnapScript();
 });
 
-const initiateGateway = () => {
+const isRegenerating = ref(false);
+
+const handlePayNow = () => {
     if (!props.payment) return;
+
+    if (props.payment.snap_token && !props.sandboxSimulatorEnabled) {
+        openSnapPopup(props.payment.snap_token);
+        return;
+    }
+
     gatewayForm.provider = 'midtrans';
+    gatewayForm.payment_channel = null;
+    gatewayForm.force_regenerate = false;
     gatewayForm.post(route('manager.payments.gateway', { payment: props.payment.id }), {
         preserveScroll: true,
         onSuccess: (res) => {
@@ -244,18 +224,27 @@ const initiateGateway = () => {
     });
 };
 
-const handlePayNow = () => {
-    if (!props.payment) return;
-
-    // Jika payment sudah memiliki snap_token dan channel tidak berubah, langsung buka Snap secara instan!
-    const channelMatches = props.payment.payment_channel === gatewayForm.payment_channel;
-    if (props.payment.snap_token && channelMatches && !props.sandboxSimulatorEnabled) {
-        openSnapPopup(props.payment.snap_token);
-        return;
-    }
-
-    // Jika channel berubah atau belum ada token, submit initiateGateway yang otomatis memicu Snap di onSuccess
-    initiateGateway();
+const regenerateAndChangeMethod = () => {
+    if (!props.payment || isRegenerating.value) return;
+    isRegenerating.value = true;
+    gatewayForm.provider = 'midtrans';
+    gatewayForm.payment_channel = null;
+    gatewayForm.force_regenerate = true;
+    gatewayForm.post(route('manager.payments.gateway', { payment: props.payment.id }), {
+        preserveScroll: true,
+        onSuccess: (res) => {
+            isRegenerating.value = false;
+            const freshPayment = res.props?.payment;
+            if (freshPayment?.snap_token && !props.sandboxSimulatorEnabled) {
+                setTimeout(() => {
+                    openSnapPopup(freshPayment.snap_token);
+                }, 150);
+            }
+        },
+        onError: () => {
+            isRegenerating.value = false;
+        },
+    });
 };
 
 const simulateForm = useForm({});
@@ -599,58 +588,43 @@ const reclaimSlot = () => {
                             <h3 class="text-base font-bold text-slate-900">Pembayaran Instan &mdash; Midtrans Payment Gateway</h3>
                         </div>
                         <p class="text-xs text-slate-500 mt-0.5">
-                            Pilih kanal pembayaran (Virtual Account bank, QRIS, atau E-Wallet). Biaya MDR akan disesuaikan otomatis dengan metode yang Anda pilih.
+                            Selesaikan pembayaran menggunakan Midtrans Snap secara aman. Pilihan bank dan metode transfer tersedia langsung di dalam dialog pembayaran.
                         </p>
                     </div>
 
                     <FormErrorBanner :errors="gatewayForm.errors" />
 
                     <form @submit.prevent="handlePayNow" novalidate class="space-y-5">
-                        <!-- Channel Grid Selector -->
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2.5">
-                                Pilih Kanal Pembayaran Midtrans:
-                            </label>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                <label
-                                    v-for="ch in midtransChannels"
-                                    :key="ch.id"
-                                    class="p-3.5 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between"
-                                    :class="gatewayForm.payment_channel === ch.id
-                                        ? 'border-orange-500 bg-orange-50/80 shadow-xs ring-2 ring-orange-500/10'
-                                        : 'border-slate-200 bg-white hover:bg-slate-50/80'"
-                                >
-                                    <div class="flex items-center gap-2.5 min-w-0">
-                                        <input
-                                            v-model="gatewayForm.payment_channel"
-                                            type="radio"
-                                            :value="ch.id"
-                                            class="text-orange-600 focus:ring-orange-500"
-                                        />
-                                        <span class="text-xs font-bold text-slate-900 truncate">{{ ch.name }}</span>
-                                    </div>
-                                    <span class="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 shrink-0">
-                                        {{ ch.type }}
-                                    </span>
-                                </label>
+                        <!-- Midtrans All-in-One Info Card -->
+                        <div class="p-4 rounded-xl bg-orange-50/60 border border-orange-200/80 flex items-start gap-3.5 text-xs">
+                            <div class="w-9 h-9 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center shrink-0 mt-0.5">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                </svg>
+                            </div>
+                            <div class="space-y-1">
+                                <p class="font-bold text-orange-950">Pilih Metode Pembayaran Langsung di Dialog Snap:</p>
+                                <p class="text-orange-900/80 text-[11px] leading-relaxed">
+                                    Klik tombol bayar untuk membuka jendela resmi Midtrans Snap. Anda dapat memilih transfer <strong>Virtual Account (BCA, Mandiri, BNI, BRI, Permata)</strong>, <strong>QRIS (BCA Mobile, Livin, GoPay, dll.)</strong>, atau <strong>Kartu Kredit</strong> langsung di dalam dialog.
+                                </p>
                             </div>
                         </div>
 
-                        <!-- Live Cost & MDR Breakdown Box -->
+                        <!-- Live Cost & Breakdown Box -->
                         <div class="p-4 rounded-xl bg-slate-50/90 border border-slate-200/90 space-y-2.5 text-xs">
-                            <span class="font-bold text-slate-800 uppercase text-[11px] block">Rincian Perhitungan Tagihan (MDR):</span>
+                            <span class="font-bold text-slate-800 uppercase text-[11px] block">Rincian Tagihan Pembayaran:</span>
 
                             <div class="flex items-center justify-between py-1 border-b border-slate-200/60">
-                                <span class="text-slate-600">Biaya Registrasi Kompetisi</span>
-                                <span class="font-mono tabular-data font-bold text-slate-900">{{ formatRupiah(payment.amount || payment.total_amount) }}</span>
+                                <span class="text-slate-600">Biaya Pendaftaran Kompetisi</span>
+                                <span class="font-mono tabular-data font-bold text-slate-900">{{ formatRupiah(payment.amount) }}</span>
                             </div>
 
                             <div class="flex items-center justify-between py-1 border-b border-slate-200/60">
                                 <span class="text-slate-600">
-                                    Biaya Layanan &amp; MDR Midtrans ({{ currentSelectedChannel.name }})
+                                    Biaya Layanan Gateway Midtrans
                                 </span>
                                 <span v-if="feeBorneByTeam" class="font-mono tabular-data font-bold text-orange-700">
-                                    + {{ formatRupiah(calculatedMdrFee) }}
+                                    + {{ formatRupiah(activeGatewayFee) }}
                                 </span>
                                 <span v-else class="text-emerald-700 font-bold">
                                     Gratis (Ditanggung Penyelenggara)
@@ -658,8 +632,8 @@ const reclaimSlot = () => {
                             </div>
 
                             <div class="flex items-center justify-between pt-1 text-sm font-bold">
-                                <span class="text-slate-900">Total Pembayaran</span>
-                                <span class="font-mono tabular-data text-lg text-slate-900">{{ formatRupiah(calculatedTotalPayable) }}</span>
+                                <span class="text-slate-900">Total Tagihan</span>
+                                <span class="font-mono tabular-data text-lg text-slate-900">{{ formatRupiah(totalPayable) }}</span>
                             </div>
                         </div>
 
@@ -674,25 +648,37 @@ const reclaimSlot = () => {
                                 </p>
                             </div>
 
-                            <div class="flex flex-col sm:items-end gap-1.5">
+                            <div class="flex flex-col sm:items-end gap-2">
                                 <button
                                     type="submit"
                                     class="btn-pitch px-6 py-2.5 text-xs font-bold shadow-sm inline-flex items-center justify-center gap-2"
-                                    :disabled="gatewayForm.processing"
+                                    :disabled="gatewayForm.processing || isRegenerating"
                                 >
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                                     </svg>
-                                    <span>{{ gatewayForm.processing ? 'Menyiapkan Midtrans Snap...' : 'Bayar Sekarang via Midtrans Snap &rarr;' }}</span>
+                                    <span>{{ (gatewayForm.processing || isRegenerating) ? 'Menyiapkan Midtrans Snap...' : 'Bayar Sekarang via Midtrans Snap &rarr;' }}</span>
                                 </button>
 
-                                <div v-if="payment.payment_url && !sandboxSimulatorEnabled" class="text-[11px] text-slate-400">
-                                    <span>Pop-up Snap terhalang blocker browser? </span>
+                                <div class="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                                    <button
+                                        v-if="payment.snap_token && !sandboxSimulatorEnabled"
+                                        type="button"
+                                        class="text-orange-600 hover:text-orange-700 font-semibold underline disabled:opacity-50"
+                                        :disabled="isRegenerating"
+                                        @click="regenerateAndChangeMethod"
+                                    >
+                                        {{ isRegenerating ? 'Menyiapkan opsi baru...' : 'Ganti / Atur Ulang Metode Pembayaran' }}
+                                    </button>
+
+                                    <span v-if="payment.snap_token && payment.payment_url && !sandboxSimulatorEnabled" class="text-slate-300">|</span>
+
                                     <a
+                                        v-if="payment.payment_url && !sandboxSimulatorEnabled"
                                         :href="payment.payment_url"
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        class="text-orange-600 hover:text-orange-700 underline font-semibold"
+                                        class="text-slate-500 hover:text-slate-700 underline"
                                     >
                                         Buka di tab baru &rarr;
                                     </a>

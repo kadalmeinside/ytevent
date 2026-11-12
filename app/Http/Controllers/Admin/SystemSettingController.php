@@ -24,6 +24,7 @@ class SystemSettingController extends Controller
 
         return Inertia::render('Admin/Settings/Index', [
             'settings' => $settings,
+            'availableChannels' => \App\Services\PaymentService::MIDTRANS_AVAILABLE_CHANNELS,
         ]);
     }
 
@@ -100,6 +101,9 @@ class SystemSettingController extends Controller
             'midtrans_ewallet_fee_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'midtrans_cc_fee_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'midtrans_cc_fee_fixed' => ['nullable', 'numeric', 'min:0'],
+            'midtrans_channels_mode' => ['nullable', 'in:all,custom'],
+            'midtrans_active_channels' => ['nullable', 'array'],
+            'midtrans_active_channels.*' => ['string'],
         ], [
             'payment_method_mode.required' => 'Pilih salah satu metode pembayaran aktif.',
             'manual_bank_accounts.*.bank_name.required_if' => 'Nama bank penerima wajib diisi.',
@@ -122,6 +126,8 @@ class SystemSettingController extends Controller
             SystemSetting::set('midtrans_ewallet_fee_percent', (float) ($validated['midtrans_ewallet_fee_percent'] ?? 1.5), 'float', 'payment');
             SystemSetting::set('midtrans_cc_fee_percent', (float) ($validated['midtrans_cc_fee_percent'] ?? 2.9), 'float', 'payment');
             SystemSetting::set('midtrans_cc_fee_fixed', (int) ($validated['midtrans_cc_fee_fixed'] ?? 2000), 'integer', 'payment');
+            SystemSetting::set('midtrans_channels_mode', $validated['midtrans_channels_mode'] ?? 'all', 'text', 'payment');
+            SystemSetting::set('midtrans_active_channels', array_values($validated['midtrans_active_channels'] ?? []), 'json', 'payment');
         }
 
         return back()->with('success', 'Pengaturan metode pembayaran dan nomor rekening / MDR berhasil disimpan.');

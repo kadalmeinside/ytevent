@@ -11,6 +11,10 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    availableChannels: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
 const activeTab = ref('branding');
@@ -57,7 +61,17 @@ const paymentForm = useForm({
     midtrans_ewallet_fee_percent: props.settings.midtrans_ewallet_fee_percent ?? 1.5,
     midtrans_cc_fee_percent: props.settings.midtrans_cc_fee_percent ?? 2.9,
     midtrans_cc_fee_fixed: props.settings.midtrans_cc_fee_fixed ?? 2000,
+    midtrans_channels_mode: props.settings.midtrans_channels_mode || 'all',
+    midtrans_active_channels: Array.isArray(props.settings.midtrans_active_channels) ? props.settings.midtrans_active_channels : [],
 });
+
+const selectAllChannels = () => {
+    paymentForm.midtrans_active_channels = Object.keys(props.availableChannels || {});
+};
+
+const deselectAllChannels = () => {
+    paymentForm.midtrans_active_channels = [];
+};
 
 const addBankAccount = () => {
     paymentForm.manual_bank_accounts.push({
@@ -488,6 +502,70 @@ const toggleSimulationSetting = () => {
                                         <input v-model="paymentForm.midtrans_cc_fee_fixed" type="number" min="0" step="500" class="input-field text-xs font-mono tabular-data font-bold py-1.5 flex-1" />
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Midtrans Allowed Channels Filter -->
+                        <div class="p-5 rounded-2xl border border-slate-200 bg-white/80 space-y-4">
+                            <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+                                <div>
+                                    <span class="font-bold text-slate-900 text-sm">Kanal Pembayaran di Midtrans Snap</span>
+                                    <p class="text-slate-500 text-[11px] mt-0.5">Tentukan apakah ingin menampilkan semua kanal yang aktif di akun Midtrans atau membatasi ke beberapa kanal tertentu saja.</p>
+                                </div>
+                            </div>
+
+                            <!-- Mode Selector -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <label class="flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer" :class="paymentForm.midtrans_channels_mode === 'all' ? 'border-orange-500 bg-orange-50/70 font-bold text-orange-950' : 'border-slate-200 bg-white text-slate-700'">
+                                    <input v-model="paymentForm.midtrans_channels_mode" type="radio" value="all" class="text-orange-600 focus:ring-orange-500 mt-0.5" />
+                                    <div>
+                                        <span class="text-xs font-bold block">Tampilkan Semua Kanal (All-in-One Rekomendasi)</span>
+                                        <span class="text-[11px] text-slate-500 font-normal block mt-0.5">Seluruh metode pembayaran yang aktif di akun Midtrans Anda otomatis dapat dipilih oleh manajer di jendela Snap.</span>
+                                    </div>
+                                </label>
+                                <label class="flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer" :class="paymentForm.midtrans_channels_mode === 'custom' ? 'border-orange-500 bg-orange-50/70 font-bold text-orange-950' : 'border-slate-200 bg-white text-slate-700'">
+                                    <input v-model="paymentForm.midtrans_channels_mode" type="radio" value="custom" class="text-orange-600 focus:ring-orange-500 mt-0.5" />
+                                    <div>
+                                        <span class="text-xs font-bold block">Pilih Beberapa Kanal Tertentu</span>
+                                        <span class="text-[11px] text-slate-500 font-normal block mt-0.5">Batasi pilihan di jendela Snap hanya pada bank atau metode tertentu yang Anda centang di bawah.</span>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <!-- Custom Channels Checklist -->
+                            <div v-if="paymentForm.midtrans_channels_mode === 'custom'" class="pt-2 space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold text-slate-800">Daftar Kanal yang Diizinkan:</span>
+                                    <div class="flex items-center gap-2">
+                                        <button type="button" class="text-[11px] text-orange-600 hover:underline font-semibold" @click="selectAllChannels">
+                                            Pilih Semua
+                                        </button>
+                                        <span class="text-slate-300">|</span>
+                                        <button type="button" class="text-[11px] text-slate-500 hover:underline" @click="deselectAllChannels">
+                                            Kosongkan
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                                    <label
+                                        v-for="(label, key) in availableChannels"
+                                        :key="key"
+                                        class="flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-xs transition"
+                                        :class="paymentForm.midtrans_active_channels.includes(key) ? 'border-orange-400 bg-orange-50/60 font-semibold text-orange-950' : 'border-slate-200 bg-slate-50/50 text-slate-700 hover:bg-slate-50'"
+                                    >
+                                        <input
+                                            v-model="paymentForm.midtrans_active_channels"
+                                            type="checkbox"
+                                            :value="key"
+                                            class="rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                                        />
+                                        <span>{{ label }}</span>
+                                    </label>
+                                </div>
+                                <p v-if="paymentForm.midtrans_active_channels.length === 0" class="text-[11px] text-amber-600 italic">
+                                    * Jika tidak ada yang dicentang, Midtrans akan otomatis menampilkan seluruh metode yang aktif di akun Anda.
+                                </p>
                             </div>
                         </div>
                     </div>
