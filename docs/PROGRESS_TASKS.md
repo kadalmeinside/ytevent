@@ -461,3 +461,45 @@ Legenda Status:
 - [ ] **7.5** *(P-4 Skala Trafik)* Migrasi private document vault ke Object Storage (Cloudflare R2 / AWS S3) dengan Presigned URLs.
 - [ ] **7.6** *(P-5 Operasional)* Integrasi Redis In-Memory Caching & Laravel Horizon Queue Cluster.
 
+---
+
+## FASE 8 — EKOSISTEM MULTI-EVENT & AUDISI/SELEKSI BAKAT INDIVIDUAL (VERSI 2.0)
+
+Dokumen Rencana Teknis Terperinci: [`PHASE_MULTI_EVENT_AND_INDIVIDUAL_IMPLEMENTATION_PLAN.md`](file:///Users/macbook/Application/ytevent/docs/PHASE_MULTI_EVENT_AND_INDIVIDUAL_IMPLEMENTATION_PLAN.md)  
+Dokumen PRD Terverifikasi: [`PRD_MULTI_EVENT_INDIVIDUAL.md`](file:///Users/macbook/Application/ytevent/docs/PRD_MULTI_EVENT_INDIVIDUAL.md)
+
+### 8.1 Sub-Fase 1: Konfigurasi Kuota Dinamis & Custom Form Presets Engine
+- [x] **8.1.1** Migrasi database penambahan kolom `event_type`, `participant_type`, `quota_type`, `max_participants`, `position_quota_caps`, `form_presets`, dan `custom_fields_schema` pada tabel `events`.
+- [x] **8.1.2** Pembaruan model `Event.php` (casts JSON, helper `availableSlotsCount()`, dan logika `canAcceptRegistration()` untuk mode unlimited quota).
+- [x] **8.1.3** Pembaruan form admin `Admin/Events/Form.vue` (pemilihan tipe event, mode kuota fixed vs unlimited, dan sakelar toggle preset formulir).
+- [x] **8.1.4** Pembaruan halaman publik `Public/EventDetail.vue` & `Public/Home.vue` (badge dinamis kuota terbuka vs kuota tetap).
+- [x] **8.1.5** Automated Feature Test `Phase8DynamicQuotaAndFormPresetsTest.php` dan verifikasi integritas sistem kuota (122 automated tests PASS 100%).
+
+### 8.2 Sub-Fase 2: Universal Account & Unified Portal Header / Dashboard
+- [ ] **8.2.1** Transisi navigasi publik `PublicLayout.vue`: tombol `"Login Manajer"` diganti menjadi `"Masuk"` / `"Akun Saya"`.
+- [ ] **8.2.2** Harmonisasi portal login `/login` dan dropdown navigasi multi-peran (Tim Turnamen & Pendaftaran Audisi Anak).
+- [ ] **8.2.3** Pembuatan antarmuka **Unified Dashboard Hub** (`/dashboard`) yang menampilkan kartu tim turnamen sekaligus kartu pendaftaran audisi anak.
+
+### 8.3 Sub-Fase 3: Pendaftaran Audisi, Sesi Waktu, & Screening Dokumen
+- [ ] **8.3.1** Migrasi tabel `audition_stages`, `event_sessions`, dan `audition_participants`.
+- [ ] **8.3.2** Formulir pendaftaran audisi dinamis (`/events/{slug}/register-audition`) yang me-render input sesuai preset event + checkbox surat pernyataan medis (*liability waiver*) & kontak darurat kedua.
+- [ ] **8.3.3** Integrasi tagihan pembayaran Midtrans / manual transfer untuk pendaftaran individual.
+- [ ] **8.3.4** Panel screening berkas atlet admin: verifikasi Akta Kelahiran, KK, dan Pas Foto dengan SOP *re-upload grace period* 24 jam.
+
+### 8.4 Sub-Fase 4: Generator Nomor Dada (Bib Tag PDF) & Absensi Multi-Hari QR Scanner
+- [ ] **8.4.1** Generator PDF Nomor Dada ukuran A4 Landscape ber-QR Code terenkripsi (hanya bisa diunduh jika lunas & lolos screening).
+- [ ] **8.4.2** Modul Web QR Scanner Kehadiran Lapangan (`/admin/audition/scanner`) dengan pencatatan absensi harian (`audition_attendances`).
+- [ ] **8.4.3** Penerapan *Gatekeeper Guard*: sistem menolak check-in peserta yang tidak lolos di hari/tahap sebelumnya.
+
+### 8.5 Sub-Fase 5: Mobile Quick Scouting Web Panel
+- [ ] **8.5.1** Registrasi peran Spatie RBAC `talent_scout`.
+- [ ] **8.5.2** Antarmuka web responsif tablet/smartphone untuk pemandu bakat (`/scout/events/{event}`).
+- [ ] **8.5.3** Form *Field Quick Grade* (Rekomendasi A/B/C, Rating Bintang 1-5, Tag Keunggulan Cepat, dan Catatan Pelatih).
+- [ ] **8.5.4** Penegakan *Blind Scoring* dan fitur kunci penilaian harian (*locked session*) oleh Head Coach.
+
+### 8.6 Sub-Fase 6: Kelolosan Bertahap, Notifikasi Email Otomatis, & E-Sertifikat
+- [ ] **8.6.1** Panel seleksi kelulusan bertahap admin (Hari 1 -> Hari 2 -> Final Day).
+- [ ] **8.6.2** Otomatisasi pengiriman email berjenjang sebelum pukul 18.00 WIB (Tiket hari berikutnya vs link rapor & e-sertifikat).
+- [ ] **8.6.3** Generator PDF E-Sertifikat Berjenjang (Keikutsertaan, Finalis, Terpilih) ber-QR Code publik dan Rapor Evaluasi Pelatih.
+
+

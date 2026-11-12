@@ -164,6 +164,9 @@ const eventJsonLd = computed(() => {
                             <span class="px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
                                 {{ event.format_label }}
                             </span>
+                            <span v-if="event.event_type && event.event_type !== 'tournament'" class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-purple-50 text-purple-800 border border-purple-200">
+                                {{ event.event_type_label || event.event_type }}
+                            </span>
                             <StatusBadge :status="event.status" />
                         </div>
 
@@ -572,7 +575,18 @@ const eventJsonLd = computed(() => {
                             {{ formatRupiah(event.registration_fee) }}
                         </p>
 
-                        <div class="mt-4 p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/90 space-y-2">
+                        <div v-if="event.is_unlimited_quota" class="mt-4 p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200/90 space-y-2">
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="font-semibold text-emerald-800">Model Pendaftaran</span>
+                                <span class="font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded text-[11px] border border-emerald-200">
+                                    Terbuka s.d. Batas Waktu
+                                </span>
+                            </div>
+                            <p class="text-[11px] text-emerald-700 leading-relaxed">
+                                Pendaftaran dibuka bebas untuk semua peserta hingga tanggal penutupan resmi. Total <strong class="text-emerald-950 font-bold tabular-data">{{ event.occupied_slots }} tim/peserta</strong> telah mendaftar.
+                            </p>
+                        </div>
+                        <div v-else class="mt-4 p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/90 space-y-2">
                             <div class="flex items-center justify-between text-xs">
                                 <span class="font-semibold text-slate-700">Kapasitas Kuota Maksimal</span>
                                 <span class="font-bold tabular-data" :class="event.available_slots === 0 ? 'text-rose-700' : 'text-orange-800'">

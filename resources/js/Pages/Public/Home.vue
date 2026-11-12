@@ -255,12 +255,15 @@ const stripHtml = (html) => {
                     <div class="p-5 flex-1 flex flex-col justify-between">
                         <div>
                             <div class="flex items-center justify-between gap-2 mb-3">
-                                <div class="flex items-center gap-1.5">
+                                <div class="flex items-center gap-1.5 flex-wrap">
                                     <span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-900 text-white">
                                         {{ event.age_category }}
                                     </span>
                                     <span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
                                         {{ event.format_label }}
+                                    </span>
+                                    <span v-if="event.event_type && event.event_type !== 'tournament'" class="px-2 py-0.5 rounded text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                                        {{ event.event_type_label || event.event_type }}
                                     </span>
                                 </div>
                                 <StatusBadge :status="event.status" />
@@ -303,7 +306,18 @@ const stripHtml = (html) => {
                         </dl>
 
                         <!-- Quota Progress -->
-                        <div class="mt-4 p-3 rounded-xl bg-slate-50/80 border border-slate-200/80">
+                        <div v-if="event.is_unlimited_quota" class="mt-4 p-3 rounded-xl bg-emerald-50/80 border border-emerald-200/80">
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="font-semibold text-emerald-800">Model Pendaftaran</span>
+                                <span class="font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded text-[11px] border border-emerald-200">
+                                    Buka s.d. Deadline
+                                </span>
+                            </div>
+                            <p class="text-[11px] text-emerald-700 mt-1">
+                                Kuota terbuka bebas. <strong class="text-emerald-950 font-bold tabular-data">{{ event.occupied_slots }} pendaftar</strong> telah bergabung.
+                            </p>
+                        </div>
+                        <div v-else class="mt-4 p-3 rounded-xl bg-slate-50/80 border border-slate-200/80">
                             <div class="flex items-center justify-between text-xs mb-1.5">
                                 <span class="font-semibold text-slate-700">Kuota Tim Terisi</span>
                                 <span class="font-bold tabular-data" :class="event.available_slots === 0 ? 'text-rose-700' : 'text-orange-800'">

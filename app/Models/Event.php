@@ -26,6 +26,32 @@ class Event extends Model
         'festival' => 'Grassroots Festival',
     ];
 
+    public const EVENT_TYPES = [
+        'tournament' => 'Turnamen Tim Beregu',
+        'audition' => 'Audisi / Seleksi Pemain Individual',
+        'coaching_clinic' => 'Coaching Clinic / Workshop',
+        'festival' => 'Grassroots Festival / Fun Event',
+    ];
+
+    public const PARTICIPANT_TYPES = [
+        'team' => 'Beregu / Tim',
+        'individual' => 'Individu / Perorangan',
+    ];
+
+    public const QUOTA_TYPES = [
+        'fixed' => 'Kuota Terbatas (Fixed Quota)',
+        'unlimited' => 'Terbuka Hingga Batas Waktu (Unlimited until Deadline)',
+    ];
+
+    public const DEFAULT_FORM_PRESETS = [
+        'position' => true,
+        'foot_dominance' => true,
+        'team_origin' => true,
+        'body_measurements' => true,
+        'experience' => true,
+        'jersey_size' => false,
+    ];
+
     public const MATCH_FORMATS = [
         '5_vs_5' => [
             'label' => '5 vs 5 (Futsal / Mini Football / U-8 & U-9)',
@@ -77,6 +103,13 @@ class Event extends Model
         'venue_name',
         'venue_maps_url',
         'city',
+        'event_type',
+        'participant_type',
+        'quota_type',
+        'max_participants',
+        'position_quota_caps',
+        'form_presets',
+        'custom_fields_schema',
         'format',
         'match_format',
         'starting_players_count',
@@ -120,6 +153,10 @@ class Event extends Model
             'registration_close_at' => 'datetime',
             'required_documents' => 'array',
             'max_teams' => 'integer',
+            'max_participants' => 'integer',
+            'position_quota_caps' => 'array',
+            'form_presets' => 'array',
+            'custom_fields_schema' => 'array',
             'min_players_per_team' => 'integer',
             'max_players_per_team' => 'integer',
             'min_gk_per_team' => 'integer',
@@ -190,9 +227,27 @@ class Event extends Model
         return $this->teams()->occupyingQuotaAt(now())->count();
     }
 
-    public function availableSlotsCount(): int
+    public function isUnlimitedQuota(): bool
     {
-        return max(0, $this->max_teams - $this->occupiedSlotsCount());
+        return ($this->quota_type ?? 'fixed') === 'unlimited';
+    }
+
+    public function isIndividual(): bool
+    {
+        return ($this->participant_type ?? 'team') === 'individual';
+    }
+
+    public function availableSlotsCount(): ?int
+    {
+        if ($this->isUnlimitedQuota()) {
+            return null;
+        }
+
+        $capacity = $this->isIndividual()
+            ? ($this->max_participants ?? $this->max_teams ?? 0)
+            : ($this->max_teams ?? 0);
+
+        return max(0, $capacity - $this->occupiedSlotsCount());
     }
 
     public function isWithinRegistrationWindow(): bool
@@ -220,7 +275,13 @@ class Event extends Model
             return false;
         }
 
-        return $this->availableSlotsCount() > 0;
+        if ($this->isUnlimitedQuota()) {
+            return $this->status === 'open';
+        }
+
+        $available = $this->availableSlotsCount();
+
+        return $available !== null && $available > 0;
     }
 
     public function isBirthDateEligible(?string $birthDate): ?bool
@@ -255,11 +316,19 @@ class Event extends Model
             return;
         }
 
-        $occupied = $occupiedCount ?? $this->teams()->occupyingQuotaAt(now())->count();
+        if ($this->isUnlimitedQuota()) {
+            if ($this->status === 'quota_full' && $this->isWithinRegistrationWindow()) {
+                $this->update(['status' => 'open']);
+            }
+            return;
+        }
 
-        if ($occupied >= $this->max_teams && $this->status !== 'quota_full') {
+        $occupied = $occupiedCount ?? $this->teams()->occupyingQuotaAt(now())->count();
+        $capacity = $this->isIndividual() ? ($this->max_participants ?? $this->max_teams ?? 0) : ($this->max_teams ?? 0);
+
+        if ($capacity > 0 && $occupied >= $capacity && $this->status !== 'quota_full') {
             $this->update(['status' => 'quota_full']);
-        } elseif ($occupied < $this->max_teams && $this->status === 'quota_full' && $this->isWithinRegistrationWindow()) {
+        } elseif ($capacity > 0 && $occupied < $capacity && $this->status === 'quota_full' && $this->isWithinRegistrationWindow()) {
             $this->update(['status' => 'open']);
         }
     }

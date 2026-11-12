@@ -52,7 +52,7 @@ class TeamRegistrationService
                 // 3. Periksa sisa slot kuota di bawah kunci eksklusif (SELECT ... FOR UPDATE)
                 $occupied = $lockedEvent->teams()->occupyingQuotaAt(now())->count();
 
-                if ($occupied >= $lockedEvent->max_teams) {
+                if (! $lockedEvent->isUnlimitedQuota() && $lockedEvent->max_teams && $occupied >= $lockedEvent->max_teams) {
                     $lockedEvent->syncQuotaStatus($occupied);
 
                     return [
@@ -236,7 +236,7 @@ class TeamRegistrationService
 
             $occupied = $lockedEvent->teams()->occupyingQuotaAt(now())->count();
 
-            if ($occupied >= $lockedEvent->max_teams) {
+            if (! $lockedEvent->isUnlimitedQuota() && $lockedEvent->max_teams && $occupied >= $lockedEvent->max_teams) {
                 $lockedEvent->syncQuotaStatus($occupied);
 
                 return [

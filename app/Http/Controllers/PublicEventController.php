@@ -239,10 +239,14 @@ class PublicEventController extends Controller
     protected function transformPublicEvent(Event $event, bool $detailed = false): array
     {
         $occupied = $event->occupiedSlotsCount();
-        $available = max(0, $event->max_teams - $occupied);
-        $effectiveStatus = ($event->status === 'open' && $available === 0)
-            ? 'quota_full'
-            : (($event->status === 'quota_full' && $available > 0 && $event->isWithinRegistrationWindow()) ? 'open' : $event->status);
+        $isUnlimited = $event->isUnlimitedQuota();
+        $available = $isUnlimited ? null : $event->availableSlotsCount();
+
+        $effectiveStatus = $isUnlimited
+            ? ($event->status === 'open' && $event->isWithinRegistrationWindow() ? 'open' : $event->status)
+            : (($event->status === 'open' && $available === 0)
+                ? 'quota_full'
+                : (($event->status === 'quota_full' && ($available ?? 0) > 0 && $event->isWithinRegistrationWindow()) ? 'open' : $event->status));
 
         $data = [
             'id' => $event->id,
@@ -254,6 +258,13 @@ class PublicEventController extends Controller
             'city' => $event->city,
             'format' => $event->format,
             'format_label' => Event::FORMATS[$event->format] ?? $event->format,
+            'event_type' => $event->event_type ?? 'tournament',
+            'event_type_label' => Event::EVENT_TYPES[$event->event_type ?? 'tournament'] ?? ($event->event_type ?? 'Turnamen'),
+            'participant_type' => $event->participant_type ?? 'team',
+            'participant_type_label' => Event::PARTICIPANT_TYPES[$event->participant_type ?? 'team'] ?? 'Beregu / Tim',
+            'quota_type' => $event->quota_type ?? 'fixed',
+            'is_unlimited_quota' => $isUnlimited,
+            'max_participants' => $event->max_participants,
             'age_category' => $event->age_category,
             'min_birth_date' => $event->min_birth_date?->toDateString(),
             'max_birth_date' => $event->max_birth_date?->toDateString(),
@@ -274,6 +285,9 @@ class PublicEventController extends Controller
         ];
 
         if ($detailed) {
+            $data['form_presets'] = $event->form_presets ?? Event::DEFAULT_FORM_PRESETS;
+            $data['custom_fields_schema'] = $event->custom_fields_schema ?? [];
+            $data['position_quota_caps'] = $event->position_quota_caps ?? null;
             $data['min_players_per_team'] = $event->min_players_per_team;
             $data['max_players_per_team'] = $event->max_players_per_team;
             $data['min_gk_per_team'] = (int) ($event->min_gk_per_team ?? 2);
@@ -319,8 +333,12 @@ class PublicEventController extends Controller
     protected function cleanPlainDescription(Event $event, bool $isRegisterPage = false): string
     {
         if ($isRegisterPage) {
+            if ($event->isUnlimitedQuota()) {
+                return "Formulir pendaftaran resmi untuk kegiatan {$event->name} ({$event->age_category}) di {$event->venue_name}, {$event->city}. Pendaftaran terbuka hingga batas waktu penutupan.";
+            }
+
             $occupied = $event->occupiedSlotsCount();
-            $available = max(0, $event->max_teams - $occupied);
+            $available = max(0, ($event->max_teams ?? 0) - $occupied);
 
             return "Formulir pendaftaran resmi tim sepak bola untuk kompetisi {$event->name} ({$event->age_category}) di {$event->venue_name}, {$event->city}. Sisa slot tersedia: {$available} dari {$event->max_teams} tim.";
         }
@@ -334,6 +352,10 @@ class PublicEventController extends Controller
             }
         }
 
+        if ($event->isUnlimitedQuota()) {
+            return "Pendaftaran resmi {$event->name} ({$event->age_category}) di {$event->venue_name}, {$event->city}. Pendaftaran terbuka.";
+        }
+
         return "Pendaftaran resmi {$event->name} ({$event->age_category}) di {$event->venue_name}, {$event->city}. Kuota maksimal {$event->max_teams} tim.";
     }
 
@@ -341,7 +363,8 @@ class PublicEventController extends Controller
     {
         $appName = (string) SystemSetting::get('app_name', config('app.name', 'Persija Development'));
         $occupied = $event->occupiedSlotsCount();
-        $available = max(0, $event->max_teams - $occupied);
+        $isUnlimited = $event->isUnlimitedQuota();
+        $available = $isUnlimited ? null : max(0, ($event->max_teams ?? 0) - $occupied);
         $bannerUrl = $this->publicStorageUrl($event->banner_optimized_path ?: $event->banner_path);
         $description = $this->cleanPlainDescription($event, $isRegisterPage);
         $detailUrl = route('events.show', ['event' => $event->slug]);
@@ -363,7 +386,8 @@ class PublicEventController extends Controller
             'endDate' => ($event->match_end_date ?? $event->match_start_date)?->toDateString(),
             'eventStatus' => 'https://schema.org/EventScheduled',
             'eventAttendanceMode' => 'https://schema.org/OfflineEventAttendanceMode',
-            'maximumAttendeeCapacity' => (int) $event->max_teams,
+            'maximumAttendeeCapacity' => $event->max_teams ? (int) $event->max_teams : null,
+            'remainingAttendeeCapacity' => $available !== null ? (int) $available : null,
             'remainingAttendeeCapacity' => (int) $available,
             'image' => $bannerUrl ? [$bannerUrl] : null,
             'url' => $detailUrl,

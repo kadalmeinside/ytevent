@@ -30,6 +30,22 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    eventTypes: {
+        type: Object,
+        default: () => ({}),
+    },
+    participantTypes: {
+        type: Object,
+        default: () => ({}),
+    },
+    quotaTypes: {
+        type: Object,
+        default: () => ({}),
+    },
+    defaultFormPresets: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
 const isEdit = computed(() => Boolean(props.event?.id));
@@ -38,6 +54,19 @@ const { applyValidation, isEmpty } = useFormValidator();
 
 const form = useForm({
     name: props.event?.name || '',
+    event_type: props.event?.event_type || 'tournament',
+    participant_type: props.event?.participant_type || 'team',
+    quota_type: props.event?.quota_type || 'fixed',
+    max_participants: props.event?.max_participants ?? 100,
+    form_presets: {
+        position: props.event?.form_presets?.position ?? true,
+        foot_dominance: props.event?.form_presets?.foot_dominance ?? true,
+        team_origin: props.event?.form_presets?.team_origin ?? true,
+        body_measurements: props.event?.form_presets?.body_measurements ?? true,
+        experience: props.event?.form_presets?.experience ?? true,
+        jersey_size: props.event?.form_presets?.jersey_size ?? false,
+    },
+    custom_fields_schema: props.event?.custom_fields_schema || [],
     short_description: props.event?.short_description || '',
     venue_name: props.event?.venue_name || '',
     venue_maps_url: props.event?.venue_maps_url || '',
@@ -104,11 +133,19 @@ const submit = () => {
         if (isEmpty(form.venue_name)) errs.venue_name = 'Lokasi atau stadion utama wajib diisi.';
         if (isEmpty(form.city)) errs.city = 'Kota penyelenggaraan wajib diisi.';
         if (isEmpty(form.age_category)) errs.age_category = 'Label kategori usia wajib diisi.';
-        if (isEmpty(form.max_teams) || Number(form.max_teams) < 2) {
-            errs.max_teams = 'Kuota maksimal tim wajib berupa angka minimal 2 tim.';
-        }
-        if (isEdit.value && props.event?.occupied_slots && Number(form.max_teams) < props.event.occupied_slots) {
-            errs.max_teams = `Kuota maksimal tidak boleh dikurangi di bawah jumlah tim yang saat ini sedang memegang slot (${props.event.occupied_slots} tim).`;
+        if (form.quota_type === 'fixed') {
+            if (form.participant_type === 'team') {
+                if (isEmpty(form.max_teams) || Number(form.max_teams) < 2) {
+                    errs.max_teams = 'Kuota maksimal tim wajib berupa angka minimal 2 tim.';
+                }
+                if (isEdit.value && props.event?.occupied_slots && Number(form.max_teams) < props.event.occupied_slots) {
+                    errs.max_teams = `Kuota maksimal tidak boleh dikurangi di bawah jumlah tim yang saat ini sedang memegang slot (${props.event.occupied_slots} tim).`;
+                }
+            } else {
+                if (isEmpty(form.max_participants) || Number(form.max_participants) < 2) {
+                    errs.max_participants = 'Kuota maksimal peserta wajib berupa angka minimal 2 orang.';
+                }
+            }
         }
         if (isEmpty(form.required_documents) || form.required_documents.length === 0) {
             errs.required_documents = 'Pilih minimal satu jenis dokumen kelengkapan wajib untuk pemain.';
@@ -157,16 +194,34 @@ const submit = () => {
                         </h2>
                         <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div data-field="name" class="sm:col-span-2">
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Kompetisi / Turnamen</label>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Kompetisi / Event</label>
                                 <input
                                     v-model="form.name"
                                     type="text"
-                                    placeholder="Contoh: Piala Nusantara U-15 2026"
+                                    placeholder="Contoh: Piala Nusantara U-15 2026 atau Audisi EPA Persija 2026"
                                     class="input-field"
                                     :class="{ 'input-field-error': form.errors.name }"
                                     @input="form.clearErrors('name')"
                                 />
                                 <InputError :message="form.errors.name" />
+                            </div>
+
+                            <div data-field="event_type">
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Jenis Penyelenggaraan Event</label>
+                                <select v-model="form.event_type" class="input-field">
+                                    <option value="tournament">Turnamen Tim Beregu</option>
+                                    <option value="audition">Audisi / Seleksi Pemain Individual</option>
+                                    <option value="coaching_clinic">Coaching Clinic / Workshop</option>
+                                    <option value="festival">Grassroots Festival / Fun Event</option>
+                                </select>
+                            </div>
+
+                            <div data-field="participant_type">
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Model Kepesertaan</label>
+                                <select v-model="form.participant_type" class="input-field">
+                                    <option value="team">Beregu / Tim (SSB / Klub / Sekolah)</option>
+                                    <option value="individual">Individu / Perorangan (Atlet / Anak)</option>
+                                </select>
                             </div>
 
                             <div data-field="format">
@@ -286,13 +341,51 @@ const submit = () => {
                         </div>
                     </div>
 
-                    <!-- Section 2: Kuota Maksimal & Keuangan -->
+                    <!-- Section 2: Kebijakan Kuota Pendaftaran & Keuangan -->
                     <div>
                         <h2 class="text-sm font-bold text-slate-900 pb-2 border-b border-slate-200">
-                            2. Kuota Maksimal Tim &amp; Pengaturan Keuangan
+                            2. Kebijakan Kuota Pendaftaran &amp; Pengaturan Keuangan
                         </h2>
-                        <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div data-field="max_teams">
+                        
+                        <!-- Mode Kuota Toggle -->
+                        <div class="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-200 mb-4">
+                            <label class="block text-xs font-bold text-slate-800 mb-2">Model Pembatasan Pendaftaran</label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <label
+                                    class="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors"
+                                    :class="form.quota_type === 'fixed' ? 'border-orange-500 bg-orange-50/50 text-orange-950 font-medium' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'"
+                                >
+                                    <input
+                                        v-model="form.quota_type"
+                                        type="radio"
+                                        value="fixed"
+                                        class="mt-0.5 text-orange-600 focus:ring-orange-500"
+                                    />
+                                    <div class="text-xs">
+                                        <span class="font-bold block text-slate-900">Kuota Terbatas (Fixed Quota)</span>
+                                        <span class="text-slate-500 text-[11px] block mt-0.5">Dibatasi angka kuota pasti (misal: 16/32 tim atau 100 atlet). Pendaftaran tutup saat slot penuh.</span>
+                                    </div>
+                                </label>
+                                <label
+                                    class="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors"
+                                    :class="form.quota_type === 'unlimited' ? 'border-orange-500 bg-orange-50/50 text-orange-950 font-medium' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'"
+                                >
+                                    <input
+                                        v-model="form.quota_type"
+                                        type="radio"
+                                        value="unlimited"
+                                        class="mt-0.5 text-orange-600 focus:ring-orange-500"
+                                    />
+                                    <div class="text-xs">
+                                        <span class="font-bold block text-slate-900">Terbuka s.d. Batas Waktu (Unlimited Deadline)</span>
+                                        <span class="text-slate-500 text-[11px] block mt-0.5">Tanpa batasan kuota awal (Coaching Clinic, Festival). Pendaftaran ditutup saat tanggal closing tiba.</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div v-if="form.quota_type === 'fixed' && form.participant_type === 'team'" data-field="max_teams">
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">
                                     Kuota Maksimal Tim (Slot Keras)
                                 </label>
@@ -308,6 +401,25 @@ const submit = () => {
                                     Slot terisi saat ini: <strong class="tabular-data text-orange-950 font-bold">{{ event.occupied_slots }} tim</strong>.
                                 </p>
                                 <InputError :message="form.errors.max_teams" />
+                            </div>
+
+                            <div v-else-if="form.quota_type === 'fixed' && form.participant_type === 'individual'" data-field="max_participants">
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">
+                                    Kuota Maksimal Peserta (Atlet)
+                                </label>
+                                <input
+                                    v-model="form.max_participants"
+                                    type="number"
+                                    min="2"
+                                    class="input-field tabular-data"
+                                    :class="{ 'input-field-error': form.errors.max_participants }"
+                                    @input="form.clearErrors('max_participants')"
+                                />
+                                <InputError :message="form.errors.max_participants" />
+                            </div>
+
+                            <div v-else class="sm:col-span-1 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center">
+                                <span>🟢 Kuota terbuka tanpa batas awal. Akses pendaftaran otomatis dikunci saat batas waktu penutupan tiba.</span>
                             </div>
 
                             <div data-field="registration_fee">
@@ -529,10 +641,111 @@ const submit = () => {
                         </div>
                     </div>
 
-                    <!-- Section 4: Jadwal & Berkas -->
+                    <!-- Section 4: Kustomisasi Kolom Formulir Pendaftaran (Custom Form Presets) -->
                     <div>
                         <h2 class="text-sm font-bold text-slate-900 pb-2 border-b border-slate-200">
-                            4. Jadwal Pendaftaran &amp; Pelaksanaan
+                            4. Kustomisasi Kolom Formulir Pendaftaran (Form Presets)
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-1">
+                            Pilih kolom data apa saja yang wajib diisi oleh pendaftar saat mendaftar pada event ini.
+                        </p>
+                        <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            <label
+                                class="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors"
+                                :class="form.form_presets.position ? 'border-orange-500 bg-orange-50/40 text-orange-950' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'"
+                            >
+                                <input
+                                    v-model="form.form_presets.position"
+                                    type="checkbox"
+                                    class="mt-0.5 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                                />
+                                <div class="text-xs">
+                                    <span class="font-bold block">Posisi Lapangan</span>
+                                    <span class="text-slate-500 text-[11px] block mt-0.5">Wajibkan pemilihan posisi utama (GK, Bek, Mid, Forward) &amp; posisi sekunder.</span>
+                                </div>
+                            </label>
+
+                            <label
+                                class="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors"
+                                :class="form.form_presets.foot_dominance ? 'border-orange-500 bg-orange-50/40 text-orange-950' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'"
+                            >
+                                <input
+                                    v-model="form.form_presets.foot_dominance"
+                                    type="checkbox"
+                                    class="mt-0.5 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                                />
+                                <div class="text-xs">
+                                    <span class="font-bold block">Kaki Dominan</span>
+                                    <span class="text-slate-500 text-[11px] block mt-0.5">Wajibkan atlet mengisi kaki dominan (Kanan, Kiri, atau Kedua Kaki).</span>
+                                </div>
+                            </label>
+
+                            <label
+                                class="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors"
+                                :class="form.form_presets.team_origin ? 'border-orange-500 bg-orange-50/40 text-orange-950' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'"
+                            >
+                                <input
+                                    v-model="form.form_presets.team_origin"
+                                    type="checkbox"
+                                    class="mt-0.5 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                                />
+                                <div class="text-xs">
+                                    <span class="font-bold block">Asal Tim / SSB / Sekolah</span>
+                                    <span class="text-slate-500 text-[11px] block mt-0.5">Wajibkan pengisian nama klub/sekolah sepak bola asal.</span>
+                                </div>
+                            </label>
+
+                            <label
+                                class="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors"
+                                :class="form.form_presets.body_measurements ? 'border-orange-500 bg-orange-50/40 text-orange-950' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'"
+                            >
+                                <input
+                                    v-model="form.form_presets.body_measurements"
+                                    type="checkbox"
+                                    class="mt-0.5 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                                />
+                                <div class="text-xs">
+                                    <span class="font-bold block">Antropometri Fisik</span>
+                                    <span class="text-slate-500 text-[11px] block mt-0.5">Tampilkan kolom Tinggi Badan (cm) dan Berat Badan (kg).</span>
+                                </div>
+                            </label>
+
+                            <label
+                                class="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors"
+                                :class="form.form_presets.experience ? 'border-orange-500 bg-orange-50/40 text-orange-950' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'"
+                            >
+                                <input
+                                    v-model="form.form_presets.experience"
+                                    type="checkbox"
+                                    class="mt-0.5 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                                />
+                                <div class="text-xs">
+                                    <span class="font-bold block">Riwayat Pengalaman / Prestasi</span>
+                                    <span class="text-slate-500 text-[11px] block mt-0.5">Kolom teks riwayat kejuaraan / turnamen sebelumnya yang pernah diikuti.</span>
+                                </div>
+                            </label>
+
+                            <label
+                                class="flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors"
+                                :class="form.form_presets.jersey_size ? 'border-orange-500 bg-orange-50/40 text-orange-950' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'"
+                            >
+                                <input
+                                    v-model="form.form_presets.jersey_size"
+                                    type="checkbox"
+                                    class="mt-0.5 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                                />
+                                <div class="text-xs">
+                                    <span class="font-bold block">Ukuran Kaos / Jersey / Rompi</span>
+                                    <span class="text-slate-500 text-[11px] block mt-0.5">Pilihan ukuran baju (S/M/L/XL/XXL) untuk event dengan paket seragam.</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Section 5: Jadwal & Berkas -->
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900 pb-2 border-b border-slate-200">
+                            5. Jadwal Pendaftaran &amp; Pelaksanaan
                         </h2>
                         <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>

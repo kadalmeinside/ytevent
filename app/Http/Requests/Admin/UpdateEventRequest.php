@@ -25,14 +25,16 @@ class UpdateEventRequest extends StoreEventRequest
                     return;
                 }
 
-                $occupied = $event->teams()->occupyingQuotaAt(now())->count();
-                $requestedMax = (int) $this->input('max_teams', 0);
+                if ($this->input('quota_type', 'fixed') === 'fixed') {
+                    $occupied = $event->teams()->occupyingQuotaAt(now())->count();
+                    $requestedMax = (int) $this->input('max_teams', 0);
 
-                if ($requestedMax > 0 && $requestedMax < $occupied) {
-                    $validator->errors()->add(
-                        'max_teams',
-                        "Kuota maksimal tidak boleh dikurangi di bawah jumlah tim yang saat ini sedang memegang slot ({$occupied} tim)."
-                    );
+                    if ($requestedMax > 0 && $requestedMax < $occupied) {
+                        $validator->errors()->add(
+                            'max_teams',
+                            "Kuota maksimal tidak boleh dikurangi di bawah jumlah tim yang saat ini sedang memegang slot ({$occupied} tim)."
+                        );
+                    }
                 }
             },
         ];

@@ -97,7 +97,12 @@ const triggerResyncEvent = (evt) => {
                                     🏆
                                 </div>
                                 <div>
-                                    <h4 class="text-sm sm:text-base font-bold text-slate-900 leading-tight">{{ evt.name }}</h4>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <h4 class="text-sm sm:text-base font-bold text-slate-900 leading-tight">{{ evt.name }}</h4>
+                                        <span v-if="evt.event_type && evt.event_type !== 'tournament'" class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                                            {{ evt.event_type_label || evt.event_type }}
+                                        </span>
+                                    </div>
                                     <div class="flex items-center gap-2 mt-0.5 text-xs">
                                         <span class="font-semibold text-slate-600">{{ evt.format_label }}</span>
                                         <span class="text-slate-300">&bull;</span>
@@ -142,14 +147,17 @@ const triggerResyncEvent = (evt) => {
                             <div class="lg:col-span-4 space-y-1.5">
                                 <div class="flex items-center justify-between text-xs">
                                     <span class="text-[10px] uppercase font-bold text-slate-400">Kuota Terisi</span>
-                                    <span class="font-bold tabular-data text-slate-900 font-mono">
-                                        {{ evt.occupied_slots }} / {{ evt.max_teams }} Tim ({{ Math.round((evt.occupied_slots / evt.max_teams) * 100) }}%)
+                                    <span v-if="evt.quota_type === 'unlimited'" class="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-[11px] border border-emerald-200">
+                                        Buka s.d. Batas Waktu ({{ evt.occupied_slots }} tim)
+                                    </span>
+                                    <span v-else class="font-bold tabular-data text-slate-900 font-mono">
+                                        {{ evt.occupied_slots }} / {{ evt.max_teams }} Tim ({{ evt.max_teams ? Math.round((evt.occupied_slots / evt.max_teams) * 100) : 0 }}%)
                                     </span>
                                 </div>
-                                <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div v-if="evt.quota_type !== 'unlimited'" class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                                     <div
                                         class="h-full bg-gradient-to-r from-orange-500 to-red-600 rounded-full transition-all duration-300"
-                                        :style="{ width: `${Math.min(100, (evt.occupied_slots / evt.max_teams) * 100)}%` }"
+                                        :style="{ width: `${evt.max_teams ? Math.min(100, (evt.occupied_slots / evt.max_teams) * 100) : 0}%` }"
                                     ></div>
                                 </div>
                                 <p class="text-[11px] text-slate-500 tabular-data">

@@ -16,6 +16,18 @@ class StoreEventRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        if (! $this->has('event_type')) {
+            $this->merge(['event_type' => 'tournament']);
+        }
+        if (! $this->has('participant_type')) {
+            $this->merge(['participant_type' => 'team']);
+        }
+        if (! $this->has('quota_type')) {
+            $this->merge(['quota_type' => 'fixed']);
+        }
+        if (! $this->has('form_presets') || empty($this->input('form_presets'))) {
+            $this->merge(['form_presets' => Event::DEFAULT_FORM_PRESETS]);
+        }
         if (! $this->has('match_format')) {
             $this->merge(['match_format' => '11_vs_11']);
         }
@@ -38,6 +50,19 @@ class StoreEventRequest extends FormRequest
             'venue_name' => ['required', 'string', 'min:3', 'max:160'],
             'venue_maps_url' => ['nullable', 'url', 'regex:/^https?:\/\//i', 'max:500'],
             'city' => ['required', 'string', 'min:2', 'max:120'],
+            'event_type' => ['sometimes', 'required', Rule::in(array_keys(Event::EVENT_TYPES))],
+            'participant_type' => ['sometimes', 'required', Rule::in(array_keys(Event::PARTICIPANT_TYPES))],
+            'quota_type' => ['sometimes', 'required', Rule::in(array_keys(Event::QUOTA_TYPES))],
+            'max_participants' => [
+                Rule::requiredIf(fn () => ($this->input('quota_type', 'fixed') === 'fixed') && ($this->input('participant_type') === 'individual')),
+                'nullable',
+                'integer',
+                'min:2',
+                'max:10000',
+            ],
+            'position_quota_caps' => ['nullable', 'array'],
+            'form_presets' => ['nullable', 'array'],
+            'custom_fields_schema' => ['nullable', 'array'],
             'format' => ['required', Rule::in(array_keys(Event::FORMATS))],
             'match_format' => ['sometimes', 'required', Rule::in(array_keys(Event::MATCH_FORMATS))],
             'starting_players_count' => ['sometimes', 'required', 'integer', 'min:3', 'max:11'],
@@ -53,7 +78,13 @@ class StoreEventRequest extends FormRequest
             'require_coach_license' => ['sometimes', 'required', 'boolean'],
             'required_documents' => ['required', 'array', 'min:1'],
             'required_documents.*' => ['required', Rule::in(array_keys(Event::DOCUMENT_TYPES))],
-            'max_teams' => ['required', 'integer', 'min:2', 'max:512'],
+            'max_teams' => [
+                Rule::requiredIf(fn () => ($this->input('quota_type', 'fixed') === 'fixed') && ($this->input('participant_type', 'team') === 'team')),
+                'nullable',
+                'integer',
+                'min:2',
+                'max:512',
+            ],
             'registration_fee' => ['required', 'numeric', 'min:0'],
             'prize_info' => ['nullable', 'string', 'max:255'],
             'lock_roster_until_paid' => ['required', 'boolean'],
