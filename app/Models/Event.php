@@ -236,6 +236,10 @@ class Event extends Model
 
     public function occupiedSlotsCount(): int
     {
+        if ($this->isIndividual()) {
+            return $this->auditionParticipants()->whereIn('status', ['registered', 'confirmed', 'active', 'passed'])->count();
+        }
+
         if (array_key_exists('occupied_slots_count', $this->attributes)) {
             return (int) $this->attributes['occupied_slots_count'];
         }

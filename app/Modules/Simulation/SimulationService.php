@@ -893,17 +893,16 @@ class SimulationService
             Payment::create([
                 'event_id' => $event->id,
                 'audition_participant_id' => $participant->id,
-                'user_id' => $guardian->id,
                 'invoice_number' => 'INV-AUD-' . date('Ymd') . '-' . Str::upper(Str::random(6)),
                 'amount' => $event->registration_fee,
-                'base_amount' => $event->registration_fee,
+                'gateway_fee' => 0,
                 'total_amount' => $event->registration_fee,
-                'payment_mode' => 'manual',
-                'payment_method' => 'manual_transfer',
+                'method' => 'manual',
+                'payment_channel' => 'manual_transfer',
                 'status' => 'paid',
                 'paid_at' => now(),
                 'verified_at' => now(),
-                'proof_path' => $this->storeDummyPngOnDisk('simulation/payments', 'public', 'sim-aud-pay'),
+                'proof_file_path' => $this->storeDummyPngOnDisk('simulation/payments', 'public', 'sim-aud-pay'),
             ]);
         }
 
