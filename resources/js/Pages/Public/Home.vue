@@ -107,8 +107,11 @@ const resetFilters = () => {
 };
 
 const quotaPercentage = (event) => {
-    if (!event.max_teams) return 0;
-    return Math.min(100, Math.round((event.occupied_slots / event.max_teams) * 100));
+    const capacity = event.participant_type === 'individual'
+        ? (event.max_participants || event.max_teams || 0)
+        : (event.max_teams || 0);
+    if (!capacity) return 0;
+    return Math.min(100, Math.round((event.occupied_slots / capacity) * 100));
 };
 
 const stripHtml = (html) => {
@@ -319,9 +322,11 @@ const stripHtml = (html) => {
                         </div>
                         <div v-else class="mt-4 p-3 rounded-xl bg-slate-50/80 border border-slate-200/80">
                             <div class="flex items-center justify-between text-xs mb-1.5">
-                                <span class="font-semibold text-slate-700">Kuota Tim Terisi</span>
+                                <span class="font-semibold text-slate-700">
+                                    {{ event.participant_type === 'individual' ? 'Kuota Peserta Terisi' : 'Kuota Tim Terisi' }}
+                                </span>
                                 <span class="font-bold tabular-data" :class="event.available_slots === 0 ? 'text-rose-700' : 'text-orange-800'">
-                                    {{ event.occupied_slots }} / {{ event.max_teams }} Tim (Sisa {{ event.available_slots }})
+                                    {{ event.occupied_slots }} / {{ event.participant_type === 'individual' ? (event.max_participants || event.max_teams) : event.max_teams }} {{ event.participant_type === 'individual' ? 'Peserta' : 'Tim' }} (Sisa {{ event.available_slots }})
                                 </span>
                             </div>
                             <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
@@ -343,10 +348,10 @@ const stripHtml = (html) => {
                         </Link>
                         <Link
                             v-if="event.can_register"
-                            :href="route('events.register', { event: event.slug })"
+                            :href="event.participant_type === 'individual' ? route('events.register-audition', { event: event.slug }) : route('events.register', { event: event.slug })"
                             class="btn-pitch flex-1 text-center"
                         >
-                            Daftar Sekarang
+                            {{ event.participant_type === 'individual' ? 'Daftar Audisi' : 'Daftar Tim' }}
                         </Link>
                         <span
                             v-else

@@ -25,17 +25,35 @@ const props = defineProps({
         type: Object,
         default: () => ({ top_scorers: [], fair_play: [] }),
     },
+    stages: {
+        type: Array,
+        default: () => [],
+    },
+    registeredParticipants: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const { formatRupiah, formatDate, formatDateTime } = useFormatters();
 const activeTab = ref('summary');
 
-const publicTopScorers = computed(() => props.leaderboard?.top_scorers || []);
+const isIndividual = computed(() => props.event.participant_type === 'individual');
+
+const totalCapacity = computed(() => {
+    return isIndividual.value
+        ? (props.event.max_participants || props.event.max_teams || 0)
+        : (props.event.max_teams || 0);
+});
 
 const quotaPercentage = computed(() => {
-    if (!props.event.max_teams) return 0;
-    return Math.min(100, Math.round((props.event.occupied_slots / props.event.max_teams) * 100));
+    if (!totalCapacity.value) return 0;
+    return Math.min(100, Math.round((props.event.occupied_slots / totalCapacity.value) * 100));
 });
+
+const participantUnit = computed(() => (isIndividual.value ? 'Peserta' : 'Tim'));
+
+const publicTopScorers = computed(() => props.leaderboard?.top_scorers || []);
 
 const formattedDescription = computed(() => {
     let desc = props.event?.short_description || '';
@@ -61,13 +79,16 @@ const plainDescription = computed(() => {
     if (raw) {
         return raw.slice(0, 160);
     }
-    return `Pendaftaran resmi ${props.event.name} (${props.event.age_category}) di ${props.event.venue_name}, ${props.event.city}. Kuota maksimal ${props.event.max_teams} tim.`;
+    return `Pendaftaran resmi ${props.event.name} (${props.event.age_category}) di ${props.event.venue_name}, ${props.event.city}. Kuota maksimal ${totalCapacity.value} ${participantUnit.value.toLowerCase()}.`;
 });
 
 const eventJsonLd = computed(() => {
     const ev = props.event;
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const detailUrl = `${origin}/events/${ev.slug}`;
+    const registerUrl = isIndividual.value
+        ? `${origin}/events/${ev.slug}/register-audition`
+        : `${origin}/events/${ev.slug}/register`;
 
     return JSON.stringify({
         '@context': 'https://schema.org',
@@ -78,7 +99,7 @@ const eventJsonLd = computed(() => {
                     {
                         '@type': 'ListItem',
                         position: 1,
-                        name: 'Katalog Kompetisi',
+                        name: isIndividual.value ? 'Katalog Event' : 'Katalog Kompetisi',
                         item: `${origin}/`,
                     },
                     {
@@ -98,7 +119,7 @@ const eventJsonLd = computed(() => {
                 endDate: ev.match_end_date || ev.match_start_date || undefined,
                 eventStatus: 'https://schema.org/EventScheduled',
                 eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
-                maximumAttendeeCapacity: Number(ev.max_teams || 0),
+                maximumAttendeeCapacity: Number(totalCapacity.value || 0),
                 remainingAttendeeCapacity: Number(ev.available_slots || 0),
                 image: ev.banner_url ? [ev.banner_url] : undefined,
                 url: detailUrl,
@@ -114,7 +135,7 @@ const eventJsonLd = computed(() => {
                 },
                 offers: {
                     '@type': 'Offer',
-                    url: `${origin}/events/${ev.slug}/register`,
+                    url: registerUrl,
                     price: Number(ev.registration_fee || 0),
                     priceCurrency: 'IDR',
                     availability: ev.can_register ? 'https://schema.org/InStock' : 'https://schema.org/SoldOut',
@@ -144,7 +165,7 @@ const eventJsonLd = computed(() => {
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-8 sm:pt-3 sm:pb-12">
             <div class="mb-2.5">
                 <Link :href="route('home')" class="text-xs font-semibold text-slate-600 hover:text-orange-600 transition-colors">
-                    &larr; Kembali ke Katalog Kompetisi
+                    &larr; {{ isIndividual ? 'Kembali ke Katalog Event' : 'Kembali ke Katalog Kompetisi' }}
                 </Link>
             </div>
 
@@ -166,6 +187,9 @@ const eventJsonLd = computed(() => {
                             </span>
                             <span v-if="event.event_type && event.event_type !== 'tournament'" class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-purple-50 text-purple-800 border border-purple-200">
                                 {{ event.event_type_label || event.event_type }}
+                            </span>
+                            <span v-if="isIndividual" class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                Individu / Atlet
                             </span>
                             <StatusBadge :status="event.status" />
                         </div>
@@ -199,11 +223,18 @@ const eventJsonLd = computed(() => {
                                 <span class="font-semibold text-slate-900 mt-0.5 block">{{ event.city }}</span>
                             </div>
                             <div>
-                                <span class="block text-slate-500">Kick-Off Kompetisi</span>
-                                <span class="font-semibold text-slate-900 tabular-data mt-0.5 block">{{ formatDate(event.match_start_date) }}</span>
+                                <span class="block text-slate-500">{{ isIndividual ? 'Jadwal Pelaksanaan' : 'Kick-Off Kompetisi' }}</span>
+                                <span class="font-semibold text-slate-900 tabular-data mt-0.5 block">
+                                    <template v-if="event.match_end_date && event.match_end_date !== event.match_start_date">
+                                        {{ formatDate(event.match_start_date) }} &ndash; {{ formatDate(event.match_end_date) }}
+                                    </template>
+                                    <template v-else>
+                                        {{ formatDate(event.match_start_date) }}
+                                    </template>
+                                </span>
                             </div>
                             <div>
-                                <span class="block text-slate-500">Batas Kelahiran Pemain</span>
+                                <span class="block text-slate-500">{{ isIndividual ? 'Batas Kelahiran Peserta' : 'Batas Kelahiran Pemain' }}</span>
                                 <span class="font-semibold text-slate-900 tabular-data mt-0.5 block">
                                     {{ formatDate(event.min_birth_date) }} &ndash; {{ formatDate(event.max_birth_date) }}
                                 </span>
@@ -220,43 +251,69 @@ const eventJsonLd = computed(() => {
                                 :class="activeTab === 'summary' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
                                 @click="activeTab = 'summary'"
                             >
-                                Ringkasan &amp; Syarat Pemain
+                                {{ isIndividual ? 'Ringkasan & Syarat Peserta' : 'Ringkasan & Syarat Pemain' }}
                             </button>
-                            <button
-                                type="button"
-                                class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
-                                :class="activeTab === 'teams' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
-                                @click="activeTab = 'teams'"
-                            >
-                                Tim Lunas / Terverifikasi ({{ registeredTeams.length }})
-                            </button>
-                            <button
-                                v-if="groups.length > 0"
-                                type="button"
-                                class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
-                                :class="activeTab === 'groups' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
-                                @click="activeTab = 'groups'"
-                            >
-                                Grup &amp; Klasemen ({{ groups.length }})
-                            </button>
-                            <button
-                                v-if="matches.length > 0"
-                                type="button"
-                                class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
-                                :class="activeTab === 'matches' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
-                                @click="activeTab = 'matches'"
-                            >
-                                Jadwal &amp; Hasil ({{ matches.length }})
-                            </button>
-                            <button
-                                v-if="leaderboard.top_scorers && leaderboard.top_scorers.length > 0"
-                                type="button"
-                                class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
-                                :class="activeTab === 'leaderboard' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
-                                @click="activeTab = 'leaderboard'"
-                            >
-                                Top Scorer
-                            </button>
+
+                            <!-- Individual Tabs -->
+                            <template v-if="isIndividual">
+                                <button
+                                    v-if="stages.length > 0"
+                                    type="button"
+                                    class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
+                                    :class="activeTab === 'stages' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
+                                    @click="activeTab = 'stages'"
+                                >
+                                    Tahapan Seleksi ({{ stages.length }})
+                                </button>
+                                <button
+                                    type="button"
+                                    class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
+                                    :class="activeTab === 'participants' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
+                                    @click="activeTab = 'participants'"
+                                >
+                                    Peserta Terverifikasi ({{ registeredParticipants.length }})
+                                </button>
+                            </template>
+
+                            <!-- Team Tournament Tabs -->
+                            <template v-else>
+                                <button
+                                    type="button"
+                                    class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
+                                    :class="activeTab === 'teams' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
+                                    @click="activeTab = 'teams'"
+                                >
+                                    Tim Lunas / Terverifikasi ({{ registeredTeams.length }})
+                                </button>
+                                <button
+                                    v-if="groups.length > 0"
+                                    type="button"
+                                    class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
+                                    :class="activeTab === 'groups' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
+                                    @click="activeTab = 'groups'"
+                                >
+                                    Grup &amp; Klasemen ({{ groups.length }})
+                                </button>
+                                <button
+                                    v-if="matches.length > 0"
+                                    type="button"
+                                    class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
+                                    :class="activeTab === 'matches' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
+                                    @click="activeTab = 'matches'"
+                                >
+                                    Jadwal &amp; Hasil ({{ matches.length }})
+                                </button>
+                                <button
+                                    v-if="leaderboard.top_scorers && leaderboard.top_scorers.length > 0"
+                                    type="button"
+                                    class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
+                                    :class="activeTab === 'leaderboard' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
+                                    @click="activeTab = 'leaderboard'"
+                                >
+                                    Top Scorer
+                                </button>
+                            </template>
+
                             <button
                                 type="button"
                                 class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
@@ -271,8 +328,43 @@ const eventJsonLd = computed(() => {
                             <!-- Tab: Summary -->
                             <div v-if="activeTab === 'summary'" class="space-y-5 text-sm">
                                 <div>
-                                    <h3 class="text-sm font-bold text-slate-900 mb-2">Aturan Kuota Komposisi Tim &amp; Kelayakan Usia</h3>
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                    <h3 class="text-sm font-bold text-slate-900 mb-2">
+                                        {{ isIndividual ? 'Ketentuan Peserta & Kelayakan Usia' : 'Aturan Kuota Komposisi Tim & Kelayakan Usia' }}
+                                    </h3>
+
+                                    <!-- Individual summary cards -->
+                                    <div v-if="isIndividual" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                        <div class="p-3 rounded-lg bg-slate-50 border border-slate-200">
+                                            <span class="text-slate-500 block">Rentang Tanggal Lahir Sah</span>
+                                            <strong class="text-slate-900 tabular-data mt-0.5 block">
+                                                {{ formatDate(event.min_birth_date) }} s/d {{ formatDate(event.max_birth_date) }}
+                                            </strong>
+                                            <span class="text-[11px] text-slate-500 mt-1 block">Kategori Usia {{ event.age_category }} (Wajib membawa identitas sah)</span>
+                                        </div>
+                                        <div class="p-3 rounded-lg bg-slate-50 border border-slate-200">
+                                            <span class="text-slate-500 block">Model Partisipasi</span>
+                                            <strong class="text-slate-900 mt-0.5 block">
+                                                Individu / Perorangan
+                                            </strong>
+                                            <span class="text-[11px] text-slate-500 mt-1 block">Pendaftaran mandiri oleh atlet atau orang tua / wali</span>
+                                        </div>
+                                        <div class="p-3 rounded-lg bg-slate-50 border border-slate-200">
+                                            <span class="text-slate-500 block">Format &amp; Metode Seleksi</span>
+                                            <strong class="text-slate-900 mt-0.5 block">
+                                                {{ event.format_label || 'Audisi & Scouting Panel' }}
+                                            </strong>
+                                            <span class="text-[11px] text-slate-500 mt-1 block">Screening fisik, tes keterampilan teknis &amp; game internal</span>
+                                        </div>
+                                        <div class="p-3 rounded-lg bg-slate-50 border border-slate-200">
+                                            <span class="text-slate-500 block">Hadiah &amp; Beasiswa Program</span>
+                                            <strong class="text-slate-900 mt-0.5 block">
+                                                {{ event.prize_info || 'Trial & Pemusatan Latihan Internasional ke Spanyol' }}
+                                            </strong>
+                                        </div>
+                                    </div>
+
+                                    <!-- Team summary cards -->
+                                    <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                                         <div class="p-3 rounded-lg bg-slate-50 border border-slate-200">
                                             <span class="text-slate-500 block">Rentang Tanggal Lahir Sah</span>
                                             <strong class="text-slate-900 tabular-data mt-0.5 block">
@@ -301,13 +393,30 @@ const eventJsonLd = computed(() => {
                                             </strong>
                                         </div>
                                     </div>
+
+                                    <!-- Position caps if available -->
+                                    <div v-if="isIndividual && event.position_quota_caps && Object.keys(event.position_quota_caps).length > 0" class="mt-4 pt-3 border-t border-slate-200/80">
+                                        <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Alokasi Batas Kuota per Posisi</h4>
+                                        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+                                            <div
+                                                v-for="(cap, pos) in event.position_quota_caps"
+                                                :key="pos"
+                                                class="p-2.5 rounded-xl bg-orange-50/60 border border-orange-200/70 text-center shadow-2xs"
+                                            >
+                                                <span class="font-bold text-orange-950 font-mono text-sm block">{{ pos }}</span>
+                                                <span class="text-[11px] text-slate-600 mt-0.5 block font-medium">Maks. {{ cap }} Atlet</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div>
-                                    <h3 class="text-sm font-bold text-slate-900 mb-2">Dokumen Screening Wajib per Pemain</h3>
+                                    <h3 class="text-sm font-bold text-slate-900 mb-2">
+                                        {{ isIndividual ? 'Dokumen Screening Wajib Peserta' : 'Dokumen Screening Wajib per Pemain' }}
+                                    </h3>
                                     <ul class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                                         <li class="flex items-center gap-2 p-2.5 rounded-xl bg-orange-50/70 border border-orange-200/80 text-orange-950 font-medium">
-                                            <span>1. Pas Foto Resmi Terbaru (JPG/PNG)</span>
+                                            <span>1. Pas Foto Resmi Terbaru (JPG/PNG/WebP)</span>
                                         </li>
                                         <li
                                             v-for="(doc, idx) in event.required_documents"
@@ -317,6 +426,214 @@ const eventJsonLd = computed(() => {
                                             <span>{{ idx + 2 }}. {{ doc.label }}</span>
                                         </li>
                                     </ul>
+                                </div>
+                            </div>
+
+                            <!-- Tab: Stages (Tahapan Seleksi untuk Audisi/Individu) -->
+                            <div v-else-if="activeTab === 'stages'" class="space-y-4">
+                                <div v-if="stages.length === 0" class="text-center py-10 text-xs text-slate-500 space-y-1">
+                                    <svg class="w-10 h-10 mx-auto text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    <p class="font-bold text-slate-800 text-sm">Tahapan Seleksi Belum Diterbitkan</p>
+                                    <p class="text-slate-400">Jadwal tahapan seleksi akan diumumkan secara berkala oleh tim pemandu bakat / scouting.</p>
+                                </div>
+                                <div v-else class="space-y-4">
+                                    <div class="flex items-center justify-between text-xs text-slate-500 pb-1">
+                                        <span>Rangkaian alur seleksi bertahap ({{ stages.length }} Tahap Resmi):</span>
+                                    </div>
+                                    <div class="relative border-l-2 border-orange-200 ml-4 pl-6 space-y-6">
+                                        <div
+                                            v-for="stage in stages"
+                                            :key="stage.id"
+                                            class="relative group"
+                                        >
+                                            <!-- Dot marker -->
+                                            <div
+                                                class="absolute -left-[35px] top-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold font-mono transition-transform group-hover:scale-110 shadow-2xs"
+                                                :class="stage.is_completed ? 'bg-emerald-600 text-white' : (stage.is_active ? 'bg-orange-600 text-white ring-4 ring-orange-100' : 'bg-slate-200 text-slate-700')"
+                                            >
+                                                {{ stage.stage_number }}
+                                            </div>
+
+                                            <div class="p-4 rounded-xl border border-slate-200 bg-white shadow-2xs hover:border-orange-300 transition-colors">
+                                                <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                                                    <div class="flex items-center gap-2">
+                                                        <span class="px-2 py-0.5 rounded font-bold font-mono text-[11px] bg-slate-900 text-white">
+                                                            TAHAP {{ stage.stage_number }}
+                                                        </span>
+                                                        <span
+                                                            v-if="stage.is_completed"
+                                                            class="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                                        >
+                                                            Selesai
+                                                        </span>
+                                                        <span
+                                                            v-else-if="stage.is_active"
+                                                            class="px-2 py-0.5 rounded text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-200 animate-pulse"
+                                                        >
+                                                            Sedang Berjalan
+                                                        </span>
+                                                        <span
+                                                            v-else
+                                                            class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200"
+                                                        >
+                                                            Terjadwal
+                                                        </span>
+                                                    </div>
+                                                    <span v-if="stage.target_quota" class="text-xs font-semibold text-orange-900 bg-orange-50/80 px-2 py-0.5 rounded border border-orange-200/60 font-mono">
+                                                        Target Kuota: {{ stage.target_quota }} Atlet
+                                                    </span>
+                                                </div>
+
+                                                <h4 class="text-sm font-bold text-slate-900 mt-2.5">{{ stage.stage_name }}</h4>
+
+                                                <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600">
+                                                    <div class="flex items-center gap-2">
+                                                        <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                        </svg>
+                                                        <span class="tabular-data font-semibold text-slate-800">{{ stage.stage_date_formatted || formatDate(stage.stage_date) }}</span>
+                                                        <span v-if="stage.start_time" class="font-mono text-slate-500">({{ stage.start_time }} - {{ stage.end_time || 'Selesai' }} WIB)</span>
+                                                    </div>
+                                                    <div class="flex items-center gap-2">
+                                                        <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                        </svg>
+                                                        <span class="truncate">{{ stage.venue_name }}</span>
+                                                    </div>
+                                                </div>
+
+                                                <div v-if="stage.instructions" class="mt-3 pt-2.5 border-t border-slate-100 text-xs text-slate-600 leading-relaxed bg-slate-50/70 p-3 rounded-lg">
+                                                    <p class="font-semibold text-slate-800 mb-1">Materi &amp; Tata Tertib Tahapan:</p>
+                                                    <p class="whitespace-pre-line">{{ stage.instructions }}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Tab: Participants (Peserta Terverifikasi untuk Audisi/Individu) -->
+                            <div v-else-if="activeTab === 'participants'">
+                                <div v-if="registeredParticipants.length === 0" class="text-center py-10 text-xs text-slate-500 space-y-1">
+                                    <svg class="w-10 h-10 mx-auto text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                    </svg>
+                                    <p class="font-bold text-slate-800 text-sm">Belum Ada Peserta Terverifikasi</p>
+                                    <p class="text-slate-400">Peserta dengan pembayaran terkonfirmasi dan screening berkas sah akan tampil di sini.</p>
+                                </div>
+                                <div v-else>
+                                    <div class="mb-3 flex items-center justify-between text-xs text-slate-500">
+                                        <span>Menampilkan {{ registeredParticipants.length }} atlet peserta terverifikasi dengan nomor dada resmi.</span>
+                                    </div>
+
+                                    <!-- DESKTOP TABLE -->
+                                    <div class="hidden md:block overflow-x-auto">
+                                        <table class="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr>
+                                                    <th class="table-th w-20 text-center">No. Dada</th>
+                                                    <th class="table-th">Nama Atlet</th>
+                                                    <th class="table-th">Posisi Utama</th>
+                                                    <th class="table-th">Asal Klub / SSB</th>
+                                                    <th class="table-th text-right">Status Seleksi</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-slate-100 bg-white">
+                                                <tr
+                                                    v-for="p in registeredParticipants"
+                                                    :key="p.id"
+                                                    class="hover:bg-orange-50/25 transition-colors"
+                                                >
+                                                    <td class="table-td text-center">
+                                                        <span v-if="p.bib_number" class="inline-flex items-center justify-center px-2 py-0.5 rounded-md font-mono font-black text-xs bg-slate-900 text-white shadow-2xs">
+                                                            #{{ p.bib_number }}
+                                                        </span>
+                                                        <span v-else class="text-slate-400 text-xs font-mono">-</span>
+                                                    </td>
+                                                    <td class="table-td font-semibold text-slate-900">
+                                                        <div class="flex items-center gap-2.5">
+                                                            <img
+                                                                v-if="p.photo_url"
+                                                                :src="p.photo_url"
+                                                                :alt="p.full_name"
+                                                                class="w-7 h-7 rounded-full object-cover border border-slate-200 bg-white shrink-0"
+                                                            />
+                                                            <div v-else class="w-7 h-7 rounded-full bg-orange-100 text-orange-800 flex items-center justify-center font-bold text-xs shrink-0">
+                                                                {{ p.nickname ? p.nickname.charAt(0) : p.full_name.charAt(0) }}
+                                                            </div>
+                                                            <div>
+                                                                <span class="block leading-tight font-bold text-slate-900">{{ p.full_name }}</span>
+                                                                <span v-if="p.nickname" class="text-[11px] text-slate-500 font-normal">({{ p.nickname }})</span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td class="table-td text-xs text-slate-700">
+                                                        <span class="font-medium">{{ p.preferred_position || '-' }}</span>
+                                                        <span v-if="p.dominant_foot" class="text-slate-400 block text-[11px]">
+                                                            Kaki: {{ p.dominant_foot === 'right' ? 'Kanan' : (p.dominant_foot === 'left' ? 'Kiri' : 'Keduanya') }}
+                                                        </span>
+                                                    </td>
+                                                    <td class="table-td text-xs text-slate-600">{{ p.current_club_ssb }}</td>
+                                                    <td class="table-td text-right">
+                                                        <span
+                                                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold"
+                                                            :class="{
+                                                                'bg-emerald-50 text-emerald-800 border border-emerald-200': p.stage_status === 'day_1_passed' || p.stage_status === 'day_2_passed' || p.stage_status === 'final_selected',
+                                                                'bg-rose-50 text-rose-800 border border-rose-200': p.stage_status === 'day_1_eliminated' || p.stage_status === 'day_2_eliminated',
+                                                                'bg-sky-50 text-sky-800 border border-sky-200': p.stage_status === 'registered' || !p.stage_status || p.stage_status === 'stage_1',
+                                                            }"
+                                                        >
+                                                            {{ p.stage_status_label || 'Terdaftar' }}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <!-- MOBILE HIGH-DENSITY CARDS -->
+                                    <div class="md:hidden divide-y divide-slate-100">
+                                        <div
+                                            v-for="p in registeredParticipants"
+                                            :key="p.id"
+                                            class="py-3 flex items-center justify-between gap-2.5"
+                                        >
+                                            <div class="flex items-center gap-2.5 min-w-0">
+                                                <span v-if="p.bib_number" class="font-mono text-xs font-black text-white bg-slate-900 px-1.5 py-0.5 rounded shrink-0">
+                                                    #{{ p.bib_number }}
+                                                </span>
+                                                <div v-else class="w-6 text-center text-slate-400 font-mono text-xs shrink-0">-</div>
+                                                <img
+                                                    v-if="p.photo_url"
+                                                    :src="p.photo_url"
+                                                    :alt="p.full_name"
+                                                    class="w-8 h-8 rounded-full object-cover border border-slate-200 bg-white shrink-0"
+                                                />
+                                                <div v-else class="w-8 h-8 rounded-full bg-orange-100 text-orange-800 flex items-center justify-center font-bold text-xs shrink-0">
+                                                    {{ p.nickname ? p.nickname.charAt(0) : p.full_name.charAt(0) }}
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <h5 class="text-xs font-bold text-slate-900 leading-tight truncate">{{ p.full_name }}</h5>
+                                                    <p class="text-[11px] text-slate-500 truncate">{{ p.preferred_position || '-' }} &bull; {{ p.current_club_ssb }}</p>
+                                                </div>
+                                            </div>
+                                            <div class="shrink-0">
+                                                <span
+                                                    class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                                                    :class="{
+                                                        'bg-emerald-50 text-emerald-800 border border-emerald-200': p.stage_status === 'day_1_passed' || p.stage_status === 'day_2_passed' || p.stage_status === 'final_selected',
+                                                        'bg-rose-50 text-rose-800 border border-rose-200': p.stage_status === 'day_1_eliminated' || p.stage_status === 'day_2_eliminated',
+                                                        'bg-sky-50 text-sky-800 border border-sky-200': p.stage_status === 'registered' || !p.stage_status || p.stage_status === 'stage_1',
+                                                    }"
+                                                >
+                                                    {{ p.stage_status_label || 'Terdaftar' }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -552,12 +869,14 @@ const eventJsonLd = computed(() => {
                                     >
                                         Unduh PDF Regulasi
                                     </a>
-                                    <span v-else class="text-slate-500 font-medium">Regulasi dibagikan di Portal Manajer</span>
+                                    <span v-else class="text-slate-500 font-medium">
+                                        {{ isIndividual ? 'Regulasi teknis seleksi dibagikan saat registrasi ulang' : 'Regulasi dibagikan di Portal Manajer' }}
+                                    </span>
                                 </div>
 
                                 <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
                                     <p class="font-bold text-slate-900 text-sm">Sekretariat &amp; Kontak Panitia</p>
-                                    <p>Penanggung Jawab: <strong>{{ event.contact_person || 'Sekretariat Kompetisi' }}</strong></p>
+                                    <p>Penanggung Jawab: <strong>{{ event.contact_person || (isIndividual ? 'Panitia Pelaksana Audisi' : 'Sekretariat Kompetisi') }}</strong></p>
                                     <p v-if="event.contact_whatsapp">
                                         WhatsApp Resmi: <strong class="tabular-data">{{ event.contact_whatsapp }}</strong>
                                     </p>
@@ -570,10 +889,17 @@ const eventJsonLd = computed(() => {
                 <!-- Right Registration & Quota Card -->
                 <div class="space-y-4">
                     <div class="frosted-card p-6 sticky top-24">
-                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Biaya Pendaftaran Tim</p>
-                        <p class="text-2xl font-black text-slate-900 tabular-data mt-1 tracking-tight">
-                            {{ formatRupiah(event.registration_fee) }}
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                            {{ isIndividual ? 'Biaya Pendaftaran Peserta' : 'Biaya Pendaftaran Tim' }}
                         </p>
+                        <div class="flex items-baseline gap-2 mt-1">
+                            <p class="text-2xl font-black text-slate-900 tabular-data tracking-tight">
+                                {{ formatRupiah(event.registration_fee) }}
+                            </p>
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                                {{ isIndividual ? 'Per Orang / Atlet' : 'Per Tim' }}
+                            </span>
+                        </div>
 
                         <div v-if="event.is_unlimited_quota" class="mt-4 p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200/90 space-y-2">
                             <div class="flex items-center justify-between text-xs">
@@ -583,14 +909,14 @@ const eventJsonLd = computed(() => {
                                 </span>
                             </div>
                             <p class="text-[11px] text-emerald-700 leading-relaxed">
-                                Pendaftaran dibuka bebas untuk semua peserta hingga tanggal penutupan resmi. Total <strong class="text-emerald-950 font-bold tabular-data">{{ event.occupied_slots }} tim/peserta</strong> telah mendaftar.
+                                Pendaftaran dibuka bebas untuk semua peserta hingga tanggal penutupan resmi. Total <strong class="text-emerald-950 font-bold tabular-data">{{ event.occupied_slots }} {{ participantUnit.toLowerCase() }}</strong> telah mendaftar.
                             </p>
                         </div>
                         <div v-else class="mt-4 p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/90 space-y-2">
                             <div class="flex items-center justify-between text-xs">
                                 <span class="font-semibold text-slate-700">Kapasitas Kuota Maksimal</span>
                                 <span class="font-bold tabular-data" :class="event.available_slots === 0 ? 'text-rose-700' : 'text-orange-800'">
-                                    {{ event.occupied_slots }} / {{ event.max_teams }} Tim
+                                    {{ event.occupied_slots }} / {{ totalCapacity }} {{ participantUnit }}
                                 </span>
                             </div>
                             <div class="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
@@ -601,7 +927,7 @@ const eventJsonLd = computed(() => {
                                 />
                             </div>
                             <p class="text-[11px] text-slate-500 leading-relaxed">
-                                Sisa slot tersedia: <strong class="text-slate-900 tabular-data">{{ event.available_slots }} slot</strong>.
+                                Sisa slot tersedia: <strong class="text-slate-900 tabular-data">{{ event.available_slots }} slot {{ participantUnit.toLowerCase() }}</strong>.
                                 Setiap pendaftar langsung menahan slot sementara selama
                                 <strong class="tabular-data">{{ event.payment_deadline_hours }} jam</strong> untuk menyelesaikan pembayaran.
                             </p>
@@ -621,10 +947,10 @@ const eventJsonLd = computed(() => {
                         <div class="mt-5">
                             <Link
                                 v-if="event.can_register"
-                                :href="event.participant_type === 'individual' ? route('events.register-audition', { event: event.slug }) : route('events.register', { event: event.slug })"
+                                :href="isIndividual ? route('events.register-audition', { event: event.slug }) : route('events.register', { event: event.slug })"
                                 class="btn-pitch w-full py-2.5 flex items-center justify-center gap-2 shadow-md shadow-orange-500/20"
                             >
-                                <span>{{ event.participant_type === 'individual' ? 'Daftar Audisi Sekarang' : 'Daftar Sekarang' }}</span>
+                                <span>{{ isIndividual ? 'Daftar Audisi Sekarang' : 'Daftar Tim Sekarang' }}</span>
                             </Link>
                             <button
                                 v-else

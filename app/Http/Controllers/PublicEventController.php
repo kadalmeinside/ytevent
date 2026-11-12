@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Public\RegisterAuditionRequest;
 use App\Http\Requests\Public\RegisterTeamRequest;
+use App\Models\AuditionParticipant;
+use App\Models\AuditionStage;
 use App\Models\Event;
 use App\Models\Player;
 use App\Models\SystemSetting;
@@ -92,65 +94,116 @@ class PublicEventController extends Controller
             abort(404);
         }
 
-        $event->loadCount([
-            'teams as occupied_slots_count' => fn ($q) => $q->occupyingQuotaAt(now()),
-            'teams as active_teams_count' => fn ($q) => $q->whereIn('status', ['active', 'locked_roster']),
-        ]);
+        $stages = [];
+        $registeredParticipants = [];
+        $registeredTeams = [];
+        $groups = [];
+        $matches = [];
+        $leaderboard = ['top_scorers' => [], 'fair_play' => []];
 
-        $event->load([
-            'groups.groupTeams.team',
-            'matches.homeTeam',
-            'matches.awayTeam',
-            'matches.group',
-        ]);
+        if ($event->isIndividual()) {
+            $stages = $event->auditionStages()
+                ->orderBy('stage_number')
+                ->get()
+                ->map(fn (AuditionStage $s) => [
+                    'id' => $s->id,
+                    'stage_number' => $s->stage_number,
+                    'stage_name' => $s->stage_name,
+                    'stage_date' => $s->stage_date?->toDateString(),
+                    'stage_date_formatted' => $s->stage_date?->translatedFormat('d M Y'),
+                    'start_time' => $s->start_time ? substr((string) $s->start_time, 0, 5) : null,
+                    'end_time' => $s->end_time ? substr((string) $s->end_time, 0, 5) : null,
+                    'venue_name' => $s->venue_name ?: $event->venue_name,
+                    'target_quota' => $s->target_quota,
+                    'is_active' => (bool) $s->is_active,
+                    'is_completed' => (bool) $s->is_completed,
+                    'instructions' => $s->instructions,
+                ])
+                ->values();
 
-        $registeredTeams = $event->teams()
-            ->whereIn('status', ['active', 'locked_roster'])
-            ->orderBy('created_at')
-            ->get()
-            ->map(fn (Team $team) => [
-                'id' => $team->id,
-                'name' => $team->name,
-                'origin_association' => $team->origin_association,
-                'status' => $team->status,
-                'home_jersey_color' => $team->home_jersey_color,
-                'logo_url' => $this->publicStorageUrl($team->logo_optimized_path ?: $team->logo_path),
+            $registeredParticipants = $event->auditionParticipants()
+                ->whereIn('status', ['active', 'confirmed', 'passed', 'registered'])
+                ->orderByRaw('CASE WHEN bib_number IS NOT NULL THEN 0 ELSE 1 END, bib_number ASC, created_at ASC')
+                ->get()
+                ->map(fn (AuditionParticipant $p) => [
+                    'id' => $p->id,
+                    'registration_number' => $p->registration_number,
+                    'bib_number' => $p->bib_number,
+                    'full_name' => $p->full_name,
+                    'nickname' => $p->nickname,
+                    'preferred_position' => $p->preferred_position,
+                    'secondary_position' => $p->secondary_position,
+                    'dominant_foot' => $p->dominant_foot,
+                    'height_cm' => $p->height_cm,
+                    'weight_kg' => $p->weight_kg,
+                    'current_club_ssb' => $p->current_club_ssb ?: 'Independen / Mandiri',
+                    'stage_status' => $p->stage_status,
+                    'stage_status_label' => AuditionParticipant::STAGE_STATUSES[$p->stage_status] ?? $p->stage_status,
+                    'screening_status' => $p->screening_status,
+                    'photo_url' => $this->publicStorageUrl($p->photo_path),
+                ])
+                ->values();
+        } else {
+            $event->loadCount([
+                'teams as occupied_slots_count' => fn ($q) => $q->occupyingQuotaAt(now()),
+                'teams as active_teams_count' => fn ($q) => $q->whereIn('status', ['active', 'locked_roster']),
             ]);
 
-        $groups = $event->groups->map(fn ($g) => [
-            'id' => $g->id,
-            'name' => $g->name,
-            'standings' => $g->groupTeams->map(fn ($gt) => [
-                'team_id' => $gt->team_id,
-                'team_name' => $gt->team?->name ?? '-',
-                'played' => $gt->played,
-                'won' => $gt->won,
-                'drawn' => $gt->drawn,
-                'lost' => $gt->lost,
-                'goals_for' => $gt->goals_for,
-                'goals_against' => $gt->goals_against,
-                'goal_difference' => $gt->goal_difference,
-                'points' => $gt->points,
-            ])->values(),
-        ])->values();
+            $event->load([
+                'groups.groupTeams.team',
+                'matches.homeTeam',
+                'matches.awayTeam',
+                'matches.group',
+            ]);
 
-        $matches = $event->matches->map(fn ($m) => [
-            'id' => $m->id,
-            'match_number' => $m->match_number,
-            'stage' => $m->stage,
-            'stage_label' => TournamentMatch::stageLabel($m->stage),
-            'group_name' => $m->group?->name,
-            'home_team_name' => $m->homeTeam?->name ?? 'TBD',
-            'away_team_name' => $m->awayTeam?->name ?? 'TBD',
-            'kickoff_formatted' => $m->kickoff_at?->translatedFormat('d M Y, H:i').($m->kickoff_at ? ' WIB' : ''),
-            'pitch_name' => $m->pitch_name ?: 'Lapangan Utama',
-            'status' => $m->status,
-            'status_label' => TournamentMatch::STATUSES[$m->status] ?? $m->status,
-            'home_score' => $m->home_score,
-            'away_score' => $m->away_score,
-        ])->values();
+            $registeredTeams = $event->teams()
+                ->whereIn('status', ['active', 'locked_roster'])
+                ->orderBy('created_at')
+                ->get()
+                ->map(fn (Team $team) => [
+                    'id' => $team->id,
+                    'name' => $team->name,
+                    'origin_association' => $team->origin_association,
+                    'status' => $team->status,
+                    'home_jersey_color' => $team->home_jersey_color,
+                    'logo_url' => $this->publicStorageUrl($team->logo_optimized_path ?: $team->logo_path),
+                ]);
 
-        $leaderboard = app(StandingsCalculatorService::class)->getEventLeaderboard($event);
+            $groups = $event->groups->map(fn ($g) => [
+                'id' => $g->id,
+                'name' => $g->name,
+                'standings' => $g->groupTeams->map(fn ($gt) => [
+                    'team_id' => $gt->team_id,
+                    'team_name' => $gt->team?->name ?? '-',
+                    'played' => $gt->played,
+                    'won' => $gt->won,
+                    'drawn' => $gt->drawn,
+                    'lost' => $gt->lost,
+                    'goals_for' => $gt->goals_for,
+                    'goals_against' => $gt->goals_against,
+                    'goal_difference' => $gt->goal_difference,
+                    'points' => $gt->points,
+                ])->values(),
+            ])->values();
+
+            $matches = $event->matches->map(fn ($m) => [
+                'id' => $m->id,
+                'match_number' => $m->match_number,
+                'stage' => $m->stage,
+                'stage_label' => TournamentMatch::stageLabel($m->stage),
+                'group_name' => $m->group?->name,
+                'home_team_name' => $m->homeTeam?->name ?? 'TBD',
+                'away_team_name' => $m->awayTeam?->name ?? 'TBD',
+                'kickoff_formatted' => $m->kickoff_at?->translatedFormat('d M Y, H:i').($m->kickoff_at ? ' WIB' : ''),
+                'pitch_name' => $m->pitch_name ?: 'Lapangan Utama',
+                'status' => $m->status,
+                'status_label' => TournamentMatch::STATUSES[$m->status] ?? $m->status,
+                'home_score' => $m->home_score,
+                'away_score' => $m->away_score,
+            ])->values();
+
+            $leaderboard = app(StandingsCalculatorService::class)->getEventLeaderboard($event);
+        }
 
         return Inertia::render('Public/EventDetail', [
             'event' => $this->transformPublicEvent($event, detailed: true),
@@ -158,6 +211,8 @@ class PublicEventController extends Controller
             'groups' => $groups,
             'matches' => $matches,
             'leaderboard' => $leaderboard,
+            'stages' => $stages,
+            'registeredParticipants' => $registeredParticipants,
         ])->withViewData([
             'seoMeta' => $this->buildEventSeoMeta($event, isRegisterPage: false),
         ]);
@@ -405,15 +460,19 @@ class PublicEventController extends Controller
 
     protected function cleanPlainDescription(Event $event, bool $isRegisterPage = false): string
     {
+        $isIndividual = $event->isIndividual();
+        $capacity = $isIndividual ? ($event->max_participants ?? $event->max_teams ?? 0) : ($event->max_teams ?? 0);
+        $unit = $isIndividual ? 'peserta' : 'tim';
+
         if ($isRegisterPage) {
             if ($event->isUnlimitedQuota()) {
                 return "Formulir pendaftaran resmi untuk kegiatan {$event->name} ({$event->age_category}) di {$event->venue_name}, {$event->city}. Pendaftaran terbuka hingga batas waktu penutupan.";
             }
 
             $occupied = $event->occupiedSlotsCount();
-            $available = max(0, ($event->max_teams ?? 0) - $occupied);
+            $available = max(0, $capacity - $occupied);
 
-            return "Formulir pendaftaran resmi tim sepak bola untuk kompetisi {$event->name} ({$event->age_category}) di {$event->venue_name}, {$event->city}. Sisa slot tersedia: {$available} dari {$event->max_teams} tim.";
+            return "Formulir pendaftaran resmi untuk {$event->name} ({$event->age_category}) di {$event->venue_name}, {$event->city}. Sisa slot tersedia: {$available} dari {$capacity} {$unit}.";
         }
 
         $raw = (string) ($event->short_description ?? '');
@@ -429,7 +488,7 @@ class PublicEventController extends Controller
             return "Pendaftaran resmi {$event->name} ({$event->age_category}) di {$event->venue_name}, {$event->city}. Pendaftaran terbuka.";
         }
 
-        return "Pendaftaran resmi {$event->name} ({$event->age_category}) di {$event->venue_name}, {$event->city}. Kuota maksimal {$event->max_teams} tim.";
+        return "Pendaftaran resmi {$event->name} ({$event->age_category}) di {$event->venue_name}, {$event->city}. Kuota maksimal {$capacity} {$unit}.";
     }
 
     protected function buildEventSeoMeta(Event $event, bool $isRegisterPage = false): array
@@ -437,14 +496,18 @@ class PublicEventController extends Controller
         $appName = (string) SystemSetting::get('app_name', config('app.name', 'Persija Development'));
         $occupied = $event->occupiedSlotsCount();
         $isUnlimited = $event->isUnlimitedQuota();
-        $available = $isUnlimited ? null : max(0, ($event->max_teams ?? 0) - $occupied);
+        $isIndividual = $event->isIndividual();
+        $capacity = $isIndividual ? ($event->max_participants ?? $event->max_teams ?? 0) : ($event->max_teams ?? 0);
+        $available = $isUnlimited ? null : max(0, $capacity - $occupied);
         $bannerUrl = $this->publicStorageUrl($event->banner_optimized_path ?: $event->banner_path);
         $description = $this->cleanPlainDescription($event, $isRegisterPage);
         $detailUrl = route('events.show', ['event' => $event->slug]);
-        $registerUrl = route('events.register', ['event' => $event->slug]);
+        $registerUrl = $isIndividual
+            ? route('events.register-audition', ['event' => $event->slug])
+            : route('events.register', ['event' => $event->slug]);
 
         $ogTitle = $isRegisterPage
-            ? "Daftar Tim — {$event->name} ({$event->age_category})"
+            ? ($isIndividual ? "Daftar Audisi — {$event->name} ({$event->age_category})" : "Daftar Tim — {$event->name} ({$event->age_category})")
             : "{$event->name} ({$event->age_category})";
 
         $pageTitle = "{$ogTitle} - {$appName}";

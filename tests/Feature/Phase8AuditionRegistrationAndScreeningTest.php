@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AuditionParticipant;
+use App\Models\AuditionStage;
 use App\Models\Event;
 use App\Models\EventSession;
 use App\Models\Payment;
@@ -345,6 +346,86 @@ class Phase8AuditionRegistrationAndScreeningTest extends TestCase
         $this->actingAs($stranger)
             ->get(route('private.audition.birth-certificate', ['participant' => $participant->id]))
             ->assertStatus(403);
+    }
+
+    public function test_public_event_detail_renders_individual_audition_with_stages_and_participants(): void
+    {
+        $event = Event::create([
+            'name' => 'Persija EPA Future Stars Scouting Fest 2026',
+            'slug' => 'persija-epa-future-stars-2026',
+            'venue_name' => 'Persija Training Ground, Bojongsari',
+            'city' => 'Kota Depok',
+            'format' => 'audition',
+            'event_type' => 'audition',
+            'participant_type' => 'individual',
+            'age_category' => 'U-14',
+            'max_participants' => 150,
+            'registration_fee' => 250000,
+            'status' => 'open',
+            'required_documents' => ['birth_certificate', 'family_card'],
+            'min_birth_date' => '2012-01-01',
+            'max_birth_date' => '2013-12-31',
+        ]);
+
+        AuditionStage::create([
+            'event_id' => $event->id,
+            'stage_number' => 1,
+            'stage_name' => 'Tahap 1: Screening Fisik & Tes Teknik',
+            'stage_date' => '2026-11-10',
+            'start_time' => '07:30:00',
+            'end_time' => '12:00:00',
+            'venue_name' => 'Persija Training Ground',
+            'target_quota' => 150,
+            'instructions' => 'Wajib memakai jersey latihan dan sepatu bola.',
+        ]);
+
+        AuditionStage::create([
+            'event_id' => $event->id,
+            'stage_number' => 2,
+            'stage_name' => 'Tahap 2: Game Internal & Taktikal',
+            'stage_date' => '2026-11-11',
+            'start_time' => '08:00:00',
+            'end_time' => '13:00:00',
+            'venue_name' => 'Persija Training Ground',
+            'target_quota' => 75,
+            'instructions' => 'Simulasi pertandingan 11 vs 11.',
+        ]);
+
+        $parent = User::factory()->create();
+        $parent->assignRole('participant_parent');
+
+        AuditionParticipant::create([
+            'event_id' => $event->id,
+            'user_id' => $parent->id,
+            'registration_number' => 'AUD-2026-ESP0101',
+            'bib_number' => 101,
+            'full_name' => 'Muhammad Rayhan Al-Fatih',
+            'nickname' => 'Rayhan',
+            'nik' => '3171021205120001',
+            'birth_date' => '2012-05-12',
+            'gender' => 'male',
+            'emergency_contact_name' => 'Bapak Rayhan',
+            'emergency_contact_phone' => '081234567890',
+            'preferred_position' => 'Attacking Midfielder (AMF)',
+            'current_club_ssb' => 'SSB Jayakarta Muda',
+            'stage_status' => 'day_1_passed',
+            'screening_status' => 'passed',
+            'status' => 'active',
+        ]);
+
+        $response = $this->get(route('events.show', ['event' => $event->slug]));
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page
+            ->component('Public/EventDetail')
+            ->has('stages', 2)
+            ->where('stages.0.stage_name', 'Tahap 1: Screening Fisik & Tes Teknik')
+            ->has('registeredParticipants', 1)
+            ->where('registeredParticipants.0.bib_number', 101)
+            ->where('registeredParticipants.0.full_name', 'Muhammad Rayhan Al-Fatih')
+            ->where('event.participant_type', 'individual')
+            ->where('event.format', 'audition')
+        );
     }
 }
 

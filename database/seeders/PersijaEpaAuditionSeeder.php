@@ -82,7 +82,7 @@ class PersijaEpaAuditionSeeder extends Seeder
                 'payment_deadline_hours' => 24,
                 'reupload_grace_hours' => 12,
                 'registration_open_at' => Carbon::create(2026, 10, 26, 0, 0, 0),
-                'registration_close_at' => Carbon::create(2026, 11, 8, 23, 59, 59),
+                'registration_close_at' => Carbon::create(2026, 11, 20, 23, 59, 59),
                 'match_start_date' => '2026-11-10',
                 'match_end_date' => '2026-11-12',
                 'contact_person' => 'Panitia Pelaksana Persija EPA Scouting Fest',
