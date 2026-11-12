@@ -13,6 +13,8 @@ use App\Services\EmailNotificationService;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\SystemSettingSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Spatie\Permission\Models\Role;
@@ -165,7 +167,39 @@ class SuperAdminAndEmailTest extends TestCase
 
         $this->actingAs($finance)
             ->get(route('admin.integration-monitor.index'))
-            ->assertForbidden();
+            ->assertOk();
+    }
+
+    public function test_queue_management_retries_forgets_and_audits_failed_jobs(): void
+    {
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('superadmin');
+        $jobId = DB::table('failed_jobs')->insertGetId([
+            'uuid' => 'failed-job-001',
+            'connection' => 'database',
+            'queue' => 'default',
+            'payload' => json_encode(['displayName' => 'Tests']),
+            'exception' => 'Test failure',
+            'failed_at' => now(),
+        ]);
+
+        Artisan::shouldReceive('call')->once()->with('queue:retry', ['id' => ['failed-job-001']])->andReturn(0);
+        $this->actingAs($superadmin)
+            ->post(route('admin.integration-monitor.jobs.retry', $jobId))
+            ->assertRedirect();
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'queue.job.retried',
+            'auditable_id' => $jobId,
+        ]);
+
+        Artisan::shouldReceive('call')->once()->with('queue:forget', ['id' => 'failed-job-001'])->andReturn(0);
+        $this->actingAs($superadmin)
+            ->delete(route('admin.integration-monitor.jobs.forget', $jobId))
+            ->assertRedirect();
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'queue.job.forgotten',
+            'auditable_id' => $jobId,
+        ]);
     }
 
     public function test_superadmin_can_update_role_permissions(): void

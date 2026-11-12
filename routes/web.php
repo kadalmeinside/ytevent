@@ -3,8 +3,8 @@
 use App\Http\Controllers\Admin\AuditLogController as AdminAuditLogController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\EmailLogController as AdminEmailLogController;
-use App\Http\Controllers\Admin\IntegrationMonitorController as AdminIntegrationMonitorController;
 use App\Http\Controllers\Admin\EventController as AdminEventController;
+use App\Http\Controllers\Admin\IntegrationMonitorController as AdminIntegrationMonitorController;
 use App\Http\Controllers\Admin\PaymentVerificationController as AdminPaymentVerificationController;
 use App\Http\Controllers\Admin\RolePermissionController as AdminRolePermissionController;
 use App\Http\Controllers\Admin\ScreeningController as AdminScreeningController;
@@ -250,8 +250,14 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
         ->middleware('permission:audit_logs.view')
         ->name('audit-logs.export');
     Route::get('/system/integration-monitor', [AdminIntegrationMonitorController::class, 'index'])
-        ->middleware('permission:audit_logs.view')
+        ->middleware('permission:audit_logs.view|system.queue.manage')
         ->name('integration-monitor.index');
+    Route::post('/system/integration-monitor/jobs/{id}/retry', [AdminIntegrationMonitorController::class, 'retryJob'])
+        ->middleware('permission:system.queue.manage')
+        ->name('integration-monitor.jobs.retry');
+    Route::delete('/system/integration-monitor/jobs/{id}', [AdminIntegrationMonitorController::class, 'forgetJob'])
+        ->middleware('role:superadmin')
+        ->name('integration-monitor.jobs.forget');
 
     // Pemantauan Antrean Email Transaksional
     Route::middleware('permission:email_logs.manage')->group(function () {

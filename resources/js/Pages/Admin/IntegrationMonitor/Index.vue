@@ -8,6 +8,7 @@ const props = defineProps({
     failedJobs: { type: Object, required: true },
     filters: { type: Object, default: () => ({}) },
     metrics: { type: Object, default: () => ({}) },
+    capabilities: { type: Object, default: () => ({}) },
 });
 
 const filterState = reactive({
@@ -32,6 +33,16 @@ const resetFilters = () => {
 };
 
 const truncate = (value, length = 180) => value && value.length > length ? `${value.slice(0, length)}...` : value;
+
+const retryJob = (job) => {
+    router.post(route('admin.integration-monitor.jobs.retry', job.id), {}, { preserveScroll: true });
+};
+
+const forgetJob = (job) => {
+    if (window.confirm('Hapus failed job ini dari daftar? Tindakan ini tidak dapat dibatalkan.')) {
+        router.delete(route('admin.integration-monitor.jobs.forget', job.id), { preserveScroll: true });
+    }
+};
 </script>
 
 <template>
@@ -127,7 +138,27 @@ const truncate = (value, length = 180) => value && value.length > length ? `${va
                     <div v-for="job in failedJobs.data" :key="job.id" class="p-4 text-xs">
                         <div class="flex flex-wrap justify-between gap-2">
                             <span class="font-bold text-slate-800">{{ job.queue }} · {{ job.connection }}</span>
-                            <span class="text-slate-500">{{ job.failed_at }}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-slate-500">{{ job.failed_at }}</span>
+                                <button
+                                    v-if="capabilities.manage_queue"
+                                    type="button"
+                                    class="btn-sm-secondary"
+                                    aria-label="Retry failed job"
+                                    @click="retryJob(job)"
+                                >
+                                    Retry
+                                </button>
+                                <button
+                                    v-if="capabilities.forget_jobs"
+                                    type="button"
+                                    class="btn-sm-danger"
+                                    aria-label="Hapus failed job"
+                                    @click="forgetJob(job)"
+                                >
+                                    Forget
+                                </button>
+                            </div>
                         </div>
                         <p class="mt-2 text-rose-700 whitespace-pre-wrap">{{ truncate(job.exception) }}</p>
                     </div>

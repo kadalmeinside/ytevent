@@ -3,11 +3,13 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Services\OperationalAlertService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
@@ -27,6 +29,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Queue::failing(function ($event): void {
+            app(OperationalAlertService::class)->jobFailed($event);
+        });
+
         if (config('observability.slow_queries.enabled')) {
             DB::listen(function ($query): void {
                 if ($query->time >= config('observability.slow_queries.threshold_ms')) {

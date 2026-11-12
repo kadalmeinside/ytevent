@@ -35,6 +35,7 @@ class RolePermissionSeeder extends Seeder
             'roles.manage',
             'email_logs.manage',
             'audit_logs.view',
+            'system.queue.manage',
             'manager.portal.access',
             'manager.team.update_own',
             'manager.payment.pay_own',
@@ -69,6 +70,7 @@ class RolePermissionSeeder extends Seeder
             'roles.manage',
             'email_logs.manage',
             'audit_logs.view',
+            'system.queue.manage',
         ]);
 
         $financeRole->syncPermissions([
@@ -77,6 +79,7 @@ class RolePermissionSeeder extends Seeder
             'payments.view_all',
             'payments.verify_manual',
             'payments.export_report',
+            'system.queue.manage',
         ]);
 
         $screeningRole->syncPermissions([

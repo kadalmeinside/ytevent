@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\WebhookLog;
+use App\Services\OperationalAlertService;
 use App\Services\PaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -30,7 +31,7 @@ class WebhookController extends Controller
 
         try {
             $payment = $handler();
-            WebhookLog::create([
+            $log = WebhookLog::create([
                 'provider' => $provider,
                 'invoice_number' => $payment->invoice_number,
                 'external_reference' => $payment->external_reference_id,
@@ -46,7 +47,7 @@ class WebhookController extends Controller
                 'payment_status' => $payment->status,
             ]);
         } catch (Throwable $exception) {
-            WebhookLog::create([
+            $log = WebhookLog::create([
                 'provider' => $provider,
                 'invoice_number' => $payload['external_id'] ?? $payload['order_id'] ?? null,
                 'external_reference' => $payload['id'] ?? $payload['transaction_id'] ?? null,
@@ -56,6 +57,7 @@ class WebhookController extends Controller
                 'error_message' => $exception->getMessage(),
                 'payload' => $payload,
             ]);
+            app(OperationalAlertService::class)->webhookFailed($log);
 
             throw $exception;
         }
