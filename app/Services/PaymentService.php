@@ -195,6 +195,11 @@ class PaymentService
                         'unit' => 'minute',
                         'duration' => $expiryMinutes,
                     ],
+                    'callbacks' => [
+                        'finish' => route('manager.payments', ['feedback' => 'finish']),
+                        'unfinish' => route('manager.payments', ['feedback' => 'unfinish']),
+                        'error' => route('manager.payments', ['feedback' => 'error']),
+                    ],
                 ];
 
                 $channelsMode = SystemSetting::get('midtrans_channels_mode', 'all');
@@ -339,6 +344,51 @@ class PaymentService
             'transaction_id' => $payment->external_reference_id ?: ('MID-'.Str::random(10)),
             'signature_key' => $signature,
         ]);
+    }
+
+    public function syncMidtransTransactionStatus(Payment $payment): Payment
+    {
+        if (self::activeMode() !== 'midtrans' || ! self::midtransServerKey() || in_array($payment->status, ['paid', 'refund_required'], true)) {
+            return $payment;
+        }
+
+        $orderId = $payment->external_reference_id ?: $payment->invoice_number;
+        $baseUrl = self::midtransIsProduction()
+            ? 'https://api.midtrans.com/v2/'
+            : 'https://api.sandbox.midtrans.com/v2/';
+
+        try {
+            $response = Http::withBasicAuth(self::midtransServerKey(), '')
+                ->acceptJson()
+                ->get($baseUrl.$orderId.'/status');
+
+            if ($response->successful()) {
+                $payload = $response->json();
+                $txStatus = strtolower((string) ($payload['transaction_status'] ?? ''));
+                $fraudStatus = strtolower((string) ($payload['fraud_status'] ?? 'accept'));
+
+                $isSettled = $txStatus === 'settlement'
+                    || ($txStatus === 'capture' && $fraudStatus === 'accept');
+                $isExpired = in_array($txStatus, ['expire', 'cancel', 'deny'], true);
+
+                if ($isSettled || $isExpired) {
+                    return $this->processVerifiedGatewayCallback(
+                        invoiceNumber: $orderId,
+                        provider: 'midtrans',
+                        channel: $payload['payment_type'] ?? null,
+                        externalRef: $payload['transaction_id'] ?? null,
+                        callbackAmount: (string) ($payload['gross_amount'] ?? $payment->total_amount),
+                        isSettled: $isSettled,
+                        isExpiredSignal: $isExpired,
+                        rawPayload: $payload
+                    );
+                }
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Sync Midtrans status failed: '.$e->getMessage());
+        }
+
+        return $payment;
     }
 
     public function handleMidtransWebhook(array $payload): Payment

@@ -46,13 +46,22 @@ class PaymentController extends Controller
             $latest = $payments->first();
 
             if ($latest) {
+                $paymentService = app(PaymentService::class);
+
+                // Auto-sync jika manajer dialihkan kembali dari Midtrans (halaman feedback / callback URL)
+                if ($latest->status === 'unpaid'
+                    && ($request->has('order_id') || $request->has('feedback') || $request->has('transaction_status'))
+                    && SystemSetting::get('payment_method_mode') === 'midtrans'
+                ) {
+                    $latest = $paymentService->syncMidtransTransactionStatus($latest);
+                }
+
                 if ($latest->status === 'unpaid'
                     && empty($latest->snap_token)
                     && SystemSetting::get('payment_method_mode') === 'midtrans'
                     && ! config('payment.sandbox_simulator')
                 ) {
                     try {
-                        $paymentService = app(PaymentService::class);
                         $latest = $paymentService->initiateGatewayPayment(
                             payment: $latest,
                             provider: 'midtrans'

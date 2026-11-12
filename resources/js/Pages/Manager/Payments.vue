@@ -144,20 +144,28 @@ const openSnapPopup = (token = null) => {
 
     window.snap.pay(snapToken, {
         onSuccess: function (result) {
-            router.reload({ preserveScroll: true });
+            router.visit(route('manager.payments', { feedback: 'finish' }), { preserveScroll: false });
         },
         onPending: function (result) {
-            router.reload({ preserveScroll: true });
+            router.visit(route('manager.payments', { feedback: 'unfinish' }), { preserveScroll: true });
         },
         onError: function (result) {
             console.error('Midtrans Snap Error:', result);
-            router.reload({ preserveScroll: true });
+            router.visit(route('manager.payments', { feedback: 'error' }), { preserveScroll: true });
         },
         onClose: function () {
             console.log('Customer closed Midtrans Snap popup');
         },
     });
 };
+
+const feedbackStatus = computed(() => {
+    const params = new URLSearchParams(window.location.search);
+    const fb = params.get('feedback') || params.get('transaction_status');
+    if (fb === 'unfinish' || fb === 'pending') return 'unfinish';
+    if (fb === 'error' || fb === 'cancel' || fb === 'deny' || fb === 'expire') return 'error';
+    return null;
+});
 
 const loadSnapScript = () => {
     if (!props.midtransClientKey || props.sandboxSimulatorEnabled) return;
@@ -313,6 +321,26 @@ const reclaimSlot = () => {
         <Head title="Pembayaran Pendaftaran" />
 
         <div class="space-y-6 max-w-5xl">
+            <!-- Gateway Feedback Alerts -->
+            <div v-if="feedbackStatus === 'unfinish'" class="p-4 rounded-xl border border-amber-300 bg-amber-50/80 flex items-start gap-3 text-xs">
+                <svg class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                    <p class="font-bold text-amber-950">Menunggu Pelunasan Pembayaran</p>
+                    <p class="text-amber-800 text-[11px] mt-0.5">Instruksi pembayaran Anda telah tercatat di Midtrans. Silakan selesaikan pembayaran sesuai batas waktu yang tertera pada tagihan.</p>
+                </div>
+            </div>
+
+            <div v-else-if="feedbackStatus === 'error'" class="p-4 rounded-xl border border-rose-300 bg-rose-50/80 flex items-start gap-3 text-xs">
+                <svg class="w-5 h-5 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                    <p class="font-bold text-rose-950">Transaksi Belum Berhasil</p>
+                    <p class="text-rose-800 text-[11px] mt-0.5">Terjadi kendala pada pembayaran atau transaksi dibatalkan. Anda dapat mencoba kembali dengan mengklik tombol bayar di bawah.</p>
+                </div>
+            </div>
             <!-- State: NO ACTIVE BILL -->
             <div v-if="!payment" class="frosted-card p-10 text-center text-xs text-slate-500 space-y-2">
                 <svg class="w-10 h-10 text-slate-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
