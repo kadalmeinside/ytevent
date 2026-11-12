@@ -23,6 +23,14 @@ const adminNotifications = computed(() => page.props.adminNotifications || {});
 const mobileMenuOpen = ref(false);
 const currentPath = computed(() => page.url.split('?')[0]);
 
+const isItemActive = (item) => {
+    if (!item?.match) return false;
+    if (Array.isArray(item.match)) {
+        return item.match.some((m) => currentPath.value.startsWith(m));
+    }
+    return currentPath.value.startsWith(item.match);
+};
+
 const can = (permission) => {
     if (!user.value) return false;
     if (user.value.roles?.includes('superadmin')) return true;
@@ -159,7 +167,7 @@ const navSections = computed(() => {
                 {
                     label: 'Antrean Email',
                     href: safeRoute('admin.email-logs.index', {}, '/admin/system/email-logs'),
-                    match: '/admin/system/email-logs',
+                    match: ['/admin/system/email-logs', '/admin/email-logs'],
                     icon: 'mail',
                     show: can('email_logs.manage'),
                     badge: notif.failed_emails_count > 0
@@ -169,7 +177,7 @@ const navSections = computed(() => {
                 {
                     label: 'Audit Trail',
                     href: safeRoute('admin.audit-logs.index', {}, '/admin/system/audit-logs'),
-                    match: '/admin/system/audit-logs',
+                    match: ['/admin/system/audit-logs', '/admin/audit-logs', '/admin/audit-trail'],
                     icon: 'transactions',
                     show: can('audit_logs.view'),
                     badge: null,
@@ -177,7 +185,7 @@ const navSections = computed(() => {
                 {
                     label: 'Monitoring Integrasi',
                     href: safeRoute('admin.integration-monitor.index', {}, '/admin/system/integration-monitor'),
-                    match: '/admin/system/integration-monitor',
+                    match: ['/admin/system/integration-monitor', '/admin/integration-monitor'],
                     icon: 'transactions',
                     show: can('audit_logs.view') || can('system.queue.manage'),
                     badge: notif.failed_webhooks_count > 0 || notif.failed_jobs_count > 0
@@ -331,14 +339,14 @@ const submitPasswordUpdate = () => {
                                 :href="item.href"
                                 class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150"
                                 :class="
-                                    currentPath.startsWith(item.match)
+                                    isItemActive(item)
                                         ? 'bg-orange-500/10 text-orange-950 font-bold border-l-[3px] border-orange-600 shadow-2xs'
                                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 border-l-[3px] border-transparent'
                                 "
                                 @click="mobileMenuOpen = false"
                             >
                                 <!-- Icons -->
-                                <span class="w-4 h-4 shrink-0" :class="currentPath.startsWith(item.match) ? 'text-orange-600' : 'text-slate-400'">
+                                <span class="w-4 h-4 shrink-0" :class="isItemActive(item) ? 'text-orange-600' : 'text-slate-400'">
                                     <!-- Dashboard Icon -->
                                     <svg v-if="item.icon === 'dashboard'" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4">
                                         <rect width="7" height="9" x="3" y="3" rx="1" stroke-width="2"/>

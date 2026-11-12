@@ -243,12 +243,30 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
         ->middleware('permission:payments.view_all')
         ->name('payments.transactions.export');
 
+    // Audit Logs & Audit Trail (Dukungan URL /admin/audit-logs, /admin/audit-trail, dan /admin/system/audit-logs)
+    Route::get('/audit-logs', [AdminAuditLogController::class, 'index'])
+        ->middleware('permission:audit_logs.view')
+        ->name('audit-logs.direct');
+    Route::get('/audit-logs/export-csv', [AdminAuditLogController::class, 'export'])
+        ->middleware('permission:audit_logs.view')
+        ->name('audit-logs.direct.export');
+    Route::get('/audit-trail', fn () => redirect()->route('admin.audit-logs.index'))
+        ->middleware('permission:audit_logs.view');
     Route::get('/system/audit-logs', [AdminAuditLogController::class, 'index'])
         ->middleware('permission:audit_logs.view')
         ->name('audit-logs.index');
     Route::get('/system/audit-logs/export-csv', [AdminAuditLogController::class, 'export'])
         ->middleware('permission:audit_logs.view')
         ->name('audit-logs.export');
+
+    // Monitoring Integrasi (Dukungan URL /admin/integration-monitor dan /admin/system/integration-monitor)
+    Route::get('/integration-monitor', [AdminIntegrationMonitorController::class, 'index'])
+        ->middleware('permission:audit_logs.view|system.queue.manage')
+        ->name('integration-monitor.direct');
+    Route::post('/integration-monitor/jobs/{id}/retry', [AdminIntegrationMonitorController::class, 'retryJob'])
+        ->middleware('permission:system.queue.manage');
+    Route::delete('/integration-monitor/jobs/{id}', [AdminIntegrationMonitorController::class, 'forgetJob'])
+        ->middleware('role:superadmin');
     Route::get('/system/integration-monitor', [AdminIntegrationMonitorController::class, 'index'])
         ->middleware('permission:audit_logs.view|system.queue.manage')
         ->name('integration-monitor.index');
@@ -259,8 +277,9 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
         ->middleware('role:superadmin')
         ->name('integration-monitor.jobs.forget');
 
-    // Pemantauan Antrean Email Transaksional
+    // Pemantauan Antrean Email Transaksional (Dukungan /admin/email-logs dan /admin/system/email-logs)
     Route::middleware('permission:email_logs.manage')->group(function () {
+        Route::get('/email-logs', fn () => redirect()->route('admin.email-logs.index'));
         Route::get('/system/email-logs', [AdminEmailLogController::class, 'index'])->name('email-logs.index');
         Route::post('/system/email-logs/retry-failed', [AdminEmailLogController::class, 'retryAllFailed'])->name('email-logs.retry-failed');
         Route::post('/system/email-logs/{log}/retry', [AdminEmailLogController::class, 'retry'])->name('email-logs.retry');

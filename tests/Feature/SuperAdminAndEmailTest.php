@@ -109,6 +109,10 @@ class SuperAdminAndEmailTest extends TestCase
         $response = $this->actingAs($superadmin)->get(route('admin.audit-logs.index'));
         $response->assertOk();
 
+        // Direct path alias & redirect
+        $this->actingAs($superadmin)->get('/admin/audit-logs')->assertOk();
+        $this->actingAs($superadmin)->get('/admin/audit-trail')->assertRedirect(route('admin.audit-logs.index'));
+
         $finance = User::factory()->create();
         $finance->assignRole('finance');
 
@@ -160,6 +164,11 @@ class SuperAdminAndEmailTest extends TestCase
 
         $this->actingAs($superadmin)
             ->get(route('admin.integration-monitor.index'))
+            ->assertOk();
+
+        // Direct path alias
+        $this->actingAs($superadmin)
+            ->get('/admin/integration-monitor')
             ->assertOk();
 
         $finance = User::factory()->create();
