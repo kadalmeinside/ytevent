@@ -143,7 +143,7 @@ class StoreEventRequest extends FormRequest
             'contact_person' => ['nullable', 'string', 'max:120'],
             'contact_whatsapp' => ['nullable', 'string', 'max:30'],
             'status' => ['required', Rule::in(array_keys(Event::STATUSES))],
-            'banner_file' => ['nullable', File::image()->max(2048), 'mimes:png,jpg,jpeg'],
+            'banner_file' => ['nullable', File::image()->max(5120), 'mimes:png,jpg,jpeg,webp'],
             'regulation_pdf' => ['nullable', File::types(['pdf'])->max(5120)],
         ];
     }
@@ -172,8 +172,8 @@ class StoreEventRequest extends FormRequest
             'payment_deadline_hours.required' => 'Batas waktu pembayaran reservasi slot wajib diisi (dalam jam).',
             'registration_close_at.after_or_equal' => 'Tanggal tutup pendaftaran harus setelah atau sama dengan tanggal buka pendaftaran.',
             'match_end_date.after_or_equal' => 'Tanggal selesai pertandingan harus setelah atau sama dengan tanggal mulai.',
-            'banner_file.mimes' => 'Poster/banner event harus berformat PNG atau JPG.',
-            'banner_file.max' => 'Ukuran poster/banner tidak boleh melebihi 2 MB.',
+            'banner_file.mimes' => 'Poster/banner event harus berformat JPG, PNG, atau WebP.',
+            'banner_file.max' => 'Ukuran poster/banner tidak boleh melebihi 5 MB.',
             'regulation_pdf.mimes' => 'Berkas regulasi teknis harus berformat PDF.',
             'regulation_pdf.max' => 'Ukuran berkas PDF regulasi maksimal 5 MB.',
         ];

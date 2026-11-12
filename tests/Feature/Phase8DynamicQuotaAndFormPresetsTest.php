@@ -285,4 +285,37 @@ class Phase8DynamicQuotaAndFormPresetsTest extends TestCase
         $this->assertEquals('audition', $event->fresh()->format);
         $this->assertEquals('Persija EPA Future Stars Scouting Fest 2026 Updated', $event->fresh()->name);
     }
+
+    public function test_superadmin_can_upload_webp_banner_file(): void
+    {
+        $webpBanner = UploadedFile::fake()->create('event-banner.webp', 450, 'image/webp');
+
+        $payload = [
+            'name' => 'WebP Banner Event Test',
+            'city' => 'Jakarta Selatan',
+            'venue_name' => 'Stadion Madya GBK',
+            'event_type' => 'audition',
+            'participant_type' => 'individual',
+            'quota_type' => 'fixed',
+            'max_participants' => 80,
+            'format' => 'audition',
+            'age_category' => 'U-14',
+            'required_documents' => ['birth_certificate', 'family_card'],
+            'registration_fee' => 100000,
+            'status' => 'open',
+            'payment_deadline_hours' => 24,
+            'reupload_grace_hours' => 6,
+            'banner_file' => $webpBanner,
+        ];
+
+        $response = $this->actingAs($this->superadmin)
+            ->post(route('admin.events.store'), $payload);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect(route('admin.events.index'));
+
+        $created = Event::where('name', 'WebP Banner Event Test')->firstOrFail();
+        $this->assertNotNull($created->banner_path);
+        $this->assertStringEndsWith('.webp', $created->banner_path);
+    }
 }
