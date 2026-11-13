@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import DocumentViewerModal from '@/Components/DocumentViewerModal.vue';
@@ -10,30 +10,39 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    activeParticipant: {
+        type: Object,
+        default: null,
+    },
     participants: {
         type: Array,
         default: () => [],
+    },
+    pagination: {
+        type: Object,
+        default: null,
+    },
+    navigation: {
+        type: Object,
+        default: () => ({ prev_id: null, next_id: null, active_position: 0, total_filtered: 0 }),
+    },
+    counts: {
+        type: Object,
+        default: () => ({ total: 0, submitted: 0, rejected: 0, passed: 0, draft: 0 }),
+    },
+    filters: {
+        type: Object,
+        default: () => ({ status: 'all', search: '', participant_id: null }),
     },
 });
 
 const isAudition = computed(() => props.event.event_type === 'audition');
 
-// Active Participant State (?participant_id= or first submitted)
-const resolveInitialIndex = () => {
-    if (typeof window !== 'undefined') {
-        const params = new URLSearchParams(window.location.search);
-        const requestedId = Number(params.get('participant_id'));
-        if (requestedId) {
-            const idx = props.participants.findIndex((p) => Number(p.id) === requestedId);
-            if (idx !== -1) return idx;
-        }
-    }
-    const firstSubmittedIdx = props.participants.findIndex((p) => p.screening_status === 'submitted');
-    return firstSubmittedIdx !== -1 ? firstSubmittedIdx : 0;
-};
-
-const activeIndex = ref(resolveInitialIndex());
-const activeParticipant = computed(() => props.participants[activeIndex.value] || null);
+const activeParticipant = computed(() => props.activeParticipant || props.participants[0] || null);
+const searchQuery = ref(props.filters?.search || '');
+const statusFilter = ref(props.filters?.status || 'all');
+const isNavigating = ref(false);
+let searchTimer = null;
 
 // Active Document State
 const selectedDocIndex = ref(0);
@@ -78,22 +87,76 @@ const resetWizardZoom = () => {
     wizardZoom.value = 1;
 };
 
-const selectParticipant = (index) => {
-    activeIndex.value = index;
-    selectedDocIndex.value = 0;
-    resetZoom();
+const visitQueue = ({ participantId = undefined, page = undefined, status = statusFilter.value, search = searchQuery.value } = {}) => {
+    const cleanSearch = String(search || '').trim();
+    router.get(
+        route('admin.screening.auditions.review', { event: props.event.id }),
+        {
+            participant_id: participantId || undefined,
+            page: page || undefined,
+            status: status && status !== 'all' ? status : undefined,
+            search: cleanSearch || undefined,
+        },
+        {
+            only: ['activeParticipant', 'participants', 'pagination', 'navigation', 'counts', 'filters'],
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+            onStart: () => {
+                isNavigating.value = true;
+            },
+            onFinish: () => {
+                isNavigating.value = false;
+                selectedDocIndex.value = 0;
+                resetZoom();
+            },
+        }
+    );
+};
+
+watch(
+    () => props.activeParticipant?.id,
+    () => {
+        selectedDocIndex.value = 0;
+        resetZoom();
+    }
+);
+
+watch(searchQuery, (val) => {
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+        visitQueue({ participantId: undefined, page: 1, status: statusFilter.value, search: val });
+    }, 300);
+});
+
+const setStatusFilter = (status) => {
+    if (statusFilter.value === status) return;
+    statusFilter.value = status;
+    visitQueue({ participantId: undefined, page: 1, status, search: searchQuery.value });
+};
+
+const selectParticipantById = (id) => {
+    if (!id || Number(activeParticipant.value?.id) === Number(id)) return;
+    visitQueue({ participantId: id, page: props.pagination?.current_page });
 };
 
 const nextParticipant = () => {
-    if (activeIndex.value < props.participants.length - 1) {
-        selectParticipant(activeIndex.value + 1);
+    if (props.navigation?.next_id) {
+        visitQueue({ participantId: props.navigation.next_id });
     }
 };
 
 const prevParticipant = () => {
-    if (activeIndex.value > 0) {
-        selectParticipant(activeIndex.value - 1);
+    if (props.navigation?.prev_id) {
+        visitQueue({ participantId: props.navigation.prev_id });
     }
+};
+
+const goToQueuePage = (pageNum) => {
+    if (!props.pagination || pageNum < 1 || pageNum > props.pagination.last_page || pageNum === props.pagination.current_page) {
+        return;
+    }
+    visitQueue({ participantId: activeParticipant.value?.id, page: pageNum });
 };
 
 const openDocModal = () => {
@@ -252,6 +315,7 @@ const handleApproveClick = () => {
 
 const submitFinalApprove = () => {
     if (!canApprove.value || verifyForm.processing || !activeParticipant.value) return;
+    const nextTargetId = props.navigation?.next_id;
     verifyForm.status = 'passed';
     verifyForm.notes = '';
 
@@ -260,11 +324,8 @@ const submitFinalApprove = () => {
         onSuccess: () => {
             isWizardModalOpen.value = false;
             isApproveConfirmModalOpen.value = false;
-            const nextIdx = props.participants.findIndex(
-                (p, idx) => idx > activeIndex.value && p.screening_status === 'submitted'
-            );
-            if (nextIdx !== -1) {
-                selectParticipant(nextIdx);
+            if (nextTargetId) {
+                visitQueue({ participantId: nextTargetId });
             }
         },
     });
@@ -352,6 +413,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
     window.removeEventListener('keydown', handleKeydown);
+    if (searchTimer) clearTimeout(searchTimer);
 });
 </script>
 
@@ -380,15 +442,15 @@ onBeforeUnmount(() => {
                     <span class="font-bold text-slate-900 truncate max-w-[200px]">{{ event.name }}</span>
                 </div>
 
-                <div v-if="participants.length > 0" class="flex items-center gap-2">
+                <div v-if="navigation.total_filtered > 0" class="flex items-center gap-2">
                     <span class="text-xs font-semibold text-slate-600 tabular-nums">
-                        Peserta: {{ activeIndex + 1 }} dari {{ participants.length }}
+                        Peserta: {{ navigation.active_position || 1 }} dari {{ navigation.total_filtered }}
                     </span>
                     <div class="flex items-center gap-1">
                         <button
                             type="button"
                             class="btn-sm-secondary px-2.5 py-1 text-xs inline-flex items-center gap-1"
-                            :disabled="activeIndex === 0"
+                            :disabled="!navigation.prev_id || isNavigating"
                             @click="prevParticipant"
                         >
                             <svg class="w-3.5 h-3.5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -399,7 +461,7 @@ onBeforeUnmount(() => {
                         <button
                             type="button"
                             class="btn-sm-secondary px-2.5 py-1 text-xs inline-flex items-center gap-1"
-                            :disabled="activeIndex === participants.length - 1"
+                            :disabled="!navigation.next_id || isNavigating"
                             @click="nextParticipant"
                         >
                             <span>Next</span>
@@ -421,8 +483,8 @@ onBeforeUnmount(() => {
                         </span>
                     </div>
                     <p class="text-xs text-slate-600 mt-0.5">
-                        Total Pendaftar: <strong class="text-slate-900 tabular-nums">{{ participants.length }}</strong> peserta &bull;
-                        Klik tab di bawah untuk berpindah antar peserta secara instan.
+                        Total Pendaftar: <strong class="text-slate-900 tabular-nums">{{ counts.total || 0 }}</strong> peserta &bull;
+                        Antrean dipaginasi per 20 peserta agar tetap ringan untuk ribuan pendaftar.
                     </p>
                 </div>
 
@@ -439,8 +501,8 @@ onBeforeUnmount(() => {
                 </div>
             </div>
 
-            <!-- Empty State if No Participants -->
-            <div v-if="participants.length === 0" class="frosted-card p-12 text-center bg-white space-y-2">
+            <!-- Empty State if No Participants at All -->
+            <div v-if="(counts.total || 0) === 0" class="frosted-card p-12 text-center bg-white space-y-2">
                 <svg class="w-12 h-12 mx-auto text-slate-400" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
@@ -448,45 +510,125 @@ onBeforeUnmount(() => {
                 <p class="text-xs text-slate-600">Peserta yang mendaftar pada event ini akan muncul otomatis di workstation screening.</p>
             </div>
 
-            <!-- Horizontal Participant Tabs Bar -->
-            <div v-if="participants.length > 0" class="frosted-card p-2 bg-white overflow-x-auto scrollbar-thin">
-                <div role="tablist" aria-label="Daftar peserta terdaftar" class="flex items-center gap-1.5 min-w-max">
-                    <button
-                        v-for="(p, idx) in participants"
-                        :key="p.id"
-                        type="button"
-                        role="tab"
-                        :aria-selected="activeIndex === idx"
-                        class="px-3 py-2 sm:py-1.5 min-h-[44px] sm:min-h-0 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors border"
-                        :class="
-                            activeIndex === idx
-                                ? 'bg-orange-600 text-white border-orange-600'
-                                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                        "
-                        @click="selectParticipant(idx)"
-                    >
-                        <span
-                            class="font-bold px-1.5 py-0.5 rounded text-xs tabular-nums"
-                            :class="activeIndex === idx ? 'bg-orange-700 text-white' : 'bg-white text-slate-700 border border-slate-200'"
+            <!-- Scalable Searchable & Paginated Queue Bar -->
+            <div v-if="(counts.total || 0) > 0" class="frosted-card p-3.5 bg-white space-y-3 border border-slate-200">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+                    <!-- Quick Status Filter Chips -->
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <button
+                            type="button"
+                            class="px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors"
+                            :class="statusFilter === 'all' ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'"
+                            @click="setStatusFilter('all')"
                         >
-                            {{ p.bib_number ? `#${p.bib_number}` : `#${idx + 1}` }}
-                        </span>
-                        <span class="truncate max-w-[130px]">{{ p.full_name }}</span>
-                        <span
-                            class="px-1.5 py-0.5 rounded text-[11px] font-bold"
+                            Semua ({{ counts.total || 0 }})
+                        </button>
+                        <button
+                            type="button"
+                            class="px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors"
+                            :class="statusFilter === 'submitted' ? 'bg-amber-600 text-white border-amber-600' : 'bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100'"
+                            @click="setStatusFilter('submitted')"
+                        >
+                            Menunggu Review ({{ counts.submitted || 0 }})
+                        </button>
+                        <button
+                            type="button"
+                            class="px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors"
+                            :class="statusFilter === 'rejected' ? 'bg-rose-600 text-white border-rose-600' : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100'"
+                            @click="setStatusFilter('rejected')"
+                        >
+                            Perlu Revisi ({{ counts.rejected || 0 }})
+                        </button>
+                        <button
+                            type="button"
+                            class="px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors"
+                            :class="statusFilter === 'passed' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'"
+                            @click="setStatusFilter('passed')"
+                        >
+                            Sah ({{ counts.passed || 0 }})
+                        </button>
+                    </div>
+
+                    <!-- Search & Queue Page Controls -->
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="relative w-full sm:w-64">
+                            <label for="review-queue-search" class="sr-only">Cari peserta</label>
+                            <input
+                                id="review-queue-search"
+                                v-model="searchQuery"
+                                type="text"
+                                placeholder="Cari nama, NIK, No. Reg, Rompi..."
+                                class="input-field text-xs py-1.5"
+                            />
+                        </div>
+
+                        <div v-if="pagination && pagination.last_page > 1" class="flex items-center gap-1.5 text-xs">
+                            <button
+                                type="button"
+                                class="btn-sm-secondary px-2 py-1 text-xs"
+                                :disabled="pagination.current_page <= 1 || isNavigating"
+                                @click="goToQueuePage(pagination.current_page - 1)"
+                            >
+                                &lsaquo; Hal Prev
+                            </button>
+                            <span class="font-semibold text-slate-600 tabular-nums px-1">
+                                Hal {{ pagination.current_page }}/{{ pagination.last_page }}
+                            </span>
+                            <button
+                                type="button"
+                                class="btn-sm-secondary px-2 py-1 text-xs"
+                                :disabled="pagination.current_page >= pagination.last_page || isNavigating"
+                                @click="goToQueuePage(pagination.current_page + 1)"
+                            >
+                                Hal Next &rsaquo;
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Current Page Queue Strip (max 20 items rendered) -->
+                <div v-if="participants.length > 0" class="overflow-x-auto scrollbar-thin pb-0.5">
+                    <div role="tablist" aria-label="Daftar peserta halaman aktif" class="flex items-center gap-1.5 min-w-max">
+                        <button
+                            v-for="(p, idx) in participants"
+                            :key="p.id"
+                            type="button"
+                            role="tab"
+                            :aria-selected="Number(activeParticipant?.id) === Number(p.id)"
+                            class="px-3 py-2 sm:py-1.5 min-h-[44px] sm:min-h-0 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors border cursor-pointer"
                             :class="
-                                activeIndex === idx
-                                    ? 'bg-white/20 text-white'
-                                    : (p.screening_status === 'passed'
-                                        ? 'bg-emerald-100 text-emerald-800'
-                                        : p.screening_status === 'rejected'
-                                          ? 'bg-rose-100 text-rose-800'
-                                          : 'bg-amber-100 text-amber-900')
+                                Number(activeParticipant?.id) === Number(p.id)
+                                    ? 'bg-orange-600 text-white border-orange-600'
+                                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                             "
+                            @click="selectParticipantById(p.id)"
                         >
-                            {{ statusLabel(p.screening_status) }}
-                        </span>
-                    </button>
+                            <span
+                                class="font-bold px-1.5 py-0.5 rounded text-xs tabular-nums"
+                                :class="Number(activeParticipant?.id) === Number(p.id) ? 'bg-orange-700 text-white' : 'bg-white text-slate-700 border border-slate-200'"
+                            >
+                                {{ p.bib_number ? `#${p.bib_number}` : `#${(pagination?.from || 1) + idx}` }}
+                            </span>
+                            <span class="truncate max-w-[140px]">{{ p.full_name }}</span>
+                            <span
+                                class="px-1.5 py-0.5 rounded text-[11px] font-bold"
+                                :class="
+                                    Number(activeParticipant?.id) === Number(p.id)
+                                        ? 'bg-white/20 text-white'
+                                        : (p.screening_status === 'passed'
+                                            ? 'bg-emerald-100 text-emerald-800'
+                                            : p.screening_status === 'rejected'
+                                              ? 'bg-rose-100 text-rose-800'
+                                              : 'bg-amber-100 text-amber-900')
+                                "
+                            >
+                                {{ statusLabel(p.screening_status) }}
+                            </span>
+                        </button>
+                    </div>
+                </div>
+                <div v-else class="text-xs text-slate-500 py-2">
+                    Tidak ada peserta yang cocok dengan filter atau pencarian saat ini.
                 </div>
             </div>
 

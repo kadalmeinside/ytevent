@@ -275,4 +275,87 @@ class EventWorkspaceAndIndividualScreeningTest extends TestCase
         $this->assertNull($participant->document_statuses['birth_certificate']['notes']);
         $this->assertSame('valid', $participant->document_statuses['family_card']['validation_status']);
     }
+
+    public function test_split_view_workstation_paginates_queue_and_hydrates_only_active_participant(): void
+    {
+        $admin = $this->makeSuperadmin();
+        $event = $this->makeIndividualEvent('audition');
+        $user = User::factory()->create();
+
+        $participants = [];
+        for ($i = 1; $i <= 24; $i++) {
+            $participants[] = $this->makeParticipant($event, $user, [
+                'full_name' => sprintf('Atlet Uji %02d', $i),
+                'screening_status' => $i <= 22 ? 'submitted' : 'passed',
+                'bib_number' => $i > 22 ? $i : null,
+            ]);
+        }
+
+        // Requesting participant #21 (page 2) auto-lands on page 2 and hydrates only participant #21
+        $target = $participants[20];
+        $this->actingAs($admin)
+            ->get(route('admin.screening.auditions.review', ['event' => $event->id, 'participant_id' => $target->id]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Admin/Screening/AuditionReview')
+                ->where('activeParticipant.id', $target->id)
+                ->has('activeParticipant.documents', 2)
+                ->has('participants', 4)
+                ->where('pagination.current_page', 2)
+                ->where('pagination.last_page', 2)
+                ->where('pagination.total', 24)
+                ->where('navigation.active_position', 21)
+                ->where('navigation.prev_id', $participants[19]->id)
+                ->where('navigation.next_id', $participants[21]->id)
+                ->where('counts.total', 24)
+                ->where('counts.submitted', 22)
+                ->where('counts.passed', 2)
+                ->missing('participants.1.documents')
+            );
+
+        // Status filter returns only passed participants
+        $this->actingAs($admin)
+            ->get(route('admin.screening.auditions.review', ['event' => $event->id, 'status' => 'passed']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('pagination.total', 2)
+                ->has('participants', 2)
+                ->where('activeParticipant.id', $participants[22]->id)
+            );
+    }
+
+    public function test_event_workspace_paginates_and_filters_individual_participants_server_side(): void
+    {
+        $admin = $this->makeSuperadmin();
+        $event = $this->makeIndividualEvent('audition');
+        $user = User::factory()->create();
+
+        for ($i = 1; $i <= 28; $i++) {
+            $this->makeParticipant($event, $user, [
+                'full_name' => $i === 28 ? 'Garuda Spesial' : sprintf('Peserta Event %02d', $i),
+                'screening_status' => $i <= 20 ? 'submitted' : 'passed',
+            ]);
+        }
+
+        $this->actingAs($admin)
+            ->get(route('admin.events.show', ['event' => $event->id]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('summary.total', 28)
+                ->where('summary.submitted', 20)
+                ->where('summary.passed', 8)
+                ->has('participants', 25)
+                ->where('participantsPagination.total', 28)
+                ->where('participantsPagination.last_page', 2)
+            );
+
+        $this->actingAs($admin)
+            ->get(route('admin.events.show', ['event' => $event->id, 'search' => 'Garuda Spesial']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('summary.total', 28)
+                ->has('participants', 1)
+                ->where('participants.0.full_name', 'Garuda Spesial')
+            );
+    }
 }

@@ -160,7 +160,7 @@ onUnmounted(() => {
     >
         <Head title="Web QR Scanner Matchday" />
 
-        <div class="max-w-4xl mx-auto space-y-6">
+        <div class="w-full space-y-6">
             <!-- Breadcrumb Navigation -->
             <div class="flex items-center justify-between">
                 <Link :href="route('admin.screening.index')" class="text-xs text-slate-500 hover:text-orange-600 font-medium transition-colors">

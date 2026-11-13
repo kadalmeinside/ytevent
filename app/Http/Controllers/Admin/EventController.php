@@ -103,35 +103,58 @@ class EventController extends Controller
 
         $summary = [];
         $participants = [];
+        $participantsPagination = null;
+        $participantFilters = [
+            'search' => trim((string) $request->query('search', '')),
+            'status' => (string) $request->query('status', 'all'),
+        ];
         $teams = [];
         $sessions = [];
         $stages = [];
         $positionBreakdown = [];
 
         if ($participantType === 'individual') {
-            $allParticipants = AuditionParticipant::query()
-                ->where('event_id', $event->id)
-                ->with(['eventSession:id,session_name', 'latestPayment'])
-                ->orderByRaw("CASE screening_status WHEN 'submitted' THEN 1 WHEN 'rejected' THEN 2 WHEN 'passed' THEN 3 ELSE 4 END")
-                ->latest('id')
-                ->get();
+            $baseParticipantsQuery = AuditionParticipant::query()
+                ->where('event_id', $event->id);
 
-            $paidCount = $allParticipants->filter(fn (AuditionParticipant $p) => $p->isPaid())->count();
-            $submittedCount = $allParticipants->where('screening_status', 'submitted')->count();
-            $passedCount = $allParticipants->where('screening_status', 'passed')->count();
-            $rejectedCount = $allParticipants->where('screening_status', 'rejected')->count();
+            $statusCounts = (clone $baseParticipantsQuery)
+                ->selectRaw('screening_status, COUNT(*) as aggregate')
+                ->groupBy('screening_status')
+                ->pluck('aggregate', 'screening_status');
+
+            $totalCount = (int) $statusCounts->sum();
+            $submittedCount = (int) ($statusCounts->get('submitted') ?? 0);
+            $passedCount = (int) ($statusCounts->get('passed') ?? 0);
+            $rejectedCount = (int) ($statusCounts->get('rejected') ?? 0);
+
+            $paidCount = (clone $baseParticipantsQuery)
+                ->whereHas('latestPayment', fn ($q) => $q->where('status', 'paid'))
+                ->count();
+
+            $digitalPassQuery = (clone $baseParticipantsQuery)
+                ->where('screening_status', 'passed')
+                ->whereHas('latestPayment', fn ($q) => $q->where('status', 'paid'));
+
+            if ($eventType === 'audition') {
+                $digitalPassQuery->whereNotNull('bib_number');
+            }
 
             $summary = [
-                'total' => $allParticipants->count(),
+                'total' => $totalCount,
                 'paid' => $paidCount,
                 'submitted' => $submittedCount,
                 'passed' => $passedCount,
                 'rejected' => $rejectedCount,
-                'digital_pass_active' => $allParticipants->filter(fn (AuditionParticipant $p) => $p->canDownloadBib())->count(),
+                'digital_pass_active' => $digitalPassQuery->count(),
             ];
 
             if (! empty($event->position_quota_caps) && is_array($event->position_quota_caps)) {
-                $countsByPos = $allParticipants->groupBy(fn ($p) => strtoupper((string) $p->preferred_position))->map->count();
+                $countsByPos = (clone $baseParticipantsQuery)
+                    ->whereNotNull('preferred_position')
+                    ->selectRaw('UPPER(preferred_position) as pos, COUNT(*) as aggregate')
+                    ->groupByRaw('UPPER(preferred_position)')
+                    ->pluck('aggregate', 'pos');
+
                 foreach ($event->position_quota_caps as $pos => $cap) {
                     $posKey = strtoupper((string) $pos);
                     $positionBreakdown[] = [
@@ -172,7 +195,31 @@ class EventController extends Controller
                 ])
                 ->values();
 
-            $participants = $allParticipants->map(function (AuditionParticipant $p) {
+            $listQuery = (clone $baseParticipantsQuery)
+                ->with(['eventSession:id,session_name', 'latestPayment']);
+
+            if (in_array($participantFilters['status'], ['submitted', 'passed', 'rejected', 'draft'], true)) {
+                $listQuery->where('screening_status', $participantFilters['status']);
+            }
+
+            if ($participantFilters['search'] !== '') {
+                $searchTerm = $participantFilters['search'];
+                $listQuery->where(function ($q) use ($searchTerm) {
+                    $q->where('full_name', 'like', "%{$searchTerm}%")
+                        ->orWhere('registration_number', 'like', "%{$searchTerm}%")
+                        ->orWhere('nik', 'like', "%{$searchTerm}%")
+                        ->orWhere('current_club_ssb', 'like', "%{$searchTerm}%");
+                });
+            }
+
+            $paginator = $listQuery
+                ->orderByRaw("CASE screening_status WHEN 'submitted' THEN 1 WHEN 'rejected' THEN 2 WHEN 'passed' THEN 3 ELSE 4 END")
+                ->latest('id')
+                ->paginate(25)
+                ->withQueryString();
+
+            $participants = collect($paginator->items())->map(function (AuditionParticipant $p) use ($event) {
+                $p->setRelation('event', $event);
                 $docs = $p->getStructuredDocuments();
 
                 return [
@@ -196,7 +243,17 @@ class EventController extends Controller
                     'docs_valid' => collect($docs)->where('validation_status', 'valid')->count(),
                     'photo_url' => $p->photo_path ? Storage::disk('public')->url($p->photo_path) : null,
                 ];
-            })->values();
+            })->values()->all();
+
+            $participantsPagination = [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'from' => $paginator->firstItem(),
+                'to' => $paginator->lastItem(),
+                'links' => $paginator->linkCollection()->toArray(),
+            ];
         } else {
             $allTeams = Team::query()
                 ->where('event_id', $event->id)
@@ -244,6 +301,8 @@ class EventController extends Controller
             'sessions' => $sessions,
             'stages' => $stages,
             'participants' => $participants,
+            'participantsPagination' => $participantsPagination,
+            'participantFilters' => $participantFilters,
             'teams' => $teams,
         ]);
     }

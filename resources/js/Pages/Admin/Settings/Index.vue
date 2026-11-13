@@ -111,7 +111,7 @@ const toggleSimulationSetting = () => {
 
         <div class="space-y-6">
             <!-- Navigation Tabs -->
-            <div class="frosted-card p-1.5 flex flex-wrap items-center gap-1 max-w-2xl">
+            <div class="frosted-card p-1.5 flex flex-wrap items-center gap-1 w-full sm:w-fit">
                 <button
                     type="button"
                     class="flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all text-center cursor-pointer"
@@ -139,7 +139,7 @@ const toggleSimulationSetting = () => {
             </div>
 
             <!-- Tab 1: Branding & Identitas -->
-            <div v-if="activeTab === 'branding'" class="frosted-card p-6 sm:p-8 max-w-4xl space-y-6">
+            <div v-if="activeTab === 'branding'" class="frosted-card p-6 sm:p-8 w-full space-y-6">
                 <div>
                     <h2 class="text-base font-bold text-slate-900">Identitas Situs &amp; Branding Merek</h2>
                     <p class="text-xs text-slate-500 mt-0.5">Nama aplikasi, tagline, logo resmi, dan favicon yang tampil di header dan footer publik.</p>
@@ -256,7 +256,7 @@ const toggleSimulationSetting = () => {
             </div>
 
             <!-- Tab 2: Payment Method Mode (Manual vs Midtrans) & Multiple Accounts -->
-            <div v-else-if="activeTab === 'payment'" class="frosted-card p-6 sm:p-8 max-w-4xl space-y-6">
+            <div v-else-if="activeTab === 'payment'" class="frosted-card p-6 sm:p-8 w-full space-y-6">
                 <div>
                     <h2 class="text-base font-bold text-slate-900">Konfigurasi Metode Pembayaran Pendaftaran</h2>
                     <p class="text-xs text-slate-500 mt-0.5">
@@ -579,7 +579,7 @@ const toggleSimulationSetting = () => {
             </div>
 
             <!-- Tab 3: Mode Simulasi & Uji Coba (Take-Out Ready) -->
-            <div v-else class="frosted-card p-6 sm:p-8 max-w-4xl space-y-6">
+            <div v-else class="frosted-card p-6 sm:p-8 w-full space-y-6">
                 <div>
                     <h2 class="text-base font-bold text-slate-900">Pengaturan Modul Simulasi &amp; Isi Data Paksa</h2>
                     <p class="text-xs text-slate-500 mt-0.5">

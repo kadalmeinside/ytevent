@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
@@ -30,6 +30,14 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    participantsPagination: {
+        type: Object,
+        default: null,
+    },
+    participantFilters: {
+        type: Object,
+        default: () => ({ search: '', status: 'all' }),
+    },
     teams: {
         type: Array,
         default: () => [],
@@ -41,10 +49,61 @@ const { formatRupiah, formatDate } = useFormatters();
 const isIndividual = computed(() => props.event.participant_type === 'individual');
 const isAudition = computed(() => props.event.event_type === 'audition');
 
-const activeTab = ref('overview'); // 'overview', 'participants', 'operations'
-const searchQuery = ref('');
-const statusFilter = ref('all');
+const resolveInitialTab = () => {
+    if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('page') || params.has('search') || (params.has('status') && params.get('status') !== 'all')) {
+            return 'participants';
+        }
+        const tab = params.get('tab');
+        if (tab && ['overview', 'participants', 'operations'].includes(tab)) {
+            return tab;
+        }
+    }
+    return 'overview';
+};
+
+const activeTab = ref(resolveInitialTab()); // 'overview', 'participants', 'operations'
+const searchQuery = ref(props.participantFilters?.search || '');
+const statusFilter = ref(props.participantFilters?.status || 'all');
 const syncing = ref(false);
+let searchDebounceTimer = null;
+
+const reloadParticipants = () => {
+    if (!isIndividual.value) return;
+    router.get(
+        route('admin.events.show', { event: props.event.id }),
+        {
+            search: searchQuery.value.trim() || undefined,
+            status: statusFilter.value !== 'all' ? statusFilter.value : undefined,
+            tab: 'participants',
+        },
+        {
+            only: ['participants', 'participantsPagination', 'participantFilters'],
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        }
+    );
+};
+
+watch(statusFilter, () => {
+    if (isIndividual.value) {
+        reloadParticipants();
+    }
+});
+
+watch(searchQuery, () => {
+    if (!isIndividual.value) return;
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+        reloadParticipants();
+    }, 300);
+});
+
+onBeforeUnmount(() => {
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+});
 
 const triggerResync = () => {
     if (syncing.value) return;
@@ -57,22 +116,7 @@ const triggerResync = () => {
     });
 };
 
-const filteredParticipants = computed(() => {
-    let list = props.participants;
-    if (statusFilter.value !== 'all') {
-        list = list.filter((p) => p.screening_status === statusFilter.value);
-    }
-    const q = searchQuery.value.trim().toLowerCase();
-    if (q) {
-        list = list.filter((p) =>
-            (p.full_name || '').toLowerCase().includes(q) ||
-            (p.registration_number || '').toLowerCase().includes(q) ||
-            (p.nik || '').toLowerCase().includes(q) ||
-            (p.current_club_ssb || '').toLowerCase().includes(q)
-        );
-    }
-    return list;
-});
+const filteredParticipants = computed(() => props.participants);
 
 const filteredTeams = computed(() => {
     let list = props.teams;
@@ -471,7 +515,7 @@ const screeningBadgeClass = (status) => {
                     </div>
 
                     <Link
-                        v-if="isIndividual && participants.length > 0"
+                        v-if="isIndividual && (summary.total > 0 || participants.length > 0)"
                         :href="route('admin.screening.auditions.review', { event: event.id })"
                         class="btn-pitch text-xs inline-flex items-center gap-1.5 justify-center"
                     >
@@ -556,15 +600,45 @@ const screeningBadgeClass = (status) => {
                                             </a>
                                             <Link
                                                 :href="`${route('admin.screening.auditions.review', { event: event.id })}?participant_id=${p.id}`"
-                                                class="btn-sm-pitch inline-flex items-center gap-1"
+                                                :class="p.screening_status === 'passed' ? 'btn-sm-secondary inline-flex items-center gap-1' : 'btn-sm-pitch inline-flex items-center gap-1'"
                                             >
-                                                <span>Periksa Berkas</span>
+                                                <span>{{ p.screening_status === 'passed' ? 'Lihat Berkas' : 'Periksa Berkas' }}</span>
                                             </Link>
                                         </td>
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+
+                    <div
+                        v-if="participantsPagination?.links && participantsPagination.links.length > 3"
+                        class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2"
+                    >
+                        <p class="text-xs text-slate-600 tabular-nums">
+                            Menampilkan <strong class="text-slate-900">{{ participantsPagination.from || 0 }}&ndash;{{ participantsPagination.to || 0 }}</strong> dari
+                            <strong class="text-slate-900">{{ participantsPagination.total || 0 }}</strong> peserta
+                        </p>
+                        <nav aria-label="Navigasi halaman peserta event" class="flex flex-wrap items-center justify-center gap-1">
+                            <Component
+                                :is="link.url ? Link : 'span'"
+                                v-for="(link, i) in participantsPagination.links"
+                                :key="i"
+                                :href="link.url"
+                                :only="['participants', 'participantsPagination', 'participantFilters']"
+                                preserve-state
+                                preserve-scroll
+                                class="px-3 py-2 sm:py-1.5 min-h-[44px] sm:min-h-0 rounded-lg text-xs font-semibold transition-colors inline-flex items-center"
+                                :class="
+                                    link.active
+                                        ? 'bg-orange-600 text-white'
+                                        : link.url
+                                        ? 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                                        : 'bg-slate-100 text-slate-500 cursor-not-allowed'
+                                "
+                                v-html="link.label"
+                            />
+                        </nav>
                     </div>
                 </template>
 
@@ -627,9 +701,9 @@ const screeningBadgeClass = (status) => {
                                             </Link>
                                             <Link
                                                 :href="route('admin.screening.team', { event: event.id, team: t.id })"
-                                                class="btn-sm-pitch inline-flex items-center gap-1"
+                                                :class="t.screening_status === 'all_passed' ? 'btn-sm-secondary inline-flex items-center gap-1' : 'btn-sm-pitch inline-flex items-center gap-1'"
                                             >
-                                                <span>Periksa Skuad</span>
+                                                <span>{{ t.screening_status === 'all_passed' ? 'Lihat Skuad' : 'Periksa Skuad' }}</span>
                                             </Link>
                                         </td>
                                     </tr>

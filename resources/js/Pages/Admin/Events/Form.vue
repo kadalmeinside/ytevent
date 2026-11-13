@@ -308,7 +308,7 @@ const submit = () => {
     >
         <Head :title="isEdit ? `Edit ${event.name}` : (isIndividual ? 'Buat Event Baru' : 'Buat Turnamen Baru')" />
 
-        <div class="max-w-4xl space-y-6">
+        <div class="w-full space-y-6">
             <div class="flex items-center justify-between">
                 <Link :href="route('admin.events.index')" class="text-xs font-semibold text-slate-600 hover:text-orange-600 transition-colors">
                     &larr; Kembali ke Daftar Event &amp; Kompetisi

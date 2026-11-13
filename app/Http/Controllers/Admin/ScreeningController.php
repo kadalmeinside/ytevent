@@ -19,6 +19,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -428,43 +429,140 @@ class ScreeningController extends Controller
 
     /**
      * Halaman Split-View Workstation pemeriksaan dokumen peserta perorangan untuk suatu event.
+     * Dioptimalkan untuk ribuan peserta: antrean dipaginasi ringan (20/halaman) dan
+     * dokumen serta audit log hanya dimuat untuk 1 peserta aktif.
      */
     public function auditionEventReview(Request $request, Event $event): Response
     {
-        $participantsModels = AuditionParticipant::query()
-            ->where('event_id', $event->id)
-            ->with([
-                'eventSession:id,session_name',
-                'user:id,name,email,phone',
-                'latestPayment',
-            ])
-            ->orderByRaw("CASE screening_status WHEN 'submitted' THEN 1 WHEN 'rejected' THEN 2 WHEN 'passed' THEN 3 ELSE 4 END")
-            ->orderBy('id')
-            ->get();
+        $status = (string) $request->query('status', 'all');
+        if (! in_array($status, ['all', 'submitted', 'rejected', 'passed', 'draft'], true)) {
+            $status = 'all';
+        }
+        $search = trim((string) $request->query('search', ''));
+        $requestedId = $request->integer('participant_id');
 
-        $participantIds = $participantsModels->pluck('id')->all();
-        $logsByParticipant = empty($participantIds)
-            ? collect()
-            : AuditLog::query()
+        $statusCounts = AuditionParticipant::query()
+            ->where('event_id', $event->id)
+            ->selectRaw('screening_status, COUNT(*) as aggregate')
+            ->groupBy('screening_status')
+            ->pluck('aggregate', 'screening_status');
+
+        $counts = [
+            'total' => (int) $statusCounts->sum(),
+            'submitted' => (int) ($statusCounts->get('submitted') ?? 0),
+            'rejected' => (int) ($statusCounts->get('rejected') ?? 0),
+            'passed' => (int) ($statusCounts->get('passed') ?? 0),
+            'draft' => (int) ($statusCounts->get('draft') ?? 0),
+        ];
+
+        $rankSql = "CASE screening_status WHEN 'submitted' THEN 1 WHEN 'rejected' THEN 2 WHEN 'passed' THEN 3 ELSE 4 END";
+        $baseQueueQuery = AuditionParticipant::query()->where('event_id', $event->id);
+
+        if ($status !== 'all') {
+            $baseQueueQuery->where('screening_status', $status);
+        }
+
+        if ($search !== '') {
+            $baseQueueQuery->where(function ($q) use ($search) {
+                $q->where('full_name', 'like', "%{$search}%")
+                    ->orWhere('nickname', 'like', "%{$search}%")
+                    ->orWhere('nik', 'like', "%{$search}%")
+                    ->orWhere('registration_number', 'like', "%{$search}%");
+                if (ctype_digit($search)) {
+                    $q->orWhere('bib_number', (int) $search);
+                }
+            });
+        }
+
+        $activeModel = null;
+        if ($requestedId > 0) {
+            $activeModel = (clone $baseQueueQuery)
+                ->whereKey($requestedId)
+                ->with(['eventSession:id,session_name', 'user:id,name,email,phone', 'latestPayment'])
+                ->first();
+        }
+
+        if (! $activeModel) {
+            $activeModel = (clone $baseQueueQuery)
+                ->orderByRaw($rankSql)
+                ->orderBy('id')
+                ->with(['eventSession:id,session_name', 'user:id,name,email,phone', 'latestPayment'])
+                ->first();
+        }
+
+        $prevId = null;
+        $nextId = null;
+        $activePosition = 0;
+        $defaultPage = 1;
+
+        if ($activeModel) {
+            $rank = match ((string) $activeModel->screening_status) {
+                'submitted' => 1,
+                'rejected' => 2,
+                'passed' => 3,
+                default => 4,
+            };
+            $activeId = $activeModel->id;
+
+            $aheadCount = (clone $baseQueueQuery)
+                ->whereRaw("({$rankSql} < ? OR ({$rankSql} = ? AND id < ?))", [$rank, $rank, $activeId])
+                ->count();
+
+            $activePosition = $aheadCount + 1;
+            $defaultPage = intdiv($aheadCount, 20) + 1;
+
+            $prevId = (clone $baseQueueQuery)
+                ->whereRaw("({$rankSql} < ? OR ({$rankSql} = ? AND id < ?))", [$rank, $rank, $activeId])
+                ->orderByRaw("{$rankSql} DESC")
+                ->orderByDesc('id')
+                ->value('id');
+
+            $nextId = (clone $baseQueueQuery)
+                ->whereRaw("({$rankSql} > ? OR ({$rankSql} = ? AND id > ?))", [$rank, $rank, $activeId])
+                ->orderByRaw("{$rankSql} ASC")
+                ->orderBy('id')
+                ->value('id');
+        }
+
+        $targetPage = $request->filled('page') ? max(1, $request->integer('page', 1)) : $defaultPage;
+
+        $paginator = (clone $baseQueueQuery)
+            ->select([
+                'id',
+                'event_id',
+                'event_session_id',
+                'registration_number',
+                'bib_number',
+                'full_name',
+                'nickname',
+                'birth_date',
+                'preferred_position',
+                'screening_status',
+                'status',
+            ])
+            ->orderByRaw($rankSql)
+            ->orderBy('id')
+            ->paginate(20, ['*'], 'page', $targetPage)
+            ->withQueryString();
+
+        $activeLogs = $activeModel
+            ? AuditLog::query()
                 ->with('actor:id,name')
                 ->where('auditable_type', AuditionParticipant::class)
-                ->whereIn('auditable_id', $participantIds)
+                ->where('auditable_id', $activeModel->id)
                 ->orderByDesc('id')
+                ->limit(5)
                 ->get()
-                ->groupBy('auditable_id');
+            : collect();
 
-        $participants = $participantsModels->map(function (AuditionParticipant $p) use ($event, $logsByParticipant) {
-            $pLogs = ($logsByParticipant->get($p->id) ?? collect())->take(5)->map(fn (AuditLog $log) => [
-                'id' => $log->id,
-                'actor_name' => $log->actor?->name ?? 'Sistem',
-                'action' => $log->action,
-                'reason' => $log->reason ?: (match ($log->action) {
-                    'audition.screening.passed' => 'Berkas disahkan dan Digital Pass diaktifkan.',
-                    'audition.screening.unlocked' => 'Kunci screening dibuka untuk pemeriksaan ulang.',
-                    default => 'Perubahan status verifikasi.',
-                }),
-                'created_at' => $log->created_at?->format('d M Y, H:i'),
-            ])->values();
+        $activePayload = $activeModel
+            ? $this->formatAuditionReviewParticipant($event, $activeModel, $activeLogs)
+            : null;
+
+        $queueItems = collect($paginator->items())->map(function (AuditionParticipant $p) use ($event, $activePayload) {
+            if ($activePayload && $p->id === $activePayload['id']) {
+                return $activePayload;
+            }
 
             return [
                 'id' => $p->id,
@@ -472,45 +570,12 @@ class ScreeningController extends Controller
                 'bib_number' => $p->bib_number,
                 'full_name' => $p->full_name,
                 'nickname' => $p->nickname,
-                'nik' => $p->nik,
-                'birth_date' => $p->birth_date?->format('Y-m-d'),
-                'birth_date_formatted' => $p->birth_date?->format('d M Y'),
-                'age' => $p->birth_date ? Carbon::parse($p->birth_date)->age : null,
-                'is_age_valid' => $event->isBirthDateEligible($p->birth_date?->format('Y-m-d')),
-                'gender' => $p->gender,
                 'preferred_position' => $p->preferred_position,
-                'secondary_position' => $p->secondary_position,
-                'dominant_foot' => $p->dominant_foot,
-                'height_cm' => $p->height_cm,
-                'weight_kg' => $p->weight_kg,
-                'current_club_ssb' => $p->current_club_ssb,
-                'playing_experience' => $p->playing_experience,
-                'jersey_size' => $p->jersey_size,
-                'emergency_contact_name' => $p->emergency_contact_name,
-                'emergency_contact_phone' => $p->emergency_contact_phone,
-                'emergency_contact_relation' => $p->emergency_contact_relation,
-                'medical_notes' => $p->medical_notes,
-                'is_paid' => $p->isPaid(),
-                'payment_status' => $p->latestPayment?->status ?? 'unpaid',
-                'invoice_number' => $p->latestPayment?->invoice_number,
-                'photo_url' => $p->photo_path ? Storage::disk('public')->url($p->photo_path) : null,
                 'screening_status' => $p->screening_status,
                 'screening_status_label' => $p->screeningStatusLabel(),
-                'is_locked' => $p->screening_status === 'passed',
-                'screening_notes' => $p->screening_notes,
-                'screening_code' => $p->screening_code,
-                'verified_at' => $p->screening_verified_at?->format('d M Y, H:i'),
-                'can_download_bib' => $p->canDownloadBib(),
-                'session_name' => $p->eventSession?->session_name,
-                'user' => [
-                    'name' => $p->user?->name,
-                    'email' => $p->user?->email,
-                    'phone' => $p->user?->phone,
-                ],
-                'documents' => $p->getStructuredDocuments(),
-                'logs' => $pLogs,
+                'is_age_valid' => $event->isBirthDateEligible($p->birth_date?->format('Y-m-d')),
             ];
-        })->values();
+        })->values()->all();
 
         return Inertia::render('Admin/Screening/AuditionReview', [
             'event' => [
@@ -524,8 +589,90 @@ class ScreeningController extends Controller
                 'max_birth_date' => $event->max_birth_date?->format('d M Y'),
                 'required_documents' => $event->required_documents ?? [],
             ],
-            'participants' => $participants,
+            'activeParticipant' => $activePayload,
+            'participants' => $queueItems,
+            'pagination' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'from' => $paginator->firstItem(),
+                'to' => $paginator->lastItem(),
+                'links' => $paginator->linkCollection()->toArray(),
+            ],
+            'navigation' => [
+                'prev_id' => $prevId,
+                'next_id' => $nextId,
+                'active_position' => $activePosition,
+                'total_filtered' => $paginator->total(),
+            ],
+            'counts' => $counts,
+            'filters' => [
+                'status' => $status,
+                'search' => $search,
+                'participant_id' => $activeModel?->id,
+            ],
         ]);
+    }
+
+    private function formatAuditionReviewParticipant(Event $event, AuditionParticipant $p, Collection $logs): array
+    {
+        $pLogs = $logs->take(5)->map(fn (AuditLog $log) => [
+            'id' => $log->id,
+            'actor_name' => $log->actor?->name ?? 'Sistem',
+            'action' => $log->action,
+            'reason' => $log->reason ?: (match ($log->action) {
+                'audition.screening.passed' => 'Berkas disahkan dan Digital Pass diaktifkan.',
+                'audition.screening.unlocked' => 'Kunci screening dibuka untuk pemeriksaan ulang.',
+                default => 'Perubahan status verifikasi.',
+            }),
+            'created_at' => $log->created_at?->format('d M Y, H:i'),
+        ])->values();
+
+        return [
+            'id' => $p->id,
+            'registration_number' => $p->registration_number,
+            'bib_number' => $p->bib_number,
+            'full_name' => $p->full_name,
+            'nickname' => $p->nickname,
+            'nik' => $p->nik,
+            'birth_date' => $p->birth_date?->format('Y-m-d'),
+            'birth_date_formatted' => $p->birth_date?->format('d M Y'),
+            'age' => $p->birth_date ? Carbon::parse($p->birth_date)->age : null,
+            'is_age_valid' => $event->isBirthDateEligible($p->birth_date?->format('Y-m-d')),
+            'gender' => $p->gender,
+            'preferred_position' => $p->preferred_position,
+            'secondary_position' => $p->secondary_position,
+            'dominant_foot' => $p->dominant_foot,
+            'height_cm' => $p->height_cm,
+            'weight_kg' => $p->weight_kg,
+            'current_club_ssb' => $p->current_club_ssb,
+            'playing_experience' => $p->playing_experience,
+            'jersey_size' => $p->jersey_size,
+            'emergency_contact_name' => $p->emergency_contact_name,
+            'emergency_contact_phone' => $p->emergency_contact_phone,
+            'emergency_contact_relation' => $p->emergency_contact_relation,
+            'medical_notes' => $p->medical_notes,
+            'is_paid' => $p->isPaid(),
+            'payment_status' => $p->latestPayment?->status ?? 'unpaid',
+            'invoice_number' => $p->latestPayment?->invoice_number,
+            'photo_url' => $p->photo_path ? Storage::disk('public')->url($p->photo_path) : null,
+            'screening_status' => $p->screening_status,
+            'screening_status_label' => $p->screeningStatusLabel(),
+            'is_locked' => $p->screening_status === 'passed',
+            'screening_notes' => $p->screening_notes,
+            'screening_code' => $p->screening_code,
+            'verified_at' => $p->screening_verified_at?->format('d M Y, H:i'),
+            'can_download_bib' => $p->canDownloadBib(),
+            'session_name' => $p->eventSession?->session_name,
+            'user' => [
+                'name' => $p->user?->name,
+                'email' => $p->user?->email,
+                'phone' => $p->user?->phone,
+            ],
+            'documents' => $p->getStructuredDocuments(),
+            'logs' => $pLogs,
+        ];
     }
 
     /**

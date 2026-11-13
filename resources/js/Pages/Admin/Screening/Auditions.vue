@@ -170,6 +170,13 @@ const setStatusFilter = (status) => {
                         >
                             <span>Buka Split-View Event</span>
                         </Link>
+                        <Link
+                            v-if="filterState.event_id"
+                            :href="route('admin.events.show', { event: filterState.event_id })"
+                            class="btn-secondary text-xs shrink-0 inline-flex items-center gap-1.5"
+                        >
+                            <span>Kelola Event</span>
+                        </Link>
                     </div>
 
                     <!-- Status Select -->
@@ -239,7 +246,15 @@ const setStatusFilter = (status) => {
                                 </div>
 
                                 <p class="text-xs font-semibold text-orange-700">
-                                    {{ p.event?.name }} <span class="text-slate-600 font-normal">({{ p.event?.age_category }})</span>
+                                    <Link
+                                        v-if="p.event?.id"
+                                        :href="route('admin.events.show', { event: p.event.id })"
+                                        class="hover:underline"
+                                    >
+                                        {{ p.event?.name }}
+                                    </Link>
+                                    <span v-else>{{ p.event?.name }}</span>
+                                    <span class="text-slate-600 font-normal"> ({{ p.event?.age_category }})</span>
                                     <span v-if="p.session_name" class="text-slate-600 font-normal"> &middot; {{ p.session_name }}</span>
                                 </p>
 
@@ -303,21 +318,17 @@ const setStatusFilter = (status) => {
 
                             <Link
                                 v-if="p.event?.id"
-                                :href="route('admin.events.show', { event: p.event.id })"
-                                class="btn-secondary text-xs inline-flex items-center gap-1.5"
-                            >
-                                <span>Kelola Event</span>
-                            </Link>
-
-                            <Link
-                                v-if="p.event?.id"
                                 :href="`${route('admin.screening.auditions.review', { event: p.event.id })}?participant_id=${p.id}`"
-                                class="btn-pitch text-xs inline-flex items-center gap-1.5"
+                                :class="p.screening_status === 'passed' ? 'btn-secondary text-xs inline-flex items-center gap-1.5' : 'btn-pitch text-xs inline-flex items-center gap-1.5'"
                             >
-                                <svg class="w-3.5 h-3.5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg v-if="p.screening_status === 'passed'" class="w-3.5 h-3.5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                <svg v-else class="w-3.5 h-3.5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
-                                <span>Periksa Berkas (Split-View)</span>
+                                <span>{{ p.screening_status === 'passed' ? 'Lihat Berkas (Split-View)' : 'Periksa Berkas (Split-View)' }}</span>
                             </Link>
                         </div>
                     </div>
@@ -332,6 +343,32 @@ const setStatusFilter = (status) => {
 
             <div v-else class="frosted-card p-12 text-center text-slate-600 text-sm">
                 Tidak ada data peserta audisi yang cocok dengan kriteria filter saat ini.
+            </div>
+
+            <!-- Pagination Container -->
+            <div v-if="participants.links && participants.links.length > 3" class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                <p class="text-xs text-slate-600 tabular-nums">
+                    Menampilkan <strong class="text-slate-900">{{ participants.from || 0 }}&ndash;{{ participants.to || 0 }}</strong> dari
+                    <strong class="text-slate-900">{{ participants.total || 0 }}</strong> peserta
+                </p>
+                <nav aria-label="Navigasi halaman peserta" class="flex flex-wrap items-center justify-center gap-1">
+                    <Component
+                        :is="link.url ? Link : 'span'"
+                        v-for="(link, i) in participants.links"
+                        :key="i"
+                        :href="link.url"
+                        preserve-scroll
+                        class="px-3 py-2 sm:py-1.5 min-h-[44px] sm:min-h-0 rounded-lg text-xs font-semibold transition-colors inline-flex items-center"
+                        :class="
+                            link.active
+                                ? 'bg-orange-600 text-white'
+                                : link.url
+                                ? 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                                : 'bg-slate-100 text-slate-500 cursor-not-allowed'
+                        "
+                        v-html="link.label"
+                    />
+                </nav>
             </div>
         </div>
     </AdminLayout>
