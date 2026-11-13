@@ -163,6 +163,7 @@ class EventWorkspaceAndIndividualScreeningTest extends TestCase
         $admin = $this->makeSuperadmin();
         $event = $this->makeIndividualEvent('audition');
         $participant = $this->makeParticipant($event);
+        AuditLog::record($participant, 'audition.screening.rejected', $admin, reason: 'Foto blur');
 
         $this->actingAs($admin)
             ->get(route('admin.screening.auditions.review', ['event' => $event->id, 'participant_id' => $participant->id]))
@@ -176,6 +177,8 @@ class EventWorkspaceAndIndividualScreeningTest extends TestCase
                 ->has('participants.0.documents', 2)
                 ->where('participants.0.documents.0.document_type', 'birth_certificate')
                 ->where('participants.0.documents.1.document_type', 'family_card')
+                ->has('participants.0.logs', 1)
+                ->where('participants.0.logs.0.reason', 'Foto blur')
             );
     }
 

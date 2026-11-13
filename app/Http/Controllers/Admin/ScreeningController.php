@@ -447,11 +447,11 @@ class ScreeningController extends Controller
             ? collect()
             : AuditLog::query()
                 ->with('actor:id,name')
-                ->where('entity_type', AuditionParticipant::class)
-                ->whereIn('entity_id', $participantIds)
+                ->where('auditable_type', AuditionParticipant::class)
+                ->whereIn('auditable_id', $participantIds)
                 ->orderByDesc('id')
                 ->get()
-                ->groupBy('entity_id');
+                ->groupBy('auditable_id');
 
         $participants = $participantsModels->map(function (AuditionParticipant $p) use ($event, $logsByParticipant) {
             $pLogs = ($logsByParticipant->get($p->id) ?? collect())->take(5)->map(fn (AuditLog $log) => [
