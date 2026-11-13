@@ -473,10 +473,31 @@ class EventWorkspaceAndIndividualScreeningTest extends TestCase
 
         $this->assertTrue($participant->fresh()->canDownloadPass());
 
-        // 1. E-Tiket PDF dapat diunduh tanpa bib_number
+        // Simpan dummy banner image pada storage public untuk menguji Header Overlay Banner pada PDF
+        \Illuminate\Support\Facades\Storage::fake('public');
+        $dummyImg = imagecreatetruecolor(600, 200);
+        imagefill($dummyImg, 0, 0, imagecolorallocate($dummyImg, 234, 88, 12));
+        ob_start();
+        imagepng($dummyImg);
+        $pngBytes = ob_get_clean();
+        imagedestroy($dummyImg);
+        \Illuminate\Support\Facades\Storage::disk('public')->put('events/banners/test-banner.png', $pngBytes);
+        $event->update(['banner_path' => 'events/banners/test-banner.png']);
+
+        // 1. E-Tiket PDF dapat diunduh tanpa bib_number & dengan banner overlay + HMAC AUTH-SIG
         $pdfResponse = $this->actingAs($admin)->get(route('audition.bib.download', ['participant' => $participant->id]));
         $pdfResponse->assertOk();
         $this->assertSame('application/pdf', $pdfResponse->headers->get('content-type'));
+
+        // Verifikasi QR endpoint mengembalikan auth_signature HMAC & invoice_number yang identik
+        $expectedSig = \App\Services\AuditionBibPdfService::computeAuthSignature($participant->fresh());
+        $this->get(route('public.audition.verify', ['code' => 'SCR-AUD-DIGITALPASS1']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('isVerified', true)
+                ->where('participant.auth_signature', $expectedSig)
+                ->where('participant.invoice_number', 'INV-TEST-PASS01')
+            );
 
         // 2. Summary digital_pass_active menghitung peserta meski bib_number null
         $this->actingAs($admin)

@@ -113,11 +113,17 @@ const props = defineProps({
 
                     <!-- Detail Verifikasi Panitia -->
                     <div class="pt-2 text-center text-[11px] text-slate-400 space-y-1">
-                        <div>No. Reg: <span class="font-mono font-bold text-slate-600">{{ participant?.registration_number }}</span></div>
+                        <div>ID Digital Pass: <span class="font-mono font-bold text-slate-700">{{ participant?.registration_number }}</span></div>
                         <div>NIK: <span class="font-mono text-slate-500">{{ participant?.masked_nik }}</span></div>
                         <div>Kode Screening: <span class="font-mono text-slate-600 font-semibold">{{ participant?.screening_code }}</span></div>
+                        <div v-if="participant?.auth_signature">
+                            AUTH-SIG: <span class="font-mono font-bold text-emerald-700">{{ participant?.auth_signature }}</span>
+                        </div>
+                        <div v-if="participant?.invoice_number">
+                            Invoice Lunas: <span class="font-mono text-slate-600 font-semibold">{{ participant?.invoice_number }}</span>
+                        </div>
                         <div v-if="participant?.screening_verified_at" class="text-slate-500">
-                            Diverifikasi pada: {{ participant?.screening_verified_at }}
+                            Disahkan oleh {{ participant?.screening_verified_by_name || 'Panitia Screening' }} pada {{ participant?.screening_verified_at }}
                         </div>
                     </div>
                 </div>

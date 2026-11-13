@@ -197,7 +197,7 @@ const triggerResync = () => {
                         <span>{{ isSyncing ? 'Menyinkronkan...' : 'Cek & Resync Slot' }}</span>
                     </button>
                     <Link :href="route('admin.events.create')" class="btn-sm-pitch">
-                        + Buat Kompetisi Baru
+                        + Buat Event Baru
                     </Link>
                     <Link :href="route('admin.payments.manual-verification')" class="btn-sm-secondary">
                         Verifikasi Transfer ({{ metrics.waiting_verification_count }})
@@ -218,7 +218,7 @@ const triggerResync = () => {
             <div class="space-y-3">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div>
-                        <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wide">Pemantauan Kuota &amp; Arus Kas per Kompetisi</h2>
+                        <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wide">Pemantauan Kuota &amp; Arus Kas per Event</h2>
                         <p class="text-xs text-slate-500">Kapasitas kuota maksimal terlindungi dari *race condition* dengan penguncian baris database.</p>
                     </div>
                     <button
@@ -242,8 +242,8 @@ const triggerResync = () => {
                 </div>
 
                 <div v-if="eventsOverview.length === 0" class="frosted-card p-12 text-center text-xs text-slate-500">
-                    <p class="font-bold text-slate-800 text-sm">Belum Ada Kompetisi Dibuat</p>
-                    <p class="mt-1 text-slate-400">Klik tombol buat event di atas untuk memulai kompetisi pertama Anda.</p>
+                    <p class="font-bold text-slate-800 text-sm">Belum Ada Event Dibuat</p>
+                    <p class="mt-1 text-slate-400">Klik tombol buat event di atas untuk memulai event pertama Anda.</p>
                 </div>
 
                 <div v-else class="space-y-3">
@@ -325,7 +325,7 @@ const triggerResync = () => {
                                     :href="route('admin.events.edit', { event: evt.id })"
                                     class="btn-sm-pitch w-full sm:w-auto justify-center text-center"
                                 >
-                                    Edit Kompetisi
+                                    Edit Event
                                 </Link>
                             </div>
                         </div>

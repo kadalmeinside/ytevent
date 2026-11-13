@@ -26,13 +26,69 @@
             overflow: hidden;
         }
 
-        /* Header Table */
+        /* Header Overlay Banner */
+        .header-wrap {
+            position: relative;
+            width: 100%;
+            background: #0f172a;
+            border-bottom: 3px solid #ea580c;
+            overflow: hidden;
+        }
+        .header-banner-img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
         .header-table {
+            position: relative;
+            z-index: 2;
             width: 100%;
             border-collapse: collapse;
-            background: #0f172a;
+            background: transparent;
             color: #ffffff;
             padding: 0;
+        }
+        .content-wrap {
+            position: relative;
+            overflow: hidden;
+        }
+        .watermark-layer {
+            position: absolute;
+            top: 4px;
+            left: -20px;
+            right: -20px;
+            z-index: 0;
+            color: #f1f5f9;
+            font-size: 9.5pt;
+            font-weight: 900;
+            letter-spacing: 2px;
+            line-height: 2.6;
+            text-align: center;
+            text-transform: uppercase;
+        }
+        .content-table {
+            position: relative;
+            z-index: 1;
+        }
+        .auth-meta-box {
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 6px 10px;
+            margin-bottom: 8px;
+            font-size: 7pt;
+            color: #334155;
+        }
+        .auth-meta-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .auth-meta-table td {
+            padding: 1.5px 2px;
+            vertical-align: top;
         }
         .header-cell-left {
             padding: 12px 18px;
@@ -319,27 +375,32 @@
 </head>
 <body>
     <div class="pass-container">
-        <!-- Header Bar -->
-        <table class="header-table">
-            <tr>
-                <td class="header-cell-left">
-                    <div class="brand-badge">Persija Development • Official Digital Pass</div>
-                    <h1 class="event-title">{{ $event->name }}</h1>
-                    <p class="event-subtitle">
-                        {{ $event->venue_name ?: 'Training Ground Persija' }} • {{ $event->city ?: 'DKI Jakarta' }}
-                        @if($session)
-                            • <strong style="color: #fdba74;">{{ $session->session_name }}</strong>
-                        @endif
-                    </p>
-                </td>
-                <td class="header-cell-right">
-                    <span class="pass-age-badge">{{ $event->age_category ?: 'TALENT' }}</span>
-                    <span class="pass-type-badge">
-                        {{ strtoupper($event->event_type === 'clinic' ? 'COACHING CLINIC' : ($event->event_type === 'audition' ? 'AUDISI RESMI' : 'DIGITAL PASS')) }}
-                    </span>
-                </td>
-            </tr>
-        </table>
+        <!-- Header Overlay Banner -->
+        <div class="header-wrap">
+            @if(! empty($banner_overlay_base64))
+                <img class="header-banner-img" src="{{ $banner_overlay_base64 }}" alt="Banner Event" />
+            @endif
+            <table class="header-table">
+                <tr>
+                    <td class="header-cell-left">
+                        <div class="brand-badge">Persija Development • Official Digital Pass</div>
+                        <h1 class="event-title">{{ $event->name }}</h1>
+                        <p class="event-subtitle">
+                            {{ $event->venue_name ?: 'Training Ground Persija' }} • {{ $event->city ?: 'DKI Jakarta' }} • Berlaku: <strong style="color: #e2e8f0;">{{ $valid_dates_label }}</strong>
+                            @if($session)
+                                • <strong style="color: #fdba74;">{{ $session->session_name }}</strong>
+                            @endif
+                        </p>
+                    </td>
+                    <td class="header-cell-right">
+                        <span class="pass-age-badge">{{ $event->age_category ?: 'TALENT' }}</span>
+                        <span class="pass-type-badge">
+                            {{ strtoupper($event->event_type === 'clinic' || $event->event_type === 'coaching_clinic' ? 'COACHING CLINIC' : ($event->event_type === 'audition' ? 'AUDISI RESMI' : 'DIGITAL PASS')) }}
+                        </span>
+                    </td>
+                </tr>
+            </table>
+        </div>
 
         <!-- Status & Screening Banner -->
         <table class="status-table">
@@ -348,13 +409,19 @@
                     <span style="display: inline-block; background: #059669; color: #ffffff; padding: 1px 6px; border-radius: 3px; font-size: 7pt; font-weight: bold; margin-right: 5px;">SAH</span> STATUS: LUNAS &amp; TERVERIFIKASI SCREENING RESMI PANITIA
                 </td>
                 <td class="status-cell-right">
-                    KODE VERIFIKASI: <strong>{{ $participant->screening_code ?: 'SCR-VERIFIED' }}</strong>
+                    INV: <strong>{{ $invoice_number }}</strong> • KODE: <strong>{{ $participant->screening_code ?: 'SCR-VERIFIED' }}</strong>
                 </td>
             </tr>
         </table>
 
-        <!-- Main Content 3-Column Table -->
-        <table class="content-table">
+        <!-- Main Content 3-Column Table with Micro-Watermark -->
+        <div class="content-wrap">
+            <div class="watermark-layer">
+                @for($wm = 0; $wm < 7; $wm++)
+                    <div>PERSIJA DEVELOPMENT &bull; {{ $participant->registration_number ?: ('PASS-' . $participant->id) }} &bull; {{ $auth_signature }} &bull; OFFICIAL DIGITAL PASS</div>
+                @endfor
+            </div>
+            <table class="content-table">
             <tr>
                 <!-- Column 1: Profil Peserta & Anti-Joki -->
                 <td class="col-profile">
@@ -428,6 +495,20 @@
                         </div>
                     @endif
 
+                    <!-- Authenticity Audit & Pengesahan Panitia -->
+                    <div class="auth-meta-box">
+                        <table class="auth-meta-table">
+                            <tr>
+                                <td style="width: 48%;"><strong>Disahkan Oleh:</strong> {{ $verified_by_name }}</td>
+                                <td style="width: 52%;"><strong>Waktu Sah:</strong> {{ $verified_at_label }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>No. Invoice:</strong> <span style="font-family: monospace;">{{ $invoice_number }}</span></td>
+                                <td><strong>Berlaku:</strong> {{ $valid_dates_label }}</td>
+                            </tr>
+                        </table>
+                    </div>
+
                     <!-- Petunjuk Kehadiran Gerbang SOP -->
                     <div class="rules-box">
                         <div class="rules-title">Petunjuk Check-in Gatekeeper:</div>
@@ -444,17 +525,19 @@
                     <div class="reg-number">{{ $participant->registration_number }}</div>
                     <div class="gate-scan-label">Scan Gatekeeper Check-in</div>
                     <div class="sec-hash">
-                        SEC-HASH: {{ substr(md5(($participant->screening_code ?: '') . $participant->id), 0, 16) }}
+                        AUTH-SIG: <strong style="color: #0f172a;">{{ $auth_signature }}</strong>
                     </div>
                     <div class="seal-badge">
                         Verified Digital Pass
                     </div>
-                    <div style="font-size: 6.5pt; color: #64748b; margin-top: 6px;">
-                        Tunjukkan QR ini saat memasuki gerbang utama stadion / venue.
+                    <div style="font-size: 6pt; color: #64748b; margin-top: 6px; line-height: 1.35;">
+                        Tunjukkan QR atau ID Pass saat memasuki gerbang venue.<br />
+                        Cocokkan AUTH-SIG pada portal verifikasi resmi panitia.
                     </div>
                 </td>
             </tr>
         </table>
+        </div>
 
         <!-- Footer Bar -->
         <table class="footer-table">

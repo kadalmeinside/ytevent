@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Public;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditionParticipant;
+use App\Services\AuditionBibPdfService;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -17,7 +18,7 @@ class AuditionVerificationController extends Controller
     public function verify(string $code): Response
     {
         $participant = AuditionParticipant::where('screening_code', $code)
-            ->with(['event', 'eventSession', 'screeningOfficer'])
+            ->with(['event', 'eventSession', 'screeningOfficer', 'latestPayment'])
             ->first();
 
         if (! $participant || $participant->screening_status !== 'passed') {
@@ -58,6 +59,9 @@ class AuditionVerificationController extends Controller
                     ? route('public.audition.verify.photo', ['code' => $code])
                     : null,
                 'screening_code' => $participant->screening_code,
+                'auth_signature' => AuditionBibPdfService::computeAuthSignature($participant),
+                'invoice_number' => $participant->latestPayment?->invoice_number,
+                'screening_verified_by_name' => $participant->screeningOfficer?->name ?: 'Panitia Screening Resmi',
                 'screening_verified_at' => $participant->screening_verified_at
                     ? $participant->screening_verified_at->translatedFormat('d F Y, H:i') . ' WIB'
                     : null,
