@@ -157,15 +157,21 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
         ->name('password.update');
 
     // Baca (read-only): events.view
+    // Lihat event: events.view
     Route::middleware('permission:events.view')->group(function () {
         Route::get('/events', [AdminEventController::class, 'index'])->name('events.index');
-        Route::get('/events/{event}/tournament', [AdminTournamentController::class, 'show'])->name('events.tournament');
     });
 
-    // Buat event baru: events.create
+    // Buat event baru: events.create (harus sebelum /events/{event})
     Route::middleware('permission:events.create')->group(function () {
         Route::get('/events/create', [AdminEventController::class, 'create'])->name('events.create');
         Route::post('/events', [AdminEventController::class, 'store'])->name('events.store');
+    });
+
+    // Detail Workspace Manajemen Event & Turnamen: events.view
+    Route::middleware('permission:events.view')->group(function () {
+        Route::get('/events/{event}', [AdminEventController::class, 'show'])->name('events.show');
+        Route::get('/events/{event}/tournament', [AdminTournamentController::class, 'show'])->name('events.tournament');
     });
 
     // Ubah event, jalankan turnamen, jadwal, skor, pengumuman, & rilis sertifikat: events.update
@@ -234,6 +240,7 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
     Route::middleware('permission:screening.view_queue|auditions.attendance.scan')->group(function () {
         Route::get('/screening', [AdminScreeningController::class, 'index'])->name('screening.index');
         Route::get('/screening/auditions', [AdminScreeningController::class, 'auditionsIndex'])->name('screening.auditions');
+        Route::get('/screening/auditions/events/{event}', [AdminScreeningController::class, 'auditionEventReview'])->name('screening.auditions.review');
         Route::get('/screening/events/{event}/teams/{team}', [AdminScreeningController::class, 'teamReview'])->name('screening.team');
         Route::get('/qr-scanner', [AdminTournamentController::class, 'qrScanner'])->name('qr-scanner');
         Route::post('/qr-scanner/lookup', [AdminTournamentController::class, 'qrLookup'])->middleware('throttle:qr-lookup')->name('qr-scanner.lookup');
@@ -258,6 +265,14 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
     Route::post('/screening/auditions/{participant}/verify', [AdminScreeningController::class, 'verifyAuditionParticipant'])
         ->middleware('permission:screening.verify_player')
         ->name('screening.auditions.verify');
+
+    Route::post('/screening/auditions/{participant}/document-verify', [AdminScreeningController::class, 'verifyAuditionDocument'])
+        ->middleware('permission:screening.verify_player')
+        ->name('screening.auditions.document.verify');
+
+    Route::post('/screening/auditions/{participant}/unlock', [AdminScreeningController::class, 'unlockAuditionParticipant'])
+        ->middleware('permission:screening.unlock_player')
+        ->name('screening.auditions.unlock');
 
     Route::post('/screening/documents/{document}/verify', [AdminScreeningController::class, 'verifyDocument'])
         ->middleware('permission:screening.verify_player')

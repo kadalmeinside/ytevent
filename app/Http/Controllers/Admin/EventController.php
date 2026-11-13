@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreEventRequest;
 use App\Http\Requests\Admin\UpdateEventRequest;
+use App\Models\AuditionParticipant;
 use App\Models\Event;
+use App\Models\Team;
 use App\Services\ImageOptimizationService;
 use App\Services\QuotaExpirationService;
 use App\Support\HtmlSanitizer;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -57,6 +60,191 @@ class EventController extends Controller
 
         return Inertia::render('Admin/Events/Index', [
             'events' => $events,
+        ]);
+    }
+
+    /**
+     * Halaman Detail Manajemen Event (Event Workspace Hub).
+     */
+    public function show(Request $request, Event $event): Response
+    {
+        $this->authorize('view', $event);
+
+        $participantType = $event->participant_type ?? 'team';
+        $eventType = $event->event_type ?? 'tournament';
+
+        $eventData = [
+            'id' => $event->id,
+            'name' => $event->name,
+            'slug' => $event->slug,
+            'city' => $event->city,
+            'venue_name' => $event->venue_name,
+            'venue_maps_url' => $event->venue_maps_url,
+            'format' => $event->format,
+            'format_label' => Event::FORMATS[$event->format] ?? $event->format,
+            'event_type' => $eventType,
+            'event_type_label' => Event::EVENT_TYPES[$eventType] ?? $eventType,
+            'participant_type' => $participantType,
+            'quota_type' => $event->quota_type ?? 'fixed',
+            'max_participants' => $event->max_participants,
+            'max_teams' => $event->max_teams,
+            'position_quota_caps' => $event->position_quota_caps ?? [],
+            'age_category' => $event->age_category,
+            'min_birth_date' => $event->min_birth_date?->format('d M Y'),
+            'max_birth_date' => $event->max_birth_date?->format('d M Y'),
+            'occupied_slots' => $event->occupiedSlotsCount(),
+            'registration_fee' => (float) $event->registration_fee,
+            'payment_deadline_hours' => $event->payment_deadline_hours,
+            'match_start_date' => $event->match_start_date?->toDateString(),
+            'match_end_date' => $event->match_end_date?->toDateString(),
+            'status' => $event->status,
+            'certificates_released' => (bool) $event->certificates_released,
+        ];
+
+        $summary = [];
+        $participants = [];
+        $teams = [];
+        $sessions = [];
+        $stages = [];
+        $positionBreakdown = [];
+
+        if ($participantType === 'individual') {
+            $allParticipants = AuditionParticipant::query()
+                ->where('event_id', $event->id)
+                ->with(['eventSession:id,session_name', 'latestPayment'])
+                ->orderByRaw("CASE screening_status WHEN 'submitted' THEN 1 WHEN 'rejected' THEN 2 WHEN 'passed' THEN 3 ELSE 4 END")
+                ->latest('id')
+                ->get();
+
+            $paidCount = $allParticipants->filter(fn (AuditionParticipant $p) => $p->isPaid())->count();
+            $submittedCount = $allParticipants->where('screening_status', 'submitted')->count();
+            $passedCount = $allParticipants->where('screening_status', 'passed')->count();
+            $rejectedCount = $allParticipants->where('screening_status', 'rejected')->count();
+
+            $summary = [
+                'total' => $allParticipants->count(),
+                'paid' => $paidCount,
+                'submitted' => $submittedCount,
+                'passed' => $passedCount,
+                'rejected' => $rejectedCount,
+                'digital_pass_active' => $allParticipants->filter(fn (AuditionParticipant $p) => $p->canDownloadBib())->count(),
+            ];
+
+            if (! empty($event->position_quota_caps) && is_array($event->position_quota_caps)) {
+                $countsByPos = $allParticipants->groupBy(fn ($p) => strtoupper((string) $p->preferred_position))->map->count();
+                foreach ($event->position_quota_caps as $pos => $cap) {
+                    $posKey = strtoupper((string) $pos);
+                    $positionBreakdown[] = [
+                        'position' => $posKey,
+                        'cap' => (int) $cap,
+                        'occupied' => (int) ($countsByPos->get($posKey) ?? 0),
+                    ];
+                }
+            }
+
+            $sessions = $event->eventSessions()
+                ->orderBy('session_date')
+                ->orderBy('start_time')
+                ->get()
+                ->map(fn ($s) => [
+                    'id' => $s->id,
+                    'session_name' => $s->session_name,
+                    'session_date' => $s->session_date?->format('d M Y'),
+                    'start_time' => $s->start_time,
+                    'end_time' => $s->end_time,
+                    'max_quota' => $s->max_quota,
+                    'occupied_slots' => $s->occupied_slots,
+                ])
+                ->values();
+
+            $stages = $event->auditionStages()
+                ->withCount(['attendances as present_count' => fn ($q) => $q->where('status', 'present')])
+                ->orderBy('stage_number')
+                ->get()
+                ->map(fn ($st) => [
+                    'id' => $st->id,
+                    'stage_number' => $st->stage_number,
+                    'stage_name' => $st->stage_name,
+                    'stage_date' => $st->stage_date?->format('d M Y'),
+                    'target_quota' => $st->target_quota,
+                    'present_count' => (int) ($st->present_count ?? 0),
+                    'is_active' => (bool) $st->is_active,
+                ])
+                ->values();
+
+            $participants = $allParticipants->map(function (AuditionParticipant $p) {
+                $docs = $p->getStructuredDocuments();
+
+                return [
+                    'id' => $p->id,
+                    'registration_number' => $p->registration_number,
+                    'bib_number' => $p->bib_number,
+                    'full_name' => $p->full_name,
+                    'nickname' => $p->nickname,
+                    'nik' => $p->nik,
+                    'birth_date' => $p->birth_date?->format('d/m/Y'),
+                    'preferred_position' => $p->preferred_position,
+                    'current_club_ssb' => $p->current_club_ssb,
+                    'session_name' => $p->eventSession?->session_name,
+                    'is_paid' => $p->isPaid(),
+                    'screening_status' => $p->screening_status,
+                    'screening_status_label' => $p->screeningStatusLabel(),
+                    'stage_status' => $p->stage_status,
+                    'stage_status_label' => $p->stageStatusLabel(),
+                    'can_download_bib' => $p->canDownloadBib(),
+                    'docs_total' => count($docs),
+                    'docs_valid' => collect($docs)->where('validation_status', 'valid')->count(),
+                    'photo_url' => $p->photo_path ? Storage::disk('public')->url($p->photo_path) : null,
+                ];
+            })->values();
+        } else {
+            $allTeams = Team::query()
+                ->where('event_id', $event->id)
+                ->with(['latestPayment'])
+                ->withCount([
+                    'players',
+                    'players as passed_players_count' => fn ($q) => $q->where('screening_status', 'passed'),
+                    'players as submitted_players_count' => fn ($q) => $q->where('screening_status', 'submitted'),
+                    'players as rejected_players_count' => fn ($q) => $q->where('screening_status', 'rejected'),
+                ])
+                ->latest('id')
+                ->get();
+
+            $summary = [
+                'total' => $allTeams->count(),
+                'paid' => $allTeams->whereIn('status', ['active', 'locked_roster'])->count(),
+                'all_passed' => $allTeams->where('screening_status', 'all_passed')->count(),
+                'locked_roster' => $allTeams->where('status', 'locked_roster')->count(),
+                'groups_count' => $event->groups()->count(),
+                'matches_count' => $event->matches()->count(),
+                'completed_matches_count' => $event->matches()->where('status', 'completed')->count(),
+            ];
+
+            $teams = $allTeams->map(fn (Team $t) => [
+                'id' => $t->id,
+                'name' => $t->name,
+                'origin_association' => $t->origin_association,
+                'manager_name' => $t->manager_name,
+                'manager_whatsapp' => $t->manager_whatsapp,
+                'status' => $t->status,
+                'screening_status' => $t->screening_status,
+                'players_count' => (int) ($t->players_count ?? 0),
+                'passed_players_count' => (int) ($t->passed_players_count ?? 0),
+                'submitted_players_count' => (int) ($t->submitted_players_count ?? 0),
+                'rejected_players_count' => (int) ($t->rejected_players_count ?? 0),
+                'is_paid' => $t->latestPayment?->status === 'paid' || in_array($t->status, ['active', 'locked_roster'], true),
+                'logo_url' => $t->logo_path ? Storage::disk('public')->url($t->logo_path) : null,
+            ])->values();
+        }
+
+        return Inertia::render('Admin/Events/Show', [
+            'event' => $eventData,
+            'summary' => $summary,
+            'positionBreakdown' => $positionBreakdown,
+            'sessions' => $sessions,
+            'stages' => $stages,
+            'participants' => $participants,
+            'teams' => $teams,
         ]);
     }
 

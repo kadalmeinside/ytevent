@@ -94,18 +94,18 @@ const submitReject = () => {
 </script>
 
 <template>
-    <AdminLayout page-title="Verifikasi Screening Atlet Audisi">
-        <Head title="Verifikasi Screening Audisi" />
+    <AdminLayout page-title="Verifikasi Screening Peserta Perorangan">
+        <Head title="Verifikasi Screening Perorangan" />
 
         <div class="space-y-6">
             <!-- Header & Switcher Tab Turnamen vs Audisi -->
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                        <span>Screening Keabsahan Atlet</span>
+                        <span>Screening Keabsahan Peserta</span>
                     </h1>
                     <p class="text-xs sm:text-sm text-slate-500 mt-1">
-                        Pemeriksaan berkas resmi Akta Lahir, Kartu Keluarga, dan aktivasi Digital Pass (E-Tiket) atlet.
+                        Pemeriksaan berkas administrasi, validasi batas usia, dan aktivasi Digital Pass (E-Tiket) peserta audisi & coaching clinic.
                     </p>
                 </div>
 
@@ -179,16 +179,25 @@ const submitReject = () => {
                     </div>
 
                     <!-- Event Select -->
-                    <select
-                        v-model="filterState.event_id"
-                        class="input-field text-xs py-2 w-full sm:w-56"
-                        @change="applyFilters"
-                    >
-                        <option value="">Semua Event Audisi</option>
-                        <option v-for="evt in events" :key="evt.id" :value="evt.id">
-                            {{ evt.name }} ({{ evt.age_category }})
-                        </option>
-                    </select>
+                    <div class="flex items-center gap-2 w-full sm:w-auto">
+                        <select
+                            v-model="filterState.event_id"
+                            class="input-field text-xs py-2 w-full sm:w-56"
+                            @change="applyFilters"
+                        >
+                            <option value="">Semua Event Perorangan</option>
+                            <option v-for="evt in events" :key="evt.id" :value="evt.id">
+                                {{ evt.name }} ({{ evt.age_category }})
+                            </option>
+                        </select>
+                        <Link
+                            v-if="filterState.event_id"
+                            :href="route('admin.screening.auditions.review', { event: filterState.event_id })"
+                            class="btn-pitch text-xs py-2 px-3 shrink-0 inline-flex items-center gap-1.5"
+                        >
+                            <span>Buka Split-View Event</span>
+                        </Link>
+                    </div>
 
                     <!-- Status Select -->
                     <select
@@ -235,76 +244,73 @@ const submitReject = () => {
                                 {{ p.full_name.substring(0, 2).toUpperCase() }}
                             </div>
 
-                            <div class="min-w-0 space-y-1">
+                            <div class="min-w-0 space-y-1.5">
                                 <div class="flex items-center gap-2 flex-wrap">
                                     <h3 class="text-base font-black text-slate-900 truncate">
                                         {{ p.full_name }}
                                         <span v-if="p.nickname" class="text-xs font-semibold text-slate-500">({{ p.nickname }})</span>
                                     </h3>
-                                    <!-- Bib Badge -->
-                                    <span v-if="p.bib_number" class="px-2 py-0.5 rounded-full text-xs font-black bg-orange-600 text-white shadow-2xs">
-                                        Bib #{{ p.bib_number }}
+                                    <span
+                                        v-if="p.can_download_bib || p.bib_number"
+                                        class="px-2 py-0.5 rounded-lg text-[11px] font-black bg-orange-50 text-orange-700 border border-orange-200"
+                                    >
+                                        Digital Pass Aktif<template v-if="p.bib_number"> · Rompi #{{ p.bib_number }}</template>
                                     </span>
-                                    <span v-else class="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                                        Bib Belum Ada
+                                    <span v-else class="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
+                                        Tiket Belum Terbit
                                     </span>
                                 </div>
 
                                 <p class="text-xs font-semibold text-orange-600">
                                     {{ p.event?.name }} <span class="text-slate-400 font-normal">({{ p.event?.age_category }})</span>
-                                    <span v-if="p.session_name" class="text-slate-500 font-normal">• {{ p.session_name }}</span>
+                                    <span v-if="p.session_name" class="text-slate-500 font-normal"> · {{ p.session_name }}</span>
                                 </p>
 
                                 <div class="flex flex-wrap items-center gap-2 text-xs text-slate-600 pt-0.5">
-                                    <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-[11px] font-semibold text-slate-700">NIK: {{ p.nik }}</span>
-                                    <span>•</span>
-                                    <span>Lahir: <strong>{{ p.birth_date }}</strong></span>
-                                    <span>•</span>
+                                    <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-[11px] font-semibold text-slate-700">NIK: {{ p.nik || '-' }}</span>
+                                    <span>·</span>
+                                    <span>Lahir: <strong>{{ p.birth_date || '-' }}</strong></span>
+                                    <span>·</span>
                                     <span>Posisi: <strong>{{ p.preferred_position || '-' }}</strong></span>
-                                    <span>•</span>
+                                    <span>·</span>
                                     <span>Kaki: <strong class="capitalize">{{ p.dominant_foot || '-' }}</strong></span>
-                                    <span>•</span>
+                                    <span>·</span>
                                     <span>Asal: <strong>{{ p.current_club_ssb || 'Independen' }}</strong></span>
+                                </div>
+
+                                <!-- Status & Progress Pills -->
+                                <div class="flex flex-wrap items-center gap-1.5 pt-1">
+                                    <span
+                                        class="px-2 py-0.5 rounded-lg text-[11px] font-bold border"
+                                        :class="p.is_paid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'"
+                                    >
+                                        {{ p.is_paid ? 'Pembayaran Lunas' : 'Menunggu Pembayaran' }}
+                                    </span>
+                                    <span
+                                        class="px-2 py-0.5 rounded-lg text-[11px] font-bold border"
+                                        :class="p.is_age_valid ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-rose-50 text-rose-700 border-rose-200'"
+                                    >
+                                        {{ p.is_age_valid ? 'Sah Sesuai Usia' : 'Cek Batas Usia' }}
+                                    </span>
+                                    <span
+                                        v-if="p.docs_total > 0"
+                                        class="px-2 py-0.5 rounded-lg text-[11px] font-bold border"
+                                        :class="
+                                            p.docs_invalid > 0
+                                                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                                : p.docs_valid === p.docs_total
+                                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                  : 'bg-slate-50 text-slate-700 border-slate-200'
+                                        "
+                                    >
+                                        {{ p.docs_valid || 0 }} / {{ p.docs_total }} Berkas Sah
+                                    </span>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Center: Document Links -->
-                        <div class="flex items-center gap-2 shrink-0 flex-wrap">
-                            <a
-                                :href="p.birth_cert_url"
-                                target="_blank"
-                                class="btn-secondary text-xs py-1.5 px-2.5 inline-flex items-center gap-1.5 border-slate-300"
-                            >
-                                <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                                <span>Akta Lahir ↗</span>
-                            </a>
-
-                            <a
-                                :href="p.family_card_url"
-                                target="_blank"
-                                class="btn-secondary text-xs py-1.5 px-2.5 inline-flex items-center gap-1.5 border-slate-300"
-                            >
-                                <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                </svg>
-                                <span>KK ↗</span>
-                            </a>
-
-                            <a
-                                v-if="p.additional_doc_url"
-                                :href="p.additional_doc_url"
-                                target="_blank"
-                                class="btn-secondary text-xs py-1.5 px-2.5 inline-flex items-center gap-1.5 border-slate-300"
-                            >
-                                <span>Dok. Tambahan ↗</span>
-                            </a>
-                        </div>
-
-                        <!-- Right: Decision Actions & Status -->
-                        <div class="flex items-center gap-2 shrink-0">
+                        <!-- Right: Screening Status & Split-View Workstation CTA -->
+                        <div class="flex items-center gap-2.5 shrink-0 flex-wrap">
                             <span
                                 class="px-2.5 py-1 rounded-xl text-xs font-bold border"
                                 :class="
@@ -318,27 +324,24 @@ const submitReject = () => {
                                 {{ p.screening_status_label }}
                             </span>
 
-                            <button
-                                type="button"
-                                class="btn-pitch text-xs py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 border-emerald-600 shadow-2xs inline-flex items-center gap-1.5"
-                                @click="openApproveModal(p)"
+                            <Link
+                                v-if="p.event?.id"
+                                :href="route('admin.events.show', { event: p.event.id })"
+                                class="btn-secondary text-xs py-2 px-3 inline-flex items-center gap-1.5"
                             >
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
-                                </svg>
-                                <span>Sah (Lolos)</span>
-                            </button>
+                                <span>Kelola Event</span>
+                            </Link>
 
-                            <button
-                                type="button"
-                                class="btn-secondary text-xs py-1.5 px-3 text-rose-700 hover:bg-rose-50 border-rose-200 inline-flex items-center gap-1.5"
-                                @click="openRejectModal(p)"
+                            <Link
+                                v-if="p.event?.id"
+                                :href="`${route('admin.screening.auditions.review', { event: p.event.id })}?participant_id=${p.id}`"
+                                class="btn-pitch text-xs py-2 px-3.5 shadow-2xs inline-flex items-center gap-1.5"
                             >
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
-                                <span>Tolak Revisi</span>
-                            </button>
+                                <span>Periksa Berkas (Split-View)</span>
+                            </Link>
                         </div>
                     </div>
 

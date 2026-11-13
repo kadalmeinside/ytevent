@@ -30,7 +30,7 @@ class AuditionParticipantController extends Controller
 
         $pdf = $pdfService->generateBibPdf($participant);
         $cleanName = preg_replace('/[^A-Za-z0-9_-]/', '_', $participant->full_name);
-        $ticketId = $participant->registration_number ?: ('PASS-' . $participant->id);
+        $ticketId = $participant->registration_number ?: ('PASS-'.$participant->id);
         $fileName = sprintf('DIGITAL-PASS-%s-%s.pdf', $ticketId, $cleanName);
 
         return $pdf->download($fileName);

@@ -167,7 +167,12 @@ const triggerResyncEvent = (evt) => {
                                 </div>
                                 <div>
                                     <div class="flex items-center gap-2 flex-wrap">
-                                        <h4 class="text-sm sm:text-base font-bold text-slate-900 leading-tight">{{ evt.name }}</h4>
+                                        <Link
+                                            :href="route('admin.events.show', { event: evt.id })"
+                                            class="text-sm sm:text-base font-bold text-slate-900 hover:text-orange-600 transition-colors leading-tight"
+                                        >
+                                            {{ evt.name }}
+                                        </Link>
                                         <span
                                             class="px-2 py-0.5 text-[10px] font-bold rounded-md border"
                                             :class="evt.participant_type === 'individual' ? (evt.event_type === 'coaching_clinic' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-purple-50 text-purple-900 border-purple-200') : 'bg-orange-50 text-orange-900 border-orange-200'"
@@ -197,8 +202,8 @@ const triggerResyncEvent = (evt) => {
 
                         <!-- Card Body Grid -->
                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 text-xs items-center">
-                            <!-- Venue & Location (Col 1-4) -->
-                            <div class="lg:col-span-4 space-y-1">
+                            <!-- Venue & Location (Col 1-3) -->
+                            <div class="lg:col-span-3 space-y-1">
                                 <span class="text-[10px] uppercase font-bold text-slate-400 block">Lokasi Lapangan</span>
                                 <div class="flex flex-wrap items-center gap-1.5">
                                     <p class="font-bold text-slate-900 text-xs sm:text-sm">{{ evt.venue_name }}</p>
@@ -253,91 +258,59 @@ const triggerResyncEvent = (evt) => {
                                 </span>
                             </div>
 
-                            <!-- Actions (Col 11-12) -->
-                            <div class="lg:col-span-2 flex flex-col sm:items-end justify-center gap-2">
-                                <div class="flex items-center gap-1.5 w-full sm:w-auto justify-end">
-                                    <Link
-                                        v-if="evt.participant_type === 'individual'"
-                                        :href="route('admin.screening.auditions')"
-                                        class="btn-sm-secondary flex-1 sm:flex-initial justify-center"
+                            <!-- Actions (Col 10-12) -->
+                            <div class="lg:col-span-3 flex items-center justify-end gap-1.5 flex-wrap">
+                                <Link
+                                    :href="route('admin.events.show', { event: evt.id })"
+                                    class="btn-sm-pitch inline-flex items-center gap-1.5 justify-center shadow-2xs"
+                                    title="Buka workspace detail manajemen event"
+                                >
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                                    </svg>
+                                    <span>Kelola Event</span>
+                                </Link>
+
+                                <Link
+                                    :href="route('admin.events.edit', { event: evt.id })"
+                                    class="btn-sm-secondary inline-flex items-center gap-1 justify-center"
+                                    title="Edit konfigurasi dan regulasi event"
+                                >
+                                    <svg class="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                    <span>Edit</span>
+                                </Link>
+
+                                <button
+                                    type="button"
+                                    class="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-orange-600 hover:border-orange-300 transition-colors bg-white shrink-0"
+                                    :class="{ 'opacity-50 cursor-not-allowed': syncingEventId === evt.id }"
+                                    :disabled="syncingEventId === evt.id"
+                                    title="Cek &amp; resync slot kedaluwarsa khusus event ini"
+                                    @click="triggerResyncEvent(evt)"
+                                >
+                                    <svg
+                                        class="w-4 h-4 text-orange-600"
+                                        :class="{ 'animate-spin': syncingEventId === evt.id }"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
                                     >
-                                        Peserta Audisi ({{ evt.occupied_slots }})
-                                    </Link>
-                                    <Link
-                                        v-else
-                                        :href="route('admin.teams.index', { event_id: evt.id })"
-                                        class="btn-sm-secondary flex-1 sm:flex-initial justify-center"
-                                    >
-                                        Daftar Tim ({{ evt.occupied_slots }})
-                                    </Link>
-                                    <button
-                                        type="button"
-                                        class="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-orange-600 hover:border-orange-300 transition-colors bg-white shrink-0"
-                                        :class="{ 'opacity-50 cursor-not-allowed': syncingEventId === evt.id }"
-                                        :disabled="syncingEventId === evt.id"
-                                        title="Cek & resync slot kedaluwarsa khusus event ini"
-                                        @click="triggerResyncEvent(evt)"
-                                    >
-                                        <svg
-                                            class="w-4 h-4 text-orange-600"
-                                            :class="{ 'animate-spin': syncingEventId === evt.id }"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                        </svg>
-                                    </button>
-                                </div>
-                                <div class="flex items-center gap-1.5 w-full sm:w-auto justify-end flex-wrap">
-                                    <Link
-                                        :href="route('events.show', { event: evt.slug })"
-                                        target="_blank"
-                                        class="p-1.5 text-slate-500 hover:text-orange-600 transition-colors"
-                                        title="Buka Halaman Publik"
-                                    >
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                        </svg>
-                                    </Link>
-                                    <Link
-                                        v-if="evt.participant_type === 'individual'"
-                                        :href="route('admin.auditions.scanner', { event_id: evt.id })"
-                                        class="btn-sm-secondary border-slate-300 text-slate-700 hover:bg-slate-50 justify-center"
-                                        title="Buka Scanner Presensi Gerbang untuk Event Ini"
-                                    >
-                                        Scan Presensi
-                                    </Link>
-                                    <Link
-                                        v-if="evt.participant_type === 'individual' && evt.event_type === 'audition'"
-                                        :href="route('scout.events.show', { event: evt.id })"
-                                        target="_blank"
-                                        class="btn-sm-secondary border-slate-300 text-slate-700 hover:bg-slate-50 justify-center"
-                                        title="Buka Panel Mobile Pemandu Bakat"
-                                    >
-                                        Panel Scout
-                                    </Link>
-                                    <Link
-                                        v-if="evt.participant_type === 'individual'"
-                                        :href="route('admin.events.auditions.qualifications', { event: evt.id })"
-                                        class="btn-sm-secondary border-orange-300 text-orange-800 hover:bg-orange-50 justify-center"
-                                    >
-                                        {{ evt.event_type === 'audition' ? 'Kelolosan & Piagam' : 'Presensi & Sertifikat' }}
-                                    </Link>
-                                    <Link
-                                        v-else-if="evt.participant_type === 'team'"
-                                        :href="route('admin.events.tournament', { event: evt.id })"
-                                        class="btn-sm-secondary border-orange-300 text-orange-800 hover:bg-orange-50 justify-center"
-                                    >
-                                        Turnamen &amp; Skor
-                                    </Link>
-                                    <Link
-                                        :href="route('admin.events.edit', { event: evt.id })"
-                                        class="btn-sm-pitch justify-center"
-                                    >
-                                        Edit
-                                    </Link>
-                                </div>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                </button>
+
+                                <Link
+                                    :href="route('events.show', { event: evt.slug })"
+                                    target="_blank"
+                                    class="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-orange-600 hover:border-orange-300 transition-colors bg-white shrink-0"
+                                    title="Buka Halaman Publik"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                </Link>
                             </div>
                         </div>
                     </div>

@@ -123,10 +123,12 @@ Saat orang tua yang sudah memiliki akun membuka form audisi, sistem otomatis men
 
 ## 5. Operasional Lapangan: Screening, Multi-Hari, Absensi & Penilaian Scout
 
-### 5.1 Modul Screening Dokumen & Validasi Fisik
-* **Verifikasi Berkas Online:** Orang tua mengunggah Akta Kelahiran, Kartu Keluarga, dan Pas Foto resmi.
-* **Masa Perbaikan Berkas (*Re-upload Grace Period*):** Jika dokumen buram/salah, orang tua diberikan waktu 24 jam untuk merevisi berkas.
-* **Proteksi Nomor Dada:** Nomor dada fisik (`bib_number`) dan tiket **hanya terbit** setelah tagihan **Lunas** dan status berkas **Sah (*Screening Passed*)**.
+### 5.1 Modul Screening Dokumen Split-View & Validasi Fisik
+* **Verifikasi Berkas Split-View (`/admin/screening/auditions/events/{event}`):** Petugas screening memeriksa peserta menggunakan antarmuka Split-View 2-panel (daftar antrean peserta di kiri, detail profil + kotak validasi Cut-Off Usia + pemeriksaan granular per dokumen di kanan) lengkap dengan `DocumentViewerModal` tersemat (*zoom* & rotasi tanpa membuka tab eksternal).
+* **Pelacakan Status Per Dokumen (`document_statuses`):** Setiap dokumen wajib (Akta Lahir, Kartu Keluarga, Dokumen Tambahan) dapat disahkan atau ditolak secara individual (*Valid*, *Perlu Revisi*, *Pending*), beserta tombol **Quick Verification Wizard** dan auto-fill catatan penolakan.
+* **Kunci Pasca-Sah & Pembukaan Kunci Darurat (*Emergency Unlock*):** Peserta yang telah disahkan (*passed*) otomatis terkunci; pembukaan kunci ulang hanya dapat dilakukan oleh pengguna berhak (`screening.unlock_player`) dan wajib tercatat pada `AuditLog`.
+* **Masa Perbaikan Berkas (*Re-upload Grace Period*):** Jika dokumen buram/salah, orang tua diberikan waktu 24 jam untuk merevisi berkas (dokumen yang diunggah ulang otomatis kembali ke status `pending`).
+* **Proteksi Digital Pass (E-Tiket):** **Digital Pass / E-Tiket** berbasis `registration_number` dan QR verifikasi terenkripsi **hanya terbit** setelah tagihan **Lunas** dan status berkas **Sah (*Screening Passed*)**. Untuk event Audisi, panitia tetap dapat menyertakan `bib_number` opsional sebagai nomor identifikasi rompi lapangan tanpa mewajibkan cetakan nomor dada sentris pada event Coaching Clinic.
 * **SOP Anti-Joki (Verifikasi Wajah di Lapangan):** Saat check-in di pintu masuk, layar scanner panitia memunculkan pas foto asli dan tanggal lahir untuk dicocokkan dengan fisik anak sebelum masuk lapangan.
 
 ### 5.2 Manajemen Event Multi-Hari (*Multi-Day Scheduling*)
@@ -136,7 +138,7 @@ Audisi dapat berlangsung 1 hari atau berjenjang 2–3 hari (tabel `audition_stag
 * **Hari 3 (Final Day):** *Game 11 vs 11 & Seleksi Skuad Akhir* (Hanya finalis terpilih).
 
 ### 5.3 Sistem Absensi Multi-Hari (*Day-by-Day QR Check-In*)
-* **Gatekeeper Guard Otomatis:** Petugas pintu melakukan scan QR pada nomor dada peserta setiap hari kegiatan.
+* **Gatekeeper Guard Otomatis:** Petugas pintu melakukan scan QR pada Digital Pass / E-Tiket peserta (`registration_number`) setiap hari kegiatan.
   - ✅ **Jika Lolos Hari Sebelumnya:** Check-in sukses tercatat pada `audition_attendances`.
   - ❌ **Jika Gugur di Hari Sebelumnya:** Sistem otomatis **MENOLAK** check-in dengan suara dan peringatan visual merah di layar scanner.
 * **SOP No-Show No-Certificate:** Peserta yang tidak hadir di Hari 1 otomatis berstatus absen dan tidak berhak mendapatkan e-sertifikat kehadiran.
@@ -158,7 +160,7 @@ Scout tidak dapat melihat akumulasi nilai dari scout lain selama sesi berjalan u
 
 ### 6.1 Siklus 5 Notifikasi Email Otomatis
 1. **Email Tagihan Registrasi:** Rincian pembayaran VA / QRIS / manual.
-2. **Email Berkas Sah & Nomor Dada:** Lampiran PDF Nomor Dada (Bib Tag A4) + barcode + jadwal kedatangan Hari 1.
+2. **Email Berkas Sah & Digital Pass (E-Tiket):** Lampiran PDF Digital Pass / E-Tiket A4 + QR Check-In (`registration_number`) + jadwal kedatangan Hari 1.
 3. **Email Hasil Hari 1 (Maks. Rilis 18.00 WIB):** 
    - *Lolos:* Jadwal & instruksi hadir Hari 2.
    - *Gugur:* Rapor Evaluasi Pelatih + E-Sertifikat Keikutsertaan.
@@ -206,8 +208,9 @@ erDiagram
 | `event_id` | `BIGINT UNSIGNED FK` | Relasi ke `events`. |
 | `user_id` | `BIGINT UNSIGNED FK` | Akun orang tua/wali pendaftar di `users`. |
 | `event_session_id` | `BIGINT UNSIGNED FK NULLABLE`| Relasi ke `event_sessions` (jika event memiliki sesi jam). |
-| `registration_number` | `VARCHAR(50) UNIQUE` | Nomor pendaftaran resmi (misal: `AUD-2026-0042`). |
-| `bib_number` | `INT NULLABLE` | Nomor dada fisik lapangan (misal: `42`). |
+| `registration_number` | `VARCHAR(64) UNIQUE` | ID Pendaftaran & **Digital Pass (E-Tiket)** utama (misal: `AUD-2026-0042` / `CC-2026-0018`). |
+| `bib_number` | `INT NULLABLE` | Nomor identifikasi rompi lapangan opsional untuk event Audisi (misal: `42`). |
+| `document_statuses` | `JSON NULLABLE` | Status verifikasi & catatan per dokumen (`birth_certificate`, `family_card`, `additional_doc`). |
 | `full_name` | `VARCHAR(150)` | Nama lengkap atlet. |
 | `nickname` | `VARCHAR(50)` | Nama panggilan di lapangan. |
 | `nik` | `VARCHAR(20)` | Nomor Induk Kependudukan (unik per event). |
@@ -246,35 +249,36 @@ gantt
     section Fase 3
     Pendaftaran Audisi & Screening Berkas  :f3, after f2, 5d
     section Fase 4
-    Nomor Dada PDF & Absensi Multi-Hari QR :f4, after f3, 4d
+    Digital Pass PDF & Absensi Multi-Hari QR :f4, after f3, 4d
     section Fase 5
     Mobile Quick Scouting Web Panel        :f5, after f4, 4d
     section Fase 6
     Kelolosan Bertahap, Email, & E-Sertif  :f6, after f5, 4d
 ```
 
-### 📋 Rincian Pekerjaan Per Fase:
+### Rincian Pekerjaan Per Fase:
 
-#### 🔹 Fase 1: Konfigurasi Kuota Dinamis & Custom Form Presets
+#### Fase 1: Konfigurasi Kuota Dinamis & Custom Form Presets
 1. Menambahkan kolom `quota_type`, `max_participants`, `position_quota_caps`, `form_presets`, dan `custom_fields_schema` pada tabel `events`.
 2. Refactor `canAcceptRegistration()` dan `availableSlotsCount()` pada `Event.php` untuk mendukung mode kuota tanpa batas hingga batas waktu.
 3. Menambahkan UI sakelar preset form dan konfigurasi kuota di formulir admin `EventForm.vue`.
 4. Tes otomatis: Memastikan pendaftaran mode tanpa kuota dan pemisahan field dinamis berfungsi stabil.
 
-#### 🔹 Fase 2: Universal Account & Unified Portal Header
+#### Fase 2: Universal Account & Unified Portal Header
 1. Transisi navigasi publik: tombol `"Login Manajer"` $\rightarrow$ `"Masuk / Akun Saya"`.
 2. Halaman `/dashboard` terpadu: Seksi Tim Turnamen SSB + Seksi Pendaftaran Audisi Anak.
 3. Otomatisasi *auto-fill* data orang tua saat membuka formulir pendaftaran audisi.
 
-#### 🔹 Fase 3: Pendaftaran Audisi, Sesi Waktu, & Screening Dokumen
-1. Migrasi database: `audition_stages`, `event_sessions`, `audition_participants`.
-2. Formulir pendaftaran audisi publik dinamis (`/events/{slug}/register-audition`) yang menyesuaikan kolom input sesuai sakelar preset dan custom fields event, serta persetujuan medis & kontak darurat.
-3. Panel verifikasi dokumen screening admin: verifikasi berkas, persetujuan, penolakan ber-alasan (*re-upload grace period* 24 jam).
-4. Integrasi penerbitan tagihan pembayaran Midtrans / transfer manual.
+#### Fase 3: Pendaftaran Audisi, Workspace Event, & Screening Dokumen Split-View
+1. Migrasi database: `audition_stages`, `event_sessions`, `audition_participants` (+ kolom `document_statuses`).
+2. **Admin Event Workspace Hub (`/admin/events/{event}`):** Menyederhanakan daftar event admin (`/admin/events`) ke 4 aksi utama (`Kelola Event`, `Edit`, `Sync Kuota`, `Lihat Publik`) dan memusatkan operasional per event ke dalam tab `Ringkasan & Kuota`, `Peserta & Screening` / `Tim & Screening`, serta `Operasional & Lapangan`.
+3. Formulir pendaftaran audisi publik dinamis (`/events/{slug}/register-audition`) yang menyesuaikan kolom input sesuai sakelar preset dan custom fields event, serta persetujuan medis & kontak darurat.
+4. **Panel Screening Berkas Split-View (`/admin/screening/auditions/events/{event}`):** Pemeriksaan berkas perorangan setara UX screening tim (antrean kiri + workspace verifikasi kanan, `DocumentViewerModal` tersemat, Quick Verification Wizard, validasi Cut-Off Usia, status per dokumen, penolakan ber-alasan dengan *re-upload grace period* 24 jam, dan *Emergency Unlock* ber-AuditLog).
+5. Integrasi penerbitan tagihan pembayaran Midtrans / transfer manual.
 
-#### 🔹 Fase 4: Nomor Dada (Bib Tag PDF) & Absensi Multi-Hari QR Scanner
-1. Generator PDF Nomor Dada ukuran A4 Landscape ber-QR Code terenkripsi.
-2. Fitur cetak nomor dada di dasbor orang tua (hanya aktif setelah lunas + lolos screening).
+#### Fase 4: Digital Pass (E-Tiket PDF) & Absensi Multi-Hari QR Scanner
+1. Generator PDF **Digital Pass / E-Tiket** ukuran A4 Landscape ber-QR Code terenkripsi (`registration_number`, disertai badge rompi opsional untuk audisi).
+2. Fitur cetak Digital Pass di dasbor orang tua (hanya aktif setelah lunas + lolos screening).
 3. Modul Scanner QR Kehadiran Lapangan untuk panitia:
    - Pencatatan absensi harian per tahap (`audition_attendances`).
    - Validasi otomatis: memblokir check-in peserta yang tidak lolos dari tahap sebelumnya.

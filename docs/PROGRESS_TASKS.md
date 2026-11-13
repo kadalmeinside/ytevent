@@ -506,11 +506,22 @@ Dokumen PRD Terverifikasi: [`PRD_MULTI_EVENT_INDIVIDUAL.md`](file:///Users/macbo
 - [x] **8.6.3** Generator PDF E-Sertifikat Berjenjang (`AuditionCertificateService`): Piagam Partisipasi Resmi, Piagam Finalis Seleksi, dan Piagam Atlet Terpilih Skuad Utama ber-QR Code verifikasi digital publik (`/verify/certificate/{code}`).
 - [x] **8.6.4** Automated Feature Test `Phase8ScoutingAndQualificationTest.php` lolos 100%.
 
+### 8.7 Sub-Fase 7: Digital Pass (E-Tiket), Admin Event Workspace Hub, & Split-View Screening Individual
+- [x] **8.7.1** **Refaktorisasi Terminologi & Alur Digital Pass / E-Tiket**: Menjadikan `registration_number` sebagai ID Digital Pass utama untuk check-in QR Scanner seluruh event perorangan (Audisi & Coaching Clinic), sementara `bib_number` berfungsi sebagai nomor rompi opsional khusus audisi.
+- [x] **8.7.2** **Penyederhanaan Daftar Event & Sentralisasi Event Workspace Hub (`Admin/Events/Index.vue` & `Admin/Events/Show.vue`)**:
+  - Kartu daftar event hanya menampilkan 4 aksi tingkat-event (`Kelola Event`, `Edit`, `Sync Kuota`, `Lihat Publik`).
+  - Halaman `/admin/events/{event}` menyajikan hub operasional bertab (`Ringkasan & Kuota`, `Peserta & Screening` / `Tim & Screening`, `Operasional & Lapangan`) yang beradaptasi untuk Turnamen Tim, Audisi, maupun Coaching Clinic.
+- [x] **8.7.3** **Peningkatan UX Screening Perorangan Setara Screening Tim (`Admin/Screening/Auditions.vue` & `AuditionReview.vue`)**:
+  - Antarmuka Split-View 2-panel (`/admin/screening/auditions/events/{event}`) dengan daftar antrean peserta di kiri dan panel verifikasi terpadu di kanan.
+  - Penambahan kolom JSON `document_statuses` pada `audition_participants`, endpoint granular `POST /admin/screening/auditions/{participant}/document-verify`, serta reset status otomatis saat re-upload di `AuditionDocumentReuploadService`.
+  - Kotak validasi Cut-Off Tanggal Lahir (`is_age_valid`), Quick Verification Wizard, inspeksi berkas & pas foto melalui `DocumentViewerModal` tersemat (*zoom* & rotasi tanpa tab eksternal), auto-fill catatan penolakan, dan *Emergency Unlock* (`POST /admin/screening/auditions/{participant}/unlock`) yang tercatat di `AuditLog`.
+- [x] **8.7.4** Automated Feature Test `EventWorkspaceAndIndividualScreeningTest.php` lolos 100%.
+
 ---
 
 ## REKAPITULASI STATUS PENGUJIAN AKHIR FASE 8:
-- **Total Automated Tests**: **139 Tests PASS 100% (1,181 assertions)**
+- **Total Automated Tests**: **161 Tests PASS 100% (1,359 assertions)**
 - **Regresi Sistem Eksisting**: **0 Failed (Zero Regression)**
-- **Kompilasi Frontend (Vite)**: **Sukses tanpa error (2.54s)**
+- **Kompilasi Frontend (Vite)**: **Sukses tanpa error (2.60s)**
 
 

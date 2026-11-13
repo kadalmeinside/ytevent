@@ -36,6 +36,10 @@ class AuditionDocumentReuploadService
                 $newPaths[] = $path;
                 $oldPaths[] = $participant->{$definition['column']};
                 $participant->{$definition['column']} = $path;
+
+                $statuses = $participant->document_statuses ?? [];
+                $statuses[$key] = ['validation_status' => 'pending', 'notes' => null];
+                $participant->document_statuses = $statuses;
             }
 
             DB::transaction(function () use ($participant): void {

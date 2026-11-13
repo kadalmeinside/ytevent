@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 class AuditionParticipant extends Model
 {
@@ -42,6 +43,7 @@ class AuditionParticipant extends Model
         'birth_certificate_path',
         'family_card_path',
         'additional_doc_path',
+        'document_statuses',
         'screening_status',
         'screening_notes',
         'screening_verified_by',
@@ -61,6 +63,7 @@ class AuditionParticipant extends Model
             'height_cm' => 'integer',
             'weight_kg' => 'integer',
             'custom_answers' => 'array',
+            'document_statuses' => 'array',
             'liability_accepted_at' => 'datetime',
             'screening_verified_at' => 'datetime',
             'slot_reserved_at' => 'datetime',
@@ -173,5 +176,66 @@ class AuditionParticipant extends Model
     public function screeningStatusLabel(): string
     {
         return self::SCREENING_STATUSES[$this->screening_status] ?? $this->screening_status;
+    }
+
+    /**
+     * Kembalikan daftar dokumen peserta yang terstruktur untuk Screening Split-View.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getStructuredDocuments(): array
+    {
+        $definitions = [
+            'birth_certificate' => [
+                'column' => 'birth_certificate_path',
+                'label' => 'Akta Kelahiran',
+                'route' => 'private.audition.birth-certificate',
+            ],
+            'family_card' => [
+                'column' => 'family_card_path',
+                'label' => 'Kartu Keluarga (KK)',
+                'route' => 'private.audition.family-card',
+            ],
+            'additional_doc' => [
+                'column' => 'additional_doc_path',
+                'label' => 'Dokumen Pendukung',
+                'route' => 'private.audition.additional-doc',
+            ],
+        ];
+
+        $savedStatuses = $this->document_statuses ?? [];
+        $disk = Storage::disk('private');
+        $docs = [];
+
+        foreach ($definitions as $key => $def) {
+            $path = $this->{$def['column']};
+            if (! $path) {
+                continue;
+            }
+
+            $exists = $disk->exists($path);
+            $mimeType = $exists ? ($disk->mimeType($path) ?: 'application/octet-stream') : '';
+            $fileSize = $exists ? (int) $disk->size($path) : 0;
+            $originalName = basename($path);
+            $isPdf = $mimeType === 'application/pdf' || str_ends_with(strtolower($originalName), '.pdf');
+
+            $defaultStatus = $this->screening_status === 'passed' ? 'valid' : 'pending';
+            $entry = $savedStatuses[$key] ?? [];
+
+            $docs[] = [
+                'id' => $key,
+                'document_type' => $key,
+                'label' => $def['label'],
+                'original_name' => $originalName,
+                'file_size' => $fileSize,
+                'mime_type' => $mimeType,
+                'is_pdf' => $isPdf,
+                'validation_status' => $entry['validation_status'] ?? $defaultStatus,
+                'notes' => $entry['notes'] ?? null,
+                'preview_url' => route($def['route'], ['participant' => $this->id]),
+            ];
+        }
+
+        return $docs;
     }
 }
