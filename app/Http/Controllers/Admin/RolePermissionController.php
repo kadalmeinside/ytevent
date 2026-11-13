@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\UpdateRolePermissionsRequest;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Spatie\Permission\Models\Permission;
@@ -55,18 +55,13 @@ class RolePermissionController extends Controller
         ]);
     }
 
-    public function update(Request $request, Role $role): RedirectResponse
+    public function update(UpdateRolePermissionsRequest $request, Role $role): RedirectResponse
     {
         if ($role->name === 'superadmin') {
             return back()->with('error', 'Hak akses Super Administrator bersifat mutlak dan tidak dapat dibatasi.');
         }
 
-        $validated = $request->validate([
-            'permissions' => ['present', 'array'],
-            'permissions.*' => ['string', 'exists:permissions,name'],
-        ], [
-            'permissions.array' => 'Format izin hak akses tidak valid.',
-        ]);
+        $validated = $request->validated();
 
         $role->syncPermissions($validated['permissions']);
 

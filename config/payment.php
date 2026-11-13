@@ -11,6 +11,11 @@ return [
         && env('APP_ENV') !== 'production',
 
     /*
+    | Toleransi maksimal selisih nominal callback webhook terhadap total_amount (Rupiah).
+    */
+    'amount_tolerance' => (float) env('PAYMENT_AMOUNT_TOLERANCE', 1.0),
+
+    /*
     | Kredensial di bawah adalah fallback dari .env.
     | Nilai yang diisi Superadmin di /admin/settings (tabel system_settings)
     | selalu diprioritaskan oleh PaymentService.

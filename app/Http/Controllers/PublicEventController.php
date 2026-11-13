@@ -343,18 +343,21 @@ class PublicEventController extends Controller
 
         if ($latestPayment
             && $latestPayment->status === 'unpaid'
-            && \App\Services\PaymentService::activeMode() === 'midtrans'
+            && \App\Services\PaymentService::isGatewayMode()
             && ! config('payment.sandbox_simulator')
         ) {
-            try {
-                $paymentService = app(\App\Services\PaymentService::class);
-                $paymentService->initiateGatewayPayment(
-                    payment: $latestPayment,
-                    provider: 'midtrans'
-                );
-                $autoSnap = true;
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::warning('Auto initiate Midtrans Snap on registration failed: ' . $e->getMessage());
+            $defaultProvider = \App\Services\PaymentService::activeGatewayProvider();
+            if (\App\Services\PaymentService::isProviderEnabled($defaultProvider)) {
+                try {
+                    $paymentService = app(\App\Services\PaymentService::class);
+                    $paymentService->initiateGatewayPayment(
+                        payment: $latestPayment,
+                        provider: $defaultProvider
+                    );
+                    $autoSnap = $defaultProvider === 'midtrans';
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Auto initiate gateway on registration failed: ' . $e->getMessage());
+                }
             }
         }
 

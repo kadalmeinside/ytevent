@@ -22,6 +22,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -233,6 +234,13 @@ class ScreeningController extends Controller
      */
     public function verifyPlayer(VerifyPlayerRequest $request, Player $player): RedirectResponse
     {
+        $player->loadMissing('event');
+        if ($player->event && ! $player->event->canVerifyScreening()) {
+            throw ValidationException::withMessages([
+                'action' => 'Event berstatus Draft atau Selesai. Keputusan screening pemain tidak dapat diubah.',
+            ]);
+        }
+
         $action = $request->input('action');
         $reason = $request->input('rejection_reason');
         $docUpdates = $request->input('documents', []);
@@ -257,6 +265,20 @@ class ScreeningController extends Controller
      */
     public function verifyDocument(VerifyDocumentRequest $request, PlayerDocument $document): JsonResponse|RedirectResponse
     {
+        $document->loadMissing('player.event');
+        $event = $document->player?->event;
+        if ($event && ! $event->canVerifyScreening()) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Event berstatus Draft atau Selesai. Verifikasi dokumen tidak dapat diubah.',
+                ], 422);
+            }
+            throw ValidationException::withMessages([
+                'validation_status' => 'Event berstatus Draft atau Selesai. Verifikasi dokumen tidak dapat diubah.',
+            ]);
+        }
+
         $status = $request->input('validation_status');
         $notes = $request->input('notes');
 
@@ -297,6 +319,13 @@ class ScreeningController extends Controller
     {
         if (! $request->user()?->can('screening.unlock_player')) {
             abort(403, 'Anda tidak memiliki wewenang untuk membuka kunci data pemain.');
+        }
+
+        $player->loadMissing('event');
+        if ($player->event && ! $player->event->canVerifyScreening()) {
+            throw ValidationException::withMessages([
+                'reason' => 'Event berstatus Draft atau Selesai. Kunci pemain tidak dapat dibuka kembali.',
+            ]);
         }
 
         $reason = $request->input('reason');
@@ -680,6 +709,14 @@ class ScreeningController extends Controller
      */
     public function verifyAuditionDocument(VerifyAuditionDocumentRequest $request, AuditionParticipant $participant): JsonResponse
     {
+        $participant->loadMissing('event');
+        if ($participant->event && ! $participant->event->canVerifyScreening()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Event berstatus Draft atau Selesai. Verifikasi dokumen tidak dapat diubah.',
+            ], 422);
+        }
+
         if ($participant->screening_status === 'passed') {
             return response()->json([
                 'success' => false,
@@ -712,12 +749,24 @@ class ScreeningController extends Controller
      */
     public function verifyAuditionParticipant(VerifyAuditionParticipantRequest $request, AuditionParticipant $participant): RedirectResponse
     {
+        $participant->loadMissing(['event', 'latestPayment']);
+        if ($participant->event && ! $participant->event->canVerifyScreening()) {
+            throw ValidationException::withMessages([
+                'status' => 'Event berstatus Draft atau Selesai. Status screening peserta tidak dapat diubah.',
+            ]);
+        }
+
         $validated = $request->validated();
         $status = $validated['status'];
         $notes = $validated['notes'] ?? null;
         $user = $request->user();
 
         if ($status === 'passed') {
+            if (! $participant->isPaid()) {
+                throw ValidationException::withMessages([
+                    'status' => 'Peserta belum melunasi biaya pendaftaran sehingga berkas belum dapat dinyatakan Lolos Screening.',
+                ]);
+            }
             $bib = array_key_exists('bib_number', $validated) && $validated['bib_number'] !== null
                 ? (int) $validated['bib_number']
                 : $participant->bib_number;
@@ -781,6 +830,13 @@ class ScreeningController extends Controller
      */
     public function unlockAuditionParticipant(UnlockAuditionParticipantRequest $request, AuditionParticipant $participant): RedirectResponse
     {
+        $participant->loadMissing('event');
+        if ($participant->event && ! $participant->event->canVerifyScreening()) {
+            throw ValidationException::withMessages([
+                'reason' => 'Event berstatus Draft atau Selesai. Kunci screening tidak dapat dibuka kembali.',
+            ]);
+        }
+
         $user = $request->user();
         $reason = trim((string) ($request->validated()['reason'] ?? 'Pembukaan kunci darurat oleh admin untuk verifikasi ulang.'));
 

@@ -15,7 +15,13 @@ class AuditionDocumentController extends Controller
         AuditionParticipant $participant,
         AuditionDocumentReuploadService $service
     ): RedirectResponse {
+        $participant->loadMissing('event');
         abort_unless($participant->event?->participant_type === 'individual', 404);
+        abort_unless(
+            $participant->event->canModifyTeamRoster(),
+            422,
+            'Masa revisi berkas telah berakhir karena event sedang berlangsung atau sudah selesai.'
+        );
         abort_unless($participant->screening_status === 'rejected', 422, 'Dokumen peserta tidak sedang menunggu revisi.');
 
         $rejectedAt = $participant->screening_verified_at;

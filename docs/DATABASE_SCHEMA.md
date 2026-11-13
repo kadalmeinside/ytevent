@@ -63,7 +63,7 @@ Menyimpan histori tagihan pendaftaran dan rekonsiliasi pembayaran.
 - **Kolom Nilai & Metode:** Nominal Tagihan, Biaya Admin Gateway, Total Bayar, Jenis Metode (`midtrans`, `xendit`, `manual`), Saluran Pembayaran Spesifik (BCA VA, Mandiri VA, QRIS, Transfer Manual, dll).
 - **Kolom Data Gateway Otomatis:** Referensi ID Transaksi Eksternal, Token Snap / Tautan Pembayaran, Waktu Kedaluwarsa Tagihan (`expires_at`), Payload Mentah Webhook (untuk audit rekonsiliasi).
 - **Kolom Data Transfer Manual:** Nama Bank Pengirim, Nama Pemilik Rekening Pengirim, Nomor Rekening Pengirim, Tanggal Transfer, Path Berkas Bukti Transfer (Private Disk).
-- **Kolom Verifikasi & Status:** Status Pembayaran (`unpaid`, `waiting_verification`, `paid`, `rejected`, `expired`, `refund_required`, `refunded`) — Indeks komposit `INDEX(status, expires_at)` untuk penyapuan *Lazy Expiration* dan *Scheduler*, ID User Pemeriksa (Finance/Superadmin), Alasan Penolakan Pembayaran, Waktu Pelunasan.
+- **Kolom Verifikasi, Status & Refund:** Status Pembayaran (`unpaid`, `waiting_verification`, `paid`, `rejected`, `expired`, `refund_required`, `refunded`) — Indeks komposit `INDEX(status, expires_at)` untuk penyapuan *Lazy Expiration* dan *Scheduler*, ID User Pemeriksa (Finance/Superadmin), Alasan Penolakan Pembayaran (`rejection_reason`), Waktu Pelunasan (`paid_at`), Waktu Verifikasi (`verified_at`), serta kolom rekonsiliasi refund terstruktur: Nominal Refund (`refund_amount`), Referensi Transaksi Refund (`refund_reference`), Metode Refund (`refund_method`), Catatan Refund (`refund_notes`), dan Waktu Refund Selesai (`refunded_at`).
 
 ### 2.6 Tabel `players` (Biodata & Status Screening Pemain)
 Menyimpan daftar pemain yang didaftarkan oleh Manajer Tim.

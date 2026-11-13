@@ -4,6 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Manager\Concerns\ResolvesActiveTeam;
+use App\Http\Requests\Admin\Team\UnlockTeamRosterRequest;
+use App\Http\Requests\Admin\Team\UpdateTeamNotesRequest;
+use App\Http\Requests\Admin\Team\UpdateTeamStatusRequest;
+use App\Http\Requests\Admin\Team\VerifyOfficialRequest;
 use App\Models\AuditLog;
 use App\Models\Event;
 use App\Models\Player;
@@ -265,16 +269,11 @@ class TeamManagementController extends Controller
     /**
      * Membuka kembali kunci skuad final (locked_roster -> active) atas izin Admin.
      */
-    public function unlockRoster(Request $request, Team $team): RedirectResponse
+    public function unlockRoster(UnlockTeamRosterRequest $request, Team $team): RedirectResponse
     {
         $this->authorize('update', $team);
 
-        $validated = $request->validate([
-            'reason' => ['required', 'string', 'min:5', 'max:500'],
-        ], [
-            'reason.required' => 'Alasan pembukaan kunci skuad wajib diisi.',
-            'reason.min' => 'Alasan pembukaan kunci skuad minimal 5 karakter.',
-        ]);
+        $validated = $request->validated();
 
         if ($team->status !== 'locked_roster') {
             return redirect()->back()->with('error', 'Tim ini tidak sedang dalam status skuad terkunci.');
@@ -313,18 +312,11 @@ class TeamManagementController extends Controller
     /**
      * Mengubah status kepesertaan tim (Diskualifikasi atau Pemulihan ke Aktif).
      */
-    public function updateStatus(Request $request, Team $team): RedirectResponse
+    public function updateStatus(UpdateTeamStatusRequest $request, Team $team): RedirectResponse
     {
         $this->authorize('update', $team);
 
-        $validated = $request->validate([
-            'status' => ['required', 'string', 'in:disqualified,active'],
-            'reason' => ['required', 'string', 'min:5', 'max:500'],
-        ], [
-            'status.required' => 'Status tujuan wajib dipilih.',
-            'reason.required' => 'Alasan perubahan status tim wajib diisi.',
-            'reason.min' => 'Alasan perubahan status tim minimal 5 karakter.',
-        ]);
+        $validated = $request->validated();
 
         $targetStatus = $validated['status'];
         $reason = trim($validated['reason']);
@@ -382,15 +374,11 @@ class TeamManagementController extends Controller
     /**
      * Menyimpan catatan internal panitia (admin_notes) pada tim.
      */
-    public function updateNotes(Request $request, Team $team): RedirectResponse
+    public function updateNotes(UpdateTeamNotesRequest $request, Team $team): RedirectResponse
     {
         $this->authorize('update', $team);
 
-        $validated = $request->validate([
-            'admin_notes' => ['nullable', 'string', 'max:2000'],
-        ], [
-            'admin_notes.max' => 'Catatan internal panitia maksimal 2000 karakter.',
-        ]);
+        $validated = $request->validated();
 
         $team->update([
             'admin_notes' => isset($validated['admin_notes']) ? trim($validated['admin_notes']) : null,
@@ -402,7 +390,7 @@ class TeamManagementController extends Controller
     /**
      * Memverifikasi atau meminta revisi berkas lisensi pelatih / ofisial oleh Admin.
      */
-    public function verifyOfficial(Request $request, Team $team, TeamOfficial $official): RedirectResponse
+    public function verifyOfficial(VerifyOfficialRequest $request, Team $team, TeamOfficial $official): RedirectResponse
     {
         $this->authorize('view', $team);
 
@@ -410,13 +398,14 @@ class TeamManagementController extends Controller
             abort(403);
         }
 
-        $validated = $request->validate([
-            'screening_status' => ['required', 'string', 'in:passed,rejected'],
-            'verification_notes' => ['nullable', 'string', 'max:500'],
-        ], [
-            'screening_status.required' => 'Keputusan verifikasi ofisial wajib dipilih.',
-            'screening_status.in' => 'Status verifikasi ofisial tidak valid.',
-        ]);
+        $team->loadMissing('event');
+        if ($team->event && ! $team->event->canVerifyScreening()) {
+            throw ValidationException::withMessages([
+                'screening_status' => 'Event berstatus Draft atau Selesai. Verifikasi ofisial tidak dapat diubah.',
+            ]);
+        }
+
+        $validated = $request->validated();
 
         if ($validated['screening_status'] === 'rejected' && empty(trim((string) ($validated['verification_notes'] ?? '')))) {
             throw ValidationException::withMessages([

@@ -235,6 +235,7 @@ class Phase5TournamentTest extends TestCase
 
     public function test_admin_can_update_match_score_events_and_recalculate_standings(): void
     {
+        $this->event->update(['status' => 'ongoing']);
         $service = app(StandingsCalculatorService::class);
         $service->generateGroupsAndDraw($this->event, 1, false);
         $group = EventGroup::where('event_id', $this->event->id)->first();
@@ -332,6 +333,7 @@ class Phase5TournamentTest extends TestCase
 
     public function test_manager_can_view_matches_and_submit_dsp_lineup(): void
     {
+        $this->event->update(['status' => 'ongoing']);
         $match = TournamentMatch::create([
             'event_id' => $this->event->id,
             'stage' => 'group_stage',
@@ -375,6 +377,7 @@ class Phase5TournamentTest extends TestCase
 
     public function test_manager_cannot_submit_suspended_player_in_dsp(): void
     {
+        $this->event->update(['status' => 'ongoing']);
         $match1 = TournamentMatch::create([
             'event_id' => $this->event->id,
             'stage' => 'group_stage',
@@ -416,6 +419,7 @@ class Phase5TournamentTest extends TestCase
 
     public function test_manager_can_download_dsp_pdf_and_player_certificate_pdf(): void
     {
+        $this->event->update(['status' => 'ongoing']);
         $match = TournamentMatch::create([
             'event_id' => $this->event->id,
             'stage' => 'group_stage',
@@ -689,8 +693,11 @@ class Phase5TournamentTest extends TestCase
 
     public function test_dsp_lineup_enforces_starter_count_and_auto_lock(): void
     {
-        // Event format requires 2 starters
-        $this->event->update(['starting_players_count' => 2]);
+        // Event sedang berlangsung & format mewajibkan 2 pemain inti
+        $this->event->update([
+            'status' => 'ongoing',
+            'starting_players_count' => 2,
+        ]);
 
         $match = TournamentMatch::create([
             'event_id' => $this->event->id,

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Manager;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Manager\Concerns\ResolvesActiveTeam;
+use App\Http\Requests\Manager\SaveMatchLineupRequest;
 use App\Models\MatchLineup;
 use App\Models\Player;
 use App\Models\Team;
@@ -165,7 +166,7 @@ class MatchLineupController extends Controller
     /**
      * Simpan Daftar Susunan Pemain (Digital Match Lineup / DSP) oleh Manajer Tim.
      */
-    public function saveLineup(Request $request, TournamentMatch $match): RedirectResponse
+    public function saveLineup(SaveMatchLineupRequest $request, TournamentMatch $match): RedirectResponse
     {
         $ctx = $this->resolveManagerContext($request);
         /** @var Team|null $team */
@@ -175,13 +176,19 @@ class MatchLineupController extends Controller
             abort(403, 'Pertandingan ini bukan milik tim Anda.');
         }
 
+        $event = $team->event;
+        if (! $event || ! $event->canRunFieldOperations()) {
+            throw ValidationException::withMessages([
+                'lineup' => 'Daftar Susunan Pemain (DSP) hanya dapat diajukan setelah pendaftaran event ditutup atau saat turnamen sedang berlangsung.',
+            ]);
+        }
+
         if (in_array($match->status, ['ongoing', 'completed', 'cancelled'], true)) {
             throw ValidationException::withMessages([
                 'lineup' => 'Pertandingan sedang berlangsung atau telah selesai. Daftar Susunan Pemain (DSP) tidak dapat diubah lagi.',
             ]);
         }
 
-        $event = $team->event;
         $cutoffMinutes = (int) ($event?->dsp_cutoff_minutes ?? 30);
         if ($match->kickoff_at && now()->gt($match->kickoff_at->copy()->subMinutes($cutoffMinutes))) {
             throw ValidationException::withMessages([
@@ -189,16 +196,7 @@ class MatchLineupController extends Controller
             ]);
         }
 
-        $validated = $request->validate([
-            'starting_player_ids' => ['required', 'array', 'min:1'],
-            'starting_player_ids.*' => ['integer', 'exists:players,id'],
-            'substitute_player_ids' => ['nullable', 'array'],
-            'substitute_player_ids.*' => ['integer', 'exists:players,id'],
-            'captain_player_id' => ['nullable', 'integer', 'exists:players,id'],
-        ], [
-            'starting_player_ids.required' => 'Pilih minimal 1 pemain utama (Starting Lineup).',
-            'starting_player_ids.min' => 'Pilih minimal 1 pemain utama (Starting Lineup).',
-        ]);
+        $validated = $request->validated();
 
         $startingIds = array_values(array_unique(array_map('intval', $validated['starting_player_ids'])));
         $subIds = array_values(array_diff(

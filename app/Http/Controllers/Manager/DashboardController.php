@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Manager;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Manager\Concerns\ResolvesActiveTeam;
+use App\Http\Requests\Manager\UpdateManagerPasswordRequest;
 use App\Http\Requests\Manager\UpdateTeamProfileRequest;
 use App\Models\AuditionParticipant;
 use App\Models\EventAnnouncement;
@@ -207,19 +208,9 @@ class DashboardController extends Controller
     /**
      * Memperbarui kata sandi akun Manajer Tim secara mandiri.
      */
-    public function updatePassword(Request $request): RedirectResponse
+    public function updatePassword(UpdateManagerPasswordRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'current_password' => ['required', 'string', 'current_password'],
-            'password' => ['required', 'string', 'min:8', 'regex:/^(?=.*[A-Za-z])(?=.*\d).+$/', 'confirmed'],
-        ], [
-            'current_password.required' => 'Kata sandi saat ini wajib diisi.',
-            'current_password.current_password' => 'Kata sandi saat ini yang Anda masukkan tidak sesuai.',
-            'password.required' => 'Kata sandi baru wajib diisi.',
-            'password.min' => 'Kata sandi baru minimal terdiri dari 8 karakter.',
-            'password.regex' => 'Kata sandi baru wajib mengandung kombinasi huruf dan angka.',
-            'password.confirmed' => 'Konfirmasi kata sandi baru tidak cocok.',
-        ]);
+        $validated = $request->validated();
 
         $request->user()->update([
             'password' => Hash::make($validated['password']),

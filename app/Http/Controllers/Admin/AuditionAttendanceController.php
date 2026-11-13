@@ -62,7 +62,17 @@ class AuditionAttendanceController extends Controller
         $stage = AuditionStage::with('event')->findOrFail((int) $request->input('stage_id'));
         $event = $stage->event;
 
-        if ($event->participant_type !== 'individual' || ! $stage->is_active || $stage->is_completed) {
+        if (! $event || $event->participant_type !== 'individual') {
+            return response()->json(['success' => false, 'gatekeeper_status' => 'STAGE_UNAVAILABLE',
+                'message' => 'Event bukan kategori peserta perorangan.'], 422);
+        }
+
+        if (! $event->canRunFieldOperations()) {
+            return response()->json(['success' => false, 'gatekeeper_status' => 'EVENT_UNAVAILABLE',
+                'message' => 'Check-in hanya tersedia setelah pendaftaran ditutup atau saat event sedang berlangsung.'], 422);
+        }
+
+        if (! $stage->is_active || $stage->is_completed) {
             return response()->json(['success' => false, 'gatekeeper_status' => 'STAGE_UNAVAILABLE',
                 'message' => 'Tahap audisi tidak sedang tersedia untuk check-in.'], 422);
         }
@@ -228,7 +238,7 @@ class AuditionAttendanceController extends Controller
         if ($p->photo_path) {
             $photoUrl = Storage::disk('public')->exists($p->photo_path)
                 ? Storage::disk('public')->url($p->photo_path)
-                : route('audition.birth-certificate', ['participant' => $p->id]);
+                : ($p->screening_code ? route('public.audition.verify.photo', ['code' => $p->screening_code]) : null);
         }
 
         return [

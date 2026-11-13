@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\ResetPasswordRequest;
+use App\Http\Requests\Auth\SendPasswordResetLinkRequest;
 use App\Models\User;
 use App\Services\EmailNotificationService;
 use Illuminate\Http\RedirectResponse;
@@ -22,14 +24,9 @@ class PasswordResetController extends Controller
         return Inertia::render('Auth/ForgotPassword');
     }
 
-    public function sendResetLink(Request $request, EmailNotificationService $emailService): RedirectResponse
+    public function sendResetLink(SendPasswordResetLinkRequest $request, EmailNotificationService $emailService): RedirectResponse
     {
-        $validated = $request->validate([
-            'email' => ['required', 'string', 'email'],
-        ], [
-            'email.required' => 'Alamat email terdaftar wajib diisi.',
-            'email.email' => 'Format alamat email yang dimasukkan tidak valid.',
-        ]);
+        $validated = $request->validated();
 
         $email = strtolower(trim($validated['email']));
         $user = User::query()->where('email', $email)->where('is_active', true)->first();
@@ -65,21 +62,9 @@ class PasswordResetController extends Controller
         ]);
     }
 
-    public function resetPassword(Request $request): RedirectResponse
+    public function resetPassword(ResetPasswordRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'token' => ['required', 'string'],
-            'email' => ['required', 'string', 'email'],
-            'password' => ['required', 'string', 'min:8', 'regex:/^(?=.*[A-Za-z])(?=.*\d).+$/', 'confirmed'],
-        ], [
-            'token.required' => 'Token pemulihan kata sandi wajib ada.',
-            'email.required' => 'Alamat email wajib diisi.',
-            'email.email' => 'Format alamat email tidak valid.',
-            'password.required' => 'Kata sandi baru wajib diisi.',
-            'password.min' => 'Kata sandi baru minimal terdiri dari 8 karakter.',
-            'password.regex' => 'Kata sandi baru wajib mengandung kombinasi huruf dan angka.',
-            'password.confirmed' => 'Konfirmasi kata sandi baru tidak cocok.',
-        ]);
+        $validated = $request->validated();
 
         $email = strtolower(trim($validated['email']));
         $record = DB::table('password_reset_tokens')->where('email', $email)->first();

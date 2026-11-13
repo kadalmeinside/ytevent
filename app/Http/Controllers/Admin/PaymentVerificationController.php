@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\MarkPaymentRefundedRequest;
 use App\Http\Requests\Admin\VerifyManualPaymentRequest;
 use App\Models\Event;
 use App\Models\Payment;
@@ -99,7 +100,12 @@ class PaymentVerificationController extends Controller
         $validated = $request->validated();
 
         if ($validated['action'] === 'approve') {
-            $paymentService->approveManualPayment($payment, $request->user());
+            $approved = $paymentService->approveManualPayment($payment, $request->user());
+
+            if ($approved->status === 'refund_required') {
+                return redirect()->back()
+                    ->with('warning', "Pembayaran {$payment->invoice_number} diterima setelah kuota penuh, sehingga dialihkan ke status Perlu Refund.");
+            }
 
             return redirect()->back()
                 ->with('success', "Pembayaran {$payment->invoice_number} disetujui (LUNAS). Status tim kini AKTIF.");
@@ -119,20 +125,22 @@ class PaymentVerificationController extends Controller
      * Menandai transaksi berstatus refund_required menjadi refunded.
      */
     public function markRefunded(
-        Request $request,
+        MarkPaymentRefundedRequest $request,
         Payment $payment,
         PaymentService $paymentService
     ): RedirectResponse {
         $this->authorize('verifyManual', $payment);
 
-        $validated = $request->validate([
-            'refund_notes' => ['required', 'string', 'min:5', 'max:500'],
-        ], [
-            'refund_notes.required' => 'Catatan atau nomor referensi transfer pengembalian dana wajib diisi.',
-            'refund_notes.min' => 'Catatan atau referensi transfer minimal 5 karakter.',
-        ]);
+        $validated = $request->validated();
 
-        $paymentService->markRefunded($payment, $request->user(), $validated['refund_notes']);
+        $paymentService->markRefunded(
+            payment: $payment,
+            verifier: $request->user(),
+            refundNotes: $validated['refund_notes'],
+            refundAmount: isset($validated['refund_amount']) ? (float) $validated['refund_amount'] : null,
+            refundReference: $validated['refund_reference'] ?? null,
+            refundMethod: $validated['refund_method'] ?? null,
+        );
 
         return redirect()->back()
             ->with('success', "Transaksi {$payment->invoice_number} berhasil ditandai REFUND SELESAI dan notifikasi email telah dikirim ke manajer tim.");
@@ -189,6 +197,11 @@ class PaymentVerificationController extends Controller
                 'Status Pembayaran',
                 'Verifikator',
                 'Catatan / Alasan',
+                'Nominal Refund (Rp)',
+                'Metode Refund',
+                'Referensi Refund',
+                'Waktu Refund',
+                'Catatan Refund',
             ]);
 
             foreach ($payments as $p) {
@@ -209,6 +222,11 @@ class PaymentVerificationController extends Controller
                     $p->status,
                     $p->verifier?->name ?? '-',
                     $p->rejection_reason ?? '-',
+                    $p->refund_amount !== null ? (float) $p->refund_amount : '-',
+                    $p->refund_method ?? '-',
+                    $p->refund_reference ?? '-',
+                    $p->refunded_at?->format('Y-m-d H:i:s') ?? '-',
+                    $p->refund_notes ?? '-',
                 ]);
             }
 
@@ -238,6 +256,11 @@ class PaymentVerificationController extends Controller
             'transfer_date' => $p->transfer_date?->toDateString(),
             'status' => $p->status,
             'rejection_reason' => $p->rejection_reason,
+            'refund_amount' => $p->refund_amount !== null ? (float) $p->refund_amount : null,
+            'refund_reference' => $p->refund_reference,
+            'refund_method' => $p->refund_method,
+            'refund_notes' => $p->refund_notes,
+            'refunded_at' => $p->refunded_at?->toIso8601String(),
             'expires_at' => $p->expires_at?->toIso8601String(),
             'paid_at' => $p->paid_at?->toIso8601String(),
             'verified_at' => $p->verified_at?->toIso8601String(),

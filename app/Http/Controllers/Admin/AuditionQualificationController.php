@@ -11,6 +11,7 @@ use App\Models\AuditionStage;
 use App\Models\Event;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -119,6 +120,12 @@ class AuditionQualificationController extends Controller
      */
     public function advanceStage(AdvanceAuditionStageRequest $request, Event $event): RedirectResponse
     {
+        abort_unless(
+            $event->canRunFieldOperations(),
+            422,
+            'Keputusan kelolosan tahapan hanya dapat diproses setelah pendaftaran ditutup atau saat event sedang berjalan.'
+        );
+
         $validated = $request->validated();
 
         $ids = $validated['participant_ids'];
@@ -127,6 +134,7 @@ class AuditionQualificationController extends Controller
         $customNotes = $validated['notes'] ?? null;
 
         $isPassed = ! str_ends_with($targetStatus, '_eliminated');
+        $maxStageNumber = (int) ($event->auditionStages()->max('stage_number') ?: 1);
 
         $participants = AuditionParticipant::query()
             ->where('event_id', $event->id)
@@ -135,38 +143,73 @@ class AuditionQualificationController extends Controller
             ->get();
         abort_unless($participants->count() === count($ids), 422, 'Semua peserta harus berasal dari event ini.');
 
-        foreach ($participants as $participant) {
-            $oldStatus = $participant->stage_status;
-            $requiredStageNumber = match ($targetStatus) {
-                'day_1_passed', 'day_1_eliminated' => 1,
-                'day_2_passed', 'day_2_eliminated' => 2,
-                'final_selected' => (int) ($event->auditionStages()->max('stage_number') ?: 1),
-                default => null,
-            };
-            $validTransition = match ($targetStatus) {
-                'day_1_passed', 'day_1_eliminated' => $oldStatus === 'registered',
-                'day_2_passed', 'day_2_eliminated' => $oldStatus === 'day_1_passed',
-                'final_selected' => $oldStatus === 'day_2_passed',
-                default => false,
-            };
-            $stage = $requiredStageNumber ? $event->auditionStages()->where('stage_number', $requiredStageNumber)->first() : null;
-            $attendance = $stage?->attendances()
-                ->where('audition_participant_id', $participant->id)
-                ->first();
-            $isElimination = str_ends_with($targetStatus, '_eliminated');
-            $validAttendance = $attendance && ($attendance->status === 'present' || ($isElimination && in_array($attendance->status, ['no_show', 'absent'], true)));
-            $evaluated = $stage && $participant->evaluations()->where('audition_stage_id', $stage->id)->exists();
-            abort_unless($validTransition && $validAttendance && ($isElimination || $evaluated), 422, 'Peserta belum memenuhi kehadiran, evaluasi, atau urutan tahap.');
-            $participant->update([
-                'stage_status' => $targetStatus,
-            ]);
+        DB::transaction(function () use ($participants, $targetStatus, $event, $maxStageNumber, $ids, $dispatchEmail, $request) {
+            foreach ($participants as $participant) {
+                $oldStatus = $participant->stage_status;
+                $requiredStageNumber = match ($targetStatus) {
+                    'day_1_passed', 'day_1_eliminated' => 1,
+                    'day_2_passed', 'day_2_eliminated' => 2,
+                    'final_selected' => $maxStageNumber,
+                    default => null,
+                };
+                $allowedFinalSources = match (true) {
+                    $maxStageNumber <= 1 => ['registered', 'day_1_passed', 'day_2_passed'],
+                    $maxStageNumber === 2 => ['day_1_passed', 'day_2_passed'],
+                    default => ['day_2_passed'],
+                };
+                $validTransition = match ($targetStatus) {
+                    'day_1_passed', 'day_1_eliminated' => $oldStatus === 'registered',
+                    'day_2_passed', 'day_2_eliminated' => $oldStatus === 'day_1_passed',
+                    'final_selected' => in_array($oldStatus, $allowedFinalSources, true),
+                    default => false,
+                };
+                $stage = $requiredStageNumber ? $event->auditionStages()->where('stage_number', $requiredStageNumber)->first() : null;
+                $attendance = $stage?->attendances()
+                    ->where('audition_participant_id', $participant->id)
+                    ->first();
+                $isElimination = str_ends_with($targetStatus, '_eliminated');
+                $validAttendance = $attendance && ($attendance->status === 'present' || ($isElimination && in_array($attendance->status, ['no_show', 'absent'], true)));
+                $evaluated = $stage && $participant->evaluations()->where('audition_stage_id', $stage->id)->exists();
 
-            // Dispatch transactional email jika diaktifkan
-            if ($dispatchEmail && $participant->user?->email) {
+                abort_unless($validTransition && $validAttendance && ($isElimination || $evaluated), 422, 'Peserta belum memenuhi kehadiran, evaluasi, atau urutan tahap.');
+
+                $participant->update([
+                    'stage_status' => $targetStatus,
+                ]);
+            }
+
+            // Catat Audit Trail secara atomik bersama perubahan status
+            AuditLog::create([
+                'user_id' => $request->user()->id,
+                'action' => 'audition.stage.advanced',
+                'auditable_type' => Event::class,
+                'auditable_id' => $event->id,
+                'description' => sprintf(
+                    'Mengubah status kelolosan %d peserta audisi menjadi "%s" pada event "%s"',
+                    count($ids),
+                    AuditionParticipant::STAGE_STATUSES[$targetStatus] ?? $targetStatus,
+                    $event->name
+                ),
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'payload' => [
+                    'participant_ids' => $ids,
+                    'target_stage_status' => $targetStatus,
+                    'dispatch_email' => $dispatchEmail,
+                ],
+            ]);
+        });
+
+        // Dispatch transactional email hanya setelah DB::transaction berhasil commit
+        if ($dispatchEmail) {
+            foreach ($participants as $participant) {
+                if (! $participant->user?->email) {
+                    continue;
+                }
                 try {
                     Mail::to($participant->user->email)->send(
                         new AuditionStageResultMail(
-                            participant: $participant,
+                            participant: $participant->fresh(['event', 'user']),
                             resultStatus: $isPassed ? 'passed' : 'eliminated',
                             customNotes: $customNotes,
                         )
@@ -176,27 +219,6 @@ class AuditionQualificationController extends Controller
                 }
             }
         }
-
-        // Catat Audit Trail
-        AuditLog::create([
-            'user_id' => $request->user()->id,
-            'action' => 'audition.stage.advanced',
-            'auditable_type' => Event::class,
-            'auditable_id' => $event->id,
-            'description' => sprintf(
-                'Mengubah status kelolosan %d peserta audisi menjadi "%s" pada event "%s"',
-                count($ids),
-                AuditionParticipant::STAGE_STATUSES[$targetStatus] ?? $targetStatus,
-                $event->name
-            ),
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-            'payload' => [
-                'participant_ids' => $ids,
-                'target_stage_status' => $targetStatus,
-                'dispatch_email' => $dispatchEmail,
-            ],
-        ]);
 
         $statusLabel = AuditionParticipant::STAGE_STATUSES[$targetStatus] ?? $targetStatus;
         return back()->with('success', "Berhasil memperbarui status " . count($ids) . " peserta menjadi '{$statusLabel}'. Email pengumuman telah dikirim.");

@@ -413,4 +413,47 @@ class Event extends Model
     {
         return self::DOCUMENT_TYPES[$type] ?? $type;
     }
+
+    public function isDraft(): bool
+    {
+        return $this->status === 'draft';
+    }
+
+    public function isCompleted(): bool
+    {
+        return $this->status === 'completed';
+    }
+
+    /**
+     * Manajer tim hanya boleh mengelola roster (pemain/ofisial/profil) sebelum event berlangsung atau selesai.
+     */
+    public function canModifyTeamRoster(): bool
+    {
+        return in_array($this->status, ['open', 'quota_full', 'closed'], true);
+    }
+
+    /**
+     * Screening dan emergency unlock berlaku selama event aktif (tidak draft dan belum selesai).
+     */
+    public function canVerifyScreening(): bool
+    {
+        return ! in_array($this->status, ['draft', 'completed'], true);
+    }
+
+    /**
+     * Penyusunan grup dan penjadwalan pertandingan tidak diperbolehkan pada event draft atau selesai.
+     */
+    public function canManageTournamentSetup(): bool
+    {
+        return ! in_array($this->status, ['draft', 'completed'], true);
+    }
+
+    /**
+     * Operasional lapangan (Gatekeeper QR, Scouting, Promosi Tahapan, DSP Matchday, Input Skor)
+     * hanya aktif setelah pendaftaran ditutup (closed) atau event sedang berjalan (ongoing).
+     */
+    public function canRunFieldOperations(): bool
+    {
+        return in_array($this->status, ['closed', 'ongoing'], true);
+    }
 }

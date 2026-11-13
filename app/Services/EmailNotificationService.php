@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Jobs\SendLoggedEmailJob;
+use App\Mail\AuditionPaymentConfirmedMail;
 use App\Mail\PaymentConfirmedMail;
 use App\Mail\PaymentProofRejectedMail;
 use App\Mail\PaymentRefundedMail;
@@ -11,6 +12,7 @@ use App\Mail\RosterLockedMail;
 use App\Mail\ScreeningResultMail;
 use App\Mail\SlotExpiredMail;
 use App\Mail\TeamRegisteredMail;
+use App\Models\AuditionParticipant;
 use App\Models\EmailNotificationLog;
 use App\Models\Payment;
 use App\Models\Team;
@@ -34,6 +36,24 @@ class EmailNotificationService
     public function sendPaymentConfirmed(Team $team, Payment $payment): ?EmailNotificationLog
     {
         return $this->queueForTeam($team, new PaymentConfirmedMail($team, $payment));
+    }
+
+    /**
+     * Kirim email konfirmasi pembayaran lunas & aktivasi peserta audisi individu.
+     */
+    public function sendAuditionPaymentConfirmed(AuditionParticipant $participant, Payment $payment): ?EmailNotificationLog
+    {
+        $recipientEmail = $participant->user?->email;
+        if (! $recipientEmail) {
+            return null;
+        }
+
+        return $this->queueAndLog(
+            recipientEmail: $recipientEmail,
+            mailable: new AuditionPaymentConfirmedMail($participant, $payment),
+            eventId: $participant->event_id,
+            teamId: null,
+        );
     }
 
     /**

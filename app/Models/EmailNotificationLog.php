@@ -14,6 +14,7 @@ class EmailNotificationLog extends Model
     public const MAILABLE_LABELS = [
         'TeamRegisteredMail' => 'Pendaftaran Tim & Tagihan',
         'PaymentConfirmedMail' => 'Konfirmasi Pembayaran Lunas',
+        'AuditionPaymentConfirmedMail' => 'Konfirmasi Pembayaran Audisi Lunas',
         'PaymentProofRejectedMail' => 'Penolakan Bukti Transfer',
         'PaymentRefundedMail' => 'Penyelesaian Pengembalian Dana (Refund)',
         'SlotExpiredMail' => 'Slot Kedaluwarsa',

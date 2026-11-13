@@ -179,6 +179,7 @@ class Phase8BibAndAttendanceTest extends TestCase
     public function test_gatekeeper_attendance_scanner_checkin_and_rejection_guards(): void
     {
         [$event, $stage1, $stage2, $parent, $participant, $payment] = $this->createAuditionParticipant();
+        $event->update(['status' => 'ongoing']);
         $stage2->update(['stage_date' => now()->toDateString()]);
 
         $screeningOfficer = User::where('email', 'screening@persijadevelopment.id')->first();

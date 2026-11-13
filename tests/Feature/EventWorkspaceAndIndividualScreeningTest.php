@@ -482,7 +482,7 @@ class EventWorkspaceAndIndividualScreeningTest extends TestCase
         $pngBytes = ob_get_clean();
         imagedestroy($dummyImg);
         \Illuminate\Support\Facades\Storage::disk('public')->put('events/banners/test-banner.png', $pngBytes);
-        $event->update(['banner_path' => 'events/banners/test-banner.png']);
+        $event->update(['banner_path' => 'events/banners/test-banner.png', 'status' => 'ongoing']);
 
         // 1. E-Tiket PDF dapat diunduh tanpa bib_number & dengan banner overlay + HMAC AUTH-SIG
         $pdfResponse = $this->actingAs($admin)->get(route('audition.bib.download', ['participant' => $participant->id]));

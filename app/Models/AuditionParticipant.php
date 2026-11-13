@@ -154,17 +154,31 @@ class AuditionParticipant extends Model
 
     public function canDownloadCertificate(): bool
     {
-        if ($this->event?->participant_type !== 'individual' ||
-            ! $this->isPaid() || ! $this->isScreeningPassed() ||
-            ! in_array($this->stage_status, ['day_1_passed', 'day_2_passed', 'final_selected'], true) ||
-            ! ($this->event?->certificates_released || $this->event?->status === 'completed')) {
+        if (! $this->event ||
+            $this->event->participant_type !== 'individual' ||
+            $this->status === 'cancelled' ||
+            ! $this->isPaid() ||
+            ! $this->isScreeningPassed() ||
+            ! ($this->event->certificates_released || $this->event->status === 'completed')) {
             return false;
         }
 
+        // Coaching Clinic / Festival tidak menggunakan seleksi eliminasi bertahap: cukup hadir (present).
+        if (($this->event->event_type ?? 'audition') !== 'audition') {
+            return $this->attendances()
+                ->where('status', 'present')
+                ->exists();
+        }
+
+        if (! in_array($this->stage_status, ['day_1_passed', 'day_2_passed', 'final_selected'], true)) {
+            return false;
+        }
+
+        $maxStage = (int) ($this->event->auditionStages()->max('stage_number') ?: 1);
         $requiredStage = match ($this->stage_status) {
             'day_1_passed' => 1,
-            'day_2_passed' => 2,
-            'final_selected' => $this->event?->auditionStages()->max('stage_number') ?: 1,
+            'day_2_passed' => min(2, $maxStage),
+            'final_selected' => $maxStage,
         };
 
         return $this->attendances()

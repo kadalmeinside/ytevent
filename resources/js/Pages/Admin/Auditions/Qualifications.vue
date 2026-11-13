@@ -40,12 +40,21 @@ const advanceForm = useForm({
 });
 
 const selectedParticipants = computed(() => props.participants.filter((p) => selectedIds.value.includes(p.id)));
-const actionDefinitions = [
+const finalEligibleStatuses = computed(() => {
+    if (props.stages.length <= 1) {
+        return ['registered', 'day_1_passed', 'day_2_passed'];
+    }
+    if (props.stages.length === 2) {
+        return ['day_1_passed', 'day_2_passed'];
+    }
+    return ['day_2_passed'];
+});
+const actionDefinitions = computed(() => [
     { status: 'day_1_passed', label: 'Lolos ke Hari 2', tone: 'emerald', icon: 'M5 13l4 4L19 7', eligible: ['registered'] },
     { status: 'day_1_eliminated', label: 'Gugur Hari 1', tone: 'rose', icon: 'M6 18L18 6M6 6l12 12', eligible: ['registered'] },
     { status: 'day_2_passed', label: 'Lolos ke Final Day', tone: 'sky', icon: 'M5 13l4 4L19 7', eligible: ['day_1_passed'] },
-    { status: 'final_selected', label: 'Terpilih Skuad Utama', tone: 'orange', icon: 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z', eligible: ['day_2_passed'] },
-];
+    { status: 'final_selected', label: 'Terpilih Skuad Utama', tone: 'orange', icon: 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z', eligible: finalEligibleStatuses.value },
+]);
 
 const canApplyAction = (action) => selectedParticipants.value.length > 0
     && selectedParticipants.value.every((p) => action.eligible.includes(p.stage_status));

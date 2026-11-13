@@ -120,6 +120,7 @@ class Phase8ScoutingAndQualificationTest extends TestCase
     {
         /** @var User $scout */
         [$event, $stage1, $stage2, $parent, $participant, $scout] = $this->createAuditionSetup();
+        $event->update(['status' => 'ongoing']);
         AuditionAttendance::create([
             'audition_participant_id' => $participant->id,
             'audition_stage_id' => $stage1->id,
@@ -189,6 +190,7 @@ class Phase8ScoutingAndQualificationTest extends TestCase
         Mail::fake();
 
         [$event, $stage1, $stage2, $parent, $participant, $scout] = $this->createAuditionSetup();
+        $event->update(['status' => 'ongoing']);
         AuditionAttendance::create([
             'audition_participant_id' => $participant->id,
             'audition_stage_id' => $stage1->id,

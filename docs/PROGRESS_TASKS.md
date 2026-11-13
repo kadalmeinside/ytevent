@@ -1,11 +1,22 @@
-# PROGRESS_TASKS.md - Pelacak Progres Implementasi (Fase 1 & Fase 2)
+# PROGRESS_TASKS.md - Pelacak Progres Implementasi & Audit Menyeluruh (Fase 1 – Fase 9)
 
-Dokumen ini mencatat progres pengerjaan **Multi-Event Football Tournament & League Platform** secara *real-time* berdasarkan rencana implementasi 2 fase.
+Dokumen ini mencatat progres pengerjaan **Multi-Event Football Tournament, Audition & Coaching Clinic Platform (`ytevent`)** secara *real-time* dan runut mulai dari fondasi awal hingga fase audit arsitektur & penegakan SOP Lifecycle Event.
 
 Legenda Status:
 - `[ ]` Belum dikerjakan
 - `[~]` Sedang dikerjakan
 - `[x]` Selesai & Terverifikasi
+
+### Peta Runut Keseluruhan Fase Implementasi
+1. **Fase 1** — Core Platform, Pendaftaran Tim Anti-Race, Pembayaran, & Input Roster/Dokumen (`[x] Selesai`)
+2. **Fase 2** — Operasional Pertandingan, Klasemen, Kartu Akreditasi QR, & E-Sertifikat (`[x] Selesai`)
+3. **Fase 3** — Audit Keamanan, Konkurensi Finansial, & Pemulihan Edge-Case (`[x] Selesai`)
+4. **Fase 4** — Audit Holistik End-to-End & Penutupan Celah Operasional Lapangan (`[x] Selesai`)
+5. **Fase 5** — Audit Ketahanan Ekstrem, Pemulihan Bencana, & Otomatisasi Notifikasi Email (`[x] Selesai`)
+6. **Fase 6** — Audit Kesiapan Produksi (*Production Readiness*) & Verifikasi Menyeluruh (`[x] Selesai`)
+7. **Fase 7** — Cetak Biru Skalabilitas & Ekosistem Jangka Panjang (*Post Go-Live Roadmap*) (`[~] Roadmap Berjalan`)
+8. **Fase 8** — Ekosistem Multi-Event & Audisi/Seleksi Bakat Individual Versi 2.0 (Sub-Fase 8.1 – 8.8) (`[x] Selesai`)
+9. **Fase 9** — Audit Menyeluruh Arsitektur, Kepatuhan Best Practice (`GEMINI-2.md`), & Penegakan Batasan SOP Lifecycle Event (`[x] Selesai`)
 
 ---
 
@@ -534,5 +545,109 @@ Dokumen PRD Terverifikasi: [`PRD_MULTI_EVENT_INDIVIDUAL.md`](file:///Users/macbo
 - **Total Automated Tests**: **167 Tests PASS 100% (1,587 assertions)**
 - **Regresi Sistem Eksisting**: **0 Failed (Zero Regression)**
 - **Kompilasi Frontend (Vite)**: **Sukses tanpa error (`npm run build`)**
+
+---
+
+## FASE 9 — AUDIT MENYELURUH ARSITEKTUR, KEPATUHAN BEST PRACTICE (`GEMINI-2.md`), & PENEGAKAN BATASAN SOP LIFECYCLE EVENT
+
+Fase ini mencakup hasil audit menyeluruh pasca-implementasi Fase 8 untuk menutup seluruh celah **State Machine Lifecycle Event** (`draft` → `open` → `quota_full` → `closed` → `ongoing` → `completed`), memperbaiki *dead-end* alur operasional lintas tipe event (Turnamen Tim, Audisi Individu, & Coaching Clinic/Festival), serta menegakkan kepatuhan penuh terhadap aturan arsitektur `docs/GEMINI-2.md`.
+
+### Matriks Acuan SOP Lifecycle Status Event (Standar Baku Sistem)
+
+| Status Event | Pendaftaran & Klaim Slot | Pembayaran & Verifikasi | Input/Revisi Roster & Dokumen | Screening Admin | Drawing Grup & Buat Jadwal | Presensi / DSP / Scouting / Skor / Seleksi | Unduh E-Sertifikat |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **`draft`** *(Draf Internal)* | ❌ Terkunci (`404`) | ❌ Terkunci | ❌ Terkunci | ❌ Terkunci | ❌ Terkunci | ❌ Terkunci | ❌ Terkunci |
+| **`open`** *(Pendaftaran Dibuka)* | ✅ Buka (Window & Kuota) | ✅ Buka | ✅ Buka (Sesuai `lock_roster_until_paid`) | ✅ Buka (Wajib Lunas) | ❌ Terkunci (Kecuali Kuota Penuh) | ❌ Terkunci | ❌ Terkunci |
+| **`quota_full`** *(Kuota Penuh)* | ❌ Terkunci (Kecuali Slot Gugur) | ✅ Buka (Slot Aktif) | ✅ Buka | ✅ Buka (Wajib Lunas) | ✅ Buka (Sesi Technical Meeting) | ❌ Terkunci | ❌ Terkunci |
+| **`closed`** *(Pendaftaran Ditutup)* | ❌ Terkunci | ✅ Verifikasi Sisa Antrean | ✅ Buka (Masa Pemberkasan & Grace Period) | ✅ Buka (Wajib Lunas) | ✅ Buka | ✅ Buka (Jika Tahapan Hari-H Aktif) | ❌ Terkunci (Kecuali Dirilis) |
+| **`ongoing`** *(Sedang Berlangsung)* | ❌ Terkunci | ❌ Terkunci | ❌ **Wajib Terkunci Otomatis** | ⚠️ Hanya *Emergency Unlock* Admin | ⚠️ Jadwal Gugur Saja (Grup Terkunci) | ✅ **Buka Penuh** (Sesuai Cutoff & Stage Aktif) | ❌ Terkunci (Kecuali Dirilis) |
+| **`completed`** *(Selesai)* | ❌ Terkunci | ❌ Terkunci | ❌ **Terkunci Permanen** | ❌ **Terkunci Permanen** | ❌ **Terkunci Permanen** | ❌ **Terkunci Permanen (Read-Only)** | ✅ **Buka Penuh** |
+
+---
+
+### 9.1 Sub-Fase 1: Penegakan Guard SOP & State Machine Lifecycle Event (`Event.php`, Policies, & Controllers)
+- [x] **9.1.1** **Sentralisasi Helper State Machine pada Model `Event` (`app/Models/Event.php`)**:
+  - Penambahan metode guard eksplisit: `isDraft()`, `isCompleted()`, `canModifyTeamRoster()` (hanya mengizinkan perubahan biodata/dokumen pemain & ofisial saat status event `open`, `quota_full`, atau `closed`), `canVerifyScreening()` (memblokir saat `draft` atau `completed`), `canManageTournamentSetup()` (memblokir drawing grup/jadwal saat `draft` atau `completed`), dan `canRunFieldOperations()` (hanya mengizinkan presensi, scouting, promosi tahapan, DSP lineup, dan input skor saat `closed` atau `ongoing`).
+- [x] **9.1.2** **Kunci Otomatis Roster & Profil Tim saat Event `ongoing` / `completed` (`Team.php`, `TeamPolicy.php`, `PlayerPolicy.php`)**:
+  - Memperbarui `Team::canManageRoster()` dan `TeamPolicy::update()` agar otomatis menolak penambahan/perubahan/penghapusan pemain, pelatih/ofisial, maupun profil tim begitu `$team->event->status` memasuki `'ongoing'` atau `'completed'`, meskipun admin belum mengunci roster tim satu per satu secara manual.
+- [x] **9.1.3** **Guard Status Event pada Revisi Berkas Individu (`AuditionDocumentController.php`)**:
+  - Memblokir unggah ulang dokumen revisi (`POST /auditions/{participant}/documents/reupload`) apabila `$participant->event->status` sudah `'ongoing'`, `'completed'`, atau `'draft'`, di samping validasi `reupload_grace_hours` yang sudah ada.
+- [x] **9.1.4** **Guard Status Event pada Drawing Grup, Kunci Grup, Jadwal Pertandingan, Skor, & DSP (`TournamentController.php`, `MatchLineupController.php`)**:
+  - Memblokir `generateGroups()`, `toggleGroupLock()`, `moveTeamGroup()`, `generateGroupMatches()`, `generateKnockoutMatches()`, `storeMatch()`, `rescheduleMatch()`, dan `destroyMatch()` ketika `$event->status` masih `'draft'` atau sudah `'completed'`.
+  - Memastikan `MatchLineupController::saveLineup()` dan `TournamentController::updateMatchResult()` hanya diizinkan saat event berstatus `closed` atau `ongoing` (`canRunFieldOperations()`).
+- [x] **9.1.5** **Guard Status Event pada Gatekeeper Check-in, Talent Scouting, & Seleksi Tahapan (`AuditionAttendanceController.php`, `AuditionScoutingController.php`, `AuditionQualificationController.php`)**:
+  - Mewajibkan `$event->canRunFieldOperations()` (`in_array($event->status, ['closed', 'ongoing'], true)`) pada endpoint scan QR/check-in kehadiran, input nilai *Talent Scout*, kunci sesi, dan promosi/eliminasi tahapan.
+
+### 9.2 Sub-Fase 2: Penutupan Celah SOP Screening Individu & Kelayakan E-Sertifikat
+- [x] **9.2.1** **Kewajiban Lunas (`isPaid()`) & Guard Status Event pada Verifikasi Screening (`ScreeningController`)**:
+  - Memvalidasi `$participant->isPaid()` sebelum admin dapat menetapkan status `screening_status = 'passed'` pada `verifyAuditionParticipant()` (mencegah peserta belum lunas memperoleh Digital Pass / E-Tiket aktif), sekaligus menjaga `bib_number` tetap opsional sesuai arsitektur Sub-Fase 8.7.1.
+  - Menerapkan guard `$event->canVerifyScreening()` pada `verifyPlayer()`, `verifyDocument()`, `unlockPlayer()`, `verifyAuditionDocument()`, `verifyAuditionParticipant()`, `unlockAuditionParticipant()`, serta `TeamManagementController::verifyOfficial()`.
+- [x] **9.2.2** **Perbaikan Syarat Unduh E-Sertifikat untuk Coaching Clinic & Festival (`AuditionParticipant::canDownloadCertificate`)**:
+  - Memperbaiki logika `canDownloadCertificate()` di `app/Models/AuditionParticipant.php`:
+    - Untuk event bertipe **`coaching_clinic`** / non-audisi: peserta berhak mengunduh **Piagam Partisipasi Resmi** apabila aktif, lunas (`isPaid()`), lolos screening (`passed`), sertifikat telah dirilis (`certificates_released || event->status === 'completed'`), dan **tercatat hadir (`present`) pada minimal 1 sesi kehadiran (`audition_attendances`)** — tanpa mewajibkan status eliminasi `day_1_passed`/`day_2_passed`/`final_selected`.
+    - Untuk event bertipe **`audition`**: mendukung pengecekan kehadiran tahapan final dinamis (`max(stage_number)`).
+
+### 9.3 Sub-Fase 3: Perbaikan Bug Fungsional Kritis (Gatekeeper Route, Scouting Session Lock, & Dynamic Multi-Stage Qualification)
+- [x] **9.3.1** **Perbaikan Bug `RouteNotFoundException` pada Gatekeeper Attendance (`AuditionAttendanceController.php`)**:
+  - Mengganti pemanggilan `route('audition.birth-certificate', ...)` yang tidak terdaftar di `routes/web.php` dengan route pas foto publik terotorisasi (`route('public.audition.verify.photo', ['code' => $p->screening_code])` atau `null` jika belum tersedia).
+- [x] **9.3.2** **Perbaikan Logika `grade()` & `lockSession()` pada Panel Talent Scout (`AuditionScoutingController.php`)**:
+  - Memvalidasi bahwa tahapan (`AuditionStage`) sedang aktif (`is_active === true` dan `is_completed === false`) sebelum scout dapat menyimpan nilai atau mengunci sesi.
+  - Memperbaiki `lockSession()` agar mengunci evaluasi spesifik milik scout yang bersangkutan (`where('audition_stage_id', ...)->where('scout_id', $scout->id)`) dan mengecek status kunci per-scout (`$isSessionLocked`), serta menolak penguncian apabila scout belum menilai satu pun peserta pada sesi tersebut.
+- [x] **9.3.3** **Dukungan Transisi Tahapan Dinamis (1-Stage, 2-Stage, & 3-Stage) & Transaksi Atomik (`AuditionQualificationController::advanceStage`, `Qualifications.vue`)**:
+  - Memperbaiki aturan transisi menuju `final_selected` agar menyesuaikan jumlah tahapan (`audition_stages`) pada event:
+    - Event 1 Tahap: mengizinkan `registered` → `final_selected`.
+    - Event 2 Tahap: mengizinkan `day_1_passed` → `final_selected`.
+    - Event 3+ Tahap: mengizinkan `day_2_passed` → `final_selected`.
+  - Menyesuaikan tombol aksi `Qualifications.vue` secara dinamis mengikuti `props.stages.length` dan membungkus perubahan status peserta + `AuditLog` dalam satu `DB::transaction()`, baru kemudian mengirim notifikasi email setelah commit berhasil.
+
+### 9.4 Sub-Fase 4: Kepatuhan Penuh Arsitektur `GEMINI-2.md` Rule 2.3 (Eliminasi Inline `$request->validate()`)
+- [x] **9.4.1** Ekstraksi seluruh 9 pemanggilan validasi inline pada `Admin/TournamentController.php` ke class `FormRequest` khusus di `app/Http/Requests/Admin/Tournament/`.
+- [x] **9.4.2** Ekstraksi seluruh 4 pemanggilan validasi inline pada `Admin/TeamManagementController.php` ke class `FormRequest` khusus di `app/Http/Requests/Admin/Team/`.
+- [x] **9.4.3** Ekstraksi validasi inline pada `Admin/SystemSettingController.php`, `Admin/PaymentVerificationController.php`, `Admin/RolePermissionController.php`, dan `Admin/DashboardController.php` ke class `FormRequest` masing-masing di `app/Http/Requests/Admin/`.
+- [x] **9.4.4** Ekstraksi validasi inline pada `Manager/MatchLineupController.php`, `Manager/DashboardController.php`, dan `Auth/PasswordResetController.php` ke class `FormRequest` masing-masing (**terverifikasi 0 pemanggilan `->validate(` di seluruh `app/Http/Controllers/`**).
+
+### 9.5 Sub-Fase 5: Pengujian Regresi & Automated Test Fase 9
+- [x] **9.5.1** Pembuatan suite pengujian fitur baru [`Phase9SopLifecycleAndBestPracticesTest.php`](file:///Users/macbook/Application/ytevent/tests/Feature/Phase9SopLifecycleAndBestPracticesTest.php) (8 skenario uji, 51 assertions).
+- [x] **9.5.2** Eksekusi penuh seluruh *test suite* PHPUnit (**175 Tests PASS 100%, 1,638 assertions, 0 failed**) dan kompilasi frontend `npm run build` sukses dalam `2.99s`.
+
+---
+
+## FASE 10 — HARDENING MODUL PEMBAYARAN, GATEWAY PROVIDER SEPARATION, & REKONSILIASI REFUND TERSTRUKTUR
+
+Fase ini menindaklanjuti audit keamanan dan keandalan modul pembayaran (`Midtrans`, `Xendit`, `Transfer Manual`, `Webhook`, `Approval Finance`, & `Refund`) pada skala prioritas **P0, P1, P2**, sekaligus menutup temuan bug operasional peserta audisi individu.
+
+### 10.1 Prioritas P0 — Pemisahan Provider & Validasi Ketat Webhook
+- [x] **10.1.1** **Pemisahan Mode Pembayaran & Provider Gateway (`PaymentService`, `UpdatePaymentGatewaySettingsRequest`, `SystemSettingController`, `Manager\PaymentController`, `PublicEventController`)**:
+  - Menambahkan helper `isGatewayMode()`, `activeGatewayProvider()`, `xenditSecretKey()`, `xenditCallbackToken()`, dan `isProviderEnabled()` untuk menolak provider yang tidak aktif atau belum dikonfigurasi sebelum memanggil API gateway.
+- [x] **10.1.2** **Validasi Kesesuaian Provider Callback Webhook (`PaymentService::processVerifiedGatewayCallback`)**:
+  - Menolak sinyal callback (`403 Forbidden`) apabila `payment.method` sudah terikat ke provider berbeda atau sedang berstatus `waiting_verification`, sembari tetap mendukung invoice legacy (`method === null`).
+- [x] **10.1.3** **Validasi Nominal Ketat Terhadap `total_amount` (`config/payment.php`, `PaymentService.php`)**:
+  - Memperketat pencocokan nominal callback terhadap `total_amount` dengan batas `payment.amount_tolerance` (default Rp1): memblokir *underpayment* (termasuk celah pembayaran pokok tanpa `gateway_fee`) dan menandai *overpayment* pada settlement sebagai `refund_required` (`AuditLog` `payment.gateway.overpayment_flagged`) tanpa mengaktifkan tim/peserta.
+
+### 10.2 Prioritas P1 — Validasi Saluran Resmi, Non-Silent Fallback, & Eksekusi Gateway di Luar DB Transaction
+- [x] **10.2.1** **Validasi Enum & Normalisasi `payment_channel` (`InitiateGatewayPaymentRequest`, `PaymentService`)**:
+  - Menambahkan `allowedChannelsForProvider()`, `resolveProviderChannel()`, `MIDTRANS_CHANNEL_ALIASES`, `XENDIT_AVAILABLE_CHANNELS`, dan `XENDIT_CHANNEL_ALIASES`, serta menolak channel arbitrary pada validasi FormRequest.
+- [x] **10.2.2** **Penghapusan Silent Fallback `enabled_payments` pada Midtrans**:
+  - Menghapus fallback otomatis yang menghapus filter `enabled_payments` saat channel pilihan ditolak Midtrans guna mencegah ketidaksesuaian kanal pilihan user dan selisih tarif biaya MDR.
+- [x] **10.2.3** **Refaktor Panggilan HTTP Gateway ke Luar `DB::transaction()` (`initiateGatewayPayment`, `executeGatewayInitiationRequest`)**:
+  - Memecah proses menjadi transaksi singkat (claim `gateway_initiation_lock` TTL 30 detik), eksekusi HTTP di luar transaksi database, dan transaksi singkat finalisasi agar tidak menahan row lock selama latensi provider.
+
+### 10.3 Prioritas P2, Bug Individu, & Verifikasi Pengujian Penuh
+- [x] **10.3.1** **Guard Kuota saat Approval Transfer Manual (`PaymentService::approveManualPayment`, `PaymentVerificationController`)**:
+  - Menjalankan `sweepExpiredForEvent()`, mengecek sisa kuota sebelum aktivasi, serta mengalihkan pembayaran ke `refund_required` (`expired`/`cancelled` pada tim/peserta terkait) apabila kuota sudah penuh.
+- [x] **10.3.2** **Kolom Refund Terstruktur (`2026_11_13_210500_add_refund_columns_to_payments_table`, `Payment`, `MarkPaymentRefundedRequest`, `PaymentVerificationController`)**:
+  - Menambahkan kolom `refund_amount`, `refund_reference`, `refund_method`, `refund_notes`, dan `refunded_at` beserta paparan data ke portal & ekspor CSV Finance (tetap mempertahankan kompatibilitas `rejection_reason`).
+- [x] **10.3.3** **Perbaikan Bug Webhook `EXPIRED` & Email Konfirmasi Peserta Audisi Individu**:
+  - Menambahkan null-check `$lockedTeam` dan sinkronisasi status `cancelled` + pengembalian `occupied_slots` sesi pada sinyal `EXPIRED`, serta penambahan `AuditionPaymentConfirmedMail` dan `EmailNotificationService::sendAuditionPaymentConfirmed()`.
+- [x] **10.3.4** **Suite Test Webhook Xendit & Hardening Pembayaran Lengkap (`PaymentFlowTest.php`)**:
+  - Menambahkan 8 skenario feature test baru (provider separation, channel enum, anti-silent-fallback, webhook Xendit lengkap, fee underpayment/overpayment, null-safety `EXPIRED` individu, approval manual over-quota, dan kolom refund terstruktur).
+
+---
+
+## REKAPITULASI STATUS PENGUJIAN AKHIR FASE 10:
+- **Total Automated Tests**: **185 Tests PASS 100% (1,689 assertions)**
+- **Regresi Sistem Eksisting**: **0 Failed (Zero Regression)**
+
+
 
 

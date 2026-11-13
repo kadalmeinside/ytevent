@@ -51,7 +51,7 @@ class PaymentController extends Controller
                 // Auto-sync jika manajer dialihkan kembali dari Midtrans (halaman feedback / callback URL / check_status)
                 if ($latest->status === 'unpaid'
                     && ($request->has('order_id') || $request->has('feedback') || $request->has('transaction_status') || $request->has('check_status'))
-                    && SystemSetting::get('payment_method_mode') === 'midtrans'
+                    && PaymentService::isProviderEnabled('midtrans')
                 ) {
                     $latest = $paymentService->syncMidtransTransactionStatus($latest);
                     if ($latest->status === 'paid') {
@@ -61,18 +61,21 @@ class PaymentController extends Controller
                     }
                 }
 
+                $defaultProvider = PaymentService::activeGatewayProvider();
                 if ($latest->status === 'unpaid'
                     && empty($latest->snap_token)
-                    && SystemSetting::get('payment_method_mode') === 'midtrans'
+                    && empty($latest->payment_url)
+                    && PaymentService::isGatewayMode()
+                    && PaymentService::isProviderEnabled($defaultProvider)
                     && ! config('payment.sandbox_simulator')
                 ) {
                     try {
                         $latest = $paymentService->initiateGatewayPayment(
                             payment: $latest,
-                            provider: 'midtrans'
+                            provider: $defaultProvider
                         );
                     } catch (\Throwable $e) {
-                        \Illuminate\Support\Facades\Log::warning('Auto initiate Midtrans on payment page load failed: ' . $e->getMessage());
+                        \Illuminate\Support\Facades\Log::warning('Auto initiate gateway on payment page load failed: ' . $e->getMessage());
                     }
                 }
                 $activePayment = $this->formatPayment($latest);
@@ -122,7 +125,7 @@ class PaymentController extends Controller
         // 1. Cek status asli ke Midtrans terlebih dahulu sebelum melakukan regenerasi atau pembayaran baru.
         // Jika ternyata transaksi sebelumnya sudah berhasil dibayar (misal via BCA VA / QRIS / Kartu),
         // pembayaran langsung diverifikasi lunas dan tim diaktifkan tanpa membuat Snap token baru.
-        if ($validated['provider'] === 'midtrans' && SystemSetting::get('payment_method_mode') === 'midtrans') {
+        if ($validated['provider'] === 'midtrans' && PaymentService::isProviderEnabled('midtrans')) {
             $payment = $paymentService->syncMidtransTransactionStatus($payment);
 
             if ($payment->status === 'paid') {

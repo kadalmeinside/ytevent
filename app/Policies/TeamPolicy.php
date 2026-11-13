@@ -29,7 +29,8 @@ class TeamPolicy
 
         return $user->can('manager.team.update_own')
             && (int) $team->user_id === (int) $user->id
-            && ! in_array($team->status, ['disqualified', 'locked_roster'], true);
+            && ! in_array($team->status, ['disqualified', 'locked_roster'], true)
+            && (! $team->event || $team->event->canModifyTeamRoster());
     }
 
     public function manageRoster(User $user, Team $team): bool

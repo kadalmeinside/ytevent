@@ -25,18 +25,39 @@ Dalam turnamen populer, sering terjadi lonjakan pendaftaran serentak saat kuota 
 
 ## 2. Arsitektur Integrasi Payment Gateway (Midtrans & Xendit)
 
-### 2.1 Pembuatan Tagihan & Permintaan Pembayaran
-- Setiap tim memiliki nomor invoice terstruktur (Contoh: `INV-2026-CUP01-0015`).
-- Saat Manajer Tim memilih bayar otomatis melalui Midtrans atau Xendit, server mengirimkan rincian tagihan, data tim, dan batas waktu kedaluwarsa (`expiry` disamakan dengan `expires_at` slot) ke penyedia gateway agar kanal pembayaran otomatis tertutup saat masa reservasi slot berakhir.
+### 2.1 Pemisahan Mode, Validasi Provider, & Saluran Resmi
+- **Pemisahan Mode & Provider (`PaymentService`):**
+  - `activeMode()` mengenali `manual`, `midtrans`, `xendit`, atau `gateway`.
+  - `isGatewayMode()`, `activeGatewayProvider()`, dan `isProviderEnabled(string $provider)` memvalidasi `payment_gateway_default`, `payment_enabled_providers`, serta kelengkapan kredensial (`midtransServerKey()` / `xenditSecretKey()`) sebelum mengizinkan pembuatan token/invoice gateway.
+- **Validasi Enum & Normalisasi `payment_channel`:**
+  - [`InitiateGatewayPaymentRequest`](../app/Http/Requests/Manager/InitiateGatewayPaymentRequest.php) hanya menerima nilai saluran pembayaran resmi berdasarkan `PaymentService::allowedChannelsForProvider()` (`MIDTRANS_AVAILABLE_CHANNELS`, `XENDIT_AVAILABLE_CHANNELS`, serta alias resmi). Nilai arbitrary langsung ditolak (`422`).
+  - `resolveProviderChannel()` dan `calculateGatewayFee()` memetakan kanal terpilih ke filter provider (`enabled_payments` / `payment_methods`) serta tarif MDR terkait secara konsisten.
+- **Larangan Silent Fallback:**
+  - Apabila Midtrans menolak saluran pembayaran yang dipilih (`enabled_payments`), sistem **dilarang menghapus filter `enabled_payments` secara diam-diam** untuk mencoba ulang seluruh kanal. Sistem langsung mengembalikan pesan error validasi agar pengguna memilih saluran lain atau menghubungi panitia.
 
-### 2.2 Penanganan Webhook / Callback Pembayaran secara Aman
-1. **Verifikasi Keaslian Sinyal (Signature Validation):** Setiap sinyal masuk dari Midtrans maupun Xendit wajib diperiksa keaslian kunci kriptografinya menggunakan kunci rahasia server. Permintaan tanpa tanda tangan yang sah langsung ditolak (`403 Forbidden`).
-2. **Transaksi Terkunci & Prinsip Idempotensi:** Handler webhook wajib mengunci baris `Event` dan `Payment` (`lockForUpdate()`) di dalam `DB::transaction()`. Jika invoice sudah berstatus `paid`, sistem langsung mengembalikan respon `200 OK` tanpa memicu pengiriman email ganda atau pencatatan keuangan ganda.
-3. **Pembaruan Status Otomatis & Proteksi *Late Settlement* (Over-Quota Guard):**
-   - Jika invoice berstatus `unpaid` atau `rejected` (masih memegang slot), status pembayaran diubah menjadi `paid` dan status tim menjadi `active`.
-   - Jika terjadi sinyal pelunasan terlambat (*late webhook settlement*) pada invoice yang sudah telanjur `expired`:
-     - Apabila `occupied_slots < event.max_teams`, sistem memulihkan slot tim menjadi `active` dan mencatat pembayaran `paid` (serta memperbarui status event ke `quota_full` jika menjadi slot terakhir).
-     - Apabila `occupied_slots >= event.max_teams` (slot sudah terisi penuh oleh tim lain), sistem **dilarang melampaui `max_teams`** — status pembayaran diubah menjadi `refund_required` agar tim Finance segera memproses pengembalian dana atau tindak lanjut manual.
+### 2.2 Pembuatan Tagihan & Eksekusi HTTP di Luar DB Transaction
+- Setiap tim/peserta memiliki nomor invoice terstruktur (Contoh: `INV-2026-EVT01-0015` atau `INV-2026-AUD01-0015`).
+- `initiateGatewayPayment()` dipisahkan menjadi tiga langkah untuk menghindari menahan row lock database selama panggilan HTTP eksternal berlangsung:
+  1. **Transaksi Singkat 1 (Claim Lock):** Mengunci `Event` dan `Payment`, menyapu tagihan kedaluwarsa, memeriksa status/kedaluwarsa, menghitung biaya MDR/total dan `providerOrderId`, serta menyimpan `gateway_initiation_lock` (TTL 30 detik) untuk mencegah klik ganda paralel membuat invoice ganda.
+  2. **Eksekusi HTTP di Luar Transaksi (`executeGatewayInitiationRequest()`):** Menghubungi Snap API Midtrans (dengan batas `expiry` mengikuti `expires_at`) atau Invoices API Xendit tanpa menahan lock InnoDB.
+  3. **Transaksi Singkat 2 (Finalisasi):** Melepas `gateway_initiation_lock`, menjaga idempotensi bila webhook telah melunaskan di tengah penerbangan HTTP, serta menyimpan `method`, `payment_channel`, `gateway_fee`, `total_amount`, `external_reference_id`, `snap_token`/`payment_url`, dan `attempted_order_ids`.
+
+### 2.3 Penanganan Webhook / Callback Pembayaran secara Aman
+1. **Verifikasi Keaslian Sinyal (Signature & Token Validation):** Setiap sinyal masuk dari Midtrans diperiksa signature SHA-512 (`order_id + status_code + gross_amount + server_key`) dan callback Xendit diperiksa header `x-callback-token` terhadap `PaymentService::xenditCallbackToken()`. Permintaan tidak sah ditolak (`403 Forbidden`) dan dicatat ke `webhook_logs`.
+2. **Validasi Kesesuaian Provider & Status Antrean Manual:**
+   - Jika invoice sudah terikat pada provider tertentu (`$lockedPayment->method !== null`), callback dari provider berbeda wajib ditolak (`403 Forbidden`). Tagihan dengan `method === null` (legacy/belum diinisiasi) tetap dapat diproses.
+   - Invoice yang sedang berstatus `waiting_verification` (antrean bukti manual) ditolak dari pelunasan gateway sampai proses verifikasi manual selesai.
+3. **Validasi Nominal Ketat (`total_amount` ± `payment.amount_tolerance`):**
+   - Toleransi default Rp1 (`config('payment.amount_tolerance', 1.0)`).
+   - **Underpayment** (`callbackAmount < total_amount - tolerance`, termasuk percobaan membayar nominal pokok tanpa `gateway_fee`) langsung ditolak (`403 Forbidden`).
+   - **Overpayment** (`callbackAmount > total_amount + tolerance`) pada sinyal settlement tidak mengaktifkan peserta/tim, melainkan menandai tagihan sebagai `refund_required` disertai catatan selisih di `rejection_reason` dan `AuditLog` (`payment.gateway.overpayment_flagged`) untuk rekonsiliasi Finance.
+4. **Transaksi Terkunci, Idempotensi, & Null-Safety Individu:**
+   - Handler mengunci baris `Event`, `Payment`, serta `Team` atau `AuditionParticipant` (`lockForUpdate()`) di dalam `DB::transaction()`. Jika invoice sudah berstatus `paid`, `refund_required`, atau `refunded`, sistem langsung mengembalikan respon `200 OK` secara idempoten.
+   - Sinyal `EXPIRED` menjaga null-safety saat `team_id` bernilai `null` (event individu), membatalkan peserta (`cancelled`), dan mengembalikan `occupied_slots` sesi bila ada.
+5. **Proteksi *Late Settlement* (Over-Quota Guard):**
+   - Jika sinyal pelunasan tiba pada invoice yang sudah telanjur `expired` / peserta `cancelled`:
+     - Apabila slot masih tersedia (`occupied < limit`), sistem memulihkan slot menjadi `active`, menyinkronkan kuota event, dan mengirim konfirmasi pelunasan (`PaymentConfirmedMail` / `AuditionPaymentConfirmedMail`).
+     - Apabila kuota sudah terisi penuh (`occupied >= limit`), sistem **dilarang melampaui batas kuota** — status pembayaran diubah menjadi `refund_required` agar Finance menindaklanjuti pengembalian dana ke kolom terstruktur (`refund_amount`, `refund_reference`, `refund_method`, `refund_notes`, `refunded_at`) via `markRefunded()`.
 
 ---
 
@@ -44,8 +65,9 @@ Dalam turnamen populer, sering terjadi lonjakan pendaftaran serentak saat kuota 
 1. Manajer Tim mengunggah bukti transfer melalui halaman pembayaran khusus manajer sebelum melewati `expires_at`.
 2. Di dalam transaksi terkunci (`lockForUpdate()`), sistem memastikan tagihan belum `expired`, lalu memindahkan status invoice menjadi `waiting_verification`. Selama berstatus `waiting_verification`, slot tim ditahan dan **dikecualikan dari pengguguran otomatis timer** sambil menunggu pemeriksaan Finance.
 3. Staf Finance memeriksa gambar bukti transfer di layar berdampingan dengan nominal tagihan:
-   - **Aksi Setujui (Approve):** Mengubah status menjadi `paid`, mengaktifkan status tim menjadi `active`, mencatat nama staf Finance pemeriksa beserta waktunya, membuka akses pendaftaran pemain bagi tim tersebut, dan mengirim email lunas.
+   - **Aksi Setujui (Approve) dengan Guard Kuota:** `approveManualPayment()` terlebih dahulu menyapu tagihan kedaluwarsa (`sweepExpiredForEvent`) dan mengecek sisa kuota event (kecuali tim/peserta terkait). Apabila kuota sudah penuh, tagihan otomatis dialihkan ke `refund_required` (dan tim/peserta ditandai `expired`/`cancelled`) agar kuota tidak terlampaui. Bila kuota masih tersedia, pembayaran diubah ke `paid`, tim/peserta diaktifkan, verifikator dicatat, dan email konfirmasi lunas dikirim (`PaymentConfirmedMail` untuk tim, `AuditionPaymentConfirmedMail` untuk individu).
    - **Aksi Tolak (Reject):** Mewajibkan staf Finance mengisi alasan penolakan, mengubah status invoice menjadi `rejected`, memperpanjang batas waktu unggah ulang secukupnya (*re-upload grace period*, misal `max(expires_at, now + 6 jam)`), dan mengirim email pemberitahuan penolakan agar manajer dapat mengunggah ulang bukti yang valid sebelum slot dilepas.
+4. **Penyelesaian Refund Terstruktur (`markRefunded`):** Mencatat `refund_amount`, `refund_reference`, `refund_method`, `refund_notes`, dan `refunded_at` secara terpisah di tabel `payments` saat status dipindahkan dari `refund_required` ke `refunded` (sekaligus mengirim `PaymentRefundedMail` untuk transaksi tim).
 
 ---
 

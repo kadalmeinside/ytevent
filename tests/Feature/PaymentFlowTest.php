@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditionParticipant;
 use App\Models\Event;
 use App\Models\Payment;
 use App\Models\SystemSetting;
@@ -436,6 +437,62 @@ class PaymentFlowTest extends TestCase
         $resManual->assertSessionHasErrors('payment');
     }
 
+    public function test_xendit_gateway_creates_invoice_and_persists_reference(): void
+    {
+        config([
+            'payment.xendit.secret_key' => 'xnd_test_secret',
+            'payment.xendit.invoice_url' => 'https://api.xendit.co/v2/invoices',
+        ]);
+        SystemSetting::set('payment_method_mode', 'midtrans', 'text', 'payment');
+        SystemSetting::set('fee_borne_by', 'organizer', 'text', 'payment');
+
+        Http::fake([
+            'https://api.xendit.co/v2/invoices' => Http::response([
+                'id' => 'xnd-invoice-id',
+                'external_id' => $this->payment->invoice_number,
+                'invoice_url' => 'https://checkout.xendit.co/xnd-invoice-id',
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($this->manager)->post(
+            route('manager.payments.gateway', ['payment' => $this->payment->id]),
+            ['provider' => 'xendit', 'payment_channel' => 'QRIS']
+        );
+
+        $response->assertSessionHas('success');
+        Http::assertSent(fn ($request) => $request->url() === 'https://api.xendit.co/v2/invoices'
+            && $request['external_id'] === $this->payment->invoice_number
+            && $request['payer_email'] === $this->team->manager_email
+            && $request['amount'] === 1500000);
+
+        $this->payment->refresh();
+        $this->assertSame('xendit', $this->payment->method);
+        $this->assertSame('xnd-invoice-id', $this->payment->external_reference_id);
+        $this->assertSame('https://checkout.xendit.co/xnd-invoice-id', $this->payment->payment_url);
+        $this->assertSame('QRIS', $this->payment->payment_channel);
+    }
+
+    public function test_xendit_sandbox_simulator_uses_amount_callback_field(): void
+    {
+        config([
+            'payment.sandbox_simulator' => true,
+            'payment.xendit.callback_token' => 'xnd_callback_token',
+        ]);
+        SystemSetting::set('payment_method_mode', 'midtrans', 'text', 'payment');
+        $this->payment->update([
+            'method' => 'xendit',
+            'external_reference_id' => 'xnd-invoice-id',
+            'total_amount' => 1500000,
+        ]);
+
+        $response = $this->actingAs($this->manager)->post(
+            route('manager.payments.simulate', ['payment' => $this->payment->id])
+        );
+
+        $response->assertSessionHas('success');
+        $this->assertSame('paid', $this->payment->fresh()->status);
+    }
+
     public function test_sandbox_simulator_is_forbidden_when_disabled(): void
     {
         config(['payment.sandbox_simulator' => false]);
@@ -540,5 +597,338 @@ class PaymentFlowTest extends TestCase
         $response->assertSessionHas('success', 'Pembayaran sebelumnya telah terverifikasi lunas di Midtrans! Status tim Anda kini telah aktif.');
         $this->assertEquals('paid', $this->payment->fresh()->status);
         $this->assertEquals('active', $this->team->fresh()->status);
+    }
+
+    public function test_gateway_provider_separation_rejects_unconfigured_or_disabled_provider(): void
+    {
+        config([
+            'payment.sandbox_simulator' => false,
+            'payment.midtrans.server_key' => 'test-midtrans-key',
+            'payment.xendit.secret_key' => '',
+        ]);
+        SystemSetting::set('payment_method_mode', 'midtrans', 'text', 'payment');
+        SystemSetting::set('payment_gateway_default', 'midtrans', 'text', 'payment');
+
+        $res = $this->actingAs($this->manager)->post(
+            route('manager.payments.gateway', ['payment' => $this->payment->id]),
+            ['provider' => 'xendit', 'payment_channel' => 'QRIS']
+        );
+        $res->assertSessionHasErrors('payment');
+        $this->assertNull($this->payment->fresh()->method);
+
+        // Saat mode khusus xendit aktif, midtrans ditolak dan xendit yang terkonfigurasi diterima
+        config(['payment.xendit.secret_key' => 'xnd_live_secret']);
+        SystemSetting::set('payment_method_mode', 'xendit', 'text', 'payment');
+        SystemSetting::set('payment_gateway_default', 'xendit', 'text', 'payment');
+
+        $resMidtrans = $this->actingAs($this->manager)->post(
+            route('manager.payments.gateway', ['payment' => $this->payment->id]),
+            ['provider' => 'midtrans', 'payment_channel' => 'bca_va']
+        );
+        $resMidtrans->assertSessionHasErrors('payment');
+    }
+
+    public function test_arbitrary_payment_channel_is_rejected_while_official_channel_passes(): void
+    {
+        config([
+            'payment.sandbox_simulator' => false,
+            'payment.midtrans.server_key' => 'test-server-key',
+        ]);
+        SystemSetting::set('payment_method_mode', 'midtrans', 'text', 'payment');
+        SystemSetting::set('fee_borne_by', 'team', 'text', 'payment');
+        SystemSetting::set('midtrans_va_fee', 4000, 'integer', 'payment');
+
+        $resInvalid = $this->actingAs($this->manager)->post(
+            route('manager.payments.gateway', ['payment' => $this->payment->id]),
+            ['provider' => 'midtrans', 'payment_channel' => 'custom_hacked_channel']
+        );
+        $resInvalid->assertSessionHasErrors('payment_channel');
+
+        Http::fake([
+            'https://app.sandbox.midtrans.com/snap/v1/transactions' => Http::response([
+                'token' => 'SNAP-VA-OK',
+                'redirect_url' => 'https://app.sandbox.midtrans.com/snap/v2/vtweb/SNAP-VA-OK',
+            ], 200),
+        ]);
+
+        $resValid = $this->actingAs($this->manager)->post(
+            route('manager.payments.gateway', ['payment' => $this->payment->id]),
+            ['provider' => 'midtrans', 'payment_channel' => 'bca_va']
+        );
+        $resValid->assertSessionHas('success');
+
+        $fresh = $this->payment->fresh();
+        $this->assertSame('bca_va', $fresh->payment_channel);
+        $this->assertEquals(4000.0, (float) $fresh->gateway_fee);
+        $this->assertEquals(1504000.0, (float) $fresh->total_amount);
+    }
+
+    public function test_midtrans_does_not_silently_fallback_to_all_channels_when_selected_channel_fails(): void
+    {
+        config([
+            'payment.sandbox_simulator' => false,
+            'payment.midtrans.server_key' => 'test-server-key',
+        ]);
+        SystemSetting::set('payment_method_mode', 'midtrans', 'text', 'payment');
+
+        Http::fake([
+            'https://api.sandbox.midtrans.com/v2/*/status' => Http::response(['status_code' => '404'], 404),
+            'https://app.sandbox.midtrans.com/snap/v1/transactions' => Http::response([
+                'error_messages' => ['payment channel not activated on merchant'],
+            ], 400),
+        ]);
+
+        $res = $this->actingAs($this->manager)->post(
+            route('manager.payments.gateway', ['payment' => $this->payment->id]),
+            ['provider' => 'midtrans', 'payment_channel' => 'QRIS']
+        );
+
+        $res->assertSessionHasErrors('payment');
+        $snapRequests = collect(Http::recorded())
+            ->filter(fn ($pair) => str_contains($pair[0]->url(), '/snap/v1/transactions'));
+        $this->assertCount(1, $snapRequests);
+        $this->assertSame(['gopay', 'qris', 'shopeepay'], $snapRequests->first()[0]['enabled_payments']);
+        $this->assertNull($this->payment->fresh()->snap_token);
+    }
+
+    public function test_xendit_webhook_handles_token_validation_duplicate_reinitiation_and_provider_mismatch(): void
+    {
+        config([
+            'payment.xendit.callback_token' => 'xnd_secret_cb_token',
+            'payment.midtrans.server_key' => 'midtrans_secret_key',
+        ]);
+
+        $this->payment->update([
+            'method' => 'xendit',
+            'external_reference_id' => 'xnd-inv-reinit-2',
+            'webhook_payload' => [
+                'attempted_order_ids' => [
+                    $this->payment->invoice_number.'-11111AAA',
+                    'xnd-inv-reinit-2',
+                    $this->payment->invoice_number,
+                ],
+            ],
+        ]);
+
+        // 1. Invalid token ditolak
+        $this->postJson(route('webhooks.xendit'), [
+            'external_id' => $this->payment->invoice_number,
+            'status' => 'PAID',
+            'amount' => 1500000,
+        ], ['x-callback-token' => 'wrong-token'])->assertForbidden();
+
+        // 2. Provider mismatch: invoice xendit menerima callback Midtrans ditolak
+        $orderId = $this->payment->invoice_number;
+        $statusCode = '200';
+        $grossAmount = '1500000.00';
+        $sig = hash('sha512', $orderId.$statusCode.$grossAmount.'midtrans_secret_key');
+        $this->postJson(route('webhooks.midtrans'), [
+            'order_id' => $orderId,
+            'status_code' => $statusCode,
+            'gross_amount' => $grossAmount,
+            'signature_key' => $sig,
+            'transaction_status' => 'settlement',
+        ])->assertForbidden();
+
+        // 3. Valid token pada invoice hasil re-initiation berhasil melunaskan
+        $resOk = $this->postJson(route('webhooks.xendit'), [
+            'id' => 'xnd-inv-reinit-2',
+            'external_id' => $this->payment->invoice_number.'-11111AAA',
+            'status' => 'PAID',
+            'amount' => 1500000,
+            'payment_channel' => 'QRIS',
+        ], ['x-callback-token' => 'xnd_secret_cb_token']);
+
+        $resOk->assertOk();
+        $this->assertSame('paid', $this->payment->fresh()->status);
+        $this->assertSame('active', $this->team->fresh()->status);
+
+        // 4. Duplicate callback idempotent
+        $resDup = $this->postJson(route('webhooks.xendit'), [
+            'id' => 'xnd-inv-reinit-2',
+            'external_id' => $this->payment->invoice_number.'-11111AAA',
+            'status' => 'PAID',
+            'amount' => 1500000,
+            'payment_channel' => 'QRIS',
+        ], ['x-callback-token' => 'xnd_secret_cb_token']);
+
+        $resDup->assertOk();
+        $this->assertSame('paid', $this->payment->fresh()->status);
+    }
+
+    public function test_webhook_rejects_fee_underpayment_and_flags_overpayment_as_refund_required(): void
+    {
+        config([
+            'payment.midtrans.server_key' => 'test-server-key',
+            'payment.xendit.callback_token' => 'xnd_cb_token',
+        ]);
+
+        // Tagihan dengan MDR fee 4000 (total 1504000)
+        $this->payment->update([
+            'method' => 'midtrans',
+            'amount' => 1500000,
+            'gateway_fee' => 4000,
+            'total_amount' => 1504000,
+        ]);
+
+        // 1. Callback yang hanya membayar pokok tanpa gateway_fee wajib ditolak 403
+        $orderId = $this->payment->invoice_number;
+        $statusCode = '200';
+        $underAmount = '1500000.00';
+        $sigUnder = hash('sha512', $orderId.$statusCode.$underAmount.'test-server-key');
+
+        $this->postJson(route('webhooks.midtrans'), [
+            'order_id' => $orderId,
+            'status_code' => $statusCode,
+            'gross_amount' => $underAmount,
+            'signature_key' => $sigUnder,
+            'transaction_status' => 'settlement',
+        ])->assertForbidden();
+        $this->assertSame('unpaid', $this->payment->fresh()->status);
+
+        // 2. Callback settled dengan overpayment besar ditandai refund_required dan tidak mengaktifkan tim
+        $overAmount = '1600000.00';
+        $sigOver = hash('sha512', $orderId.$statusCode.$overAmount.'test-server-key');
+
+        $this->postJson(route('webhooks.midtrans'), [
+            'order_id' => $orderId,
+            'status_code' => $statusCode,
+            'gross_amount' => $overAmount,
+            'signature_key' => $sigOver,
+            'transaction_status' => 'settlement',
+        ])->assertOk();
+
+        $freshPayment = $this->payment->fresh();
+        $this->assertSame('refund_required', $freshPayment->status);
+        $this->assertStringContainsString('Overpayment terdeteksi', (string) $freshPayment->rejection_reason);
+        $this->assertSame('pending_payment', $this->team->fresh()->status);
+    }
+
+    public function test_expired_webhook_for_individual_audition_participant_does_not_fail_on_null_team(): void
+    {
+        config(['payment.xendit.callback_token' => 'xnd_cb_token']);
+
+        $indEvent = Event::create([
+            'name' => 'Audisi Seleksi Nasional',
+            'slug' => 'audisi-seleksi-nasional',
+            'participant_type' => 'individual',
+            'venue_name' => 'Lapangan A',
+            'city' => 'Jakarta',
+            'format' => 'league',
+            'age_category' => 'U-17',
+            'min_birth_date' => '2009-01-01',
+            'max_birth_date' => '2010-12-31',
+            'min_players_per_team' => 1,
+            'max_players_per_team' => 1,
+            'max_officials_per_team' => 0,
+            'required_documents' => [],
+            'max_participants' => 50,
+            'registration_fee' => 250000,
+            'payment_deadline_hours' => 24,
+            'status' => 'open',
+        ]);
+
+        $participantUser = User::factory()->create();
+        $participant = AuditionParticipant::create([
+            'event_id' => $indEvent->id,
+            'user_id' => $participantUser->id,
+            'registration_number' => 'AUD-2026-001-0001',
+            'full_name' => 'Peserta Audisi Satu',
+            'nik' => '3171000000000001',
+            'birth_date' => '2009-05-10',
+            'gender' => 'L',
+            'emergency_contact_name' => 'Orang Tua',
+            'emergency_contact_phone' => '081234567890',
+            'status' => 'pending_payment',
+            'slot_expires_at' => now()->addHours(24),
+        ]);
+
+        $indPayment = Payment::create([
+            'invoice_number' => 'INV-2026-AUD2-0001',
+            'audition_participant_id' => $participant->id,
+            'event_id' => $indEvent->id,
+            'amount' => 250000,
+            'gateway_fee' => 0,
+            'total_amount' => 250000,
+            'method' => 'xendit',
+            'expires_at' => now()->addHours(24),
+            'status' => 'unpaid',
+        ]);
+
+        $res = $this->postJson(route('webhooks.xendit'), [
+            'id' => 'xnd-exp-1',
+            'external_id' => $indPayment->invoice_number,
+            'status' => 'EXPIRED',
+            'amount' => 250000,
+        ], ['x-callback-token' => 'xnd_cb_token']);
+
+        $res->assertOk();
+        $this->assertSame('expired', $indPayment->fresh()->status);
+        $this->assertSame('cancelled', $participant->fresh()->status);
+    }
+
+    public function test_approve_manual_payment_transitions_to_refund_required_when_quota_already_full(): void
+    {
+        $this->event->update(['max_teams' => 1]);
+
+        // Tim lain sudah aktif menempati satu-satunya slot
+        Team::create([
+            'event_id' => $this->event->id,
+            'user_id' => User::factory()->create()->id,
+            'name' => 'Slot Terisi FC',
+            'slug' => 'slot-terisi-fc',
+            'logo_path' => 'teams/logos/sample.png',
+            'origin_association' => 'Askot Jakarta',
+            'manager_name' => 'Budi',
+            'manager_whatsapp' => '081234567890',
+            'manager_email' => 'budi-slot@example.com',
+            'head_coach_name' => 'Coach Budi',
+            'terms_accepted_at' => now(),
+            'status' => 'active',
+        ]);
+
+        $this->payment->update([
+            'method' => 'manual',
+            'status' => 'waiting_verification',
+            'proof_file_path' => 'payments/proofs/test.jpg',
+        ]);
+
+        $res = $this->actingAs($this->financeUser)->post(
+            route('admin.payments.verify', ['payment' => $this->payment->id]),
+            ['action' => 'approve']
+        );
+
+        $res->assertSessionHas('warning');
+        $this->assertSame('refund_required', $this->payment->fresh()->status);
+        $this->assertSame('expired', $this->team->fresh()->status);
+        $this->assertEquals(1, $this->event->fresh()->occupiedSlotsCount());
+    }
+
+    public function test_mark_refunded_persists_structured_refund_columns(): void
+    {
+        $this->payment->update([
+            'status' => 'refund_required',
+            'method' => 'midtrans',
+            'total_amount' => 1504000,
+        ]);
+
+        $res = $this->actingAs($this->financeUser)->post(
+            route('admin.payments.mark-refunded', ['payment' => $this->payment->id]),
+            [
+                'refund_notes' => 'Transfer balik dana pendaftaran via BCA',
+                'refund_amount' => 1504000,
+                'refund_reference' => 'BCA-REF-20261113',
+                'refund_method' => 'bank_transfer',
+            ]
+        );
+
+        $res->assertRedirect();
+        $fresh = $this->payment->fresh();
+        $this->assertSame('refunded', $fresh->status);
+        $this->assertEquals(1504000.0, (float) $fresh->refund_amount);
+        $this->assertSame('BCA-REF-20261113', $fresh->refund_reference);
+        $this->assertSame('bank_transfer', $fresh->refund_method);
+        $this->assertSame('Transfer balik dana pendaftaran via BCA', $fresh->refund_notes);
+        $this->assertNotNull($fresh->refunded_at);
     }
 }

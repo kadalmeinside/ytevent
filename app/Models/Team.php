@@ -126,6 +126,10 @@ class Team extends Model
             return false;
         }
 
+        if ($this->event && ! $this->event->canModifyTeamRoster()) {
+            return false;
+        }
+
         if ($this->event && $this->event->lock_roster_until_paid) {
             return $this->status === 'active';
         }

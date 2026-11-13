@@ -3,6 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\Tournament\GenerateGroupMatchesRequest;
+use App\Http\Requests\Admin\Tournament\GenerateKnockoutMatchesRequest;
+use App\Http\Requests\Admin\Tournament\GenerateTournamentGroupsRequest;
+use App\Http\Requests\Admin\Tournament\MoveTeamGroupRequest;
+use App\Http\Requests\Admin\Tournament\RescheduleMatchRequest;
+use App\Http\Requests\Admin\Tournament\StoreAnnouncementRequest;
+use App\Http\Requests\Admin\Tournament\StoreTournamentMatchRequest;
+use App\Http\Requests\Admin\Tournament\UpdateMatchResultRequest;
+use App\Http\Requests\Admin\Tournament\UpdateTeamAchievementRequest;
 use App\Models\Event;
 use App\Models\EventAnnouncement;
 use App\Models\EventGroup;
@@ -256,8 +265,14 @@ class TournamentController extends Controller
     /**
      * Auto-generate Grup & Drawing Tim.
      */
-    public function generateGroups(Request $request, Event $event): RedirectResponse
+    public function generateGroups(GenerateTournamentGroupsRequest $request, Event $event): RedirectResponse
     {
+        if (! $event->canManageTournamentSetup()) {
+            throw ValidationException::withMessages([
+                'group' => 'Event berstatus Draft atau Selesai. Pengundian grup tidak dapat dilakukan.',
+            ]);
+        }
+
         $occupiedSlots = $event->occupiedSlotsCount();
         $isRegistrationOpen = $event->status === 'open' && $event->isWithinRegistrationWindow() && $occupiedSlots < $event->max_teams;
 
@@ -280,10 +295,7 @@ class TournamentController extends Controller
             ]);
         }
 
-        $validated = $request->validate([
-            'group_count' => ['required', 'integer', 'min:1', 'max:16'],
-            'only_locked_roster' => ['nullable', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         $eligibleCount = $event->teams()
             ->when($validated['only_locked_roster'] ?? false, fn ($q) => $q->where('status', 'locked_roster'), fn ($q) => $q->whereIn('status', ['active', 'locked_roster']))
@@ -308,6 +320,12 @@ class TournamentController extends Controller
      */
     public function toggleGroupLock(Event $event): RedirectResponse
     {
+        if (! $event->canManageTournamentSetup()) {
+            throw ValidationException::withMessages([
+                'group' => 'Event berstatus Draft atau Selesai. Status kunci pembagian grup tidak dapat diubah.',
+            ]);
+        }
+
         if (! $event->is_group_locked) {
             if ($event->groups()->count() === 0) {
                 throw ValidationException::withMessages([
@@ -342,18 +360,21 @@ class TournamentController extends Controller
     /**
      * Pindahkan Tim Antar Grup Secara Manual (Manual Seeding / Penyesuaian Tim Se-Akademi).
      */
-    public function moveTeamGroup(Request $request, Event $event): RedirectResponse
+    public function moveTeamGroup(MoveTeamGroupRequest $request, Event $event): RedirectResponse
     {
+        if (! $event->canManageTournamentSetup()) {
+            throw ValidationException::withMessages([
+                'group' => 'Event berstatus Draft atau Selesai. Posisi grup tim tidak dapat diubah.',
+            ]);
+        }
+
         if ($event->is_group_locked) {
             throw ValidationException::withMessages([
                 'group' => 'Pembagian grup sedang dikunci. Buka kunci grup terlebih dahulu jika ingin memindahkan tim.',
             ]);
         }
 
-        $validated = $request->validate([
-            'team_id' => ['required', 'exists:teams,id'],
-            'target_group_id' => ['required', 'exists:event_groups,id'],
-        ]);
+        $validated = $request->validated();
 
         $team = Team::where('id', $validated['team_id'])->where('event_id', $event->id)->firstOrFail();
         $targetGroup = EventGroup::where('id', $validated['target_group_id'])->where('event_id', $event->id)->firstOrFail();
@@ -394,8 +415,14 @@ class TournamentController extends Controller
     /**
      * Generate jadwal pertandingan fase grup (Round-Robin) otomatis.
      */
-    public function generateGroupMatches(Request $request, Event $event): RedirectResponse
+    public function generateGroupMatches(GenerateGroupMatchesRequest $request, Event $event): RedirectResponse
     {
+        if (! $event->canManageTournamentSetup()) {
+            throw ValidationException::withMessages([
+                'matches' => 'Event berstatus Draft atau Selesai. Jadwal pertandingan tidak dapat dibuat.',
+            ]);
+        }
+
         if (! $event->is_group_locked) {
             throw ValidationException::withMessages([
                 'matches' => 'Pembagian grup belum dikunci resmi. Lakukan pengundian pada sesi Technical Meeting dan kunci grup terlebih dahulu sebelum menyusun jadwal pertandingan.',
@@ -408,11 +435,7 @@ class TournamentController extends Controller
             ]);
         }
 
-        $validated = $request->validate([
-            'start_time' => ['nullable', 'date'],
-            'interval_minutes' => ['nullable', 'integer', 'min:15', 'max:240'],
-            'pitches' => ['nullable', 'string', 'max:255'],
-        ]);
+        $validated = $request->validated();
 
         $pitchArray = array_values(array_filter(array_map(
             'trim',
@@ -432,8 +455,14 @@ class TournamentController extends Controller
     /**
      * Generate jadwal pertandingan fase gugur / knockout otomatis dari tim juara & runner-up grup.
      */
-    public function generateKnockoutMatches(Request $request, Event $event): RedirectResponse
+    public function generateKnockoutMatches(GenerateKnockoutMatchesRequest $request, Event $event): RedirectResponse
     {
+        if (! $event->canManageTournamentSetup()) {
+            throw ValidationException::withMessages([
+                'stage' => 'Event berstatus Draft atau Selesai. Jadwal fase gugur tidak dapat dibuat.',
+            ]);
+        }
+
         if (! $event->is_group_locked) {
             throw ValidationException::withMessages([
                 'stage' => 'Pembagian grup belum dikunci resmi.',
@@ -447,12 +476,7 @@ class TournamentController extends Controller
             ]);
         }
 
-        $validated = $request->validate([
-            'stage' => ['required', 'string', 'in:round_of_16,quarter_final,semi_final,final,third_place'],
-            'start_time' => ['nullable', 'date'],
-            'interval_minutes' => ['nullable', 'integer', 'min:15', 'max:240'],
-            'pitches' => ['nullable', 'string', 'max:255'],
-        ]);
+        $validated = $request->validated();
 
         $pitchArray = array_values(array_filter(array_map(
             'trim',
@@ -475,17 +499,15 @@ class TournamentController extends Controller
     /**
      * Tambah jadwal pertandingan baru (Fase Grup / Fase Gugur).
      */
-    public function storeMatch(Request $request, Event $event): RedirectResponse
+    public function storeMatch(StoreTournamentMatchRequest $request, Event $event): RedirectResponse
     {
-        $validated = $request->validate([
-            'stage' => ['required', 'string'],
-            'event_group_id' => ['nullable', 'exists:event_groups,id'],
-            'home_team_id' => ['nullable', 'exists:teams,id'],
-            'away_team_id' => ['nullable', 'exists:teams,id'],
-            'kickoff_at' => ['nullable', 'date'],
-            'pitch_name' => ['nullable', 'string', 'max:80'],
-            'referee_name' => ['nullable', 'string', 'max:120'],
-        ]);
+        if (! $event->canManageTournamentSetup()) {
+            throw ValidationException::withMessages([
+                'stage' => 'Event berstatus Draft atau Selesai. Pertandingan baru tidak dapat ditambahkan.',
+            ]);
+        }
+
+        $validated = $request->validated();
 
         if ($validated['stage'] === 'group' && ! $event->is_group_locked) {
             throw ValidationException::withMessages([
@@ -514,37 +536,22 @@ class TournamentController extends Controller
     /**
      * Simpan Hasil Skor Pertandingan, Kejadian Gol/Kartu, & Hitung Ulang Klasemen Otomatis.
      */
-    public function updateMatchResult(Request $request, TournamentMatch $match): RedirectResponse
+    public function updateMatchResult(UpdateMatchResultRequest $request, TournamentMatch $match): RedirectResponse
     {
+        $match->loadMissing('event');
         if (! $match->home_team_id || ! $match->away_team_id) {
             throw ValidationException::withMessages([
                 'status' => 'Pertandingan belum memiliki tim bertanding yang lengkap (home & away).',
             ]);
         }
 
-        if ($match->event?->status === 'completed') {
+        if (! $match->event || ! $match->event->canRunFieldOperations()) {
             throw ValidationException::withMessages([
-                'status' => 'Turnamen telah berstatus selesai. Hasil pertandingan tidak dapat diubah lagi.',
+                'status' => 'Input skor pertandingan hanya dibuka setelah pendaftaran ditutup atau saat turnamen sedang berlangsung (belum selesai).',
             ]);
         }
 
-        $validated = $request->validate([
-            'status' => ['required', 'in:scheduled,ongoing,completed,postponed'],
-            'home_score' => ['nullable', 'integer', 'min:0', 'max:99'],
-            'away_score' => ['nullable', 'integer', 'min:0', 'max:99'],
-            'home_penalty_score' => ['nullable', 'integer', 'min:0', 'max:99'],
-            'away_penalty_score' => ['nullable', 'integer', 'min:0', 'max:99'],
-            'kickoff_at' => ['nullable', 'date'],
-            'pitch_name' => ['nullable', 'string', 'max:80'],
-            'referee_name' => ['nullable', 'string', 'max:120'],
-            'match_notes' => ['nullable', 'string', 'max:1000'],
-            'events' => ['nullable', 'array'],
-            'events.*.team_id' => ['required', 'exists:teams,id'],
-            'events.*.player_id' => ['nullable', 'exists:players,id'],
-            'events.*.event_type' => ['required', 'in:goal,penalty_goal,own_goal,yellow_card,second_yellow_card,red_card'],
-            'events.*.minute' => ['nullable', 'integer', 'min:1', 'max:150'],
-            'events.*.notes' => ['nullable', 'string', 'max:255'],
-        ]);
+        $validated = $request->validated();
 
         DB::transaction(function () use ($match, $validated, $request) {
             $match->update([
@@ -582,15 +589,16 @@ class TournamentController extends Controller
     /**
      * Reschedule Jadwal Pertandingan (Waktu Kick-off, Lapangan, Wasit, Catatan).
      */
-    public function rescheduleMatch(Request $request, TournamentMatch $match): RedirectResponse
+    public function rescheduleMatch(RescheduleMatchRequest $request, TournamentMatch $match): RedirectResponse
     {
-        $validated = $request->validate([
-            'kickoff_at' => ['required', 'date'],
-            'pitch_name' => ['nullable', 'string', 'max:80'],
-            'referee_name' => ['nullable', 'string', 'max:120'],
-            'status' => ['sometimes', 'in:scheduled,ongoing,completed,postponed'],
-            'match_notes' => ['nullable', 'string', 'max:1000'],
-        ]);
+        $match->loadMissing('event');
+        if ($match->event && ! $match->event->canManageTournamentSetup()) {
+            throw ValidationException::withMessages([
+                'kickoff_at' => 'Event berstatus Draft atau Selesai. Jadwal pertandingan tidak dapat diubah.',
+            ]);
+        }
+
+        $validated = $request->validated();
 
         $match->update([
             'kickoff_at' => $validated['kickoff_at'],
@@ -609,6 +617,12 @@ class TournamentController extends Controller
     public function destroyMatch(TournamentMatch $match): RedirectResponse
     {
         $event = $match->event;
+        if ($event && ! $event->canManageTournamentSetup()) {
+            throw ValidationException::withMessages([
+                'matches' => 'Event berstatus Draft atau Selesai. Pertandingan tidak dapat dihapus.',
+            ]);
+        }
+
         $num = $match->match_number;
         $match->delete();
 
@@ -622,14 +636,9 @@ class TournamentController extends Controller
     /**
      * Fase 6.1: Publikasikan Pengumuman / Undangan Technical Meeting.
      */
-    public function storeAnnouncement(Request $request, Event $event): RedirectResponse
+    public function storeAnnouncement(StoreAnnouncementRequest $request, Event $event): RedirectResponse
     {
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'max:180'],
-            'content' => ['required', 'string', 'max:3000'],
-            'meeting_link' => ['nullable', 'url', 'max:255'],
-            'is_pinned' => ['nullable', 'boolean'],
-        ]);
+        $validated = $request->validated();
 
         EventAnnouncement::create([
             'event_id' => $event->id,
@@ -653,11 +662,16 @@ class TournamentController extends Controller
     /**
      * Fase 6.3: Set Predikat Juara Tim untuk E-Certificate Pemain (misal: Juara 1, Juara 2, Peserta Resmi).
      */
-    public function updateTeamAchievement(Request $request, Team $team): RedirectResponse
+    public function updateTeamAchievement(UpdateTeamAchievementRequest $request, Team $team): RedirectResponse
     {
-        $validated = $request->validate([
-            'achievement_title' => ['nullable', 'string', 'max:100'],
-        ]);
+        $team->loadMissing('event');
+        if ($team->event?->isDraft()) {
+            throw ValidationException::withMessages([
+                'achievement_title' => 'Event masih berstatus Draft.',
+            ]);
+        }
+
+        $validated = $request->validated();
 
         $team->update([
             'achievement_title' => $validated['achievement_title'] ?: null,

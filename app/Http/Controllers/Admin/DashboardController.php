@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\UpdateAdminPasswordRequest;
 use App\Models\EmailNotificationLog;
 use App\Models\Event;
 use App\Models\Payment;
@@ -10,10 +11,8 @@ use App\Models\Player;
 use App\Models\Team;
 use App\Models\WebhookLog;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -66,18 +65,9 @@ class DashboardController extends Controller
     /**
      * Memperbarui kata sandi akun panitia / admin secara mandiri.
      */
-    public function updatePassword(Request $request): RedirectResponse
+    public function updatePassword(UpdateAdminPasswordRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'current_password' => ['required', 'string', 'current_password'],
-            'password' => ['required', 'string', 'confirmed', Password::min(8)],
-        ], [
-            'current_password.required' => 'Kata sandi saat ini wajib diisi.',
-            'current_password.current_password' => 'Kata sandi saat ini tidak sesuai.',
-            'password.required' => 'Kata sandi baru wajib diisi.',
-            'password.confirmed' => 'Konfirmasi kata sandi baru tidak cocok.',
-            'password.min' => 'Kata sandi baru minimal 8 karakter.',
-        ]);
+        $validated = $request->validated();
 
         $request->user()->update([
             'password' => Hash::make($validated['password']),
