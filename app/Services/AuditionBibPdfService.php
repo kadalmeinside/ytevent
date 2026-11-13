@@ -28,7 +28,7 @@ class AuditionBibPdfService
     }
 
     /**
-     * Generate A4 Landscape Official Digital Pass (E-Tiket) PDF with Anti-Joki QR Code,
+     * Generate A4 Portrait Official Digital Pass (E-Tiket) PDF with Anti-Joki QR Code,
      * Event Banner Overlay Header, and Cryptographic Authenticity Metadata.
      */
     public function generateBibPdf(AuditionParticipant $participant): \Barryvdh\DomPDF\PDF
@@ -79,7 +79,7 @@ class AuditionBibPdfService
         ];
 
         return Pdf::loadView('pdf.audition_bib_tag', $data)
-            ->setPaper('a4', 'landscape')
+            ->setPaper('a4', 'portrait')
             ->setOptions([
                 'isHtml5ParserEnabled' => true,
                 'isRemoteEnabled' => true,
@@ -157,8 +157,8 @@ class AuditionBibPdfService
 
         $srcW = imagesx($src);
         $srcH = imagesy($src);
-        $dstW = 1200;
-        $dstH = 220;
+        $dstW = 1100;
+        $dstH = 260;
 
         $dst = imagecreatetruecolor($dstW, $dstH);
         $srcRatio = $srcW / max(1, $srcH);

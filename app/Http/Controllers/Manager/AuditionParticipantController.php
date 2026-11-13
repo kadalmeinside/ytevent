@@ -12,7 +12,7 @@ use Symfony\Component\HttpFoundation\Response;
 class AuditionParticipantController extends Controller
 {
     /**
-     * Download Nomor Dada (Bib Tag) PDF A4 Landscape.
+     * Download Digital Pass (E-Tiket) PDF A4 Portrait.
      */
     public function downloadBibTag(Request $request, AuditionParticipant $participant, AuditionBibPdfService $pdfService): Response
     {
