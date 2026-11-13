@@ -439,5 +439,77 @@ class SimulationModuleTest extends TestCase
         $response->assertRedirect();
         $this->assertTrue(auth()->user()->hasRole('participant_parent'));
     }
+
+    public function test_simulation_can_create_audition_event(): void
+    {
+        $response = $this->actingAs($this->superadmin)
+            ->post(route('simulation.create-audition-event'));
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $event = Event::where('event_type', 'audition')->latest('id')->first();
+        $this->assertNotNull($event);
+        $this->assertSame('individual', $event->participant_type);
+        $this->assertSame('audition', $event->format);
+        $this->assertEquals(2, $event->auditionStages()->count());
+        $this->assertEquals(2, $event->eventSessions()->count());
+        $this->assertNotEmpty($event->position_quota_caps);
+        $this->assertSame(16, $event->position_quota_caps['GK']);
+    }
+
+    public function test_simulation_can_create_coaching_clinic_event(): void
+    {
+        $response = $this->actingAs($this->superadmin)
+            ->post(route('simulation.create-coaching-clinic-event'));
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $event = Event::where('event_type', 'coaching_clinic')->latest('id')->first();
+        $this->assertNotNull($event);
+        $this->assertSame('individual', $event->participant_type);
+        $this->assertSame('coaching_clinic', $event->format);
+        $this->assertEquals(0, $event->auditionStages()->count());
+        $this->assertEquals(2, $event->eventSessions()->count());
+        $this->assertNull($event->position_quota_caps);
+    }
+
+    public function test_simulation_can_register_audition_participant(): void
+    {
+        $response = $this->actingAs($this->superadmin)
+            ->post(route('simulation.register-audition-participant'), [
+                'event_id' => $this->auditionEvent->id,
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $participant = AuditionParticipant::where('event_id', $this->auditionEvent->id)->latest('id')->first();
+        $this->assertNotNull($participant);
+        $this->assertStringStartsWith('AUD-', $participant->registration_number);
+        $this->assertNotNull($participant->bib_number);
+        $this->assertSame('passed', $participant->screening_status);
+        $this->assertSame('active', $participant->status);
+    }
+
+    public function test_simulation_can_register_coaching_clinic_participant(): void
+    {
+        $clinic = app(SimulationService::class)->simulateCreateCoachingClinicEvent();
+
+        $response = $this->actingAs($this->superadmin)
+            ->post(route('simulation.register-coaching-clinic-participant'), [
+                'event_id' => $clinic->id,
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $participant = AuditionParticipant::where('event_id', $clinic->id)->latest('id')->first();
+        $this->assertNotNull($participant);
+        $this->assertStringStartsWith('CLN-', $participant->registration_number);
+        $this->assertSame('passed', $participant->screening_status);
+        $this->assertSame('active', $participant->status);
+    }
 }
 

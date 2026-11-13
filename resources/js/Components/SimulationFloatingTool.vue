@@ -32,6 +32,18 @@ const individualEvents = computed(() => {
     return (simCtx.value?.events || []).filter((e) => e.participant_type === 'individual');
 });
 
+const currentIndividualEvent = computed(() => {
+    return (individualEvents.value || []).find((e) => e.id === Number(selectedIndividualEventId.value));
+});
+
+const isSelectedEventAudition = computed(() => {
+    return !currentIndividualEvent.value || currentIndividualEvent.value.event_type === 'audition';
+});
+
+const isSelectedEventClinic = computed(() => {
+    return currentIndividualEvent.value?.event_type === 'coaching_clinic';
+});
+
 const selectedEventId = ref(
     props.currentEventId ||
         page.props.event?.id ||
@@ -523,12 +535,51 @@ const fillIndividualDomFormIfPresent = () => {
 
             <!-- TAB 2: EVENT PERORANGAN (Audisi & Coaching Clinic) -->
             <div v-else class="p-4 space-y-4 max-h-[72vh] overflow-y-auto text-xs">
+                <!-- BAGIAN 1: BUAT EVENT PERORANGAN OTOMATIS (1-KLIK) -->
+                <div class="space-y-1.5 p-3 rounded-xl bg-slate-800/90 border border-slate-700">
+                    <p class="text-[10px] font-extrabold uppercase tracking-wider text-amber-400">
+                        1. Buat Event Perorangan Otomatis (1-Klik)
+                    </p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        <!-- TAMBAH EVENT AUDISI -->
+                        <button
+                            type="button"
+                            class="px-2.5 py-2 rounded-lg bg-purple-900/60 hover:bg-purple-800/80 border border-purple-700/80 text-left transition-colors cursor-pointer group"
+                            :disabled="isBusy"
+                            @click="runSimAction('simulation.create-audition-event')"
+                        >
+                            <span class="font-bold text-purple-200 block text-xs group-hover:text-white">+ Event Audisi</span>
+                            <span class="text-[10px] text-purple-300/80 block mt-0.5">2 Tahap, Kuota Posisi &amp; Sesi</span>
+                        </button>
+
+                        <!-- TAMBAH EVENT COACHING CLINIC -->
+                        <button
+                            type="button"
+                            class="px-2.5 py-2 rounded-lg bg-emerald-900/60 hover:bg-emerald-800/80 border border-emerald-700/80 text-left transition-colors cursor-pointer group"
+                            :disabled="isBusy"
+                            @click="runSimAction('simulation.create-coaching-clinic-event')"
+                        >
+                            <span class="font-bold text-emerald-200 block text-xs group-hover:text-white">+ Coaching Clinic</span>
+                            <span class="text-[10px] text-emerald-300/80 block mt-0.5">Sesi Masterclass &amp; Pelatih Pro</span>
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Pemilih Konteks Event Perorangan Target -->
                 <div class="grid grid-cols-1 gap-2.5 p-3 rounded-xl bg-slate-800/90 border border-slate-700">
                     <div>
-                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            Target Event Perorangan (Audisi / Clinic)
-                        </label>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                Target Event Aktif
+                            </label>
+                            <span
+                                v-if="currentIndividualEvent"
+                                class="px-1.5 py-0.2 rounded text-[9px] font-bold"
+                                :class="isSelectedEventClinic ? 'bg-emerald-900/80 text-emerald-300' : 'bg-purple-900/80 text-purple-300'"
+                            >
+                                {{ isSelectedEventClinic ? 'COACHING CLINIC' : 'AUDISI ATLET' }}
+                            </span>
+                        </div>
                         <select
                             v-model="selectedIndividualEventId"
                             class="w-full rounded-lg bg-slate-900 border border-slate-700 text-white text-xs px-2.5 py-1.5 focus:outline-none focus:border-orange-500"
@@ -547,25 +598,35 @@ const fillIndividualDomFormIfPresent = () => {
                     </div>
                 </div>
 
-                <!-- BAGIAN 1: PENDAFTARAN PESERTA & INJECT MASSAL -->
+                <!-- BAGIAN 2: PENDAFTARAN PESERTA & INJECT MASSAL -->
                 <div class="space-y-1.5">
                     <p class="text-[10px] font-extrabold uppercase tracking-wider text-orange-400">
-                        1. Simulasi Pendaftaran Atlet &amp; Berkas
+                        2. Simulasi Tambah Peserta &amp; Berkas
                     </p>
 
-                    <!-- DAFTAR 1 PESERTA PERORANGAN -->
-                    <button
-                        type="button"
-                        class="w-full text-left px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center justify-between gap-2 transition-colors cursor-pointer"
-                        :disabled="isBusy"
-                        @click="runSimAction('simulation.register-individual', { event_id: selectedIndividualEventId })"
-                    >
-                        <div>
-                            <span class="font-bold text-white block">Daftar 1 Atlet Perorangan + Berkas</span>
-                            <span class="text-[10px] text-slate-400">NIK, foto, berkas, lunas, lolos screening &amp; no dada/tiket</span>
-                        </div>
-                        <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-orange-600 text-white shrink-0">1-KLIK</span>
-                    </button>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        <!-- TAMBAH PESERTA AUDISI -->
+                        <button
+                            type="button"
+                            class="px-2.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-purple-700/60 text-left transition-colors cursor-pointer"
+                            :disabled="isBusy"
+                            @click="runSimAction('simulation.register-audition-participant', { event_id: selectedIndividualEventId })"
+                        >
+                            <span class="font-bold text-purple-300 block text-xs">+ Peserta Audisi</span>
+                            <span class="text-[10px] text-slate-400 block mt-0.5">No dada, posisi, tahap 1 &amp; lolos berkas</span>
+                        </button>
+
+                        <!-- TAMBAH PESERTA COACHING CLINIC -->
+                        <button
+                            type="button"
+                            class="px-2.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-emerald-700/60 text-left transition-colors cursor-pointer"
+                            :disabled="isBusy"
+                            @click="runSimAction('simulation.register-coaching-clinic-participant', { event_id: selectedIndividualEventId })"
+                        >
+                            <span class="font-bold text-emerald-300 block text-xs">+ Peserta Clinic</span>
+                            <span class="text-[10px] text-slate-400 block mt-0.5">Sesi workshop &amp; bayar lunas</span>
+                        </button>
+                    </div>
 
                     <button
                         v-if="contextArea === 'public'"
@@ -573,7 +634,7 @@ const fillIndividualDomFormIfPresent = () => {
                         class="w-full text-left px-3 py-1.5 rounded-xl bg-slate-800/60 hover:bg-slate-700 border border-slate-700/80 flex items-center justify-between gap-2 transition-colors cursor-pointer"
                         @click="fillIndividualDomFormIfPresent"
                     >
-                        <span class="text-[11px] font-semibold text-slate-300">Isi Otomatis Form Pendaftaran Atlet</span>
+                        <span class="text-[11px] font-semibold text-slate-300">Isi Otomatis Form Pendaftaran Terbuka</span>
                         <span class="text-[10px] text-slate-400">DOM Fill</span>
                     </button>
 
@@ -585,17 +646,39 @@ const fillIndividualDomFormIfPresent = () => {
                         @click="runSimAction('simulation.bulk-inject-individuals', { event_id: selectedIndividualEventId, count: 6 })"
                     >
                         <div>
-                            <span class="font-black text-xs block uppercase tracking-wide">Inject 6 Peserta Sekaligus (Siap Seleksi)</span>
-                            <span class="text-[10px] text-orange-100 block">6 atlet baru langsung berstatus PAID, berkas sah &amp; masuk Tahap 1</span>
+                            <span class="font-black text-xs block uppercase tracking-wide">Inject 6 Peserta Sekaligus</span>
+                            <span class="text-[10px] text-orange-100 block">6 peserta baru langsung berstatus PAID &amp; berkas sah</span>
                         </div>
                         <span class="px-2 py-0.5 rounded text-[10px] font-black bg-black/25 shrink-0">BULK 6</span>
                     </button>
                 </div>
 
-                <!-- BAGIAN 2: HARI-H SELEKSI: CHECK-IN GATEKEEPER & SCOUTING -->
-                <div class="space-y-1.5 pt-2 border-t border-slate-800">
+                <!-- BAGIAN 3: HARI-H SELEKSI / WORKSHOP -->
+                <div v-if="isSelectedEventClinic" class="space-y-1.5 pt-2 border-t border-slate-800">
                     <p class="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400">
-                        2. Presensi Gatekeeper &amp; Scouting Tahap
+                        3. Presensi &amp; Pelaksanaan Coaching Clinic
+                    </p>
+                    <button
+                        type="button"
+                        class="w-full text-left px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center justify-between gap-2 transition-colors cursor-pointer"
+                        :disabled="isBusy"
+                        @click="runSimAction('simulation.bulk-check-in', { event_id: selectedIndividualEventId, stage_number: 1 })"
+                    >
+                        <div>
+                            <span class="font-bold text-white block">Presensi Kehadiran Peserta Clinic (Check-in Masal)</span>
+                            <span class="text-[10px] text-slate-400">Catat hadir scan gatekeeper untuk seluruh peserta Coaching Clinic</span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-600 text-white shrink-0">HADIR</span>
+                    </button>
+                    <div class="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-[11px] text-slate-300">
+                        <span class="font-bold text-emerald-400 block mb-0.5">Format Coaching Clinic:</span>
+                        Fokus pada materi pelatihan sepak bola intensif dan pembagian sertifikat partisipasi, tanpa sistem eliminasi / gugur scouting.
+                    </div>
+                </div>
+
+                <div v-else class="space-y-1.5 pt-2 border-t border-slate-800">
+                    <p class="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400">
+                        3. Presensi Gatekeeper &amp; Scouting Tahap
                     </p>
 
                     <!-- Selector Tahap / Hari -->
@@ -668,10 +751,10 @@ const fillIndividualDomFormIfPresent = () => {
                     </div>
                 </div>
 
-                <!-- BAGIAN 3: PINDAH PERAN INSTAN (PERSONA SWITCHER) -->
+                <!-- BAGIAN 4: PINDAH PERAN INSTAN (PERSONA SWITCHER) -->
                 <div class="space-y-1.5 pt-2 border-t border-slate-800">
                     <p class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                        3. Pindah Akun / Portal Instan (Tanpa Ketik Login)
+                        4. Pindah Akun / Portal Instan (Tanpa Ketik Login)
                     </p>
                     <div class="grid grid-cols-2 gap-1.5">
                         <button
@@ -709,11 +792,11 @@ const fillIndividualDomFormIfPresent = () => {
                     </div>
                 </div>
 
-                <!-- BAGIAN 4: BERSIHKAN / RESET DATA SIMULASI (DANGER ZONE) -->
+                <!-- BAGIAN 5: BERSIHKAN / RESET DATA SIMULASI (DANGER ZONE) -->
                 <div class="space-y-1.5 pt-2 border-t border-slate-800">
                     <div class="flex items-center justify-between">
                         <p class="text-[10px] font-extrabold uppercase tracking-wider text-rose-400">
-                            4. Hapus / Reset Peserta Perorangan
+                            5. Hapus / Reset Peserta Perorangan
                         </p>
                         <span class="text-[9px] text-rose-300/80 font-mono font-bold">DANGER ZONE</span>
                     </div>
@@ -738,7 +821,7 @@ const fillIndividualDomFormIfPresent = () => {
                     </button>
                 </div>
 
-                <!-- BAGIAN 5: MATIKAN SEMENTARA FITUR SIMULASI -->
+                <!-- BAGIAN 6: MATIKAN SEMENTARA FITUR SIMULASI -->
                 <div class="pt-2 border-t border-slate-800 flex items-center justify-between gap-2 text-[11px]">
                     <span class="text-slate-400">Sembunyikan tombol simulasi?</span>
                     <button

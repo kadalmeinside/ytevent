@@ -170,14 +170,17 @@ const triggerResyncEvent = (evt) => {
                                         <h4 class="text-sm sm:text-base font-bold text-slate-900 leading-tight">{{ evt.name }}</h4>
                                         <span
                                             class="px-2 py-0.5 text-[10px] font-bold rounded-md border"
-                                            :class="evt.participant_type === 'individual' ? 'bg-amber-50 text-amber-900 border-amber-200' : 'bg-orange-50 text-orange-900 border-orange-200'"
+                                            :class="evt.participant_type === 'individual' ? (evt.event_type === 'coaching_clinic' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-purple-50 text-purple-900 border-purple-200') : 'bg-orange-50 text-orange-900 border-orange-200'"
                                         >
                                             {{ evt.participant_type === 'individual' ? (evt.event_type === 'coaching_clinic' ? 'Coaching Clinic' : (evt.event_type === 'audition' ? 'Audisi Atlet' : 'Perorangan')) : 'Turnamen Tim' }}
                                         </span>
                                     </div>
                                     <div class="flex items-center gap-2 mt-0.5 text-xs">
-                                        <span class="font-semibold text-slate-600">
-                                            {{ evt.participant_type === 'individual' ? (evt.event_type === 'coaching_clinic' ? 'Workshop Pelatihan' : (evt.event_type === 'audition' ? 'Seleksi Bakat' : 'Fun Event')) : evt.format_label }}
+                                        <span v-if="evt.participant_type !== 'individual'" class="font-semibold text-slate-600">
+                                            {{ evt.format_label }}
+                                        </span>
+                                        <span v-else class="font-medium text-slate-500">
+                                            {{ evt.event_type === 'coaching_clinic' ? 'Masterclass & Workshop' : 'Panel Scouting' }}
                                         </span>
                                         <span class="text-slate-300">&bull;</span>
                                         <span class="font-mono text-[11px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-800 border border-slate-200">

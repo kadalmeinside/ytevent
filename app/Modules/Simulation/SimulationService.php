@@ -7,6 +7,7 @@ use App\Models\AuditionParticipant;
 use App\Models\AuditionStage;
 use App\Models\AuditionStageParticipant;
 use App\Models\Event;
+use App\Models\EventSession;
 use App\Models\Payment;
 use App\Models\Player;
 use App\Models\PlayerDocument;
@@ -769,6 +770,193 @@ class SimulationService
     }
 
     /**
+     * Simulasi Inject / Buat Event Audisi Lengkap (2 Tahap, Kuota Posisi & Sesi).
+     */
+    public function simulateCreateAuditionEvent(?User $actor = null): Event
+    {
+        $year = now()->format('Y');
+        $code = Str::upper(Str::random(3));
+        $name = "Persija EPA Talent Scouting Fest {$year} [Batch {$code}]";
+        $slug = 'sim-audisi-' . Str::lower($code) . '-' . time();
+
+        $bannerPath = $this->storeDummyPngOnDisk('events/banners', 'public', 'sim-aud-banner');
+
+        $event = Event::create([
+            'name' => $name,
+            'slug' => $slug,
+            'short_description' => '<p>Program scouting resmi Persija Elite Pro Academy (EPA) mencari talenta terbaik sepak bola muda Indonesia untuk seleksi beasiswa dan pemusatan latihan ke Eropa / Spanyol.</p>',
+            'venue_name' => 'Persija Training Ground Bojongsari',
+            'city' => 'Kota Depok',
+            'venue_maps_url' => 'https://maps.google.com/?q=Persija+Training+Ground',
+            'event_type' => 'audition',
+            'participant_type' => 'individual',
+            'quota_type' => 'fixed',
+            'format' => 'audition',
+            'age_category' => 'U-16',
+            'min_birth_date' => '2010-01-01',
+            'max_birth_date' => '2011-12-31',
+            'max_participants' => 150,
+            'registration_fee' => 250000,
+            'payment_deadline_hours' => 24,
+            'reupload_grace_hours' => 24,
+            'match_start_date' => now()->addDays(14)->toDateString(),
+            'match_end_date' => now()->addDays(16)->toDateString(),
+            'registration_open_at' => now()->subDays(2),
+            'registration_close_at' => now()->addDays(12),
+            'prize_info' => 'GRATIS bagi seluruh pemain terpilih mengikuti Program Pemusatan Latihan & Trial Internasional ke Spanyol.',
+            'banner_path' => $bannerPath,
+            'contact_person' => 'Head Coach EPA',
+            'contact_whatsapp' => '081128021928',
+            'position_quota_caps' => [
+                'GK' => 16,
+                'CB' => 30,
+                'FB' => 30,
+                'MF' => 44,
+                'FW' => 30,
+            ],
+            'form_presets' => [
+                'photo' => true,
+                'position' => true,
+                'foot_dominance' => true,
+                'team_origin' => true,
+                'body_measurements' => true,
+                'experience' => true,
+                'jersey_size' => true,
+            ],
+            'required_documents' => ['birth_certificate', 'family_card', 'student_card_kia', 'report_card_ijazah'],
+            'status' => 'open',
+        ]);
+
+        // Buat 2 Tahapan Seleksi (Stages)
+        AuditionStage::create([
+            'event_id' => $event->id,
+            'stage_number' => 1,
+            'stage_name' => 'Tahap 1: Screening Fisik & Tes Teknik Individual',
+            'stage_date' => $event->match_start_date,
+            'start_time' => '07:30:00',
+            'end_time' => '12:00:00',
+            'venue_name' => $event->venue_name,
+            'target_quota' => 150,
+            'instructions' => 'Wajib mengenakan jersey latihan dan membawa sepatu bola serta pelindung tulang kering (shinguard).',
+        ]);
+
+        AuditionStage::create([
+            'event_id' => $event->id,
+            'stage_number' => 2,
+            'stage_name' => 'Tahap 2: Internal Game & Taktikal 11 vs 11',
+            'stage_date' => now()->addDays(15)->toDateString(),
+            'start_time' => '08:00:00',
+            'end_time' => '13:00:00',
+            'venue_name' => $event->venue_name,
+            'target_quota' => 75,
+            'instructions' => 'Simulasi pertandingan 11 vs 11 di hadapan Dewan Pemandu Bakat (Talent Scout) Persija.',
+        ]);
+
+        // Buat Sesi Registrasi (Sessions)
+        EventSession::create([
+            'event_id' => $event->id,
+            'session_name' => 'Sesi Pagi (07.30 - 11.30 WIB)',
+            'session_date' => $event->match_start_date,
+            'start_time' => '07:30:00',
+            'end_time' => '11:30:00',
+            'max_capacity' => 75,
+            'occupied_slots' => 0,
+            'is_active' => true,
+        ]);
+
+        EventSession::create([
+            'event_id' => $event->id,
+            'session_name' => 'Sesi Siang (13.30 - 17.30 WIB)',
+            'session_date' => $event->match_start_date,
+            'start_time' => '13:30:00',
+            'end_time' => '17:30:00',
+            'max_capacity' => 75,
+            'occupied_slots' => 0,
+            'is_active' => true,
+        ]);
+
+        return $event;
+    }
+
+    /**
+     * Simulasi Inject / Buat Event Coaching Clinic Lengkap (Materi Pelatihan, Sesi Workshop & Sertifikat).
+     */
+    public function simulateCreateCoachingClinicEvent(?User $actor = null): Event
+    {
+        $year = now()->format('Y');
+        $code = Str::upper(Str::random(3));
+        $name = "Persija Elite Masterclass & Coaching Clinic {$year} [Class {$code}]";
+        $slug = 'sim-clinic-' . Str::lower($code) . '-' . time();
+
+        $bannerPath = $this->storeDummyPngOnDisk('events/banners', 'public', 'sim-clinic-banner');
+
+        $event = Event::create([
+            'name' => $name,
+            'slug' => $slug,
+            'short_description' => '<p>Pelatihan teknik dasar dan pemahaman taktik sepak bola modern bersama staf pelatih berlisensi Pro UEFA/AFC dan pemain senior Persija Jakarta. Peserta mendapatkan jersey latihan eksklusif dan sertifikat resmi partisipasi.</p>',
+            'venue_name' => 'Persija International Training Complex Sawangan',
+            'city' => 'Jakarta Selatan',
+            'venue_maps_url' => 'https://maps.google.com/?q=Persija+Training+Ground',
+            'event_type' => 'coaching_clinic',
+            'participant_type' => 'individual',
+            'quota_type' => 'fixed',
+            'format' => 'coaching_clinic',
+            'age_category' => 'U-15 / Umum',
+            'min_birth_date' => '2008-01-01',
+            'max_birth_date' => '2014-12-31',
+            'max_participants' => 80,
+            'registration_fee' => 175000,
+            'payment_deadline_hours' => 24,
+            'reupload_grace_hours' => 24,
+            'match_start_date' => now()->addDays(7)->toDateString(),
+            'match_end_date' => now()->addDays(7)->toDateString(),
+            'registration_open_at' => now()->subDays(3),
+            'registration_close_at' => now()->addDays(5),
+            'prize_info' => 'Jersey Latihan Eksklusif Persija, Goodie Bag, Sertifikat Resmi, & Sesi Foto Bersama Bintang Persija.',
+            'banner_path' => $bannerPath,
+            'contact_person' => 'Head Coach Clinic',
+            'contact_whatsapp' => '081234567890',
+            'position_quota_caps' => null,
+            'form_presets' => [
+                'photo' => true,
+                'position' => true,
+                'foot_dominance' => false,
+                'team_origin' => true,
+                'body_measurements' => false,
+                'experience' => false,
+                'jersey_size' => true,
+            ],
+            'required_documents' => ['birth_certificate', 'family_card'],
+            'status' => 'open',
+        ]);
+
+        // Buat 2 Sesi Kelas Workshop
+        EventSession::create([
+            'event_id' => $event->id,
+            'session_name' => 'Sesi Pagi: Passing Mastery & Positional Play (08.00 - 11.30 WIB)',
+            'session_date' => $event->match_start_date,
+            'start_time' => '08:00:00',
+            'end_time' => '11:30:00',
+            'max_capacity' => 40,
+            'occupied_slots' => 0,
+            'is_active' => true,
+        ]);
+
+        EventSession::create([
+            'event_id' => $event->id,
+            'session_name' => 'Sesi Sore: High Pressing & Finishing Drill (14.00 - 17.30 WIB)',
+            'session_date' => $event->match_start_date,
+            'start_time' => '14:00:00',
+            'end_time' => '17:30:00',
+            'max_capacity' => 40,
+            'occupied_slots' => 0,
+            'is_active' => true,
+        ]);
+
+        return $event;
+    }
+
+    /**
      * 11. Simulasi Pendaftaran Peserta Perorangan Baru (Audisi / Coaching Clinic).
      */
     public function simulateRegisterIndividualParticipant(
@@ -787,36 +975,9 @@ class SimulationService
         }
 
         if (! $event) {
-            $event = Event::create([
-                'name' => $eventType === 'coaching_clinic'
-                    ? 'Persija Youth Masterclass Clinic ' . now()->format('Y')
-                    : 'Audisi Terbuka EPA Persija U-16 ' . now()->format('Y'),
-                'slug' => ($eventType === 'coaching_clinic' ? 'sim-clinic-' : 'sim-audisi-') . Str::lower(Str::random(5)),
-                'event_type' => $eventType,
-                'participant_type' => 'individual',
-                'quota_type' => 'fixed',
-                'max_participants' => 100,
-                'form_presets' => [
-                    'photo' => true,
-                    'position' => true,
-                    'foot_dominance' => true,
-                    'team_origin' => true,
-                    'body_measurements' => true,
-                    'experience' => true,
-                    'jersey_size' => true,
-                ],
-                'short_description' => 'Program resmi pembinaan talenta sepak bola usia muda.',
-                'venue_name' => 'Persija Training Ground Sawangan',
-                'city' => 'Depok',
-                'format' => 'festival',
-                'age_category' => 'U-16',
-                'min_birth_date' => '2010-01-01',
-                'max_birth_date' => '2011-12-31',
-                'required_documents' => ['birth_certificate', 'family_card', 'student_card_kia'],
-                'registration_fee' => 150000,
-                'payment_deadline_hours' => 24,
-                'status' => 'open',
-            ]);
+            $event = $eventType === 'coaching_clinic'
+                ? $this->simulateCreateCoachingClinicEvent()
+                : $this->simulateCreateAuditionEvent();
         }
 
         $guardian = $authenticatedUser;
@@ -836,7 +997,9 @@ class SimulationService
             'Zidan Maulana', 'Dafa Setiawan', 'Gibran Ardiansyah', 'Rendy Pratama'
         ];
         $fullName = $names[array_rand($names)] . ' ' . Str::upper(Str::random(3));
-        $positions = ['Kiper', 'Bek Tengah', 'Bek Sayap Kanan', 'Bek Sayap Kiri', 'Gelandang Bertahan', 'Gelandang Serang', 'Penyerang Sayap', 'Penyerang Tengah'];
+        $positions = $event->event_type === 'coaching_clinic'
+            ? ['Gelandang', 'Penyerang', 'Pemain Bertahan', 'Kiper', 'Semua Posisi']
+            : ['GK', 'CB', 'LB', 'RB', 'DMF', 'CMF', 'AMF', 'LW', 'RW', 'CF'];
         $feet = ['right', 'left', 'both'];
         $clubs = ['SSB Macan Kemayoran', 'Akademi Persija Muda', 'SSB Bintang Timur', 'SSB Garuda Menteng', 'SSB Bina Taruna'];
 
@@ -854,10 +1017,18 @@ class SimulationService
         $maxBib = (int) AuditionParticipant::where('event_id', $event->id)->max('bib_number');
         $bibNumber = $maxBib + 1;
 
+        $session = EventSession::where('event_id', $event->id)->where('is_active', true)->inRandomOrder()->first();
+        if ($session) {
+            $session->increment('occupied_slots');
+        }
+
+        $regPrefix = $event->event_type === 'coaching_clinic' ? 'CLN' : 'AUD';
+
         $participant = AuditionParticipant::create([
             'event_id' => $event->id,
+            'event_session_id' => $session?->id,
             'user_id' => $guardian->id,
-            'registration_number' => 'AUD-' . now()->format('Y') . '-' . Str::upper(Str::random(6)),
+            'registration_number' => $regPrefix . '-' . now()->format('Y') . '-' . Str::upper(Str::random(6)),
             'bib_number' => $bibNumber,
             'full_name' => $fullName,
             'nickname' => explode(' ', $fullName)[0],
@@ -883,7 +1054,7 @@ class SimulationService
             'screening_status' => $screeningStatus,
             'screening_notes' => $screeningStatus === 'passed' ? 'Dokumen lengkap dan diverifikasi sah otomatis via simulasi.' : null,
             'screening_verified_at' => $screeningStatus === 'passed' ? now() : null,
-            'screening_code' => 'AUD-VERIF-' . Str::upper(Str::random(10)),
+            'screening_code' => $regPrefix . '-VERIF-' . Str::upper(Str::random(10)),
             'stage_status' => 'registered',
             'status' => $screeningStatus === 'passed' ? 'active' : ($isPaid ? 'in_review' : 'pending_payment'),
             'slot_reserved_at' => now(),
@@ -893,7 +1064,7 @@ class SimulationService
             Payment::create([
                 'event_id' => $event->id,
                 'audition_participant_id' => $participant->id,
-                'invoice_number' => 'INV-AUD-' . date('Ymd') . '-' . Str::upper(Str::random(6)),
+                'invoice_number' => 'INV-' . $regPrefix . '-' . date('Ymd') . '-' . Str::upper(Str::random(6)),
                 'amount' => $event->registration_fee,
                 'gateway_fee' => 0,
                 'total_amount' => $event->registration_fee,
@@ -906,16 +1077,72 @@ class SimulationService
             ]);
         }
 
-        // Pastikan Tahap 1 terdaftar
-        AuditionStage::firstOrCreate([
-            'event_id' => $event->id,
-            'stage_number' => 1,
-        ], [
-            'stage_name' => 'Tahap 1: Screening & Uji Fisik',
-            'stage_date' => $event->match_start_date ?: now(),
-        ]);
+        // Pastikan Tahap 1 terdaftar HANYA jika event merupakan audisi bertahap
+        if ($event->event_type === 'audition') {
+            AuditionStage::firstOrCreate([
+                'event_id' => $event->id,
+                'stage_number' => 1,
+            ], [
+                'stage_name' => 'Tahap 1: Screening & Uji Fisik',
+                'stage_date' => $event->match_start_date ?: now(),
+            ]);
+        }
 
         return $participant;
+    }
+
+    /**
+     * Tambah 1 Peserta Khusus Event Audisi Seleksi.
+     */
+    public function simulateRegisterAuditionParticipant(?Event $event = null, ?User $actor = null): AuditionParticipant
+    {
+        if (! $event || $event->participant_type !== 'individual' || $event->event_type !== 'audition') {
+            $event = Event::query()
+                ->where('participant_type', 'individual')
+                ->where('event_type', 'audition')
+                ->where('status', 'open')
+                ->latest('id')
+                ->first();
+        }
+
+        if (! $event) {
+            $event = $this->simulateCreateAuditionEvent($actor);
+        }
+
+        return $this->simulateRegisterIndividualParticipant(
+            event: $event,
+            authenticatedUser: $actor,
+            isPaid: true,
+            screeningStatus: 'passed',
+            eventType: 'audition'
+        );
+    }
+
+    /**
+     * Tambah 1 Peserta Khusus Event Coaching Clinic.
+     */
+    public function simulateRegisterCoachingClinicParticipant(?Event $event = null, ?User $actor = null): AuditionParticipant
+    {
+        if (! $event || $event->participant_type !== 'individual' || $event->event_type !== 'coaching_clinic') {
+            $event = Event::query()
+                ->where('participant_type', 'individual')
+                ->where('event_type', 'coaching_clinic')
+                ->where('status', 'open')
+                ->latest('id')
+                ->first();
+        }
+
+        if (! $event) {
+            $event = $this->simulateCreateCoachingClinicEvent($actor);
+        }
+
+        return $this->simulateRegisterIndividualParticipant(
+            event: $event,
+            authenticatedUser: $actor,
+            isPaid: true,
+            screeningStatus: 'passed',
+            eventType: 'coaching_clinic'
+        );
     }
 
     /**

@@ -274,24 +274,30 @@ const stripHtml = (html) => {
                         <span
                             class="absolute left-3 bottom-3 px-2.5 py-1 rounded-md text-[11px] font-black tracking-wide bg-slate-950/85 text-white border border-white/30 shadow-sm"
                         >
-                            {{ event.participant_type_label }}
+                            {{ event.event_type === 'coaching_clinic' ? 'COACHING CLINIC' : (event.event_type === 'audition' ? 'AUDISI ATLET' : event.participant_type_label) }}
                         </span>
                     </div>
                     <div class="p-5 flex-1 flex flex-col justify-between">
                         <div>
                             <div class="flex items-center justify-between gap-2 mb-3">
                                 <div class="flex items-center gap-1.5 flex-wrap">
-                                    <span
-                                        v-if="!event.banner_url"
-                                        class="px-2.5 py-0.5 rounded text-[11px] font-black tracking-wide bg-slate-950 text-white"
-                                    >
-                                        {{ event.participant_type_label }}
-                                    </span>
                                     <span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-900 text-white">
                                         {{ event.age_category }}
                                     </span>
                                     <span
-                                        v-if="event.format !== 'audition'"
+                                        v-if="event.event_type === 'coaching_clinic'"
+                                        class="px-2 py-0.5 rounded text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                    >
+                                        Coaching Clinic
+                                    </span>
+                                    <span
+                                        v-else-if="event.event_type === 'audition'"
+                                        class="px-2 py-0.5 rounded text-xs font-bold bg-purple-50 text-purple-800 border border-purple-200"
+                                    >
+                                        Audisi Bakat
+                                    </span>
+                                    <span
+                                        v-else
                                         class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200"
                                     >
                                         {{ event.format_label }}

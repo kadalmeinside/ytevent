@@ -198,15 +198,34 @@ const eventJsonLd = computed(() => {
                             <span class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-slate-900 text-white">
                                 {{ event.age_category }}
                             </span>
-                            <span class="px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                                {{ event.format_label }}
+
+                            <span
+                                v-if="event.event_type === 'coaching_clinic'"
+                                class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200"
+                            >
+                                Coaching Clinic &bull; Individu
                             </span>
-                            <span v-if="event.event_type && event.event_type !== 'tournament'" class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-purple-50 text-purple-800 border border-purple-200">
-                                {{ event.event_type_label || event.event_type }}
+                            <span
+                                v-else-if="event.event_type === 'audition'"
+                                class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-purple-50 text-purple-800 border border-purple-200"
+                            >
+                                Audisi &amp; Seleksi &bull; Individu
                             </span>
-                            <span v-if="isIndividual" class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                                Individu / Atlet
+                            <span
+                                v-else-if="isIndividual"
+                                class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200"
+                            >
+                                {{ event.format_label }} &bull; Individu
                             </span>
+                            <template v-else>
+                                <span class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-orange-50 text-orange-800 border border-orange-200">
+                                    Turnamen Tim
+                                </span>
+                                <span class="px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                                    {{ event.format_label }}
+                                </span>
+                            </template>
+
                             <StatusBadge :status="event.status" />
                         </div>
 
@@ -365,14 +384,20 @@ const eventJsonLd = computed(() => {
                                             <span class="text-[11px] text-slate-500 mt-1 block">Pendaftaran mandiri oleh atlet atau orang tua / wali</span>
                                         </div>
                                         <div class="p-3 rounded-lg bg-slate-50 border border-slate-200">
-                                            <span class="text-slate-500 block">Format &amp; Metode Seleksi</span>
+                                            <span class="text-slate-500 block">
+                                                {{ event.event_type === 'coaching_clinic' ? 'Format &amp; Metode Pelatihan' : 'Format &amp; Metode Seleksi' }}
+                                            </span>
                                             <strong class="text-slate-900 mt-0.5 block">
-                                                {{ event.format_label || 'Audisi & Scouting Panel' }}
+                                                {{ event.event_type === 'coaching_clinic' ? 'Workshop &amp; Masterclass Terarah' : (event.format_label || 'Audisi & Scouting Panel') }}
                                             </strong>
-                                            <span class="text-[11px] text-slate-500 mt-1 block">Detail pelaksanaan mengikuti tahapan yang diumumkan panitia.</span>
+                                            <span class="text-[11px] text-slate-500 mt-1 block">
+                                                {{ event.event_type === 'coaching_clinic' ? 'Pelatihan intensif bersama staf pelatih berlisensi dan pemain pro.' : 'Detail pelaksanaan mengikuti tahapan yang diumumkan panitia.' }}
+                                            </span>
                                         </div>
                                         <div class="p-3 rounded-lg bg-slate-50 border border-slate-200">
-                                            <span class="text-slate-500 block">Hadiah &amp; Beasiswa Program</span>
+                                            <span class="text-slate-500 block">
+                                                {{ event.event_type === 'coaching_clinic' ? 'Benefit &amp; Fasilitas Peserta' : 'Hadiah &amp; Beasiswa Program' }}
+                                            </span>
                                             <strong class="text-slate-900 mt-0.5 block">
                                                 {{ event.prize_info || 'Belum ditentukan oleh panitia' }}
                                             </strong>

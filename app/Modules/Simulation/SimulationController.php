@@ -356,6 +356,74 @@ class SimulationController extends Controller
     }
 
     /**
+     * Simulasi Inject / Buat Event Audisi Lengkap (2 Tahap, Kuota Posisi & Sesi).
+     */
+    public function createAuditionEvent(Request $request): RedirectResponse
+    {
+        $this->ensureSimulationEnabled();
+
+        $event = $this->simulationService->simulateCreateAuditionEvent($request->user());
+
+        return redirect()->route('events.show', ['event' => $event->slug])
+            ->with('success', "[SIMULASI] Event Audisi baru '{$event->name}' berhasil dibuat lengkap beserta 2 tahapan seleksi, sesi, dan alokasi batas kuota per posisi!");
+    }
+
+    /**
+     * Simulasi Inject / Buat Event Coaching Clinic Lengkap (Materi Pelatihan, Sesi Workshop & Sertifikat).
+     */
+    public function createCoachingClinicEvent(Request $request): RedirectResponse
+    {
+        $this->ensureSimulationEnabled();
+
+        $event = $this->simulationService->simulateCreateCoachingClinicEvent($request->user());
+
+        return redirect()->route('events.show', ['event' => $event->slug])
+            ->with('success', "[SIMULASI] Event Coaching Clinic baru '{$event->name}' berhasil dibuat lengkap beserta sesi masterclass pelatihan!");
+    }
+
+    /**
+     * Simulasi Tambah 1 Peserta Khusus Event Audisi Seleksi.
+     */
+    public function registerAuditionParticipant(Request $request): RedirectResponse
+    {
+        $this->ensureSimulationEnabled();
+
+        $event = null;
+        if ($eventId = $request->input('event_id')) {
+            $event = Event::find($eventId);
+        }
+        if (! $event || $event->event_type !== 'audition') {
+            $event = Event::where('participant_type', 'individual')->where('event_type', 'audition')->latest('id')->first();
+        }
+
+        $participant = $this->simulationService->simulateRegisterAuditionParticipant($event, $request->user());
+
+        return redirect()->back()
+            ->with('success', "[SIMULASI AUDISI] Atlet '{$participant->full_name}' (#{$participant->bib_number}) berhasil didaftarkan ke event '{$participant->event?->name}' dengan berkas lengkap & lolos verifikasi!");
+    }
+
+    /**
+     * Simulasi Tambah 1 Peserta Khusus Event Coaching Clinic.
+     */
+    public function registerCoachingClinicParticipant(Request $request): RedirectResponse
+    {
+        $this->ensureSimulationEnabled();
+
+        $event = null;
+        if ($eventId = $request->input('event_id')) {
+            $event = Event::find($eventId);
+        }
+        if (! $event || $event->event_type !== 'coaching_clinic') {
+            $event = Event::where('participant_type', 'individual')->where('event_type', 'coaching_clinic')->latest('id')->first();
+        }
+
+        $participant = $this->simulationService->simulateRegisterCoachingClinicParticipant($event, $request->user());
+
+        return redirect()->back()
+            ->with('success', "[SIMULASI CLINIC] Peserta '{$participant->full_name}' berhasil didaftarkan ke Coaching Clinic '{$participant->event?->name}' lengkap dengan sesi pelatihan & pembayaran lunas!");
+    }
+
+    /**
      * 11. Simulasi Pendaftaran 1 Peserta Perorangan (Audisi / Clinic).
      */
     public function registerIndividual(Request $request): RedirectResponse
