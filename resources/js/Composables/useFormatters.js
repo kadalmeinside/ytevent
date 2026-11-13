@@ -34,6 +34,13 @@ export function useFormatters() {
         }).format(date);
     };
 
+    const formatBirthDateRange = (minDate, maxDate, emptyLabel = 'Semua Usia (Tanpa Batas)') => {
+        if (!minDate && !maxDate) return emptyLabel;
+        if (minDate && !maxDate) return `Lahir mulai ${formatDate(minDate)}`;
+        if (!minDate && maxDate) return `Lahir maks. ${formatDate(maxDate)}`;
+        return `${formatDate(minDate)} s/d ${formatDate(maxDate)}`;
+    };
+
     const formatLabel = (formatCode) => {
         const map = {
             cup: 'Cup (Sistem Gugur)',
@@ -48,6 +55,7 @@ export function useFormatters() {
         formatRupiah,
         formatDate,
         formatDateTime,
+        formatBirthDateRange,
         formatLabel,
     };
 }

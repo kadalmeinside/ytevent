@@ -7,6 +7,7 @@ import FormErrorBanner from '@/Components/FormErrorBanner.vue';
 import FileInput from '@/Components/FileInput.vue';
 import RichTextEditor from '@/Components/RichTextEditor.vue';
 import { useFormValidator } from '@/Composables/useFormValidator';
+import { useFormatters } from '@/Composables/useFormatters';
 import { compressImage } from '@/Utils/imageCompressor';
 
 const props = defineProps({
@@ -118,6 +119,20 @@ const form = useForm({
     registration_close_at: props.event?.registration_close_at || '',
     match_start_date: props.event?.match_start_date || '',
     match_end_date: props.event?.match_end_date || '',
+    stages: Array.isArray(props.event?.stages)
+        ? props.event.stages.map((st) => ({
+            id: st.id || null,
+            stage_number: st.stage_number || 1,
+            stage_name: st.stage_name || '',
+            stage_date: st.stage_date || '',
+            start_time: st.start_time || '08:00',
+            end_time: st.end_time || '17:00',
+            venue_name: st.venue_name || '',
+            target_quota: st.target_quota ?? null,
+            is_active: Boolean(st.is_active),
+            instructions: st.instructions || '',
+        }))
+        : [],
     contact_person: props.event?.contact_person || '',
     contact_whatsapp: props.event?.contact_whatsapp || '',
     status: props.event?.status || 'draft',
@@ -125,10 +140,88 @@ const form = useForm({
     regulation_pdf: null,
 });
 
+const { formatBirthDateRange } = useFormatters();
+
 const isIndividual = computed(() => form.participant_type === 'individual');
 const isAudition = computed(() => isIndividual.value && form.event_type === 'audition');
 const isCoachingClinic = computed(() => isIndividual.value && form.event_type === 'coaching_clinic');
 const isFestival = computed(() => form.event_type === 'festival');
+
+const ageLimitSummary = computed(() => formatBirthDateRange(form.min_birth_date, form.max_birth_date));
+
+const clearBirthDateLimits = () => {
+    form.min_birth_date = '';
+    form.max_birth_date = '';
+    form.clearErrors('min_birth_date', 'max_birth_date');
+};
+
+const addStage = () => {
+    const nextNum = form.stages.length + 1;
+    let defaultDate = form.match_start_date || new Date().toISOString().slice(0, 10);
+    if (form.stages.length > 0 && form.stages[form.stages.length - 1].stage_date) {
+        const prev = new Date(`${form.stages[form.stages.length - 1].stage_date}T00:00:00`);
+        if (!Number.isNaN(prev.getTime())) {
+            prev.setDate(prev.getDate() + 1);
+            defaultDate = prev.toISOString().slice(0, 10);
+        }
+    }
+    form.stages.push({
+        id: null,
+        stage_number: nextNum,
+        stage_name: isCoachingClinic.value ? `Hari ke-${nextNum}: Sesi Pelatihan & Presensi` : `Hari ke-${nextNum}: Tahap Seleksi & Presensi`,
+        stage_date: defaultDate,
+        start_time: '08:00',
+        end_time: '17:00',
+        venue_name: form.venue_name || '',
+        target_quota: form.quota_type === 'fixed' ? (form.max_participants || null) : null,
+        is_active: form.stages.length === 0,
+        instructions: '',
+    });
+};
+
+const removeStage = (idx) => {
+    form.stages.splice(idx, 1);
+    form.stages.forEach((st, i) => {
+        st.stage_number = i + 1;
+    });
+};
+
+const generateStagesFromDates = () => {
+    if (!form.match_start_date) {
+        addStage();
+        return;
+    }
+    const start = new Date(`${form.match_start_date}T00:00:00`);
+    const end = form.match_end_date ? new Date(`${form.match_end_date}T00:00:00`) : new Date(start);
+    if (Number.isNaN(start.getTime())) {
+        addStage();
+        return;
+    }
+    const safeEnd = Number.isNaN(end.getTime()) || end < start ? new Date(start) : end;
+    const diffDays = Math.min(14, Math.floor((safeEnd - start) / 86400000) + 1);
+    const generated = [];
+
+    for (let i = 0; i < diffDays; i++) {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        const dayNum = i + 1;
+        generated.push({
+            id: form.stages[i]?.id || null,
+            stage_number: dayNum,
+            stage_name: isCoachingClinic.value
+                ? (diffDays === 1 ? 'Pelaksanaan & Presensi Peserta' : `Hari ke-${dayNum}: Sesi Pelatihan & Presensi`)
+                : (diffDays === 1 ? 'Pelaksanaan Seleksi & Presensi Gerbang' : `Hari ke-${dayNum}: Seleksi & Presensi Lapangan`),
+            stage_date: d.toISOString().slice(0, 10),
+            start_time: '08:00',
+            end_time: '17:00',
+            venue_name: form.venue_name || '',
+            target_quota: form.quota_type === 'fixed' ? (form.max_participants || null) : null,
+            is_active: dayNum === 1,
+            instructions: form.stages[i]?.instructions || '',
+        });
+    }
+    form.stages = generated;
+};
 
 const totalPositionCaps = computed(() => {
     if (!form.position_quota_caps || typeof form.position_quota_caps !== 'object') return 0;
@@ -257,6 +350,9 @@ const submit = () => {
         }
         if (isEmpty(form.city)) errs.city = 'Kota penyelenggaraan wajib diisi.';
         if (isEmpty(form.age_category)) errs.age_category = 'Label kategori usia wajib diisi.';
+        if (form.min_birth_date && form.max_birth_date && form.max_birth_date < form.min_birth_date) {
+            errs.max_birth_date = 'Batas tanggal lahir akhir tidak boleh lebih awal dari batas tanggal lahir awal.';
+        }
         
         if (form.quota_type === 'fixed') {
             if (!isIndividual.value) {
@@ -849,13 +945,51 @@ const submit = () => {
                             </div>
 
                             <div>
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">Batas Minimal Tanggal Lahir</label>
-                                <input v-model="form.min_birth_date" type="date" class="input-field tabular-data" />
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">
+                                    Tanggal Lahir Paling Awal <span class="font-normal text-slate-500">(Batas Usia Tertua &bull; Opsional)</span>
+                                </label>
+                                <input
+                                    v-model="form.min_birth_date"
+                                    type="date"
+                                    class="input-field tabular-data"
+                                    :class="{ 'input-field-error': form.errors.min_birth_date }"
+                                    @input="form.clearErrors('min_birth_date', 'max_birth_date')"
+                                />
+                                <p class="text-[11px] text-slate-500 mt-1">Kosongkan jika tidak ada batas usia maksimal (tertua).</p>
+                                <InputError :message="form.errors.min_birth_date" />
                             </div>
 
-                            <div>
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">Batas Maksimal Tanggal Lahir</label>
-                                <input v-model="form.max_birth_date" type="date" class="input-field tabular-data" />
+                            <div data-field="max_birth_date">
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">
+                                    Tanggal Lahir Paling Akhir <span class="font-normal text-slate-500">(Batas Usia Termuda / Min. Umur &bull; Opsional)</span>
+                                </label>
+                                <input
+                                    v-model="form.max_birth_date"
+                                    type="date"
+                                    class="input-field tabular-data"
+                                    :class="{ 'input-field-error': form.errors.max_birth_date }"
+                                    @input="form.clearErrors('max_birth_date')"
+                                />
+                                <p class="text-[11px] text-slate-500 mt-1">Kosongkan jika tidak ada batas usia minimal (termuda).</p>
+                                <InputError :message="form.errors.max_birth_date" />
+                            </div>
+
+                            <div class="sm:col-span-3 flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                                <div>
+                                    <span class="font-semibold text-slate-600">Aturan Usia Aktif: </span>
+                                    <strong class="text-slate-900">{{ ageLimitSummary }}</strong>
+                                    <span class="text-slate-500 ml-1">
+                                        &bull; Kosongkan kedua tanggal untuk membuka pendaftaran bagi semua usia, atau isi salah satu saja bila hanya membatasi usia minimal/maksimal.
+                                    </span>
+                                </div>
+                                <button
+                                    v-if="form.min_birth_date || form.max_birth_date"
+                                    type="button"
+                                    class="btn-sm-secondary shrink-0"
+                                    @click="clearBirthDateLimits"
+                                >
+                                    Kosongkan (Semua Usia)
+                                </button>
                             </div>
 
                             <!-- PENGATURAN SKUAD TIM (HANYA DITAMPILKAN PADA EVENT BEREGU) -->
@@ -1185,6 +1319,100 @@ const submit = () => {
                                         : (isAudition ? 'Tanggal Audisi Selesai (Final Day)' : (isIndividual ? 'Tanggal Kegiatan Selesai' : 'Pertandingan Selesai')) }}
                                 </label>
                                 <input v-model="form.match_end_date" type="date" class="input-field tabular-data" />
+                            </div>
+
+                            <!-- Tahapan Seleksi / Hari Pelaksanaan & Absensi (Individual Only) -->
+                            <div v-if="isIndividual" class="sm:col-span-2 p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                    <div>
+                                        <h3 class="text-xs font-bold text-slate-900">Tahapan Pelaksanaan &amp; Jadwal Presensi Gerbang</h3>
+                                        <p class="text-[11px] text-slate-600 mt-0.5">
+                                            Digunakan oleh Scanner Presensi &amp; Panel Scout. Jika dibiarkan kosong saat membuat event baru, sistem otomatis membuatkan jadwal harian sesuai tanggal mulai s/d selesai.
+                                        </p>
+                                    </div>
+                                    <div class="flex flex-wrap items-center gap-2 shrink-0">
+                                        <button
+                                            type="button"
+                                            class="btn-sm-secondary"
+                                            @click="generateStagesFromDates"
+                                        >
+                                            Generate dari Tanggal Kegiatan
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="btn-sm-pitch"
+                                            @click="addStage"
+                                        >
+                                            + Tambah Tahap
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div v-if="form.stages.length === 0" class="p-3 rounded-lg bg-white border border-dashed border-slate-300 text-xs text-slate-500">
+                                    Belum ada tahapan kustom. Klik <strong>Generate dari Tanggal Kegiatan</strong> untuk menyusun tahapan otomatis dari Tanggal Hari ke-1 s/d Selesai, atau isi otomatis saat disimpan.
+                                </div>
+
+                                <div v-else class="space-y-3">
+                                    <div
+                                        v-for="(stage, idx) in form.stages"
+                                        :key="stage.id || `stage-${idx}`"
+                                        class="p-3.5 rounded-xl bg-white border border-slate-200 space-y-3"
+                                    >
+                                        <div class="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                                            <div class="flex items-center gap-2">
+                                                <span class="px-2 py-0.5 rounded bg-slate-900 text-white text-[11px] font-bold">
+                                                    Tahap {{ idx + 1 }}
+                                                </span>
+                                                <label class="inline-flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
+                                                    <input
+                                                        v-model="stage.is_active"
+                                                        type="checkbox"
+                                                        class="rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                                                    />
+                                                    <span>Aktif untuk Scanner / Scout</span>
+                                                </label>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                class="text-xs font-semibold text-rose-700 hover:underline"
+                                                @click="removeStage(idx)"
+                                            >
+                                                Hapus
+                                            </button>
+                                        </div>
+
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 text-xs">
+                                            <div class="sm:col-span-2 lg:col-span-2">
+                                                <label class="block font-semibold text-slate-700 mb-1">Nama Tahap *</label>
+                                                <input v-model="stage.stage_name" type="text" placeholder="Contoh: Screening Fisik & Teknik" class="input-field text-xs" />
+                                            </div>
+                                            <div>
+                                                <label class="block font-semibold text-slate-700 mb-1">Tanggal *</label>
+                                                <input v-model="stage.stage_date" type="date" class="input-field text-xs tabular-data" />
+                                            </div>
+                                            <div>
+                                                <label class="block font-semibold text-slate-700 mb-1">Jam Mulai</label>
+                                                <input v-model="stage.start_time" type="time" class="input-field text-xs tabular-data" />
+                                            </div>
+                                            <div>
+                                                <label class="block font-semibold text-slate-700 mb-1">Jam Selesai</label>
+                                                <input v-model="stage.end_time" type="time" class="input-field text-xs tabular-data" />
+                                            </div>
+                                            <div>
+                                                <label class="block font-semibold text-slate-700 mb-1">Target Kuota</label>
+                                                <input v-model.number="stage.target_quota" type="number" min="1" placeholder="Bebas" class="input-field text-xs tabular-data" />
+                                            </div>
+                                            <div class="sm:col-span-2 lg:col-span-2">
+                                                <label class="block font-semibold text-slate-700 mb-1">Lokasi / Lapangan</label>
+                                                <input v-model="stage.venue_name" type="text" placeholder="Mengikuti venue utama" class="input-field text-xs" />
+                                            </div>
+                                            <div class="sm:col-span-2 lg:col-span-4">
+                                                <label class="block font-semibold text-slate-700 mb-1">Instruksi / Materi Tahap (Opsional)</label>
+                                                <input v-model="stage.instructions" type="text" placeholder="Perlengkapan atau arahan singkat untuk peserta" class="input-field text-xs" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <div>

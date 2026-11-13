@@ -524,7 +524,10 @@ const playerStatusBadgeLabel = (status) => {
                         <div>
                             <span class="font-bold block">Regulasi Usia Resmi:</span>
                             <span class="text-orange-900 tabular-nums">
-                                Lahir: {{ event.min_birth_date || 'Bebas' }} s/d {{ event.max_birth_date || 'Bebas' }}
+                                <template v-if="!event.min_birth_date && !event.max_birth_date">Semua Usia (Tanpa Batas)</template>
+                                <template v-else-if="event.min_birth_date && !event.max_birth_date">Lahir mulai {{ event.min_birth_date }}</template>
+                                <template v-else-if="!event.min_birth_date && event.max_birth_date">Lahir maks. {{ event.max_birth_date }}</template>
+                                <template v-else>Lahir: {{ event.min_birth_date }} s/d {{ event.max_birth_date }}</template>
                             </span>
                         </div>
                     </div>

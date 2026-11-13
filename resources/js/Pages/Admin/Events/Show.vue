@@ -164,6 +164,22 @@ const screeningBadgeClass = (status) => {
             return 'bg-slate-100 text-slate-700 border-slate-300';
     }
 };
+
+const formatStageTitle = (stage) => {
+    const raw = String(stage?.stage_name || '').trim();
+    if (!raw) return `Tahap ${stage?.stage_number || 1}`;
+    const cleaned = raw.replace(/^tahap\s*\d+\s*[:.-]\s*/i, '').trim();
+    return cleaned || raw;
+};
+
+const birthDateSummary = computed(() => {
+    const min = props.event.min_birth_date;
+    const max = props.event.max_birth_date;
+    if (!min && !max) return 'Semua Usia (Tanpa Batas)';
+    if (min && !max) return `Lahir mulai ${min}`;
+    if (!min && max) return `Lahir maks. ${max}`;
+    return `${min} s/d ${max}`;
+});
 </script>
 
 <template>
@@ -227,8 +243,8 @@ const screeningBadgeClass = (status) => {
                                 <span>
                                     Pelaksanaan: <strong class="text-slate-900 tabular-data">{{ formatDate(event.match_start_date) }}</strong>
                                 </span>
-                                <span v-if="event.min_birth_date || event.max_birth_date">
-                                    Batas Lahir: <strong class="tabular-data text-slate-900">{{ event.min_birth_date || 'Bebas' }} s/d {{ event.max_birth_date || 'Bebas' }}</strong>
+                                <span>
+                                    Batas Lahir: <strong class="tabular-data text-slate-900">{{ birthDateSummary }}</strong>
                                 </span>
                             </div>
                         </div>
@@ -350,70 +366,82 @@ const screeningBadgeClass = (status) => {
             <!-- TAB 1: OVERVIEW -->
             <div v-if="activeTab === 'overview'" class="space-y-6">
                 <!-- Asymmetric Operational Priority Summary -->
-                <div v-if="isIndividual" class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <div v-if="isIndividual" class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
                     <!-- Focal Card: Antrean Screening -->
-                    <div class="frosted-card p-5 lg:col-span-5 border-orange-300 bg-orange-50/40 flex flex-col justify-between gap-3">
+                    <div class="frosted-card p-5 lg:col-span-4 h-full border-orange-300 bg-orange-50/40 flex flex-col justify-between gap-4">
                         <div class="flex items-start justify-between gap-3">
                             <div>
                                 <span class="text-xs font-bold text-orange-900 block">Antrean Screening Aktif</span>
                                 <p class="text-3xl font-black text-slate-900 mt-1 tabular-data">{{ summary.submitted || 0 }}</p>
-                                <span class="text-xs text-slate-700 mt-0.5 block">Peserta menunggu pemeriksaan berkas</span>
+                                <span class="text-xs text-slate-700 mt-1 block">Peserta menunggu pemeriksaan berkas</span>
                             </div>
                             <Link
-                                v-if="participants.length > 0"
+                                v-if="summary.total > 0 || participants.length > 0"
                                 :href="route('admin.screening.auditions.review', { event: event.id })"
-                                class="btn-sm-pitch shrink-0"
+                                class="btn-sm-pitch shrink-0 whitespace-nowrap"
                             >
                                 Mulai Periksa
                             </Link>
                         </div>
                     </div>
 
-                    <!-- Secondary Breakdown Strip -->
-                    <div class="frosted-card p-5 lg:col-span-7 grid grid-cols-2 sm:grid-cols-4 gap-4 items-center">
-                        <div>
+                    <!-- Secondary Breakdown Metric Tiles -->
+                    <div class="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-3 h-full">
+                        <div class="frosted-card p-4 bg-white flex flex-col justify-between">
                             <span class="text-xs font-semibold text-slate-600 block">Total Pendaftar</span>
-                            <p class="text-xl font-black text-slate-900 mt-1 tabular-data">{{ summary.total || 0 }}</p>
+                            <div class="mt-2">
+                                <p class="text-2xl font-black text-slate-900 tabular-data">{{ summary.total || 0 }}</p>
+                                <span class="text-[11px] text-slate-500 block mt-0.5">Peserta terdaftar</span>
+                            </div>
                         </div>
-                        <div>
+                        <div class="frosted-card p-4 bg-white flex flex-col justify-between">
                             <span class="text-xs font-semibold text-slate-600 block">Lunas</span>
-                            <p class="text-xl font-black text-emerald-700 mt-1 tabular-data">{{ summary.paid || 0 }}</p>
+                            <div class="mt-2">
+                                <p class="text-2xl font-black text-emerald-700 tabular-data">{{ summary.paid || 0 }}</p>
+                                <span class="text-[11px] text-slate-500 block mt-0.5">Pembayaran terkonfirmasi</span>
+                            </div>
                         </div>
-                        <div>
+                        <div class="frosted-card p-4 bg-white flex flex-col justify-between">
                             <span class="text-xs font-semibold text-slate-600 block">Digital Pass Aktif</span>
-                            <p class="text-xl font-black text-slate-900 mt-1 tabular-data">{{ summary.digital_pass_active || 0 }}</p>
+                            <div class="mt-2">
+                                <p class="text-2xl font-black text-slate-900 tabular-data">{{ summary.digital_pass_active || 0 }}</p>
+                                <span class="text-[11px] text-slate-500 block mt-0.5">Siap scan di gerbang</span>
+                            </div>
                         </div>
-                        <div>
+                        <div class="frosted-card p-4 bg-white flex flex-col justify-between">
                             <span class="text-xs font-semibold text-slate-600 block">Perlu Revisi</span>
-                            <p class="text-xl font-black text-rose-700 mt-1 tabular-data">{{ summary.rejected || 0 }}</p>
+                            <div class="mt-2">
+                                <p class="text-2xl font-black text-rose-700 tabular-data">{{ summary.rejected || 0 }}</p>
+                                <span class="text-[11px] text-slate-500 block mt-0.5">Menunggu unggah ulang</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                    <div class="frosted-card p-5 lg:col-span-5 border-orange-300 bg-orange-50/40 flex flex-col justify-between gap-3">
+                <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+                    <div class="frosted-card p-5 lg:col-span-4 h-full border-orange-300 bg-orange-50/40 flex flex-col justify-between gap-3">
                         <div>
                             <span class="text-xs font-bold text-orange-900 block">Skuad Final Terkunci</span>
                             <p class="text-3xl font-black text-slate-900 mt-1 tabular-data">
                                 {{ summary.locked_roster || 0 }}
                                 <span class="text-sm font-semibold text-slate-600">/ {{ summary.total || 0 }} Tim</span>
                             </p>
-                            <span class="text-xs text-slate-700 mt-0.5 block">Tim siap bertanding &amp; cetak ID Card</span>
+                            <span class="text-xs text-slate-700 mt-1 block">Tim siap bertanding &amp; cetak ID Card</span>
                         </div>
                     </div>
 
-                    <div class="frosted-card p-5 lg:col-span-7 grid grid-cols-3 gap-4 items-center">
-                        <div>
+                    <div class="lg:col-span-8 grid grid-cols-1 sm:grid-cols-3 gap-3 h-full">
+                        <div class="frosted-card p-4 bg-white flex flex-col justify-between">
                             <span class="text-xs font-semibold text-slate-600 block">Tim Mendaftar</span>
-                            <p class="text-xl font-black text-slate-900 mt-1 tabular-data">{{ summary.total || 0 }}</p>
+                            <p class="text-2xl font-black text-slate-900 mt-2 tabular-data">{{ summary.total || 0 }}</p>
                         </div>
-                        <div>
+                        <div class="frosted-card p-4 bg-white flex flex-col justify-between">
                             <span class="text-xs font-semibold text-slate-600 block">Lunas &amp; Aktif</span>
-                            <p class="text-xl font-black text-emerald-700 mt-1 tabular-data">{{ summary.paid || 0 }}</p>
+                            <p class="text-2xl font-black text-emerald-700 mt-2 tabular-data">{{ summary.paid || 0 }}</p>
                         </div>
-                        <div>
+                        <div class="frosted-card p-4 bg-white flex flex-col justify-between">
                             <span class="text-xs font-semibold text-slate-600 block">Laga Selesai</span>
-                            <p class="text-xl font-black text-slate-900 mt-1 tabular-data">{{ summary.completed_matches_count || 0 }} / {{ summary.matches_count || 0 }}</p>
+                            <p class="text-2xl font-black text-slate-900 mt-2 tabular-data">{{ summary.completed_matches_count || 0 }} / {{ summary.matches_count || 0 }}</p>
                         </div>
                     </div>
                 </div>
@@ -442,41 +470,123 @@ const screeningBadgeClass = (status) => {
                 </div>
 
                 <!-- Sessions & Stages for Individual Events -->
-                <div v-if="isIndividual && (sessions.length > 0 || stages.length > 0)" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div v-if="sessions.length > 0" class="frosted-card p-5 bg-white space-y-3">
+                <div
+                    v-if="isIndividual && (sessions.length > 0 || stages.length > 0)"
+                    class="grid grid-cols-1 gap-4"
+                    :class="sessions.length > 0 && stages.length > 0 ? 'lg:grid-cols-12' : ''"
+                >
+                    <div
+                        v-if="sessions.length > 0"
+                        class="frosted-card p-5 bg-white space-y-3"
+                        :class="stages.length > 0 ? 'lg:col-span-4' : ''"
+                    >
                         <h2 class="text-sm font-bold text-slate-900">Jadwal Sesi / Gelombang</h2>
                         <div class="space-y-2">
                             <div
                                 v-for="s in sessions"
                                 :key="s.id"
-                                class="p-3 rounded-xl border border-slate-200 flex items-center justify-between text-xs"
+                                class="p-3 rounded-xl border border-slate-200 flex items-center justify-between gap-3 text-xs"
                             >
-                                <div>
-                                    <p class="font-bold text-slate-900">{{ s.session_name }}</p>
+                                <div class="min-w-0">
+                                    <p class="font-bold text-slate-900 truncate">{{ s.session_name }}</p>
                                     <p class="text-[11px] text-slate-600">{{ s.session_date || '-' }} &middot; {{ s.start_time || '-' }} - {{ s.end_time || '-' }}</p>
                                 </div>
-                                <span class="tabular-data font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 border border-slate-200">
+                                <span class="tabular-data font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 border border-slate-200 whitespace-nowrap shrink-0">
                                     {{ s.occupied_slots }} / {{ s.max_quota }}
                                 </span>
                             </div>
                         </div>
                     </div>
 
-                    <div v-if="stages.length > 0" class="frosted-card p-5 bg-white space-y-3">
-                        <h2 class="text-sm font-bold text-slate-900">Tahapan Seleksi &amp; Presensi</h2>
-                        <div class="space-y-2">
+                    <div
+                        v-if="stages.length > 0"
+                        class="frosted-card p-5 bg-white space-y-4"
+                        :class="sessions.length > 0 ? 'lg:col-span-8' : ''"
+                    >
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <h2 class="text-sm font-bold text-slate-900">Tahapan Seleksi &amp; Presensi ({{ stages.length }})</h2>
+                                <p class="text-xs text-slate-500 mt-0.5">Jadwal kehadiran gerbang dan evaluasi lapangan per tahap.</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <Link
+                                    :href="route('admin.auditions.scanner', { event_id: event.id })"
+                                    class="btn-sm-secondary whitespace-nowrap"
+                                >
+                                    Scanner Presensi
+                                </Link>
+                                <Link
+                                    :href="route('admin.events.edit', { event: event.id })"
+                                    class="btn-sm-secondary whitespace-nowrap"
+                                >
+                                    Atur Tahapan
+                                </Link>
+                            </div>
+                        </div>
+
+                        <div
+                            class="grid grid-cols-1 gap-3"
+                            :class="sessions.length > 0 ? 'md:grid-cols-2' : 'md:grid-cols-2 xl:grid-cols-3'"
+                        >
                             <div
                                 v-for="st in stages"
                                 :key="st.id"
-                                class="p-3 rounded-xl border border-slate-200 flex items-center justify-between text-xs"
+                                class="p-4 rounded-xl border bg-slate-50/50 flex flex-col justify-between gap-3 text-xs transition-colors"
+                                :class="st.is_active ? 'border-orange-300 bg-orange-50/20' : 'border-slate-200'"
                             >
-                                <div>
-                                    <p class="font-bold text-slate-900">Tahap {{ st.stage_number }}: {{ st.stage_name }}</p>
-                                    <p class="text-[11px] text-slate-500">Tanggal: {{ st.stage_date || 'Tentatif' }}</p>
+                                <div class="space-y-2">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="flex items-center gap-1.5 flex-wrap">
+                                            <span class="px-2 py-0.5 rounded-md font-bold text-[11px] bg-slate-900 text-white whitespace-nowrap">
+                                                Tahap {{ st.stage_number }}
+                                            </span>
+                                            <span
+                                                v-if="st.is_completed"
+                                                class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 whitespace-nowrap"
+                                            >
+                                                Selesai
+                                            </span>
+                                            <span
+                                                v-else-if="st.is_active"
+                                                class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-orange-100 text-orange-900 border border-orange-200 whitespace-nowrap"
+                                            >
+                                                Aktif
+                                            </span>
+                                            <span
+                                                v-else
+                                                class="px-2 py-0.5 rounded-md text-[11px] font-medium bg-white text-slate-600 border border-slate-200 whitespace-nowrap"
+                                            >
+                                                Terjadwal
+                                            </span>
+                                        </div>
+                                        <span class="font-mono font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 whitespace-nowrap shrink-0">
+                                            Hadir: {{ st.present_count }}
+                                        </span>
+                                    </div>
+
+                                    <p class="font-bold text-slate-900 text-xs leading-snug">
+                                        {{ formatStageTitle(st) }}
+                                    </p>
+
+                                    <div class="space-y-1 text-[11px] text-slate-600">
+                                        <p class="tabular-data">
+                                            <span class="font-semibold text-slate-700">Tanggal:</span> {{ st.stage_date || 'Tentatif' }}
+                                            <template v-if="st.start_time">
+                                                &middot; {{ st.start_time }}<template v-if="st.end_time"> - {{ st.end_time }}</template> WIB
+                                            </template>
+                                        </p>
+                                        <p v-if="st.venue_name" class="truncate">
+                                            <span class="font-semibold text-slate-700">Lokasi:</span> {{ st.venue_name }}
+                                        </p>
+                                        <p v-if="st.target_quota" class="tabular-data">
+                                            <span class="font-semibold text-slate-700">Target Kuota:</span> {{ st.target_quota }} atlet
+                                        </p>
+                                    </div>
                                 </div>
-                                <span class="font-mono font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                    Hadir: {{ st.present_count }}
-                                </span>
+
+                                <p v-if="st.instructions" class="text-[11px] text-slate-600 pt-2 border-t border-slate-200/70 line-clamp-2">
+                                    {{ st.instructions }}
+                                </p>
                             </div>
                         </div>
                     </div>

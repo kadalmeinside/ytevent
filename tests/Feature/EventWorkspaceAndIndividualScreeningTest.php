@@ -358,4 +358,81 @@ class EventWorkspaceAndIndividualScreeningTest extends TestCase
                 ->where('participants.0.full_name', 'Garuda Spesial')
             );
     }
+
+    public function test_individual_event_supports_open_or_single_sided_age_limits_and_stage_sync(): void
+    {
+        $admin = $this->makeSuperadmin();
+
+        // 1. Open age limit (both null) + auto-generated stages from match_start_date..match_end_date (3 days)
+        $this->actingAs($admin)
+            ->post(route('admin.events.store'), [
+                'name' => 'Coaching Clinic Terbuka',
+                'venue_name' => 'Lapangan Senayan',
+                'city' => 'Jakarta',
+                'event_type' => 'coaching_clinic',
+                'participant_type' => 'individual',
+                'quota_type' => 'unlimited',
+                'format' => 'coaching_clinic',
+                'age_category' => 'Semua Usia',
+                'min_birth_date' => null,
+                'max_birth_date' => null,
+                'required_documents' => ['birth_certificate'],
+                'registration_fee' => 0,
+                'lock_roster_until_paid' => true,
+                'payment_deadline_hours' => 24,
+                'reupload_grace_hours' => 6,
+                'match_start_date' => '2026-12-01',
+                'match_end_date' => '2026-12-03',
+                'status' => 'open',
+            ])
+            ->assertRedirect(route('admin.events.index'));
+
+        $clinic = Event::where('name', 'Coaching Clinic Terbuka')->firstOrFail();
+        $this->assertTrue($clinic->isBirthDateEligible('1995-05-10'));
+        $this->assertTrue($clinic->isBirthDateEligible('2016-01-01'));
+        $this->assertSame(3, $clinic->auditionStages()->count());
+        $this->assertSame('2026-12-01', $clinic->auditionStages()->orderBy('stage_number')->first()->stage_date->toDateString());
+
+        // 2. Single-sided minimum age (only max_birth_date set, min_birth_date null) + custom stages on create
+        $this->actingAs($admin)
+            ->post(route('admin.events.store'), [
+                'name' => 'Audisi Minimal Usia',
+                'venue_name' => 'Stadion Madya',
+                'city' => 'Jakarta',
+                'event_type' => 'audition',
+                'participant_type' => 'individual',
+                'quota_type' => 'fixed',
+                'max_participants' => 80,
+                'format' => 'audition',
+                'age_category' => 'Min. 12 Tahun',
+                'min_birth_date' => null,
+                'max_birth_date' => '2014-12-31',
+                'required_documents' => ['birth_certificate'],
+                'registration_fee' => 150000,
+                'lock_roster_until_paid' => true,
+                'payment_deadline_hours' => 24,
+                'reupload_grace_hours' => 6,
+                'match_start_date' => '2026-12-10',
+                'match_end_date' => '2026-12-11',
+                'stages' => [
+                    [
+                        'stage_name' => 'Screening Fisik & Teknik',
+                        'stage_date' => '2026-12-10',
+                        'start_time' => '08:00',
+                        'end_time' => '12:00',
+                        'venue_name' => 'Lapangan A',
+                        'target_quota' => 80,
+                        'is_active' => true,
+                    ],
+                ],
+                'status' => 'open',
+            ])
+            ->assertRedirect(route('admin.events.index'));
+
+        $audition = Event::where('name', 'Audisi Minimal Usia')->firstOrFail();
+        $this->assertTrue($audition->isBirthDateEligible('2005-03-01'));
+        $this->assertFalse($audition->isBirthDateEligible('2015-01-01'));
+        $this->assertSame(1, $audition->auditionStages()->count());
+        $this->assertSame('Screening Fisik & Teknik', $audition->auditionStages()->first()->stage_name);
+    }
 }

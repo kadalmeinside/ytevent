@@ -31,7 +31,7 @@ const props = defineProps({
     },
 });
 
-const { formatDate } = useFormatters();
+const { formatDate, formatBirthDateRange } = useFormatters();
 const { applyValidation, isEmpty, isValidNik, checkFile } = useFormValidator();
 
 const isModalOpen = ref(false);
@@ -392,7 +392,7 @@ const isFinalRosterLocked = computed(() => {
                         <div>
                             <h2 class="text-base font-bold text-slate-900">Daftar Skuad Pemain Resmi</h2>
                             <p class="text-xs text-slate-600 mt-0.5">
-                                Batas kelahiran kompetisi: <strong class="tabular-data">{{ formatDate(team.event?.min_birth_date) }} &ndash; {{ formatDate(team.event?.max_birth_date) }}</strong>
+                                Batas kelahiran kompetisi: <strong class="tabular-data">{{ formatBirthDateRange(team.event?.min_birth_date, team.event?.max_birth_date) }}</strong>
                             </p>
                         </div>
 

@@ -35,7 +35,7 @@ const props = defineProps({
     },
 });
 
-const { formatRupiah, formatDate, formatDateTime } = useFormatters();
+const { formatRupiah, formatDate, formatDateTime, formatBirthDateRange } = useFormatters();
 const activeTab = ref('summary');
 
 const isIndividual = computed(() => props.event.participant_type === 'individual');
@@ -263,7 +263,7 @@ const eventJsonLd = computed(() => {
                             <div>
                                 <span class="block text-slate-600">{{ isIndividual ? 'Batas Kelahiran Peserta' : 'Batas Kelahiran Pemain' }}</span>
                                 <span class="font-semibold text-slate-900 tabular-data mt-0.5 block">
-                                    {{ formatDate(event.min_birth_date) }} &ndash; {{ formatDate(event.max_birth_date) }}
+                                    {{ formatBirthDateRange(event.min_birth_date, event.max_birth_date) }}
                                 </span>
                             </div>
                         </div>
@@ -380,7 +380,7 @@ const eventJsonLd = computed(() => {
                                         <div class="p-3 rounded-lg bg-slate-50 border border-slate-200">
                                             <span class="text-slate-500 block">Rentang Tanggal Lahir Sah</span>
                                             <strong class="text-slate-900 tabular-data mt-0.5 block">
-                                                {{ formatDate(event.min_birth_date) }} s/d {{ formatDate(event.max_birth_date) }}
+                                                {{ formatBirthDateRange(event.min_birth_date, event.max_birth_date) }}
                                             </strong>
                                             <span class="text-[11px] text-slate-500 mt-1 block">Kategori Usia {{ event.age_category }} (Wajib membawa identitas sah)</span>
                                         </div>
@@ -417,7 +417,7 @@ const eventJsonLd = computed(() => {
                                         <div class="p-3 rounded-lg bg-slate-50 border border-slate-200">
                                             <span class="text-slate-500 block">Rentang Tanggal Lahir Sah</span>
                                             <strong class="text-slate-900 tabular-data mt-0.5 block">
-                                                {{ formatDate(event.min_birth_date) }} s/d {{ formatDate(event.max_birth_date) }}
+                                                {{ formatBirthDateRange(event.min_birth_date, event.max_birth_date) }}
                                             </strong>
                                         </div>
                                         <div class="p-3 rounded-lg bg-slate-50 border border-slate-200">

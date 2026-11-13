@@ -6,11 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreEventRequest;
 use App\Http\Requests\Admin\UpdateEventRequest;
 use App\Models\AuditionParticipant;
+use App\Models\AuditionStage;
 use App\Models\Event;
 use App\Models\Team;
 use App\Services\ImageOptimizationService;
 use App\Services\QuotaExpirationService;
 use App\Support\HtmlSanitizer;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -189,9 +191,14 @@ class EventController extends Controller
                     'stage_number' => $st->stage_number,
                     'stage_name' => $st->stage_name,
                     'stage_date' => $st->stage_date?->format('d M Y'),
+                    'start_time' => $st->start_time ? substr((string) $st->start_time, 0, 5) : null,
+                    'end_time' => $st->end_time ? substr((string) $st->end_time, 0, 5) : null,
+                    'venue_name' => $st->venue_name,
                     'target_quota' => $st->target_quota,
                     'present_count' => (int) ($st->present_count ?? 0),
                     'is_active' => (bool) $st->is_active,
+                    'is_completed' => (bool) $st->is_completed,
+                    'instructions' => $st->instructions,
                 ])
                 ->values();
 
@@ -442,8 +449,16 @@ class EventController extends Controller
             'status' => $validated['status'],
         ]);
 
+        if (($event->participant_type ?? 'team') === 'individual') {
+            $this->syncIndividualStages($event, $validated['stages'] ?? [], true, $request->has('stages'));
+        }
+
+        $unitMsg = ($event->participant_type ?? 'team') === 'individual'
+            ? (($event->quota_type ?? 'fixed') === 'unlimited' ? 'kuota tanpa batas' : "kuota {$event->max_participants} peserta")
+            : (($event->quota_type ?? 'fixed') === 'unlimited' ? 'kuota tim tanpa batas' : "kuota maksimal {$event->max_teams} tim");
+
         return redirect()->route('admin.events.index')
-            ->with('success', "Event {$event->name} dengan kuota maksimal {$event->max_teams} tim berhasil dibuat.");
+            ->with('success', "Event {$event->name} ({$unitMsg}) berhasil dibuat.");
     }
 
     public function edit(Event $event): Response
@@ -452,6 +467,25 @@ class EventController extends Controller
         $event->loadCount([
             'teams as occupied_slots_count' => fn ($q) => $q->occupyingQuotaAt(now()),
         ]);
+        $stages = ($event->participant_type ?? 'team') === 'individual'
+            ? $event->auditionStages()
+                ->orderBy('stage_number')
+                ->get()
+                ->map(fn (AuditionStage $st) => [
+                    'id' => $st->id,
+                    'stage_number' => $st->stage_number,
+                    'stage_name' => $st->stage_name,
+                    'stage_date' => $st->stage_date?->toDateString(),
+                    'start_time' => $st->start_time ? substr((string) $st->start_time, 0, 5) : '08:00',
+                    'end_time' => $st->end_time ? substr((string) $st->end_time, 0, 5) : '17:00',
+                    'venue_name' => $st->venue_name ?: $event->venue_name,
+                    'target_quota' => $st->target_quota,
+                    'is_active' => (bool) $st->is_active,
+                    'instructions' => $st->instructions ?: '',
+                ])
+                ->values()
+                ->all()
+            : [];
 
         return Inertia::render('Admin/Events/Form', [
             'event' => [
@@ -499,6 +533,7 @@ class EventController extends Controller
                 'status' => $event->status,
                 'banner_url' => $event->banner_path ? Storage::disk('public')->url($event->banner_path) : null,
                 'regulation_pdf_url' => $event->regulation_pdf_path ? Storage::disk('public')->url($event->regulation_pdf_path) : null,
+                'stages' => $stages,
             ],
             'formats' => Event::FORMATS,
             'matchFormats' => Event::MATCH_FORMATS,
@@ -609,10 +644,85 @@ class EventController extends Controller
 
             $lockedEvent->update($updates);
             $lockedEvent->syncQuotaStatus($occupied);
+
+            if ($participantType === 'individual' && $request->has('stages')) {
+                $this->syncIndividualStages($lockedEvent, $validated['stages'] ?? [], false, true);
+            }
         });
 
         return redirect()->route('admin.events.index')
-            ->with('success', 'Pengaturan kompetisi dan kuota maksimal tim berhasil diperbarui.');
+            ->with('success', 'Pengaturan event dan kuota peserta berhasil diperbarui.');
+    }
+
+    protected function syncIndividualStages(Event $event, array $stagesInput, bool $isCreate, bool $stagesFieldSubmitted): void
+    {
+        $stages = $stagesInput;
+
+        // Pada pembuatan event baru tanpa input tahap manual, otomatis buatkan jadwal harian dari match_start_date s/d match_end_date
+        if ($isCreate && empty($stages)) {
+            $start = $event->match_start_date ? Carbon::parse($event->match_start_date) : now()->startOfDay();
+            $end = $event->match_end_date ? Carbon::parse($event->match_end_date) : $start->copy();
+            if ($end->lt($start)) {
+                $end = $start->copy();
+            }
+
+            $dayCount = min(14, $start->diffInDays($end) + 1);
+            $isClinic = ($event->event_type ?? 'audition') === 'coaching_clinic';
+
+            for ($day = 1; $day <= $dayCount; $day++) {
+                $date = $start->copy()->addDays($day - 1)->toDateString();
+                $stages[] = [
+                    'stage_number' => $day,
+                    'stage_name' => $isClinic
+                        ? ($dayCount === 1 ? 'Pelaksanaan & Presensi Peserta' : "Hari ke-{$day}: Sesi Pelatihan & Presensi")
+                        : ($dayCount === 1 ? 'Pelaksanaan Seleksi & Presensi Gerbang' : "Hari ke-{$day}: Seleksi & Presensi Lapangan"),
+                    'stage_date' => $date,
+                    'start_time' => '08:00',
+                    'end_time' => '17:00',
+                    'venue_name' => $event->venue_name,
+                    'target_quota' => $event->max_participants,
+                    'is_active' => $day === 1,
+                    'instructions' => null,
+                ];
+            }
+        }
+
+        if (! $isCreate && ! $stagesFieldSubmitted) {
+            return;
+        }
+
+        $keptIds = [];
+        foreach (array_values($stages) as $index => $row) {
+            $payload = [
+                'stage_number' => $index + 1,
+                'stage_name' => trim((string) ($row['stage_name'] ?? ('Tahap ' . ($index + 1)))),
+                'stage_date' => $row['stage_date'],
+                'start_time' => ! empty($row['start_time']) ? $row['start_time'] : null,
+                'end_time' => ! empty($row['end_time']) ? $row['end_time'] : null,
+                'venue_name' => ! empty($row['venue_name']) ? trim((string) $row['venue_name']) : $event->venue_name,
+                'target_quota' => ! empty($row['target_quota']) ? (int) $row['target_quota'] : null,
+                'is_active' => (bool) ($row['is_active'] ?? ($index === 0)),
+                'instructions' => ! empty($row['instructions']) ? trim((string) $row['instructions']) : null,
+            ];
+
+            $existing = ! empty($row['id'])
+                ? $event->auditionStages()->whereKey((int) $row['id'])->first()
+                : null;
+
+            if ($existing) {
+                $existing->update($payload);
+                $keptIds[] = $existing->id;
+            } else {
+                $created = $event->auditionStages()->create($payload);
+                $keptIds[] = $created->id;
+            }
+        }
+
+        if (! empty($keptIds)) {
+            $event->auditionStages()->whereNotIn('id', $keptIds)->delete();
+        } else {
+            $event->auditionStages()->delete();
+        }
     }
 
     protected function sanitizeDescription(?string $html): ?string

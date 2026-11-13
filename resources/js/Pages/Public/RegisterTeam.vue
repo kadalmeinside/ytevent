@@ -24,7 +24,7 @@ const props = defineProps({
 const page = usePage();
 const isAuthenticated = computed(() => Boolean(page.props.auth?.user));
 
-const { formatRupiah, formatDate } = useFormatters();
+const { formatRupiah, formatDate, formatBirthDateRange } = useFormatters();
 const {
     applyValidation,
     isEmpty,
@@ -193,7 +193,7 @@ const submit = () => {
                     </div>
                     <h1 class="text-lg font-bold text-slate-900">Formulir Pendaftaran Tim: {{ event.name }}</h1>
                     <p class="text-xs text-slate-600 mt-0.5">
-                        Batas kelahiran pemain: <strong class="tabular-data">{{ formatDate(event.min_birth_date) }} &ndash; {{ formatDate(event.max_birth_date) }}</strong>
+                        Batas kelahiran pemain: <strong class="tabular-data">{{ formatBirthDateRange(event.min_birth_date, event.max_birth_date) }}</strong>
                     </p>
                 </div>
 
