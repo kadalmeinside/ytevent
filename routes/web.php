@@ -134,6 +134,8 @@ Route::middleware(['auth', 'manager.portal'])->prefix('manager')->name('manager.
 
 // Unduh Dokumen Resmi Audisi (Nomor Dada & Piagam)
 Route::middleware('auth')->group(function () {
+    Route::post('/auditions/{participant}/documents/reupload', [\App\Http\Controllers\Manager\AuditionDocumentController::class, 'update'])
+        ->name('audition.documents.reupload');
     Route::get('/auditions/{participant}/bib-tag', [ManagerAuditionParticipantController::class, 'downloadBibTag'])->name('audition.bib.download');
     Route::get('/auditions/{participant}/certificate', [ManagerAuditionParticipantController::class, 'downloadCertificate'])->name('audition.certificate.download');
 });

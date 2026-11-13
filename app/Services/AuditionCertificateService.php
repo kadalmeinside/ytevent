@@ -14,6 +14,7 @@ class AuditionCertificateService
     public function generateAuditionCertificatePdf(AuditionParticipant $participant): \Barryvdh\DomPDF\PDF
     {
         $participant->loadMissing(['event', 'eventSession', 'user']);
+        abort_unless($participant->canDownloadCertificate(), 403, 'Sertifikat belum memenuhi syarat untuk diterbitkan.');
         $event = $participant->event;
 
         $predicateTitle = match ($participant->stage_status) {
@@ -51,4 +52,3 @@ class AuditionCertificateService
             ]);
     }
 }
-

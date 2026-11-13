@@ -5,6 +5,7 @@ namespace App\Http\Requests\Public;
 use App\Models\Event;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class RegisterAuditionRequest extends FormRequest
 {
@@ -18,7 +19,9 @@ class RegisterAuditionRequest extends FormRequest
         /** @var Event $event */
         $event = $this->route('event');
         $isLoggedIn = $this->user() !== null;
-        $presets = $event->form_presets ?? Event::DEFAULT_FORM_PRESETS;
+        $presets = $event->normalizedFormPresets();
+        $requiredDocuments = collect($event->required_documents ?? []);
+        $extraDocumentsRequired = $requiredDocuments->contains(fn (string $document) => ! in_array($document, ['birth_certificate', 'family_card'], true));
 
         $rules = [
             // Data Atlet Anak
@@ -62,9 +65,18 @@ class RegisterAuditionRequest extends FormRequest
             'photo' => ! empty($presets['photo'])
                 ? ['required', 'image', 'mimes:jpeg,png,jpg,webp', 'max:3072']
                 : ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:3072'],
-            'birth_certificate' => ['required', 'file', 'mimes:jpeg,png,jpg,pdf', 'max:4096'],
-            'family_card' => ['required', 'file', 'mimes:jpeg,png,jpg,pdf', 'max:4096'],
-            'additional_doc' => ['nullable', 'file', 'mimes:jpeg,png,jpg,pdf', 'max:4096'],
+            'birth_certificate' => [
+                $requiredDocuments->contains('birth_certificate') ? 'required' : 'nullable',
+                'file', 'mimes:jpeg,png,jpg,pdf', 'max:4096',
+            ],
+            'family_card' => [
+                $requiredDocuments->contains('family_card') ? 'required' : 'nullable',
+                'file', 'mimes:jpeg,png,jpg,pdf', 'max:4096',
+            ],
+            'additional_doc' => [
+                $extraDocumentsRequired ? 'required' : 'nullable',
+                'file', 'mimes:jpeg,png,jpg,pdf', 'max:4096',
+            ],
 
             // Dynamic Custom Answers
             'custom_answers' => ['nullable', 'array'],
@@ -79,7 +91,7 @@ class RegisterAuditionRequest extends FormRequest
             $rules['secondary_position'] = ['nullable', 'string', 'max:32'];
         }
 
-        if (! empty($presets['foot'])) {
+        if (! empty($presets['foot_dominance'])) {
             $rules['dominant_foot'] = ['required', 'in:right,left,both'];
         } else {
             $rules['dominant_foot'] = ['nullable', 'in:right,left,both'];
@@ -103,7 +115,7 @@ class RegisterAuditionRequest extends FormRequest
             $rules['playing_experience'] = ['nullable', 'string', 'max:2000'];
         }
 
-        if (! empty($presets['jersey'])) {
+        if (! empty($presets['jersey_size'])) {
             $rules['jersey_size'] = ['required', 'in:S,M,L,XL,XXL'];
         } else {
             $rules['jersey_size'] = ['nullable', 'in:S,M,L,XL,XXL'];
@@ -141,13 +153,50 @@ class RegisterAuditionRequest extends FormRequest
             'liability_waiver.accepted' => 'Anda wajib menyetujui pernyataan bebas tanggung jawab medis dan tata tertib audisi.',
             'photo.required' => 'Pas foto resmi atlet wajib diunggah.',
             'photo.image' => 'Berkas pas foto harus berformat gambar (JPG/PNG).',
-            'birth_certificate.required' => 'Scan Akta Kelahiran wajib diunggah.',
-            'family_card.required' => 'Scan Kartu Keluarga (KK) wajib diunggah.',
+            'birth_certificate.required' => 'Dokumen Akta Kelahiran yang dipilih panitia wajib diunggah.',
+            'family_card.required' => 'Dokumen Kartu Keluarga (KK) yang dipilih panitia wajib diunggah.',
+            'additional_doc.required' => 'Dokumen tambahan yang dipilih panitia wajib diunggah.',
             'guardian_name.required' => 'Nama lengkap orang tua / wali wajib diisi.',
             'guardian_email.required' => 'Alamat email orang tua / wali wajib diisi.',
             'guardian_phone.required' => 'Nomor WhatsApp orang tua / wali wajib diisi.',
             'guardian_password.required' => 'Kata sandi akun portal wajib diisi.',
             'guardian_password.min' => 'Kata sandi minimal berjumlah 8 karakter.',
+        ];
+    }
+
+    public function after(): array
+    {
+        return [
+            function (Validator $validator) {
+                /** @var Event $event */
+                $event = $this->route('event');
+                $answers = $this->input('custom_answers', []);
+
+                foreach ($event->custom_fields_schema ?? [] as $field) {
+                    $key = $field['key'] ?? $field['name'] ?? null;
+                    if (! $key) {
+                        continue;
+                    }
+
+                    $value = $answers[$key] ?? null;
+                    if (! empty($field['required']) && ($value === null || $value === '')) {
+                        $validator->errors()->add("custom_answers.{$key}", ($field['label'] ?? $key).' wajib diisi.');
+                        continue;
+                    }
+
+                    if ($value === null || $value === '') {
+                        continue;
+                    }
+
+                    $type = $field['type'] ?? 'text';
+                    if ($type === 'url' && $value !== '' && ! filter_var($value, FILTER_VALIDATE_URL)) {
+                        $validator->errors()->add("custom_answers.{$key}", 'Nilai harus berupa URL yang valid.');
+                    }
+                    if (in_array($type, ['select', 'radio'], true) && $value !== '' && ! in_array($value, $field['options'] ?? [], true)) {
+                        $validator->errors()->add("custom_answers.{$key}", 'Pilihan yang dikirim tidak tersedia pada event ini.');
+                    }
+                }
+            },
         ];
     }
 }

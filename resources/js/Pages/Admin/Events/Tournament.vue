@@ -766,7 +766,7 @@ const filteredMatches = computed(() => {
                                     class="px-2 py-0.5 rounded text-[11px] font-semibold"
                                     :class="{
                                         'bg-slate-100 text-slate-700': m.status === 'scheduled',
-                                        'bg-amber-100 text-amber-800 animate-pulse': m.status === 'ongoing',
+                                        'bg-amber-100 text-amber-800': m.status === 'ongoing',
                                         'bg-emerald-100 text-emerald-800': m.status === 'completed',
                                         'bg-rose-100 text-rose-800': m.status === 'postponed',
                                     }"

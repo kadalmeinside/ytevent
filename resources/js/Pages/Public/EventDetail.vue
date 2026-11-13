@@ -55,6 +55,22 @@ const participantUnit = computed(() => (isIndividual.value ? 'Peserta' : 'Tim'))
 
 const publicTopScorers = computed(() => props.leaderboard?.top_scorers || []);
 
+const activePositionCaps = computed(() => {
+    if (!props.event.position_quota_caps || typeof props.event.position_quota_caps !== 'object') {
+        return {};
+    }
+    const result = {};
+    for (const [pos, cap] of Object.entries(props.event.position_quota_caps)) {
+        const val = Number(cap);
+        if (!isNaN(val) && val > 0) {
+            result[pos] = val;
+        }
+    }
+    return result;
+});
+
+const hasPositionCaps = computed(() => Object.keys(activePositionCaps.value).length > 0);
+
 const formattedDescription = computed(() => {
     let desc = props.event?.short_description || '';
     if (!desc) return '';
@@ -353,12 +369,12 @@ const eventJsonLd = computed(() => {
                                             <strong class="text-slate-900 mt-0.5 block">
                                                 {{ event.format_label || 'Audisi & Scouting Panel' }}
                                             </strong>
-                                            <span class="text-[11px] text-slate-500 mt-1 block">Screening fisik, tes keterampilan teknis &amp; game internal</span>
+                                            <span class="text-[11px] text-slate-500 mt-1 block">Detail pelaksanaan mengikuti tahapan yang diumumkan panitia.</span>
                                         </div>
                                         <div class="p-3 rounded-lg bg-slate-50 border border-slate-200">
                                             <span class="text-slate-500 block">Hadiah &amp; Beasiswa Program</span>
                                             <strong class="text-slate-900 mt-0.5 block">
-                                                {{ event.prize_info || 'Trial & Pemusatan Latihan Internasional ke Spanyol' }}
+                                                {{ event.prize_info || 'Belum ditentukan oleh panitia' }}
                                             </strong>
                                         </div>
                                     </div>
@@ -395,11 +411,11 @@ const eventJsonLd = computed(() => {
                                     </div>
 
                                     <!-- Position caps if available -->
-                                    <div v-if="isIndividual && event.position_quota_caps && Object.keys(event.position_quota_caps).length > 0" class="mt-4 pt-3 border-t border-slate-200/80">
+                                    <div v-if="isIndividual && hasPositionCaps" class="mt-4 pt-3 border-t border-slate-200/80">
                                         <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Alokasi Batas Kuota per Posisi</h4>
                                         <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
                                             <div
-                                                v-for="(cap, pos) in event.position_quota_caps"
+                                                v-for="(cap, pos) in activePositionCaps"
                                                 :key="pos"
                                                 class="p-2.5 rounded-xl bg-orange-50/60 border border-orange-200/70 text-center shadow-2xs"
                                             >
@@ -470,7 +486,7 @@ const eventJsonLd = computed(() => {
                                                         </span>
                                                         <span
                                                             v-else-if="stage.is_active"
-                                                            class="px-2 py-0.5 rounded text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-200 animate-pulse"
+                                                            class="px-2 py-0.5 rounded text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-200"
                                                         >
                                                             Sedang Berjalan
                                                         </span>
@@ -535,7 +551,7 @@ const eventJsonLd = computed(() => {
                                             <thead>
                                                 <tr>
                                                     <th class="table-th w-20 text-center">No. Dada</th>
-                                                    <th class="table-th">Nama Atlet</th>
+                                                    <th class="table-th">Peserta</th>
                                                     <th class="table-th">Posisi Utama</th>
                                                     <th class="table-th">Asal Klub / SSB</th>
                                                     <th class="table-th text-right">Status Seleksi</th>
@@ -555,18 +571,9 @@ const eventJsonLd = computed(() => {
                                                     </td>
                                                     <td class="table-td font-semibold text-slate-900">
                                                         <div class="flex items-center gap-2.5">
-                                                            <img
-                                                                v-if="p.photo_url"
-                                                                :src="p.photo_url"
-                                                                :alt="p.full_name"
-                                                                class="w-7 h-7 rounded-full object-cover border border-slate-200 bg-white shrink-0"
-                                                            />
-                                                            <div v-else class="w-7 h-7 rounded-full bg-orange-100 text-orange-800 flex items-center justify-center font-bold text-xs shrink-0">
-                                                                {{ p.nickname ? p.nickname.charAt(0) : p.full_name.charAt(0) }}
-                                                            </div>
+                                                            <div class="w-7 h-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs shrink-0">#</div>
                                                             <div>
-                                                                <span class="block leading-tight font-bold text-slate-900">{{ p.full_name }}</span>
-                                                                <span v-if="p.nickname" class="text-[11px] text-slate-500 font-normal">({{ p.nickname }})</span>
+                                                                <span class="block leading-tight font-bold text-slate-900">{{ p.public_label }}</span>
                                                             </div>
                                                         </div>
                                                     </td>
@@ -576,7 +583,7 @@ const eventJsonLd = computed(() => {
                                                             Kaki: {{ p.dominant_foot === 'right' ? 'Kanan' : (p.dominant_foot === 'left' ? 'Kiri' : 'Keduanya') }}
                                                         </span>
                                                     </td>
-                                                    <td class="table-td text-xs text-slate-600">{{ p.current_club_ssb }}</td>
+                                                    <td class="table-td text-xs text-slate-500">Informasi peserta disimpan privat</td>
                                                     <td class="table-td text-right">
                                                         <span
                                                             class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold"
@@ -606,18 +613,10 @@ const eventJsonLd = computed(() => {
                                                     #{{ p.bib_number }}
                                                 </span>
                                                 <div v-else class="w-6 text-center text-slate-400 font-mono text-xs shrink-0">-</div>
-                                                <img
-                                                    v-if="p.photo_url"
-                                                    :src="p.photo_url"
-                                                    :alt="p.full_name"
-                                                    class="w-8 h-8 rounded-full object-cover border border-slate-200 bg-white shrink-0"
-                                                />
-                                                <div v-else class="w-8 h-8 rounded-full bg-orange-100 text-orange-800 flex items-center justify-center font-bold text-xs shrink-0">
-                                                    {{ p.nickname ? p.nickname.charAt(0) : p.full_name.charAt(0) }}
-                                                </div>
+                                                <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs shrink-0">#</div>
                                                 <div class="min-w-0">
-                                                    <h5 class="text-xs font-bold text-slate-900 leading-tight truncate">{{ p.full_name }}</h5>
-                                                    <p class="text-[11px] text-slate-500 truncate">{{ p.preferred_position || '-' }} &bull; {{ p.current_club_ssb }}</p>
+                                                    <h5 class="text-xs font-bold text-slate-900 leading-tight truncate">{{ p.public_label }}</h5>
+                                                    <p class="text-[11px] text-slate-500 truncate">{{ p.preferred_position || '-' }}</p>
                                                 </div>
                                             </div>
                                             <div class="shrink-0">
@@ -967,4 +966,3 @@ const eventJsonLd = computed(() => {
         </div>
     </PublicLayout>
 </template>
-

@@ -33,6 +33,7 @@ const liveCount = ref(props.attendancesCount);
 
 const inputCode = ref('');
 const isLoading = ref(false);
+const cameraLoading = ref(false);
 const result = ref(null);
 const errorMessage = ref('');
 const scanHistory = ref([]);
@@ -160,6 +161,7 @@ const clearResult = () => {
 // Camera initiation
 const startCamera = async () => {
     errorMessage.value = '';
+    cameraLoading.value = true;
     try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             errorMessage.value = 'Browser Anda tidak mendukung akses kamera langsung.';
@@ -180,6 +182,8 @@ const startCamera = async () => {
         console.error('Camera access error:', err);
         cameraActive.value = false;
         errorMessage.value = 'Tidak dapat mengakses kamera. Pastikan izin kamera telah diberikan di browser.';
+    } finally {
+        cameraLoading.value = false;
     }
 };
 
@@ -276,6 +280,8 @@ onUnmounted(() => {
                     <select
                         v-model="currentEventId"
                         class="input-pitch w-full text-sm"
+                        :disabled="isLoading"
+                        title="Pilih event untuk memuat tahap audisi"
                         @change="onEventChange"
                     >
                         <option v-for="ev in events" :key="ev.id" :value="ev.id">
@@ -291,6 +297,8 @@ onUnmounted(() => {
                     <select
                         v-model="currentStageId"
                         class="input-pitch w-full text-sm"
+                        :disabled="isLoading || stages.length === 0"
+                        :title="stages.length === 0 ? 'Belum ada tahap audisi yang dikonfigurasi' : 'Pilih tahap untuk check-in'"
                         @change="onStageChange"
                     >
                         <option v-if="stages.length === 0" :value="0">
@@ -322,9 +330,12 @@ onUnmounted(() => {
                                 v-else
                                 type="button"
                                 class="btn-pitch text-xs px-3 py-1"
+                                :disabled="cameraLoading || !cameraSupported"
+                                :title="!cameraSupported ? 'Kamera tidak tersedia di browser ini' : (cameraLoading ? 'Kamera sedang disiapkan' : 'Aktifkan kamera untuk memindai kode')"
                                 @click="startCamera"
                             >
-                                Buka Kamera
+                                <span v-if="cameraLoading">Menyiapkan...</span>
+                                <span v-else>Buka Kamera</span>
                             </button>
                         </div>
 
@@ -338,7 +349,7 @@ onUnmounted(() => {
                             ></video>
 
                             <div v-if="cameraActive" class="absolute inset-0 pointer-events-none flex items-center justify-center">
-                                <div class="w-48 h-48 border-2 border-orange-500 rounded-2xl relative animate-pulse">
+                                <div class="w-48 h-48 border-2 border-orange-500 rounded-2xl relative">
                                     <div class="absolute -top-1 -left-1 w-4 h-4 border-t-4 border-l-4 border-orange-400"></div>
                                     <div class="absolute -top-1 -right-1 w-4 h-4 border-t-4 border-r-4 border-orange-400"></div>
                                     <div class="absolute -bottom-1 -left-1 w-4 h-4 border-b-4 border-l-4 border-orange-400"></div>
@@ -367,11 +378,13 @@ onUnmounted(() => {
                                     placeholder="Contoh: 042 atau AUD-2026-..."
                                     class="input-pitch flex-1 text-sm font-mono uppercase"
                                     :disabled="isLoading"
+                                    :title="isLoading ? 'Pemeriksaan sedang berlangsung' : 'Masukkan nomor dada atau kode screening'"
                                 />
                                 <button
                                     type="submit"
                                     class="btn-pitch text-xs px-4 whitespace-nowrap shadow-sm"
                                     :disabled="isLoading || !inputCode.trim()"
+                                    :title="isLoading ? 'Pemeriksaan sedang berlangsung' : (!inputCode.trim() ? 'Masukkan kode terlebih dahulu' : 'Verifikasi dan catat check-in')"
                                 >
                                     <span v-if="isLoading">Cek...</span>
                                     <span v-else>Check-in</span>
@@ -563,4 +576,3 @@ onUnmounted(() => {
         </div>
     </AdminLayout>
 </template>
-

@@ -11,6 +11,7 @@ use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -422,10 +423,167 @@ class Phase8AuditionRegistrationAndScreeningTest extends TestCase
             ->where('stages.0.stage_name', 'Tahap 1: Screening Fisik & Tes Teknik')
             ->has('registeredParticipants', 1)
             ->where('registeredParticipants.0.bib_number', 101)
-            ->where('registeredParticipants.0.full_name', 'Muhammad Rayhan Al-Fatih')
+            ->where('registeredParticipants.0.public_label', 'Peserta #101')
             ->where('event.participant_type', 'individual')
             ->where('event.format', 'audition')
         );
     }
-}
 
+    public function test_superadmin_can_store_and_update_position_quota_caps(): void
+    {
+        $superadmin = User::factory()->create();
+        $superadmin->assignRole('superadmin');
+
+        $payload = [
+            'name' => 'Audisi Scouting Mandiri 2026',
+            'venue_name' => 'Persija Training Ground',
+            'city' => 'Kota Depok',
+            'start_date' => '2026-11-20',
+            'end_date' => '2026-11-22',
+            'registration_open_at' => '2026-10-01 00:00:00',
+            'registration_close_at' => '2026-11-19 23:59:59',
+            'registration_fee' => 200000,
+            'quota_type' => 'fixed',
+            'max_participants' => 150,
+            'payment_deadline_hours' => 24,
+            'reupload_grace_hours' => 24,
+            'min_birth_date' => '2012-01-01',
+            'max_birth_date' => '2013-12-31',
+            'age_category' => 'U-14',
+            'participant_type' => 'individual',
+            'event_type' => 'audition',
+            'format' => 'audition',
+            'status' => 'open',
+            'position_quota_caps' => [
+                'GK' => 16,
+                'CB' => 30,
+                'FB' => 30,
+                'MF' => 44,
+                'FW' => 30,
+            ],
+            'form_presets' => [
+                'require_photo' => true,
+                'require_position' => true,
+            ],
+            'required_documents' => ['birth_certificate', 'family_card'],
+        ];
+
+        $response = $this->actingAs($superadmin)->post(route('admin.events.store'), $payload);
+        $response->assertRedirect(route('admin.events.index'));
+
+        $event = Event::where('name', 'Audisi Scouting Mandiri 2026')->first();
+        $this->assertNotNull($event);
+        $this->assertSame(16, $event->position_quota_caps['GK']);
+        $this->assertSame(30, $event->position_quota_caps['CB']);
+        $this->assertSame(44, $event->position_quota_caps['MF']);
+
+        // Update to reset / clear position caps
+        $updatePayload = array_merge($payload, [
+            'name' => 'Audisi Scouting Mandiri 2026 Updated',
+            'position_quota_caps' => [
+                'GK' => '',
+                'CB' => null,
+                'FB' => '',
+                'MF' => 0,
+                'FW' => '',
+            ],
+        ]);
+
+        $updateResponse = $this->actingAs($superadmin)->post(route('admin.events.update', $event->id), $updatePayload);
+        $updateResponse->assertRedirect(route('admin.events.index'));
+
+        $event->refresh();
+        $this->assertNull($event->position_quota_caps);
+    }
+
+    public function test_registration_validates_position_quota_caps(): void
+    {
+        Storage::fake('private');
+        Notification::fake();
+
+        $event = Event::create([
+            'name' => 'Audisi Terbatas GK 2026',
+            'slug' => 'audisi-terbatas-gk-2026',
+            'venue_name' => 'Bojongsari',
+            'city' => 'Kota Depok',
+            'format' => 'audition',
+            'age_category' => 'U-14',
+            'event_type' => 'audition',
+            'participant_type' => 'individual',
+            'status' => 'open',
+            'quota_type' => 'fixed',
+            'max_participants' => 10,
+            'registration_fee' => 0,
+            'position_quota_caps' => [
+                'GK' => 1,
+            ],
+            'form_presets' => [
+                'photo' => false,
+                'position' => true,
+                'foot_dominance' => false,
+                'team_origin' => false,
+                'body_measurements' => false,
+                'jersey_size' => false,
+                'experience' => false,
+            ],
+            'required_documents' => ['birth_certificate'],
+        ]);
+
+        $session = EventSession::create([
+            'event_id' => $event->id,
+            'session_name' => 'Sesi Pagi',
+            'session_date' => '2026-11-20',
+            'start_time' => '08:00:00',
+            'end_time' => '11:00:00',
+            'max_capacity' => 10,
+            'occupied_slots' => 0,
+            'is_active' => true,
+        ]);
+
+        $parent = User::factory()->create();
+        $parent->assignRole('participant_parent');
+
+        // Existing GK already registered
+        AuditionParticipant::create([
+            'event_id' => $event->id,
+            'user_id' => $parent->id,
+            'registration_number' => 'AUD-GK-01',
+            'full_name' => 'Kiper Satu',
+            'nik' => '3171012345678909',
+            'birth_date' => '2012-05-10',
+            'gender' => 'male',
+            'emergency_contact_name' => 'Wali',
+            'emergency_contact_phone' => '081234567890',
+            'preferred_position' => 'Goalkeeper (GK)',
+            'screening_status' => 'passed',
+            'status' => 'active',
+        ]);
+
+        // Attempt second GK registration should fail due to position quota
+        $payload = [
+            'guardian_name' => 'Orang Tua Kiper Dua',
+            'guardian_email' => 'kiper2@persija.id',
+            'guardian_phone' => '081299998888',
+            'guardian_password' => 'Rahasia123!',
+            'guardian_password_confirmation' => 'Rahasia123!',
+            'full_name' => 'Kiper Dua',
+            'nik' => '3171012345678999',
+            'birth_date' => '2012-06-15',
+            'gender' => 'male',
+            'event_session_id' => $session->id,
+            'preferred_position' => 'Goalkeeper (GK)',
+            'emergency_contact_name' => 'Wali',
+            'emergency_contact_phone' => '081234567890',
+            'emergency_contact_relation' => 'Ayah',
+            'liability_waiver' => '1',
+            'birth_certificate' => UploadedFile::fake()->create('birth.pdf', 200, 'application/pdf'),
+        ];
+
+        $response = $this->post(route('events.register-audition.store', ['event' => $event->slug]), $payload);
+
+        $response->assertSessionHasErrors(['preferred_position']);
+        $this->assertDatabaseMissing('audition_participants', [
+            'nik' => '3171012345678999',
+        ]);
+    }
+}

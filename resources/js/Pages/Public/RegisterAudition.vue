@@ -34,9 +34,18 @@ const {
     checkFile,
 } = useFormValidator();
 
-const presets = computed(() => props.event.form_presets || {});
+const presets = computed(() => {
+    const raw = props.event.form_presets || {};
+    return {
+        ...raw,
+        foot_dominance: raw.foot_dominance ?? raw.foot ?? false,
+        jersey_size: raw.jersey_size ?? raw.jersey ?? false,
+    };
+});
 const customFields = computed(() => props.event.custom_fields_schema || []);
 const sessions = computed(() => props.event.sessions || []);
+const requiredDocuments = computed(() => (props.event.required_documents || []).map((document) => document.type || document));
+const hasExtraDocument = computed(() => requiredDocuments.value.some((document) => !['birth_certificate', 'family_card'].includes(document)));
 
 const form = useForm({
     // Guardian
@@ -143,7 +152,7 @@ const submit = () => {
             errs.preferred_position = 'Posisi utama wajib dipilih.';
         }
 
-        if (presets.value.foot && isEmpty(form.dominant_foot)) {
+        if (presets.value.foot_dominance && isEmpty(form.dominant_foot)) {
             errs.dominant_foot = 'Kaki dominan wajib dipilih.';
         }
 
@@ -156,7 +165,7 @@ const submit = () => {
             errs.current_club_ssb = 'Asal SSB / Klub / Sekolah wajib diisi.';
         }
 
-        if (presets.value.jersey && isEmpty(form.jersey_size)) {
+        if (presets.value.jersey_size && isEmpty(form.jersey_size)) {
             errs.jersey_size = 'Ukuran jersey / rompi wajib dipilih.';
         }
 
@@ -207,15 +216,29 @@ const submit = () => {
         }
 
         const birthCheck = checkFile(form.birth_certificate, ['image/png', 'image/jpeg', 'application/pdf'], 4 * 1024 * 1024);
-        if (!birthCheck.valid) {
+        if (requiredDocuments.value.includes('birth_certificate') && !birthCheck.valid) {
             if (birthCheck.reason === 'missing') errs.birth_certificate = 'Scan Akta Kelahiran wajib diunggah.';
             else errs.birth_certificate = 'Berkas Akta Kelahiran harus berupa JPG, PNG, atau PDF (maks. 4 MB).';
         }
 
         const kkCheck = checkFile(form.family_card, ['image/png', 'image/jpeg', 'application/pdf'], 4 * 1024 * 1024);
-        if (!kkCheck.valid) {
+        if (requiredDocuments.value.includes('family_card') && !kkCheck.valid) {
             if (kkCheck.reason === 'missing') errs.family_card = 'Scan Kartu Keluarga (KK) wajib diunggah.';
             else errs.family_card = 'Berkas Kartu Keluarga harus berupa JPG, PNG, atau PDF (maks. 4 MB).';
+        }
+
+        const additionalCheck = checkFile(form.additional_doc, ['image/png', 'image/jpeg', 'application/pdf'], 4 * 1024 * 1024);
+        if (hasExtraDocument.value && !additionalCheck.valid) {
+            errs.additional_doc = additionalCheck.reason === 'missing'
+                ? 'Dokumen tambahan yang dipilih panitia wajib diunggah.'
+                : 'Dokumen tambahan harus berupa JPG, PNG, atau PDF (maks. 4 MB).';
+        }
+
+        for (const field of customFields.value) {
+            const key = field.key || field.name;
+            if (field.required && isEmpty(form.custom_answers[key])) {
+                errs[`custom_answers.${key}`] = `${field.label || key} wajib diisi.`;
+            }
         }
 
         // 6. Liability Waiver
@@ -495,7 +518,7 @@ const submit = () => {
                         </div>
 
                         <!-- Kaki Dominan -->
-                        <div v-if="presets.foot" data-field="dominant_foot">
+                        <div v-if="presets.foot_dominance" data-field="dominant_foot">
                             <label class="block text-xs font-semibold text-slate-700 mb-1">Kaki Dominan *</label>
                             <select
                                 v-model="form.dominant_foot"
@@ -510,7 +533,7 @@ const submit = () => {
                         </div>
 
                         <!-- Ukuran Jersey / Rompi -->
-                        <div v-if="presets.jersey" data-field="jersey_size">
+                        <div v-if="presets.jersey_size" data-field="jersey_size">
                             <label class="block text-xs font-semibold text-slate-700 mb-1">Ukuran Jersey / Rompi *</label>
                             <select
                                 v-model="form.jersey_size"
@@ -579,6 +602,41 @@ const submit = () => {
                                 :class="{ 'input-field-error': form.errors.playing_experience }"
                             ></textarea>
                             <InputError :message="form.errors.playing_experience" />
+                        </div>
+                    </div>
+
+                    <div v-if="customFields.length > 0" class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div
+                            v-for="field in customFields"
+                            :key="field.key || field.name"
+                            class="sm:col-span-2"
+                            :class="{ 'sm:col-span-1': field.type === 'number' || field.type === 'select' || field.type === 'radio' }"
+                        >
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">
+                                {{ field.label || field.name }}
+                                <span v-if="field.required" class="text-rose-600">*</span>
+                            </label>
+                            <textarea
+                                v-if="field.type === 'textarea'"
+                                v-model="form.custom_answers[field.key || field.name]"
+                                rows="3"
+                                class="input-field"
+                            />
+                            <select
+                                v-else-if="field.type === 'select' || field.type === 'radio'"
+                                v-model="form.custom_answers[field.key || field.name]"
+                                class="input-field"
+                            >
+                                <option value="">Pilih {{ field.label || field.name }}</option>
+                                <option v-for="option in (field.options || [])" :key="option" :value="option">{{ option }}</option>
+                            </select>
+                            <input
+                                v-else
+                                v-model="form.custom_answers[field.key || field.name]"
+                                :type="field.type === 'number' ? 'number' : (field.type === 'url' ? 'url' : 'text')"
+                                class="input-field"
+                            />
+                            <InputError :message="form.errors[`custom_answers.${field.key || field.name}`]" />
                         </div>
                     </div>
                 </div>
@@ -669,7 +727,7 @@ const submit = () => {
                         </div>
 
                         <!-- Akta Kelahiran -->
-                        <div data-field="birth_certificate">
+                        <div v-if="requiredDocuments.includes('birth_certificate')" data-field="birth_certificate">
                             <label class="block text-xs font-semibold text-slate-700 mb-1">Scan Akta Kelahiran *</label>
                             <FileInput
                                 accept="image/png,image/jpeg,application/pdf"
@@ -682,7 +740,7 @@ const submit = () => {
                         </div>
 
                         <!-- Kartu Keluarga -->
-                        <div data-field="family_card">
+                        <div v-if="requiredDocuments.includes('family_card')" data-field="family_card">
                             <label class="block text-xs font-semibold text-slate-700 mb-1">Scan Kartu Keluarga (KK) *</label>
                             <FileInput
                                 accept="image/png,image/jpeg,application/pdf"
@@ -695,15 +753,17 @@ const submit = () => {
                         </div>
 
                         <!-- Dokumen Tambahan -->
-                        <div data-field="additional_doc">
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">Dokumen Pendukung Lain (Opsional)</label>
+                        <div v-if="hasExtraDocument" data-field="additional_doc">
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Dokumen Tambahan yang Dipilih Panitia *</label>
                             <FileInput
                                 accept="image/png,image/jpeg,application/pdf"
                                 :max-size-m-b="4"
                                 placeholder="KIA / Rapor / NISN (PDF/JPG/PNG)"
                                 @change="handleAdditionalDocChange"
                             />
-                            <p class="text-[11px] text-slate-400 mt-1">KIA / Halaman biodata rapor sekolah.</p>
+                            <p class="text-[11px] text-slate-400 mt-1">
+                                {{ (props.event.required_documents || []).filter((document) => !['birth_certificate', 'family_card'].includes(document.type || document)).map((document) => document.label || document).join(', ') }}
+                            </p>
                             <InputError :message="form.errors.additional_doc" />
                         </div>
                     </div>
@@ -756,4 +816,3 @@ const submit = () => {
         </div>
     </PublicLayout>
 </template>
-

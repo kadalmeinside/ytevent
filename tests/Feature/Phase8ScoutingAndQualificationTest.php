@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Mail\AuditionStageResultMail;
 use App\Models\AuditionParticipant;
+use App\Models\AuditionAttendance;
 use App\Models\AuditionStage;
 use App\Models\Event;
 use App\Models\Payment;
@@ -119,6 +120,13 @@ class Phase8ScoutingAndQualificationTest extends TestCase
     {
         /** @var User $scout */
         [$event, $stage1, $stage2, $parent, $participant, $scout] = $this->createAuditionSetup();
+        AuditionAttendance::create([
+            'audition_participant_id' => $participant->id,
+            'audition_stage_id' => $stage1->id,
+            'scanned_by' => $scout->id,
+            'check_in_at' => now(),
+            'status' => 'present',
+        ]);
 
         // 1. Scout accesses mobile scouting web panel
         $response = $this->actingAs($scout)->get(route('scout.events.show', [
@@ -181,6 +189,13 @@ class Phase8ScoutingAndQualificationTest extends TestCase
         Mail::fake();
 
         [$event, $stage1, $stage2, $parent, $participant, $scout] = $this->createAuditionSetup();
+        AuditionAttendance::create([
+            'audition_participant_id' => $participant->id,
+            'audition_stage_id' => $stage1->id,
+            'scanned_by' => $scout->id,
+            'check_in_at' => now(),
+            'status' => 'present',
+        ]);
 
         // Scout previously graded
         ScoutingEvaluation::create([
@@ -224,6 +239,14 @@ class Phase8ScoutingAndQualificationTest extends TestCase
     public function test_participant_can_download_audition_certificate_pdf_and_public_verify(): void
     {
         [$event, $stage1, $stage2, $parent, $participant, $scout] = $this->createAuditionSetup();
+        $event->update(['certificates_released' => true]);
+        AuditionAttendance::create([
+            'audition_participant_id' => $participant->id,
+            'audition_stage_id' => $stage2->id,
+            'scanned_by' => $scout->id,
+            'check_in_at' => now(),
+            'status' => 'present',
+        ]);
         $participant->update(['stage_status' => 'final_selected']);
 
         // 1. Parent downloads certificate
@@ -253,4 +276,3 @@ class Phase8ScoutingAndQualificationTest extends TestCase
         );
     }
 }
-

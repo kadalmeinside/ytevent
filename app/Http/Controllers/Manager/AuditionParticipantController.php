@@ -46,6 +46,7 @@ class AuditionParticipantController extends Controller
         $isStaff = $user && ($user->hasRole('superadmin') || $user->can('screening.view_queue') || $user->can('teams.view_all'));
 
         abort_unless($isOwner || $isStaff, 403, 'Anda tidak memiliki hak akses untuk mengunduh piagam peserta ini.');
+        abort_unless($participant->canDownloadCertificate(), 403, 'Sertifikat belum memenuhi syarat untuk diterbitkan.');
 
         $pdf = $certService->generateAuditionCertificatePdf($participant);
         $cleanName = preg_replace('/[^A-Za-z0-9_-]/', '_', $participant->full_name);
@@ -54,4 +55,3 @@ class AuditionParticipantController extends Controller
         return $pdf->download($fileName);
     }
 }
-

@@ -136,6 +136,19 @@ class EventController extends Controller
             ? $request->file('regulation_pdf')->store('events/regulations', 'public')
             : null;
 
+        $positionCaps = null;
+        if (($validated['participant_type'] ?? 'team') === 'individual' && ! empty($validated['position_quota_caps']) && is_array($validated['position_quota_caps'])) {
+            $filtered = [];
+            foreach ($validated['position_quota_caps'] as $pos => $cap) {
+                if ($cap !== null && $cap !== '' && is_numeric($cap) && (int) $cap > 0) {
+                    $filtered[strtoupper($pos)] = (int) $cap;
+                }
+            }
+            if (! empty($filtered)) {
+                $positionCaps = $filtered;
+            }
+        }
+
         $event = Event::create([
             'name' => trim($validated['name']),
             'slug' => $slug,
@@ -149,7 +162,7 @@ class EventController extends Controller
             'participant_type' => $validated['participant_type'] ?? 'team',
             'quota_type' => $validated['quota_type'] ?? 'fixed',
             'max_participants' => ! empty($validated['max_participants']) ? (int) $validated['max_participants'] : null,
-            'position_quota_caps' => $validated['position_quota_caps'] ?? null,
+            'position_quota_caps' => $positionCaps,
             'form_presets' => $validated['form_presets'] ?? Event::DEFAULT_FORM_PRESETS,
             'custom_fields_schema' => $validated['custom_fields_schema'] ?? null,
             'format' => $validated['format'],
@@ -206,7 +219,7 @@ class EventController extends Controller
                 'participant_type' => $event->participant_type ?? 'team',
                 'quota_type' => $event->quota_type ?? 'fixed',
                 'max_participants' => $event->max_participants,
-                'position_quota_caps' => $event->position_quota_caps ?? ['GK' => null, 'DF' => null, 'MF' => null, 'FW' => null],
+                'position_quota_caps' => $event->position_quota_caps ?? ['GK' => null, 'CB' => null, 'FB' => null, 'MF' => null, 'FW' => null],
                 'form_presets' => $event->form_presets ?? Event::DEFAULT_FORM_PRESETS,
                 'custom_fields_schema' => $event->custom_fields_schema ?? [],
                 'format' => $event->format,
@@ -267,6 +280,24 @@ class EventController extends Controller
                 ]);
             }
 
+            $participantType = $validated['participant_type'] ?? $lockedEvent->participant_type ?? 'team';
+            $positionCaps = null;
+            if ($participantType === 'individual') {
+                if (array_key_exists('position_quota_caps', $validated) && is_array($validated['position_quota_caps'])) {
+                    $filtered = [];
+                    foreach ($validated['position_quota_caps'] as $pos => $cap) {
+                        if ($cap !== null && $cap !== '' && is_numeric($cap) && (int) $cap > 0) {
+                            $filtered[strtoupper($pos)] = (int) $cap;
+                        }
+                    }
+                    if (! empty($filtered)) {
+                        $positionCaps = $filtered;
+                    }
+                } else {
+                    $positionCaps = $lockedEvent->position_quota_caps;
+                }
+            }
+
             $updates = [
                 'name' => trim($validated['name']),
                 'short_description' => $this->sanitizeDescription($validated['short_description'] ?? null),
@@ -274,10 +305,10 @@ class EventController extends Controller
                 'venue_maps_url' => ! empty($validated['venue_maps_url']) ? trim($validated['venue_maps_url']) : null,
                 'city' => trim($validated['city']),
                 'event_type' => $validated['event_type'] ?? $lockedEvent->event_type ?? 'tournament',
-                'participant_type' => $validated['participant_type'] ?? $lockedEvent->participant_type ?? 'team',
+                'participant_type' => $participantType,
                 'quota_type' => $validated['quota_type'] ?? $lockedEvent->quota_type ?? 'fixed',
                 'max_participants' => ! empty($validated['max_participants']) ? (int) $validated['max_participants'] : null,
-                'position_quota_caps' => $validated['position_quota_caps'] ?? $lockedEvent->position_quota_caps,
+                'position_quota_caps' => $positionCaps,
                 'form_presets' => $validated['form_presets'] ?? $lockedEvent->form_presets ?? Event::DEFAULT_FORM_PRESETS,
                 'custom_fields_schema' => $validated['custom_fields_schema'] ?? $lockedEvent->custom_fields_schema,
                 'format' => $validated['format'],

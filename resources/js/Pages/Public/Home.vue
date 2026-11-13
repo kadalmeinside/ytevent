@@ -18,6 +18,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    participantTypes: {
+        type: Object,
+        default: () => ({}),
+    },
     ageCategories: {
         type: Array,
         default: () => [],
@@ -81,6 +85,7 @@ const structuredCatalogJsonLd = computed(() => {
 const filterState = reactive({
     search: props.filters.search || '',
     format: props.filters.format || '',
+    participant_type: props.filters.participant_type || '',
     age_category: props.filters.age_category || '',
     status: props.filters.status || '',
 });
@@ -91,6 +96,7 @@ const applyFilters = () => {
         {
             search: filterState.search || undefined,
             format: filterState.format || undefined,
+            participant_type: filterState.participant_type || undefined,
             age_category: filterState.age_category || undefined,
             status: filterState.status || undefined,
         },
@@ -101,6 +107,7 @@ const applyFilters = () => {
 const resetFilters = () => {
     filterState.search = '';
     filterState.format = '';
+    filterState.participant_type = '';
     filterState.age_category = '';
     filterState.status = '';
     router.get(route('home'), {}, { preserveState: true, preserveScroll: true });
@@ -181,7 +188,7 @@ const stripHtml = (html) => {
 
             <!-- Filter Bar -->
             <form @submit.prevent="applyFilters" novalidate class="mt-6 frosted-card p-4 sm:p-5">
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
                     <div class="lg:col-span-2">
                         <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Cari Nama Event / Kota</label>
                         <input
@@ -190,6 +197,16 @@ const stripHtml = (html) => {
                             placeholder="Contoh: Youth Cup, Jakarta, Bandung..."
                             class="input-field"
                         />
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Peserta</label>
+                        <select v-model="filterState.participant_type" class="input-field" @change="applyFilters">
+                            <option value="">Individu &amp; Tim</option>
+                            <option v-for="(label, key) in participantTypes" :key="key" :value="key">
+                                {{ label }}
+                            </option>
+                        </select>
                     </div>
 
                     <div>
@@ -228,7 +245,7 @@ const stripHtml = (html) => {
                 </div>
 
                 <div
-                    v-if="filterState.search || filterState.format || filterState.age_category || filterState.status"
+                    v-if="filterState.search || filterState.format || filterState.participant_type || filterState.age_category || filterState.status"
                     class="mt-3 pt-2.5 border-t border-slate-200/70 flex items-center justify-between text-xs text-slate-500"
                 >
                     <span>Menampilkan {{ events.length }} kompetisi sesuai filter</span>
@@ -252,21 +269,32 @@ const stripHtml = (html) => {
                     :key="event.id"
                     class="frosted-card flex flex-col justify-between overflow-hidden hover:border-orange-300/80 hover:shadow-lg transition-all"
                 >
-                    <div v-if="event.banner_url" class="h-40 w-full overflow-hidden bg-slate-100">
+                    <div v-if="event.banner_url" class="relative h-40 w-full overflow-hidden bg-slate-100">
                         <img :src="event.banner_url" :alt="event.name" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+                        <span
+                            class="absolute left-3 bottom-3 px-2.5 py-1 rounded-md text-[11px] font-black tracking-wide bg-slate-950/85 text-white border border-white/30 shadow-sm"
+                        >
+                            {{ event.participant_type_label }}
+                        </span>
                     </div>
                     <div class="p-5 flex-1 flex flex-col justify-between">
                         <div>
                             <div class="flex items-center justify-between gap-2 mb-3">
                                 <div class="flex items-center gap-1.5 flex-wrap">
+                                    <span
+                                        v-if="!event.banner_url"
+                                        class="px-2.5 py-0.5 rounded text-[11px] font-black tracking-wide bg-slate-950 text-white"
+                                    >
+                                        {{ event.participant_type_label }}
+                                    </span>
                                     <span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-900 text-white">
                                         {{ event.age_category }}
                                     </span>
-                                    <span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                                    <span
+                                        v-if="event.format !== 'audition'"
+                                        class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200"
+                                    >
                                         {{ event.format_label }}
-                                    </span>
-                                    <span v-if="event.event_type && event.event_type !== 'tournament'" class="px-2 py-0.5 rounded text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                                        {{ event.event_type_label || event.event_type }}
                                     </span>
                                 </div>
                                 <StatusBadge :status="event.status" />
@@ -323,11 +351,15 @@ const stripHtml = (html) => {
                         <div v-else class="mt-4 p-3 rounded-xl bg-slate-50/80 border border-slate-200/80">
                             <div class="flex items-center justify-between text-xs mb-1.5">
                                 <span class="font-semibold text-slate-700">
-                                    {{ event.participant_type === 'individual' ? 'Kuota Peserta Terisi' : 'Kuota Tim Terisi' }}
+                                    {{ event.participant_type === 'individual' ? 'Peserta Terdaftar' : 'Tim Terdaftar' }}
                                 </span>
                                 <span class="font-bold tabular-data" :class="event.available_slots === 0 ? 'text-rose-700' : 'text-orange-800'">
                                     {{ event.occupied_slots }} / {{ event.participant_type === 'individual' ? (event.max_participants || event.max_teams) : event.max_teams }} {{ event.participant_type === 'individual' ? 'Peserta' : 'Tim' }} (Sisa {{ event.available_slots }})
                                 </span>
+                            </div>
+                            <div v-if="event.participant_type === 'individual'" class="flex items-center justify-between text-[11px] text-slate-500 mb-2">
+                                <span>Peserta Terverifikasi</span>
+                                <span class="font-bold text-emerald-700 tabular-data">{{ event.verified_participants }}</span>
                             </div>
                             <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
                                 <div
@@ -351,7 +383,7 @@ const stripHtml = (html) => {
                             :href="event.participant_type === 'individual' ? route('events.register-audition', { event: event.slug }) : route('events.register', { event: event.slug })"
                             class="btn-pitch flex-1 text-center"
                         >
-                            {{ event.participant_type === 'individual' ? 'Daftar Audisi' : 'Daftar Tim' }}
+                            {{ event.registration_label }}
                         </Link>
                         <span
                             v-else
@@ -366,4 +398,3 @@ const stripHtml = (html) => {
         </section>
     </PublicLayout>
 </template>
-

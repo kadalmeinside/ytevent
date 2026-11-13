@@ -206,7 +206,7 @@ onUnmounted(() => {
                     <video ref="videoRef" class="w-full h-full object-cover" playsinline autoplay muted></video>
                     <!-- Targeting Reticle Overlay -->
                     <div class="absolute inset-0 pointer-events-none flex items-center justify-center">
-                        <div class="w-56 h-56 border-2 border-dashed border-white/80 rounded-2xl animate-pulse"></div>
+                        <div class="w-56 h-56 border-2 border-dashed border-white/80 rounded-2xl"></div>
                     </div>
                     <span class="absolute bottom-3 px-3 py-1 rounded-full bg-black/60 text-white text-[11px] font-medium backdrop-blur-xs">
                         Posisikan QR Code di dalam kotak
@@ -400,4 +400,3 @@ onUnmounted(() => {
         </div>
     </AdminLayout>
 </template>
-

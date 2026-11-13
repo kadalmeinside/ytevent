@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Scout;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Scout\GradeAuditionParticipantRequest;
+use App\Http\Requests\Scout\LockAuditionSessionRequest;
 use App\Models\AuditionParticipant;
 use App\Models\AuditionStage;
 use App\Models\Event;
@@ -37,6 +39,16 @@ class AuditionScoutingController extends Controller
             ->with(['eventSession', 'attendances']);
 
         // Jika tahap 2 atau 3, bisa tetap tampilkan semua atau tandai yang lolos
+        if ($stage && $stage->stage_number > 1) {
+            $requiredStatus = $stage->stage_number === 2 ? 'day_1_passed' : 'day_2_passed';
+            $participantsQuery->where('stage_status', $requiredStatus);
+        } else {
+            $participantsQuery->where('stage_status', 'registered');
+        }
+        if ($stage) {
+            $participantsQuery->whereHas('attendances', fn ($query) => $query
+                ->where('audition_stage_id', $stage->id)->where('status', 'present'));
+        }
         $participants = $participantsQuery
             ->orderBy('bib_number')
             ->get();
@@ -49,7 +61,10 @@ class AuditionScoutingController extends Controller
             ->get()
             ->keyBy('audition_participant_id');
 
-        $isSessionLocked = $evaluations->contains(fn ($e) => (bool) $e->is_locked);
+        $isSessionLocked = ScoutingEvaluation::query()
+            ->where('audition_stage_id', $stage?->id ?? 0)
+            ->where('is_locked', true)
+            ->exists();
 
         $mappedParticipants = $participants->map(function (AuditionParticipant $p) use ($evaluations, $stage) {
             $eval = $evaluations->get($p->id);
@@ -124,33 +139,36 @@ class AuditionScoutingController extends Controller
     /**
      * Menyimpan Penilaian Cepat (Quick Grade A/B/C, Star Rating, Chip Tags, & Catatan Scout).
      */
-    public function grade(Request $request, Event $event): JsonResponse
+    public function grade(GradeAuditionParticipantRequest $request, Event $event): JsonResponse
     {
-        $validated = $request->validate([
-            'audition_participant_id' => ['required', 'integer', 'exists:audition_participants,id'],
-            'audition_stage_id' => ['required', 'integer', 'exists:audition_stages,id'],
-            'quick_grade' => ['nullable', 'string', 'in:A,B,C'],
-            'rating_stars' => ['nullable', 'integer', 'min:1', 'max:5'],
-            'tags' => ['nullable', 'array'],
-            'tags.*' => ['string', 'max:50'],
-            'coach_notes' => ['nullable', 'string', 'max:1000'],
-        ]);
+        $validated = $request->validated();
+        $stage = AuditionStage::where('event_id', $event->id)->find($validated['audition_stage_id']);
+        $participant = AuditionParticipant::where('event_id', $event->id)->find($validated['audition_participant_id']);
+        abort_unless($stage && $participant, 422, 'Peserta dan tahap tidak sesuai event.');
+        $requiredStatus = $stage->stage_number === 1 ? 'registered' : ($stage->stage_number === 2 ? 'day_1_passed' : 'day_2_passed');
+        abort_unless($participant->stage_status === $requiredStatus, 422, 'Peserta belum memenuhi syarat tahap ini.');
+        abort_unless($participant->attendances()->where('audition_stage_id', $stage->id)->where('status', 'present')->exists(), 422, 'Peserta belum check-in pada tahap ini.');
 
         $scoutId = $request->user()->id;
 
-        // Cek apakah sesi ini sudah dikunci oleh scout
+        // Sesi dikunci secara global setelah konsolidasi tahap dimulai.
+        $sessionLocked = ScoutingEvaluation::query()
+            ->where('audition_stage_id', $validated['audition_stage_id'])
+            ->where('is_locked', true)
+            ->exists();
+
+        if ($sessionLocked) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Penilaian tidak dapat diubah karena sesi scouting tahap ini telah dikunci.',
+            ], 403);
+        }
+
         $existing = ScoutingEvaluation::query()
             ->where('audition_participant_id', $validated['audition_participant_id'])
             ->where('audition_stage_id', $validated['audition_stage_id'])
             ->where('scout_id', $scoutId)
             ->first();
-
-        if ($existing && $existing->is_locked) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Penilaian tidak dapat diubah karena sesi scouting Anda untuk tahap ini telah dikunci.',
-            ], 403);
-        }
 
         $evaluation = ScoutingEvaluation::updateOrCreate(
             [
@@ -183,17 +201,13 @@ class AuditionScoutingController extends Controller
     /**
      * Mengunci Sesi Penilaian Tahap Ini oleh Pemandu Bakat (Mencegah Salah Sentuh di Lapangan).
      */
-    public function lockSession(Request $request, Event $event): JsonResponse
+    public function lockSession(LockAuditionSessionRequest $request, Event $event): JsonResponse
     {
-        $validated = $request->validate([
-            'audition_stage_id' => ['required', 'integer', 'exists:audition_stages,id'],
-        ]);
-
-        $scoutId = $request->user()->id;
+        $validated = $request->validated();
+        abort_unless(AuditionStage::where('event_id', $event->id)->whereKey($validated['audition_stage_id'])->exists(), 422, 'Tahap tidak sesuai event.');
 
         ScoutingEvaluation::query()
             ->where('audition_stage_id', $validated['audition_stage_id'])
-            ->where('scout_id', $scoutId)
             ->update(['is_locked' => true]);
 
         return response()->json([
@@ -202,4 +216,3 @@ class AuditionScoutingController extends Controller
         ]);
     }
 }
-

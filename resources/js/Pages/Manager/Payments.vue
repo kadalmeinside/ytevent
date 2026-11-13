@@ -110,6 +110,7 @@ const gatewayForm = useForm({
     payment_channel: null,
     force_regenerate: false,
 });
+const gatewayNotice = ref('');
 
 const feeBorneByTeam = computed(() => {
     return (props.midtransFeeConfig?.fee_borne_by ?? 'team') === 'team';
@@ -137,7 +138,7 @@ const openSnapPopup = (token = null) => {
         if (props.payment?.payment_url) {
             window.open(props.payment.payment_url, '_blank');
         } else {
-            alert('Pustaka Midtrans Snap sedang disiapkan. Silakan coba kembali dalam beberapa detik.');
+            gatewayNotice.value = 'Pustaka Midtrans Snap sedang disiapkan. Silakan coba kembali dalam beberapa detik.';
         }
         return;
     }
@@ -644,6 +645,9 @@ const reclaimSlot = () => {
                     </div>
 
                     <FormErrorBanner :errors="gatewayForm.errors" />
+                    <div v-if="gatewayNotice" class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900" role="status">
+                        {{ gatewayNotice }}
+                    </div>
 
                     <form @submit.prevent="handlePayNow" novalidate class="space-y-5">
                         <!-- Midtrans All-in-One Info Card -->

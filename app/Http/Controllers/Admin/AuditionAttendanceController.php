@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\CheckInAuditionParticipantRequest;
 use App\Models\AuditionAttendance;
 use App\Models\AuditionParticipant;
 use App\Models\AuditionStage;
@@ -54,18 +55,30 @@ class AuditionAttendanceController extends Controller
     /**
      * Memproses Verifikasi Gatekeeper Guard & Mencatat Kehadiran Peserta.
      */
-    public function checkIn(Request $request): JsonResponse
+    public function checkIn(CheckInAuditionParticipantRequest $request): JsonResponse
     {
-        $request->validate([
-            'code' => ['required', 'string', 'max:100'],
-            'stage_id' => ['required', 'integer', 'exists:audition_stages,id'],
-            'notes' => ['nullable', 'string', 'max:255'],
-        ]);
-
         $code = trim($request->input('code'));
         /** @var AuditionStage $stage */
         $stage = AuditionStage::with('event')->findOrFail((int) $request->input('stage_id'));
         $event = $stage->event;
+
+        if ($event->participant_type !== 'individual' || ! $stage->is_active || $stage->is_completed) {
+            return response()->json(['success' => false, 'gatekeeper_status' => 'STAGE_UNAVAILABLE',
+                'message' => 'Tahap audisi tidak sedang tersedia untuk check-in.'], 422);
+        }
+
+        $today = now()->toDateString();
+        if ($stage->stage_date?->toDateString() !== $today) {
+            return response()->json(['success' => false, 'gatekeeper_status' => 'OUTSIDE_CHECKIN_WINDOW',
+                'message' => 'Check-in hanya dapat dilakukan pada tanggal tahap audisi.'], 422);
+        }
+        $currentTime = now()->format('H:i:s');
+        $startTime = $stage->start_time ? strlen($stage->start_time) === 5 ? $stage->start_time . ':00' : $stage->start_time : null;
+        $endTime = $stage->end_time ? strlen($stage->end_time) === 5 ? $stage->end_time . ':00' : $stage->end_time : null;
+        if (($startTime && $currentTime < $startTime) || ($endTime && $currentTime > $endTime)) {
+            return response()->json(['success' => false, 'gatekeeper_status' => 'OUTSIDE_CHECKIN_WINDOW',
+                'message' => 'Check-in belum atau sudah melewati jam yang ditentukan.'], 422);
+        }
 
         // Cari peserta berdasarkan screening_code, registration_number, atau bib_number
         $participant = AuditionParticipant::query()
@@ -112,7 +125,13 @@ class AuditionAttendanceController extends Controller
 
         // Gatekeeper Guard 3: Multi-Day Stage Progression & Anti-Eliminated Gate
         $stageNum = (int) $stage->stage_number;
-        if ($stageNum === 2) {
+        if ($stageNum === 1) {
+            if ($participant->stage_status !== 'registered') {
+                return response()->json(['success' => false, 'gatekeeper_status' => 'INVALID_STAGE_STATUS',
+                    'message' => 'Status peserta tidak valid untuk Tahap 1.',
+                    'participant' => $this->formatParticipantPayload($participant)], 422);
+            }
+        } elseif ($stageNum === 2) {
             $allowedStatuses = ['day_1_passed', 'day_2_passed', 'final_selected'];
             if ($participant->stage_status === 'day_1_eliminated') {
                 return response()->json([
@@ -133,7 +152,7 @@ class AuditionAttendanceController extends Controller
             }
         } elseif ($stageNum >= 3) {
             $allowedStatuses = ['day_2_passed', 'final_selected'];
-            if (in_array($participant->stage_status, ['day_1_eliminated', 'day_2_eliminated'], true)) {
+            if ($participant->stage_status !== 'day_2_passed' && $participant->stage_status !== 'final_selected') {
                 return response()->json([
                     'success' => false,
                     'gatekeeper_status' => 'ELIMINATED',
@@ -159,6 +178,14 @@ class AuditionAttendanceController extends Controller
             ->first();
 
         if ($existingAttendance) {
+            if ($existingAttendance->status !== 'present') {
+                return response()->json([
+                    'success' => false,
+                    'gatekeeper_status' => 'NOT_ELIGIBLE',
+                    'message' => 'Peserta telah ditandai tidak hadir pada tahap ini.',
+                    'participant' => $this->formatParticipantPayload($participant),
+                ], 422);
+            }
             return response()->json([
                 'success' => true,
                 'already_checked_in' => true,
@@ -224,4 +251,3 @@ class AuditionAttendanceController extends Controller
         ];
     }
 }
-

@@ -20,6 +20,7 @@ class CertificateVerificationController extends Controller
         // Kasus 1: Piagam Audisi & Seleksi Bakat (CERT-AUD-YYYY-EEE-PPPP)
         if (str_starts_with($code, 'CERT-AUD-')) {
             $parts = explode('-', $code);
+            $eventId = isset($parts[3]) ? (int) $parts[3] : 0;
             $participantId = isset($parts[4]) ? (int) $parts[4] : 0;
 
             $participant = AuditionParticipant::query()
@@ -27,7 +28,7 @@ class CertificateVerificationController extends Controller
                 ->with(['event'])
                 ->first();
 
-            if (! $participant || ! $participant->isPaid() || ! $participant->isScreeningPassed()) {
+            if (! $participant || $participant->event_id !== $eventId || ! $participant->canDownloadCertificate()) {
                 return Inertia::render('Public/CertificateVerification', [
                     'isVerified' => false,
                     'code' => $code,
@@ -97,4 +98,3 @@ class CertificateVerificationController extends Controller
         ]);
     }
 }
-

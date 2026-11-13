@@ -36,8 +36,8 @@ class Event extends Model
     ];
 
     public const PARTICIPANT_TYPES = [
-        'team' => 'Beregu / Tim',
-        'individual' => 'Individu / Perorangan',
+        'team' => 'TIM',
+        'individual' => 'PERORANGAN',
     ];
 
     public const QUOTA_TYPES = [
@@ -257,6 +257,29 @@ class Event extends Model
     public function isIndividual(): bool
     {
         return ($this->participant_type ?? 'team') === 'individual';
+    }
+
+    /**
+     * Return form presets using the canonical keys consumed by public forms.
+     *
+     * Older events may contain the legacy `foot` and `jersey` keys, so keep
+     * those records compatible while all new data uses the documented names.
+     */
+    public function normalizedFormPresets(): array
+    {
+        $presets = array_merge(self::DEFAULT_FORM_PRESETS, $this->form_presets ?? []);
+
+        if (array_key_exists('foot', $presets) && ! array_key_exists('foot_dominance', $this->form_presets ?? [])) {
+            $presets['foot_dominance'] = (bool) $presets['foot'];
+        }
+
+        if (array_key_exists('jersey', $presets) && ! array_key_exists('jersey_size', $this->form_presets ?? [])) {
+            $presets['jersey_size'] = (bool) $presets['jersey'];
+        }
+
+        unset($presets['foot'], $presets['jersey']);
+
+        return $presets;
     }
 
     public function availableSlotsCount(): ?int

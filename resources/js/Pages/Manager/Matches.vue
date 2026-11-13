@@ -251,7 +251,7 @@ const getAvailabilityForActiveMatch = (playerId) => {
                                     class="px-2 py-0.5 rounded text-[11px] font-semibold"
                                     :class="{
                                         'bg-slate-100 text-slate-700': m.status === 'scheduled',
-                                        'bg-amber-100 text-amber-800 animate-pulse': m.status === 'ongoing',
+                                        'bg-amber-100 text-amber-800': m.status === 'ongoing',
                                         'bg-emerald-100 text-emerald-800': m.status === 'completed',
                                         'bg-rose-100 text-rose-800': m.status === 'postponed',
                                     }"
@@ -678,6 +678,7 @@ const getAvailabilityForActiveMatch = (playerId) => {
                             type="button"
                             class="btn-pitch text-xs"
                             :disabled="!canSubmitLineup"
+                            :title="canSubmitLineup ? 'Simpan susunan pemain dan sahkan DSP' : 'Lengkapi susunan pemain sesuai jumlah starter dan syarat kompetisi terlebih dahulu'"
                             @click="submitLineup"
                         >
                             {{ lineupForm.processing ? 'Menyimpan DSP...' : 'Simpan &amp; Sahkan DSP' }}
@@ -688,4 +689,3 @@ const getAvailabilityForActiveMatch = (playerId) => {
         </div>
     </ManagerLayout>
 </template>
-

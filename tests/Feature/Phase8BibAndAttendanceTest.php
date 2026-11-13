@@ -8,6 +8,7 @@ use App\Models\Event;
 use App\Models\EventSession;
 use App\Models\Payment;
 use App\Models\User;
+use App\Services\AuditionNoShowService;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -178,6 +179,7 @@ class Phase8BibAndAttendanceTest extends TestCase
     public function test_gatekeeper_attendance_scanner_checkin_and_rejection_guards(): void
     {
         [$event, $stage1, $stage2, $parent, $participant, $payment] = $this->createAuditionParticipant();
+        $stage2->update(['stage_date' => now()->toDateString()]);
 
         $screeningOfficer = User::where('email', 'screening@persijadevelopment.id')->first();
 
@@ -240,5 +242,26 @@ class Phase8BibAndAttendanceTest extends TestCase
             'success' => true,
             'gatekeeper_status' => 'CHECK_IN_SUCCESS',
         ]);
+    }
+
+    public function test_ended_stage_marks_eligible_absent_participants_without_overwriting_present(): void
+    {
+        [$event, $stage1, $stage2, $parent, $participant] = $this->createAuditionParticipant();
+        $stage1->update([
+            'stage_date' => now()->subDay()->toDateString(),
+            'end_time' => '12:00:00',
+        ]);
+
+        $marked = app(AuditionNoShowService::class)->markEndedStages();
+
+        $this->assertSame(1, $marked);
+        $this->assertDatabaseHas('audition_attendances', [
+            'audition_participant_id' => $participant->id,
+            'audition_stage_id' => $stage1->id,
+            'status' => 'no_show',
+        ]);
+
+        $markedAgain = app(AuditionNoShowService::class)->markEndedStages();
+        $this->assertSame(0, $markedAgain);
     }
 }

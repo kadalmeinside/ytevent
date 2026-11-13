@@ -25,8 +25,8 @@ class AuditionRegistrationService
         Event $event,
         array $validated,
         ?UploadedFile $photoFile,
-        UploadedFile $birthCertFile,
-        UploadedFile $familyCardFile,
+        ?UploadedFile $birthCertFile = null,
+        ?UploadedFile $familyCardFile = null,
         ?UploadedFile $additionalDocFile = null,
         ?User $authenticatedUser = null
     ): array {
@@ -83,17 +83,61 @@ class AuditionRegistrationService
             // Position Soft-Cap Check
             $posCaps = $lockedEvent->position_quota_caps;
             $prefPos = $validated['preferred_position'] ?? null;
-            if (! empty($posCaps) && ! empty($prefPos) && isset($posCaps[$prefPos])) {
-                $posCount = AuditionParticipant::query()
-                    ->where('event_id', $lockedEvent->id)
-                    ->where('preferred_position', $prefPos)
-                    ->whereIn('status', ['pending_payment', 'in_review', 'active'])
-                    ->count();
+            if (! empty($posCaps) && ! empty($prefPos)) {
+                $cap = null;
+                $matchingPositions = [$prefPos];
+                $group = null;
 
-                if ($posCount >= (int) $posCaps[$prefPos]) {
-                    throw ValidationException::withMessages([
-                        'preferred_position' => "Mohon maaf, kuota untuk posisi {$prefPos} pada audisi ini telah penuh. Anda dapat memilih posisi alternatif.",
-                    ]);
+                if (isset($posCaps[$prefPos])) {
+                    $cap = (int) $posCaps[$prefPos];
+                    $group = $prefPos;
+                } else {
+                    $normalized = strtoupper(trim($prefPos));
+                    if (preg_match('/\(([A-Z]{2,3})\)/', $normalized, $matches)) {
+                        $normalized = $matches[1];
+                    }
+
+                    $group = match ($normalized) {
+                        'GK' => 'GK',
+                        'CB' => 'CB',
+                        'LB', 'RB', 'FB' => 'FB',
+                        'DMF', 'CMF', 'AMF', 'MF' => 'MF',
+                        'LW', 'RW', 'CF', 'ST', 'FW' => 'FW',
+                        default => null,
+                    };
+
+                    if ($group && isset($posCaps[$group])) {
+                        $cap = (int) $posCaps[$group];
+                    }
+                }
+
+                if ($group && isset($posCaps[$group])) {
+                    $cap = (int) $posCaps[$group];
+                    $matchingPositions = match ($group) {
+                        'GK' => ['GK', 'Goalkeeper (GK)', 'Penjaga Gawang (Goalkeeper)'],
+                        'CB' => ['CB', 'Center Back (CB)', 'Bek Tengah (Center Back)'],
+                        'FB' => ['FB', 'LB', 'RB', 'Left Back (LB)', 'Right Back (RB)', 'Bek Kiri (Left Back)', 'Bek Kanan (Right Back)'],
+                        'MF' => ['MF', 'DMF', 'CMF', 'AMF', 'Central Midfielder (CMF)', 'Attacking Midfielder (AMF)', 'Defensive Midfielder (DMF)', 'Gelandang Bertahan (Defensive Midfielder)', 'Gelandang Tengah (Central Midfielder)', 'Gelandang Serang (Attacking Midfielder)'],
+                        'FW' => ['FW', 'LW', 'RW', 'CF', 'ST', 'Center Forward (CF)', 'Left Winger (LWF)', 'Right Winger (RWF)', 'Second Striker (SS)', 'Penyerang Sayap Kiri (Left Winger)', 'Penyerang Sayap Kanan (Right Winger)', 'Penyerang Tengah / Striker (Center Forward)'],
+                        default => [$prefPos],
+                    };
+                }
+
+                if ($cap !== null && $cap > 0) {
+                    $posCount = AuditionParticipant::query()
+                        ->where('event_id', $lockedEvent->id)
+                        ->where(function ($q) use ($matchingPositions, $prefPos) {
+                            $q->whereIn('preferred_position', $matchingPositions)
+                              ->orWhere('preferred_position', 'like', "%{$prefPos}%");
+                        })
+                        ->whereIn('status', ['pending_payment', 'in_review', 'active'])
+                        ->count();
+
+                    if ($posCount >= $cap) {
+                        throw ValidationException::withMessages([
+                            'preferred_position' => "Mohon maaf, kuota untuk posisi {$prefPos} pada audisi ini telah penuh (maks. {$cap} atlet). Anda dapat memilih posisi alternatif.",
+                        ]);
+                    }
                 }
             }
 
@@ -134,19 +178,25 @@ class AuditionRegistrationService
             }
 
             // Dokumen Keabsahan (Private Storage)
-            $birthCertExt = $birthCertFile->getClientOriginalExtension() ?: 'pdf';
-            $birthCertPath = $birthCertFile->storeAs(
-                'auditions/documents/birth_cert',
-                Str::random(40) . '.' . $birthCertExt,
-                'private'
-            );
+            $birthCertPath = null;
+            if ($birthCertFile) {
+                $birthCertExt = $birthCertFile->getClientOriginalExtension() ?: 'pdf';
+                $birthCertPath = $birthCertFile->storeAs(
+                    'auditions/documents/birth_cert',
+                    Str::random(40) . '.' . $birthCertExt,
+                    'private'
+                );
+            }
 
-            $familyCardExt = $familyCardFile->getClientOriginalExtension() ?: 'pdf';
-            $familyCardPath = $familyCardFile->storeAs(
-                'auditions/documents/family_card',
-                Str::random(40) . '.' . $familyCardExt,
-                'private'
-            );
+            $familyCardPath = null;
+            if ($familyCardFile) {
+                $familyCardExt = $familyCardFile->getClientOriginalExtension() ?: 'pdf';
+                $familyCardPath = $familyCardFile->storeAs(
+                    'auditions/documents/family_card',
+                    Str::random(40) . '.' . $familyCardExt,
+                    'private'
+                );
+            }
 
             $additionalDocPath = null;
             if ($additionalDocFile) {

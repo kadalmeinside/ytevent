@@ -73,6 +73,13 @@ const form = useForm({
     participant_type: initialType,
     quota_type: props.event?.quota_type || 'fixed',
     max_participants: props.event?.max_participants ?? 100,
+    position_quota_caps: {
+        GK: props.event?.position_quota_caps?.GK ?? null,
+        CB: props.event?.position_quota_caps?.CB ?? null,
+        FB: props.event?.position_quota_caps?.FB ?? null,
+        MF: props.event?.position_quota_caps?.MF ?? null,
+        FW: props.event?.position_quota_caps?.FW ?? null,
+    },
     form_presets: {
         photo: props.event?.form_presets?.photo ?? false,
         position: props.event?.form_presets?.position ?? true,
@@ -122,6 +129,24 @@ const isIndividual = computed(() => form.participant_type === 'individual');
 const isAudition = computed(() => isIndividual.value && form.event_type === 'audition');
 const isCoachingClinic = computed(() => isIndividual.value && form.event_type === 'coaching_clinic');
 const isFestival = computed(() => form.event_type === 'festival');
+
+const totalPositionCaps = computed(() => {
+    if (!form.position_quota_caps || typeof form.position_quota_caps !== 'object') return 0;
+    return Object.values(form.position_quota_caps).reduce((sum, val) => {
+        const n = Number(val);
+        return sum + (isNaN(n) || n <= 0 ? 0 : n);
+    }, 0);
+});
+
+const resetPositionCaps = () => {
+    form.position_quota_caps = {
+        GK: null,
+        CB: null,
+        FB: null,
+        MF: null,
+        FW: null,
+    };
+};
 
 const availableFormats = computed(() => {
     if (isIndividual.value) {
@@ -177,7 +202,43 @@ const onMatchFormatChange = () => {
     }
 };
 
+const customFieldTypes = [
+    { value: 'text', label: 'Teks singkat' },
+    { value: 'textarea', label: 'Teks panjang' },
+    { value: 'number', label: 'Angka' },
+    { value: 'select', label: 'Pilihan dropdown' },
+    { value: 'radio', label: 'Pilihan tunggal' },
+    { value: 'url', label: 'URL / tautan' },
+];
+
+const addCustomField = () => {
+    form.custom_fields_schema.push({
+        key: `field_${Date.now()}`,
+        label: '',
+        type: 'text',
+        options: [],
+        required: false,
+    });
+};
+
+const removeCustomField = (index) => {
+    form.custom_fields_schema.splice(index, 1);
+};
+
+const normalizeCustomOptions = (field) => {
+    field.options = String(field.options || '')
+        .split(',')
+        .map((option) => option.trim())
+        .filter(Boolean);
+};
+
 const submit = () => {
+    form.custom_fields_schema.forEach((field) => {
+        if (field.type === 'select' || field.type === 'radio') {
+            normalizeCustomOptions(field);
+        }
+    });
+
     const ok = applyValidation(form, () => {
         const errs = {};
         if (isEmpty(form.name)) {
@@ -664,6 +725,105 @@ const submit = () => {
                                     <span>Kunci menu input pemain hingga tim menyelesaikan pembayaran pendaftaran (Status Lunas)</span>
                                 </label>
                             </div>
+
+                            <!-- Alokasi Batas Kuota per Posisi (Khusus Event Individu / Audisi Kuota Terbatas) -->
+                            <div v-if="isIndividual && form.quota_type === 'fixed'" class="sm:col-span-3 p-4 rounded-xl bg-orange-50/40 border border-orange-200/80">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-orange-200/60">
+                                    <div>
+                                        <h3 class="text-xs font-bold text-orange-950 flex items-center gap-1.5">
+                                            <span>Alokasi Batas Kuota per Posisi (Opsional)</span>
+                                            <span class="text-[10px] font-semibold text-orange-700 bg-orange-100 px-2 py-0.5 rounded border border-orange-200">
+                                                Scouting Quota
+                                            </span>
+                                        </h3>
+                                        <p class="text-[11px] text-slate-600 mt-0.5">
+                                            Batasi kuota maksimal atlet per posisi (GK, CB, FB, MF, FW) agar komposisi seleksi berimbang. Kosongkan jika kuota bebas tanpa batasan posisi.
+                                        </p>
+                                    </div>
+                                    <div class="flex items-center gap-3 shrink-0">
+                                        <span
+                                            class="text-xs font-bold font-mono"
+                                            :class="totalPositionCaps > Number(form.max_participants || 0) ? 'text-rose-700' : 'text-orange-950'"
+                                        >
+                                            Total Alokasi: {{ totalPositionCaps }} / {{ form.max_participants || 0 }} Atlet
+                                        </span>
+                                        <button
+                                            v-if="totalPositionCaps > 0"
+                                            type="button"
+                                            class="text-[11px] font-semibold text-rose-700 hover:text-rose-900 underline"
+                                            @click="resetPositionCaps"
+                                        >
+                                            Reset Bebas
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="mt-3 grid grid-cols-2 sm:grid-cols-5 gap-3">
+                                    <div class="p-2.5 rounded-lg bg-white border border-slate-200 shadow-2xs">
+                                        <label class="block text-xs font-bold text-slate-900 mb-1">
+                                            GK <span class="font-normal text-slate-500 text-[11px]">(Kiper)</span>
+                                        </label>
+                                        <input
+                                            v-model.number="form.position_quota_caps.GK"
+                                            type="number"
+                                            min="0"
+                                            placeholder="Bebas"
+                                            class="input-field tabular-data text-xs"
+                                        />
+                                    </div>
+                                    <div class="p-2.5 rounded-lg bg-white border border-slate-200 shadow-2xs">
+                                        <label class="block text-xs font-bold text-slate-900 mb-1">
+                                            CB <span class="font-normal text-slate-500 text-[11px]">(Bek Tengah)</span>
+                                        </label>
+                                        <input
+                                            v-model.number="form.position_quota_caps.CB"
+                                            type="number"
+                                            min="0"
+                                            placeholder="Bebas"
+                                            class="input-field tabular-data text-xs"
+                                        />
+                                    </div>
+                                    <div class="p-2.5 rounded-lg bg-white border border-slate-200 shadow-2xs">
+                                        <label class="block text-xs font-bold text-slate-900 mb-1">
+                                            FB <span class="font-normal text-slate-500 text-[11px]">(Bek Sayap)</span>
+                                        </label>
+                                        <input
+                                            v-model.number="form.position_quota_caps.FB"
+                                            type="number"
+                                            min="0"
+                                            placeholder="Bebas"
+                                            class="input-field tabular-data text-xs"
+                                        />
+                                    </div>
+                                    <div class="p-2.5 rounded-lg bg-white border border-slate-200 shadow-2xs">
+                                        <label class="block text-xs font-bold text-slate-900 mb-1">
+                                            MF <span class="font-normal text-slate-500 text-[11px]">(Gelandang)</span>
+                                        </label>
+                                        <input
+                                            v-model.number="form.position_quota_caps.MF"
+                                            type="number"
+                                            min="0"
+                                            placeholder="Bebas"
+                                            class="input-field tabular-data text-xs"
+                                        />
+                                    </div>
+                                    <div class="p-2.5 rounded-lg bg-white border border-slate-200 shadow-2xs">
+                                        <label class="block text-xs font-bold text-slate-900 mb-1">
+                                            FW <span class="font-normal text-slate-500 text-[11px]">(Penyerang)</span>
+                                        </label>
+                                        <input
+                                            v-model.number="form.position_quota_caps.FW"
+                                            type="number"
+                                            min="0"
+                                            placeholder="Bebas"
+                                            class="input-field tabular-data text-xs"
+                                        />
+                                    </div>
+                                </div>
+                                <p v-if="totalPositionCaps > Number(form.max_participants || 0)" class="text-[11px] text-rose-600 font-semibold mt-2">
+                                    Perhatian: Total batas kuota posisi ({{ totalPositionCaps }}) melebihi kuota total peserta ({{ form.max_participants || 0 }}).
+                                </p>
+                            </div>
                         </div>
                     </div>
 
@@ -953,6 +1113,43 @@ const submit = () => {
                                     <span class="text-slate-500 text-[11px] block mt-0.5">Pilihan ukuran baju (S/M/L/XL/XXL) jika panitia membagikan perlengkapan.</span>
                                 </div>
                             </label>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 p-5 rounded-xl border border-slate-200 bg-white">
+                        <div class="flex items-center justify-between gap-3">
+                            <div>
+                                <h3 class="text-xs font-bold text-slate-900">Pertanyaan Kustom</h3>
+                                <p class="text-[11px] text-slate-500 mt-1">Kolom ini akan muncul persis di form publik event individual.</p>
+                            </div>
+                            <button type="button" class="btn-secondary text-xs" @click="addCustomField">Tambah Kolom</button>
+                        </div>
+                        <div v-if="form.custom_fields_schema.length" class="mt-4 space-y-3">
+                            <div
+                                v-for="(field, index) in form.custom_fields_schema"
+                                :key="field.key || index"
+                                class="grid grid-cols-1 md:grid-cols-12 gap-2 p-3 rounded-lg bg-slate-50 border border-slate-200"
+                            >
+                                <input v-model="field.key" type="text" class="input-field md:col-span-2" placeholder="Kunci unik" />
+                                <input v-model="field.label" type="text" class="input-field md:col-span-3" placeholder="Label pertanyaan" />
+                                <select v-model="field.type" class="input-field md:col-span-2">
+                                    <option v-for="type in customFieldTypes" :key="type.value" :value="type.value">{{ type.label }}</option>
+                                </select>
+                                <input
+                                    v-if="field.type === 'select' || field.type === 'radio'"
+                                    :value="Array.isArray(field.options) ? field.options.join(', ') : field.options"
+                                    type="text"
+                                    class="input-field md:col-span-3"
+                                    placeholder="Pilihan dipisah koma"
+                                    @input="field.options = $event.target.value"
+                                    @blur="normalizeCustomOptions(field)"
+                                />
+                                <label class="flex items-center gap-1 text-[11px] text-slate-700 md:col-span-1">
+                                    <input v-model="field.required" type="checkbox" class="rounded border-slate-300 text-orange-600" />
+                                    Wajib
+                                </label>
+                                <button type="button" class="text-rose-700 text-xs font-semibold md:col-span-1" @click="removeCustomField(index)">Hapus</button>
+                            </div>
                         </div>
                     </div>
 

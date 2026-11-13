@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\AdvanceAuditionStageRequest;
 use App\Mail\AuditionStageResultMail;
 use App\Models\AuditLog;
 use App\Models\AuditionParticipant;
@@ -26,6 +27,11 @@ class AuditionQualificationController extends Controller
             ->where('event_id', $event->id)
             ->orderBy('stage_number')
             ->get();
+        $requestedStageId = (int) $request->query('stage_id', 0);
+        $currentStage = $requestedStageId
+            ? $stages->firstWhere('id', $requestedStageId)
+            : $stages->first();
+        abort_unless($currentStage, 404, 'Tahap audisi tidak ditemukan pada event ini.');
 
         $participants = AuditionParticipant::query()
             ->where('event_id', $event->id)
@@ -100,6 +106,7 @@ class AuditionQualificationController extends Controller
                 'venue_name' => $event->venue_name,
             ],
             'stages' => $stages,
+            'currentStage' => $currentStage,
             'participants' => $participants,
             'stageStatuses' => AuditionParticipant::STAGE_STATUSES,
         ]);
@@ -108,15 +115,9 @@ class AuditionQualificationController extends Controller
     /**
      * Memproses Promosi Kelolosan atau Eliminasi Peserta Audisi Bertahap secara Masal.
      */
-    public function advanceStage(Request $request, Event $event): RedirectResponse
+    public function advanceStage(AdvanceAuditionStageRequest $request, Event $event): RedirectResponse
     {
-        $validated = $request->validate([
-            'participant_ids' => ['required', 'array', 'min:1'],
-            'participant_ids.*' => ['integer', 'exists:audition_participants,id'],
-            'target_stage_status' => ['required', 'string', 'in:registered,day_1_passed,day_1_eliminated,day_2_passed,day_2_eliminated,final_selected'],
-            'dispatch_email' => ['nullable', 'boolean'],
-            'notes' => ['nullable', 'string', 'max:1000'],
-        ]);
+        $validated = $request->validated();
 
         $ids = $validated['participant_ids'];
         $targetStatus = $validated['target_stage_status'];
@@ -130,9 +131,30 @@ class AuditionQualificationController extends Controller
             ->whereIn('id', $ids)
             ->with(['user', 'event'])
             ->get();
+        abort_unless($participants->count() === count($ids), 422, 'Semua peserta harus berasal dari event ini.');
 
         foreach ($participants as $participant) {
             $oldStatus = $participant->stage_status;
+            $requiredStageNumber = match ($targetStatus) {
+                'day_1_passed', 'day_1_eliminated' => 1,
+                'day_2_passed', 'day_2_eliminated' => 2,
+                'final_selected' => (int) ($event->auditionStages()->max('stage_number') ?: 1),
+                default => null,
+            };
+            $validTransition = match ($targetStatus) {
+                'day_1_passed', 'day_1_eliminated' => $oldStatus === 'registered',
+                'day_2_passed', 'day_2_eliminated' => $oldStatus === 'day_1_passed',
+                'final_selected' => $oldStatus === 'day_2_passed',
+                default => false,
+            };
+            $stage = $requiredStageNumber ? $event->auditionStages()->where('stage_number', $requiredStageNumber)->first() : null;
+            $attendance = $stage?->attendances()
+                ->where('audition_participant_id', $participant->id)
+                ->first();
+            $isElimination = str_ends_with($targetStatus, '_eliminated');
+            $validAttendance = $attendance && ($attendance->status === 'present' || ($isElimination && in_array($attendance->status, ['no_show', 'absent'], true)));
+            $evaluated = $stage && $participant->evaluations()->where('audition_stage_id', $stage->id)->exists();
+            abort_unless($validTransition && $validAttendance && ($isElimination || $evaluated), 422, 'Peserta belum memenuhi kehadiran, evaluasi, atau urutan tahap.');
             $participant->update([
                 'stage_status' => $targetStatus,
             ]);
@@ -178,4 +200,3 @@ class AuditionQualificationController extends Controller
         return back()->with('success', "Berhasil memperbarui status " . count($ids) . " peserta menjadi '{$statusLabel}'. Email pengumuman telah dikirim.");
     }
 }
-

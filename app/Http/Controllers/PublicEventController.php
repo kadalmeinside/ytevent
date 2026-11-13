@@ -28,7 +28,10 @@ class PublicEventController extends Controller
     {
         $query = Event::query()
             ->where('status', '!=', 'draft')
-            ->withOccupiedSlotsCount();
+            ->withOccupiedSlotsCount()
+            ->withCount([
+                'auditionParticipants as verified_participants_count' => fn ($q) => $q->where('screening_status', 'passed'),
+            ]);
 
         if ($search = trim((string) $request->query('search', ''))) {
             $query->where(function ($q) use ($search) {
@@ -40,6 +43,10 @@ class PublicEventController extends Controller
 
         if ($format = $request->query('format')) {
             $query->where('format', $format);
+        }
+
+        if ($participantType = $request->query('participant_type')) {
+            $query->where('participant_type', $participantType);
         }
 
         if ($ageCategory = $request->query('age_category')) {
@@ -75,10 +82,12 @@ class PublicEventController extends Controller
             'filters' => [
                 'search' => (string) $request->query('search', ''),
                 'format' => (string) $request->query('format', ''),
+                'participant_type' => (string) $request->query('participant_type', ''),
                 'age_category' => (string) $request->query('age_category', ''),
                 'status' => (string) $request->query('status', ''),
             ],
             'formats' => Event::FORMATS,
+            'participantTypes' => Event::PARTICIPANT_TYPES,
             'ageCategories' => $ageCategories,
             'stats' => [
                 'total_events' => Event::query()->where('status', '!=', 'draft')->count(),
@@ -123,24 +132,18 @@ class PublicEventController extends Controller
 
             $registeredParticipants = $event->auditionParticipants()
                 ->whereIn('status', ['active', 'confirmed', 'passed', 'registered'])
+                ->where('screening_status', 'passed')
+                ->whereNotNull('bib_number')
                 ->orderByRaw('CASE WHEN bib_number IS NOT NULL THEN 0 ELSE 1 END, bib_number ASC, created_at ASC')
                 ->get()
                 ->map(fn (AuditionParticipant $p) => [
                     'id' => $p->id,
                     'registration_number' => $p->registration_number,
                     'bib_number' => $p->bib_number,
-                    'full_name' => $p->full_name,
-                    'nickname' => $p->nickname,
+                    'public_label' => $p->bib_number ? 'Peserta #'.$p->bib_number : 'Peserta Terverifikasi',
                     'preferred_position' => $p->preferred_position,
-                    'secondary_position' => $p->secondary_position,
-                    'dominant_foot' => $p->dominant_foot,
-                    'height_cm' => $p->height_cm,
-                    'weight_kg' => $p->weight_kg,
-                    'current_club_ssb' => $p->current_club_ssb ?: 'Independen / Mandiri',
                     'stage_status' => $p->stage_status,
                     'stage_status_label' => AuditionParticipant::STAGE_STATUSES[$p->stage_status] ?? $p->stage_status,
-                    'screening_status' => $p->screening_status,
-                    'photo_url' => $this->publicStorageUrl($p->photo_path),
                 ])
                 ->values();
         } else {
@@ -389,7 +392,10 @@ class PublicEventController extends Controller
             'event_type' => $event->event_type ?? 'tournament',
             'event_type_label' => Event::EVENT_TYPES[$event->event_type ?? 'tournament'] ?? ($event->event_type ?? 'Turnamen'),
             'participant_type' => $event->participant_type ?? 'team',
-            'participant_type_label' => Event::PARTICIPANT_TYPES[$event->participant_type ?? 'team'] ?? 'Beregu / Tim',
+            'participant_type_label' => Event::PARTICIPANT_TYPES[$event->participant_type ?? 'team'] ?? 'TIM',
+            'registration_label' => ($event->participant_type ?? 'team') === 'individual'
+                ? 'Daftar Perorangan'
+                : 'Daftar Tim',
             'quota_type' => $event->quota_type ?? 'fixed',
             'is_unlimited_quota' => $isUnlimited,
             'max_participants' => $event->max_participants,
@@ -398,6 +404,7 @@ class PublicEventController extends Controller
             'max_birth_date' => $event->max_birth_date?->toDateString(),
             'max_teams' => $event->max_teams,
             'occupied_slots' => $occupied,
+            'verified_participants' => (int) ($event->verified_participants_count ?? 0),
             'available_slots' => $available,
             'registration_fee' => (float) $event->registration_fee,
             'prize_info' => $event->prize_info,
@@ -413,7 +420,7 @@ class PublicEventController extends Controller
         ];
 
         if ($detailed) {
-            $data['form_presets'] = $event->form_presets ?? Event::DEFAULT_FORM_PRESETS;
+            $data['form_presets'] = $event->normalizedFormPresets();
             $data['custom_fields_schema'] = $event->custom_fields_schema ?? [];
             $data['position_quota_caps'] = $event->position_quota_caps ?? null;
             $data['min_players_per_team'] = $event->min_players_per_team;
@@ -522,9 +529,10 @@ class PublicEventController extends Controller
             'endDate' => ($event->match_end_date ?? $event->match_start_date)?->toDateString(),
             'eventStatus' => 'https://schema.org/EventScheduled',
             'eventAttendanceMode' => 'https://schema.org/OfflineEventAttendanceMode',
-            'maximumAttendeeCapacity' => $event->max_teams ? (int) $event->max_teams : null,
+            'maximumAttendeeCapacity' => $isIndividual
+                ? ($event->max_participants ? (int) $event->max_participants : null)
+                : ($event->max_teams ? (int) $event->max_teams : null),
             'remainingAttendeeCapacity' => $available !== null ? (int) $available : null,
-            'remainingAttendeeCapacity' => (int) $available,
             'image' => $bannerUrl ? [$bannerUrl] : null,
             'url' => $detailUrl,
             'location' => [

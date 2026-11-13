@@ -179,10 +179,12 @@ const onNoteChange = (participantId) => {
 // Session lock
 const lockModalOpen = ref(false);
 const isLocking = ref(false);
+const lockError = ref('');
 
 const handleLockSession = async () => {
     if (!activeStageId.value) return;
     isLocking.value = true;
+    lockError.value = '';
     try {
         await axios.post(route('scout.events.lock-session', { event: props.event.id }), {
             audition_stage_id: activeStageId.value,
@@ -190,7 +192,7 @@ const handleLockSession = async () => {
         isLocked.value = true;
         lockModalOpen.value = false;
     } catch (err) {
-        alert(err.response?.data?.message || 'Gagal mengunci sesi.');
+        lockError.value = err.response?.data?.message || 'Gagal mengunci sesi. Silakan coba lagi.';
     } finally {
         isLocking.value = false;
     }
@@ -211,7 +213,7 @@ const handleLockSession = async () => {
                                 SCOUT PANEL
                             </span>
                             <span v-if="isLocked" class="px-2 py-0.5 rounded bg-red-600 text-[10px] font-bold">
-                                🔒 TERKUNCI
+                                TERKUNCI
                             </span>
                         </div>
                         <h1 class="text-base font-black truncate mt-0.5">{{ event.name }}</h1>
@@ -247,14 +249,14 @@ const handleLockSession = async () => {
                         <strong class="text-white">{{ stats.graded_count }} / {{ stats.total_participants }}</strong>
                     </div>
                     <div class="flex items-center gap-3">
-                        <span class="inline-flex items-center gap-1 font-bold text-emerald-400">
-                            <span class="w-2 h-2 rounded-full bg-emerald-400"></span> A: {{ stats.grade_a_count }}
+                        <span class="font-bold text-emerald-400">
+                            A: {{ stats.grade_a_count }}
                         </span>
-                        <span class="inline-flex items-center gap-1 font-bold text-amber-400">
-                            <span class="w-2 h-2 rounded-full bg-amber-400"></span> B: {{ stats.grade_b_count }}
+                        <span class="font-bold text-amber-400">
+                            B: {{ stats.grade_b_count }}
                         </span>
-                        <span class="inline-flex items-center gap-1 font-bold text-rose-400">
-                            <span class="w-2 h-2 rounded-full bg-rose-400"></span> C: {{ stats.grade_c_count }}
+                        <span class="font-bold text-rose-400">
+                            C: {{ stats.grade_c_count }}
                         </span>
                     </div>
                 </div>
@@ -316,12 +318,11 @@ const handleLockSession = async () => {
                                 <span class="text-[9px] font-black uppercase text-orange-600 tracking-wider">BIB</span>
                                 <span class="text-xl font-black text-orange-700 font-mono leading-none">#{{ p.bib_number }}</span>
                             </div>
-                            <!-- Presence Dot Indicator -->
                             <span
-                                class="inline-block mt-1 text-[9px] font-bold px-1.5 py-0.2 rounded-full"
+                                class="inline-block mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
                                 :class="p.is_present ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'"
                             >
-                                {{ p.is_present ? '● Hadir' : '○ Absen' }}
+                                {{ p.is_present ? 'Hadir' : 'Belum hadir' }}
                             </span>
                         </div>
 
@@ -346,7 +347,7 @@ const handleLockSession = async () => {
 
                     <!-- Autosave Indicator -->
                     <div class="text-[10px] font-bold shrink-0">
-                        <span v-if="localEvals[p.id]?.is_saving" class="text-orange-500 animate-pulse">Menyimpan...</span>
+                        <span v-if="localEvals[p.id]?.is_saving" class="text-orange-500">Menyimpan...</span>
                         <span v-else-if="localEvals[p.id]?.saved_at" class="text-emerald-600">{{ localEvals[p.id].saved_at }}</span>
                     </div>
                 </div>
@@ -355,7 +356,8 @@ const handleLockSession = async () => {
                 <div class="grid grid-cols-3 gap-2 pt-1">
                     <button
                         type="button"
-                        :disabled="isLocked"
+                        :disabled="isLocked || localEvals[p.id]?.is_saving"
+                        :title="isLocked ? 'Sesi penilaian sudah dikunci' : 'Beri nilai A'"
                         class="py-2.5 px-3 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 border-2 transition active:scale-95"
                         :class="localEvals[p.id]?.quick_grade === 'A'
                             ? 'bg-emerald-600 border-emerald-600 text-white shadow-md'
@@ -368,7 +370,8 @@ const handleLockSession = async () => {
 
                     <button
                         type="button"
-                        :disabled="isLocked"
+                        :disabled="isLocked || localEvals[p.id]?.is_saving"
+                        :title="isLocked ? 'Sesi penilaian sudah dikunci' : 'Beri nilai B'"
                         class="py-2.5 px-3 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 border-2 transition active:scale-95"
                         :class="localEvals[p.id]?.quick_grade === 'B'
                             ? 'bg-amber-500 border-amber-500 text-white shadow-md'
@@ -381,7 +384,8 @@ const handleLockSession = async () => {
 
                     <button
                         type="button"
-                        :disabled="isLocked"
+                        :disabled="isLocked || localEvals[p.id]?.is_saving"
+                        :title="isLocked ? 'Sesi penilaian sudah dikunci' : 'Beri nilai C'"
                         class="py-2.5 px-3 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 border-2 transition active:scale-95"
                         :class="localEvals[p.id]?.quick_grade === 'C'
                             ? 'bg-rose-600 border-rose-600 text-white shadow-md'
@@ -401,7 +405,8 @@ const handleLockSession = async () => {
                             v-for="star in 5"
                             :key="star"
                             type="button"
-                            :disabled="isLocked"
+                            :disabled="isLocked || localEvals[p.id]?.is_saving"
+                            :title="isLocked ? 'Sesi penilaian sudah dikunci' : `Beri ${star} dari 5`"
                             class="p-1 focus:outline-none transition active:scale-125"
                             @click="setStars(p.id, star)"
                         >
@@ -423,7 +428,8 @@ const handleLockSession = async () => {
                         v-for="tag in presetTags"
                         :key="tag"
                         type="button"
-                        :disabled="isLocked"
+                        :disabled="isLocked || localEvals[p.id]?.is_saving"
+                        :title="isLocked ? 'Sesi penilaian sudah dikunci' : `Tambahkan tag ${tag}`"
                         class="px-2.5 py-1 rounded-lg text-[10px] font-bold transition active:scale-95"
                         :class="localEvals[p.id]?.tags?.includes(tag)
                             ? 'bg-orange-600 text-white shadow-2xs'
@@ -440,6 +446,7 @@ const handleLockSession = async () => {
                         v-model="localEvals[p.id].coach_notes"
                         type="text"
                         :disabled="isLocked"
+                        :title="isLocked ? 'Sesi penilaian sudah dikunci' : 'Catatan tersimpan otomatis'"
                         placeholder="Catatan pelatih/scout (cth: pengambilan keputusan tenang, perlu latihan fisik)..."
                         class="w-full text-xs px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 focus:bg-white focus:outline-none focus:border-orange-500"
                         @input="onNoteChange(p.id)"
@@ -462,6 +469,9 @@ const handleLockSession = async () => {
                         Setelah dikunci, nilai tidak dapat diubah lagi dari smartphone Anda di lapangan untuk menjaga integritas data.
                     </p>
                 </div>
+                <p v-if="lockError" class="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700">
+                    {{ lockError }}
+                </p>
                 <div class="grid grid-cols-2 gap-2 pt-2">
                     <button
                         type="button"
@@ -474,6 +484,7 @@ const handleLockSession = async () => {
                         type="button"
                         class="py-2 text-xs font-bold rounded-xl bg-orange-600 text-white hover:bg-orange-700 shadow-sm"
                         :disabled="isLocking"
+                        :title="isLocking ? 'Penguncian sedang diproses' : 'Kunci penilaian tahap ini secara permanen'"
                         @click="handleLockSession"
                     >
                         <span v-if="isLocking">Mengunci...</span>
@@ -484,4 +495,3 @@ const handleLockSession = async () => {
         </div>
     </div>
 </template>
-

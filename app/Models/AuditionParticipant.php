@@ -126,7 +126,7 @@ class AuditionParticipant extends Model
 
     public function isPaid(): bool
     {
-        return $this->status === 'active' || $this->latestPayment?->status === 'paid';
+        return $this->latestPayment?->status === 'paid';
     }
 
     public function isScreeningPassed(): bool
@@ -141,7 +141,23 @@ class AuditionParticipant extends Model
 
     public function canDownloadCertificate(): bool
     {
-        return $this->isPaid() && $this->isScreeningPassed();
+        if ($this->event?->participant_type !== 'individual' ||
+            ! $this->isPaid() || ! $this->isScreeningPassed() ||
+            ! in_array($this->stage_status, ['day_1_passed', 'day_2_passed', 'final_selected'], true) ||
+            ! ($this->event?->certificates_released || $this->event?->status === 'completed')) {
+            return false;
+        }
+
+        $requiredStage = match ($this->stage_status) {
+            'day_1_passed' => 1,
+            'day_2_passed' => 2,
+            'final_selected' => $this->event?->auditionStages()->max('stage_number') ?: 1,
+        };
+
+        return $this->attendances()
+            ->whereHas('stage', fn ($query) => $query->where('stage_number', $requiredStage))
+            ->where('status', 'present')
+            ->exists();
     }
 
     public function stageStatusLabel(): string

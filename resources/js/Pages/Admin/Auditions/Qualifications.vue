@@ -39,6 +39,23 @@ const advanceForm = useForm({
     notes: '',
 });
 
+const selectedParticipants = computed(() => props.participants.filter((p) => selectedIds.value.includes(p.id)));
+const actionDefinitions = [
+    { status: 'day_1_passed', label: 'Lolos ke Hari 2', tone: 'emerald', icon: 'M5 13l4 4L19 7', eligible: ['registered'] },
+    { status: 'day_1_eliminated', label: 'Gugur Hari 1', tone: 'rose', icon: 'M6 18L18 6M6 6l12 12', eligible: ['registered'] },
+    { status: 'day_2_passed', label: 'Lolos ke Final Day', tone: 'sky', icon: 'M5 13l4 4L19 7', eligible: ['day_1_passed'] },
+    { status: 'final_selected', label: 'Terpilih Skuad Utama', tone: 'orange', icon: 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z', eligible: ['day_2_passed'] },
+];
+
+const canApplyAction = (action) => selectedParticipants.value.length > 0
+    && selectedParticipants.value.every((p) => action.eligible.includes(p.stage_status));
+
+const actionTitle = (action) => {
+    if (!selectedParticipants.value.length) return 'Pilih peserta terlebih dahulu';
+    if (!canApplyAction(action)) return `Tindakan ini hanya tersedia untuk peserta berstatus ${action.eligible.join(' atau ')}`;
+    return `Terapkan status ${stageStatuses[action.status] || action.label}`;
+};
+
 const filteredParticipants = computed(() => {
     return props.participants.filter((p) => {
         if (searchQuery.value.trim()) {
@@ -110,7 +127,7 @@ const submitAdvance = () => {
                         <Link :href="route('admin.events.index')" class="text-xs font-bold text-slate-500 hover:text-slate-800 transition">
                             &larr; Kembali ke Daftar Kompetisi
                         </Link>
-                        <span class="text-slate-300">•</span>
+                        <span class="text-slate-300" aria-hidden="true">/</span>
                         <span class="text-xs font-bold text-orange-600 uppercase tracking-wider">Multi-Stage Audition Control</span>
                     </div>
                     <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Keputusan Kelolosan &amp; Piagam Audisi</h1>
@@ -124,7 +141,10 @@ const submitAdvance = () => {
                         :href="route('admin.auditions.scanner', { event_id: event.id })"
                         class="px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center gap-1.5"
                     >
-                        <span>🛡️ Buka Scanner Lapangan</span>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3l8 3v5c0 4.5-3.1 8.5-8 10-4.9-1.5-8-5.5-8-10V6l8-3z" />
+                        </svg>
+                        <span>Buka Scanner Lapangan</span>
                     </Link>
                 </div>
             </div>
@@ -146,44 +166,24 @@ const submitAdvance = () => {
 
                 <div class="flex flex-wrap items-center gap-2">
                     <button
+                        v-for="action in actionDefinitions"
+                        :key="action.status"
                         type="button"
-                        class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition inline-flex items-center gap-1.5"
-                        @click="openAdvanceModal('day_1_passed')"
+                        :disabled="!canApplyAction(action)"
+                        :title="actionTitle(action)"
+                        class="px-3 py-1.5 text-white rounded-xl text-xs font-bold shadow-sm transition inline-flex items-center gap-1.5 disabled:opacity-45 disabled:cursor-not-allowed"
+                        :class="{
+                            'bg-emerald-600 hover:bg-emerald-700': action.tone === 'emerald',
+                            'bg-rose-600 hover:bg-rose-700': action.tone === 'rose',
+                            'bg-sky-600 hover:bg-sky-700': action.tone === 'sky',
+                            'bg-orange-600 hover:bg-orange-700': action.tone === 'orange',
+                        }"
+                        @click="openAdvanceModal(action.status)"
                     >
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" :d="action.icon" />
                         </svg>
-                        <span>Lolos ke Hari 2</span>
-                    </button>
-                    <button
-                        type="button"
-                        class="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm transition inline-flex items-center gap-1.5"
-                        @click="openAdvanceModal('day_1_eliminated')"
-                    >
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                        <span>Gugur Hari 1</span>
-                    </button>
-                    <button
-                        type="button"
-                        class="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow-sm transition inline-flex items-center gap-1.5"
-                        @click="openAdvanceModal('day_2_passed')"
-                    >
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span>Lolos ke Final Day</span>
-                    </button>
-                    <button
-                        type="button"
-                        class="px-3 py-1.5 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-xl text-xs font-black shadow-md transition inline-flex items-center gap-1.5"
-                        @click="openAdvanceModal('final_selected')"
-                    >
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                        </svg>
-                        <span>Terpilih Skuad Utama</span>
+                        <span>{{ action.label }}</span>
                     </button>
                 </div>
             </div>
@@ -320,7 +320,7 @@ const submitAdvance = () => {
                                             <span class="px-1.5 py-0.2 rounded bg-rose-100 text-rose-800 font-bold text-[10px]">
                                                 {{ p.consensus.grade_c_count }}C
                                             </span>
-                                            <span class="text-amber-500 font-bold ml-1">★ {{ p.consensus.avg_stars }}</span>
+                                            <span class="text-amber-600 font-bold ml-1">Rating {{ p.consensus.avg_stars }}/5</span>
                                         </div>
                                         <div v-if="p.consensus.tags.length > 0" class="flex flex-wrap gap-1">
                                             <span v-for="t in p.consensus.tags.slice(0, 2)" :key="t" class="text-[9px] px-1 py-0.2 rounded bg-slate-100 text-slate-600">
@@ -353,7 +353,10 @@ const submitAdvance = () => {
                                         class="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-100 hover:bg-orange-50 hover:text-orange-600 border border-slate-200 transition inline-flex items-center gap-1"
                                         title="Unduh E-Sertifikat Resmi"
                                     >
-                                        <span>📜 Piagam</span>
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 3h12v18l-6-3-6 3V3z" />
+                                        </svg>
+                                        <span>Piagam</span>
                                     </a>
                                 </td>
                             </tr>
@@ -421,6 +424,7 @@ const submitAdvance = () => {
                         type="button"
                         class="py-2 text-xs font-bold rounded-xl bg-orange-600 hover:bg-orange-700 text-white shadow-sm"
                         :disabled="advanceForm.processing"
+                        :title="advanceForm.processing ? 'Keputusan sedang diproses' : 'Terapkan keputusan untuk peserta terpilih'"
                         @click="submitAdvance"
                     >
                         <span v-if="advanceForm.processing">Memproses...</span>
@@ -431,4 +435,3 @@ const submitAdvance = () => {
         </div>
     </AdminLayout>
 </template>
-
