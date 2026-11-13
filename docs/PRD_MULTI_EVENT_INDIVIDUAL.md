@@ -198,7 +198,7 @@ erDiagram
 | `quota_type` | `ENUM('fixed', 'unlimited')` | `fixed`: kuota kaku; `unlimited`: buka sampai batas waktu. |
 | `max_participants` | `INT NULLABLE` | Batas kuota atlet untuk event individual. |
 | `position_quota_caps` | `JSON NULLABLE` | Batas kuota per posisi: `{"GK": 10, "DF": 30, "MF": 30, "FW": 30}`. |
-| `form_presets` | `JSON NULLABLE` | Sakelar preset: `{"position": true, "foot": true, "origin": true, "experience": true, "jersey": true}`. |
+| `form_presets` | `JSON NULLABLE` | Sakelar boolean ternormalisasi (`photo`, `position`, `foot_dominance`, `team_origin`, `body_measurements`, `experience`, `jersey_size`). |
 | `custom_fields_schema`| `JSON NULLABLE` | Daftar pertanyaan kustom tambahan yang ditentukan admin. |
 
 ### 7.2 Tabel Baru: `audition_participants` (Peserta Individual)
@@ -276,13 +276,14 @@ gantt
 4. **Panel Screening Berkas Split-View (`/admin/screening/auditions/events/{event}`):** Pemeriksaan berkas perorangan setara UX screening tim (antrean kiri + workspace verifikasi kanan, `DocumentViewerModal` tersemat, Quick Verification Wizard, validasi Cut-Off Usia, status per dokumen, penolakan ber-alasan dengan *re-upload grace period* 24 jam, dan *Emergency Unlock* ber-AuditLog).
 5. Integrasi penerbitan tagihan pembayaran Midtrans / transfer manual.
 
-#### Fase 4: Digital Pass (E-Tiket PDF) & Absensi Multi-Hari QR Scanner
-1. Generator PDF **Digital Pass / E-Tiket** ukuran A4 Landscape ber-QR Code terenkripsi (`registration_number`, disertai badge rompi opsional untuk audisi).
-2. Fitur cetak Digital Pass di dasbor orang tua (hanya aktif setelah lunas + lolos screening).
-3. Modul Scanner QR Kehadiran Lapangan untuk panitia:
-   - Pencatatan absensi harian per tahap (`audition_attendances`).
+#### Fase 4: Digital Pass (E-Tiket PDF A4 Portrait) & Absensi Multi-Hari QR Scanner
+1. Generator PDF **Digital Pass / E-Tiket** ukuran **A4 Portrait** (`AuditionBibPdfService`) dengan banner overlay header proporsional, QR Code verifikasi keabsahan (`registration_number`), micro-watermark keamanan, serta tanda tangan kriptografis HMAC-SHA256 `AUTH-SIG` + jejak audit invoice/verifikator.
+2. Seluruh konten & aturan pada Digital Pass menyesuaikan konfigurasi event: preset aktif (`form_presets`), pertanyaan kustom (`custom_fields_schema`), dokumen wajib check-in (`required_documents`), jadwal tahapan (`audition_stages`), batas kedatangan (`dsp_cutoff_minutes`), kontak panitia, tipe event, serta status berbayar maupun gratis (`registration_fee <= 0`).
+3. Fitur cetak/unduh Digital Pass di dasbor orang tua dan Event Workspace Admin (aktif setelah screening `passed` dan pembayaran lunas / bebas biaya).
+4. Modul Scanner QR Kehadiran Lapangan untuk panitia:
+   - Pencatatan absensi harian per tahap (`audition_attendances`) dengan kunci utama `registration_number` (atau `bib_number` opsional / NIK).
    - Validasi otomatis: memblokir check-in peserta yang tidak lolos dari tahap sebelumnya.
-   - Penyelarasan rompi fisik panitia di tenda registrasi.
+   - Penyelarasan rompi fisik panitia secara opsional di tenda registrasi bila digunakan.
 
 #### 🔹 Fase 5: Mobile Quick Scouting Web Panel
 1. Menambahkan peran Spatie RBAC: `talent_scout`.

@@ -517,11 +517,22 @@ Dokumen PRD Terverifikasi: [`PRD_MULTI_EVENT_INDIVIDUAL.md`](file:///Users/macbo
   - Kotak validasi Cut-Off Tanggal Lahir (`is_age_valid`), Quick Verification Wizard, inspeksi berkas & pas foto melalui `DocumentViewerModal` tersemat (*zoom* & rotasi tanpa tab eksternal), auto-fill catatan penolakan, dan *Emergency Unlock* (`POST /admin/screening/auditions/{participant}/unlock`) yang tercatat di `AuditLog`.
 - [x] **8.7.4** Automated Feature Test `EventWorkspaceAndIndividualScreeningTest.php` lolos 100%.
 
+### 8.8 Sub-Fase 8: Penyempurnaan Event Form, Digital Pass A4 Portrait, Autentisitas HMAC, & Sinkronisasi Penuh Pengaturan Event
+- [x] **8.8.1** **Layout Full-Width Event Form, Stage Builder, & Batas Usia Fleksibel (`Admin/Events/Form.vue`, `Admin/Events/Show.vue`, `Dashboard.vue`)**:
+  - Perbaikan lebar halaman Event Form, panel ringkasan kuota/tahapan anti-bertumpuk, Stage Builder dinamis (`audition_stages`), dukungan batas usia terbuka maupun satu sisi (`min_birth_date`/`max_birth_date`), dan penyelarasan label `"Edit Event"` pada Dashboard.
+- [x] **8.8.2** **Transformasi Digital Pass (E-Tiket) A4 Portrait & Autentisitas Kriptografis (`AuditionBibPdfService`, `audition_bib_tag.blade.php`, `AuditionVerification`)**:
+  - Layout PDF dikonversi menjadi **1 halaman A4 Portrait** (`595.280 x 841.890`) dengan badge Helvetica-safe, micro-watermark, audit trail invoice/petugas sah, dan kode **HMAC-SHA256 `AUTH-SIG`** yang identik dengan portal verifikasi QR publik.
+  - Penambahan **Header Banner Overlay** proporsional berbasis GD aspect-ratio preserving dengan scrim lembut.
+- [x] **8.8.3** **E-Tiket Sepenuhnya Berbasis Aturan Event & Normalisasi Boolean `form_presets`**:
+  - Perbaikan bug `FormData` boolean string (`"1"`/`"0"`) melalui `Event::normalizeFormPresetsArray()`, `StoreEventRequest::prepareForValidation()`, `Form.vue` (`toPresetBool`), `RegisterAudition.vue`, serta migrasi data `2026_11_13_160000_normalize_event_form_presets_booleans.php`.
+  - Seluruh konten E-Tiket (`form_presets`, `custom_fields_schema`, `required_documents`, `audition_stages`, `dsp_cutoff_minutes`, `contact_person`/`contact_whatsapp`, tema `event_type`, dan dukungan event gratis via `AuditionParticipant::isPaid()`) sepenuhnya mengikuti konfigurasi event.
+- [x] **8.8.4** **Verifikasi Pengujian Penuh**: Ditambahkan pengujian komprehensif pada `EventWorkspaceAndIndividualScreeningTest.php` dan seluruh test suite lolos 100%.
+
 ---
 
 ## REKAPITULASI STATUS PENGUJIAN AKHIR FASE 8:
-- **Total Automated Tests**: **161 Tests PASS 100% (1,359 assertions)**
+- **Total Automated Tests**: **167 Tests PASS 100% (1,587 assertions)**
 - **Regresi Sistem Eksisting**: **0 Failed (Zero Regression)**
-- **Kompilasi Frontend (Vite)**: **Sukses tanpa error (2.60s)**
+- **Kompilasi Frontend (Vite)**: **Sukses tanpa error (`npm run build`)**
 
 

@@ -111,3 +111,21 @@ Dokumen ini mendefinisikan alur kerja sistem dari hulu ke hilir, aturan perubaha
      - `team_manager` yang mencoba masuk melalui pintu `/admin` akan diarahkan kembali ke area khusus `/manager/dashboard` dan ditolak aksesnya dari seluruh modul internal panitia.
 2. **Pengelolaan User, Role, & Permission oleh Superadmin:**
    - Melalui menu **Manajemen Pengguna & Akses**, Superadmin dapat menambahkan akun staf baru (misal: staf Finance baru atau admin verifikator baru), menetapkan Role, serta menyesuaikan matriks Permission secara langsung tanpa perlu mengubah struktur dasar aplikasi.
+
+---
+
+## 6. Alur End-to-End 5: Event Perorangan / Individual (Audisi, Coaching Clinic, Festival)
+
+1. **Konfigurasi Event Perorangan (`Admin/Events/Form.vue`):**
+   - Superadmin memilih model kepesertaan `individual` (`audition`, `coaching_clinic`, `festival`), menentukan kuota tetap atau tanpa batas (`unlimited`), batas tanggal lahir opsional (terbuka penuh, minimal saja, maksimal saja, atau rentang lengkap), menyusun tahapan pelaksanaan (`audition_stages`), dokumen wajib (`required_documents`), sakelar boolean `form_presets`, dan `custom_fields_schema`.
+   - Seluruh sakelar `form_presets` dinormalisasi menjadi boolean murni agar selaras saat pengiriman `FormData`, penyimpanan database, form publik, dan cetakan E-Tiket.
+2. **Pendaftaran Mandiri & Tagihan / Bebas Biaya (`/events/{slug}/register-audition`):**
+   - Pendaftar/Wali mengisi biodata atlet sesuai preset & pertanyaan kustom aktif, mengunggah dokumen wajib, menyetujui *liability waiver*, dan menerima `registration_number` unik sebagai **ID Digital Pass (E-Tiket)** utama.
+   - Bila event berbayar (`registration_fee > 0`), sistem membuat tagihan pembayaran (`Payment`); bila gratis (`registration_fee <= 0`), status peserta langsung `active`.
+3. **Verifikasi Screening Split-View (`/admin/screening/auditions/events/{event}`):**
+   - Petugas memeriksa antrean peserta pada antarmuka Split-View 2-panel (validasi usia otomatis, pratinjau dokumen via `DocumentViewerModal`, status granular `document_statuses`, Quick Verification Wizard, dan *Emergency Unlock* ber-AuditLog).
+4. **Penerbitan Digital Pass (E-Tiket PDF A4 Portrait) & Verifikasi QR Publik (`/verify/audition/{code}`):**
+   - Setelah status pembayaran lunas (atau event bebas biaya) dan screening `passed`, peserta dapat mengunduh **Digital Pass (E-Tiket) A4 Portrait** yang menampilkan banner overlay header proporsional, QR Code, kode kriptografis **HMAC `AUTH-SIG`**, serta seluruh atribut/tahapan/dokumen wajib yang mengikuti konfigurasi event.
+   - Pemindaian QR pada portal publik memverifikasi `AUTH-SIG`, status kelulusan screening, serta data peserta sesuai preset event.
+5. **Presensi Gerbang Multi-Tahap, Penilaian Scout, & E-Sertifikat:**
+   - Gatekeeper memindai QR / mengetik `registration_number` (ID Digital Pass) di `/admin/auditions/scanner` sesuai tahapan aktif; pemandu bakat melakukan penilaian cepat di `/scout/events/{event}`; dan admin menetapkan kelolosan bertahap beserta pengiriman email serta E-Sertifikat resmi.

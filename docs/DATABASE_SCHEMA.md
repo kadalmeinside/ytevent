@@ -30,9 +30,11 @@ Menyimpan pengaturan per kompetisi yang dibuat oleh Superadmin.
   - Batas Menit Penutupan DSP (`dsp_cutoff_minutes` — Unsigned SmallInteger, default: 30 menit sebelum kick-off).
   - Status Kunci Grup Turnamen (`is_group_locked` — Boolean, mengunci hasil drawing grup agar tidak terubah saat TM).
   - Status Rilis E-Sertifikat (`certificates_released` — Boolean, gerbang kontrol rilis unduh sertifikat bagi manajer).
-  - Format Kompetisi Tingkat Tinggi (`cup`, `league`, `group_knockout`, `festival`).
-  - Label Kategori Usia (contoh: U-10, U-12, U-15, U-17, Senior).
-  - Batas Tanggal Lahir Minimal dan Maksimal Pemain (digunakan untuk validasi otomatis usia saat input pemain).
+  - Format Kompetisi Tingkat Tinggi (`cup`, `league`, `group_knockout`, `festival`, `audition`, `coaching_clinic`).
+  - Kategori Event & Model Kepesertaan (`event_type`: `tournament`, `audition`, `coaching_clinic`, `festival`; `participant_type`: `team`, `individual`; `quota_type`: `fixed`, `unlimited`).
+  - Kuota Peserta Individual & Presets Form (`max_participants`, `position_quota_caps` JSON, `form_presets` JSON strict booleans untuk `photo`/`position`/`foot_dominance`/`team_origin`/`body_measurements`/`experience`/`jersey_size`, dan `custom_fields_schema` JSON).
+  - Label Kategori Usia (contoh: U-10, U-12, U-15, U-17, Senior) beserta `min_birth_date` dan `max_birth_date` yang opsional (mendukung batas terbuka maupun batas satu sisi).
+  - Kontak Resmi Penyelenggara (`contact_person`, `contact_whatsapp`).
   - Batas Minimal dan Maksimal Jumlah Pemain per Tim (contoh: Minimal 14, Maksimal 25 pemain).
   - Syarat Minimal Penjaga Gawang / Kiper per Tim (`min_gk_per_team` — `1` atau `2` GK, default `2`).
   - Batas Maksimal Kuota Ofisial/Pelatih per Tim (`max_officials_per_team`).
@@ -57,7 +59,7 @@ Menyimpan data klub/SSB/akademi yang mendaftar pada suatu event.
 
 ### 2.5 Tabel `payments` (Tagihan & Transaksi Pembayaran)
 Menyimpan histori tagihan pendaftaran dan rekonsiliasi pembayaran.
-- **Kolom Relasi & Identitas:** ID Pembayaran, Nomor Invoice Unik (`UNIQUE(invoice_number)`), ID Tim (Foreign Key), ID Event (Foreign Key).
+- **Kolom Relasi & Identitas:** ID Pembayaran, Nomor Invoice Unik (`UNIQUE(invoice_number)`), ID Tim (`team_id` Foreign Key nullable untuk event individual), ID Peserta Audisi (`audition_participant_id` Foreign Key nullable ke `audition_participants`, indeks komposit `INDEX(audition_participant_id, status)`), ID Event (Foreign Key).
 - **Kolom Nilai & Metode:** Nominal Tagihan, Biaya Admin Gateway, Total Bayar, Jenis Metode (`midtrans`, `xendit`, `manual`), Saluran Pembayaran Spesifik (BCA VA, Mandiri VA, QRIS, Transfer Manual, dll).
 - **Kolom Data Gateway Otomatis:** Referensi ID Transaksi Eksternal, Token Snap / Tautan Pembayaran, Waktu Kedaluwarsa Tagihan (`expires_at`), Payload Mentah Webhook (untuk audit rekonsiliasi).
 - **Kolom Data Transfer Manual:** Nama Bank Pengirim, Nama Pemilik Rekening Pengirim, Nomor Rekening Pengirim, Tanggal Transfer, Path Berkas Bukti Transfer (Private Disk).
@@ -81,9 +83,10 @@ Menyimpan berkas fisik hasil pindaian (scan/foto) milik masing-masing pemain.
 Menyimpan daftar staf kepelatihan dan medis yang mendampingi tim di bangku cadangan.
 - **Kolom Utama:** ID Ofisial, ID Tim (Foreign Key), Nama Lengkap, Jabatan (`Head Coach`, `Assistant Coach`, `Goalkeeper Coach`, `Physiotherapist`, `Team Manager`, `Kitman`), Nomor Lisensi Kepelatihan, Path Berkas Sertifikat Lisensi, Path Pas Foto, Nomor Telepon, Status Screening Ofisial (`draft`, `submitted`, `passed`, `rejected`), Catatan Verifikasi.
 
-### 2.9 Tabel `screening_logs` & `email_notification_logs` (Tabel Audit)
+### 2.9 Tabel `screening_logs`, `audit_logs`, & `email_notification_logs` (Tabel Audit)
 - **Screening Logs:** Mencatat riwayat perubahan status screening pemain (siapa admin yang menolak/meloloskan, kapan, dan apa alasan sebelumnya) agar manajer tidak bisa mengklaim belum diberi tahu.
-- **Email Notification Logs:** Mencatat setiap antrean email yang dikirim ke Manajer Tim (Jenis Email, Alamat Tujuan, Status Pengiriman `Queued`/`Sent`/`Failed`, Waktu Kirim, dan Pesan Error jika gagal).
+- **Audit Logs:** Mencatat jejak audit lintas entitas (`auditable_type`, `auditable_id`, `action`, `actor_id`, `metadata` JSON) termasuk pembukaan kunci darurat (*Emergency Unlock*) dengan indeks komposit `audit_logs_auditable_id_idx (auditable_type, auditable_id, id)`.
+- **Email Notification Logs:** Mencatat setiap antrean email yang dikirim ke Manajer Tim / Wali Peserta (Jenis Email, Alamat Tujuan, Status Pengiriman `Queued`/`Sent`/`Failed`, Waktu Kirim, dan Pesan Error jika gagal).
 
 ---
 
@@ -119,3 +122,35 @@ Menyimpan daftar pemain yang didaftarkan manajer untuk suatu pertandingan.
 ### 3.6 Tabel `tournament_announcements` (Pengumuman Resmi Turnamen)
 Menyimpan buletin pengumuman resmi dan instruksi Technical Meeting dari panitia.
 - **Kolom Utama:** `id`, `event_id` (Foreign Key ke `events`), `author_id` (Foreign Key ke `users`), `title` (Judul Pengumuman), `content` (Isi Pengumuman / URL Tautan), `is_pinned` (Boolean, sematkan di atas), `published_at` (Waktu Publikasi), `timestamps`.
+
+---
+
+## 4. Tabel Operasional Multi-Event & Peserta Individual (Fase 8)
+
+### 4.1 Tabel `event_sessions` (Gelombang / Sesi Waktu Kegiatan)
+Menyimpan sesi waktu pelaksanaan untuk Coaching Clinic, Workshop, maupun Audisi bergelombang.
+- **Kolom Utama:** `id`, `event_id` (Foreign Key), `session_name`, `session_date`, `start_time`, `end_time`, `quota` (Unsigned Integer nullable), `occupied_slots` (Default 0), `notes`, `timestamps`.
+- **Indexing:** `INDEX(event_id, session_date)`.
+
+### 4.2 Tabel `audition_stages` (Tahapan Seleksi & Jadwal Presensi Multi-Hari)
+Menyimpan jadwal tahapan berjenjang (misal Tahap 1, Tahap 2, Final) yang menjadi acuan presensi gerbang dan kelolosan peserta.
+- **Kolom Utama:** `id`, `event_id` (Foreign Key), `stage_number`, `stage_name`, `stage_date`, `start_time`, `end_time`, `venue_name`, `target_quota` (nullable), `is_active` (Boolean), `is_completed` (Boolean), `instructions` (TEXT nullable), `timestamps`.
+- **Indexing:** `INDEX(event_id, stage_number)`.
+
+### 4.3 Tabel `audition_participants` (Peserta Individual Audisi / Clinic / Festival)
+Menyimpan biodata atlet/peserta mandiri, status screening granular, dan kepemilikan Digital Pass.
+- **Kolom Identitas & Relasi:** `id`, `event_id`, `user_id` (akun wali/peserta), `event_session_id` (nullable FK ke `event_sessions`), `registration_number` (`VARCHAR(64) UNIQUE` — berfungsi sebagai **ID Digital Pass / E-Tiket** utama), `bib_number` (`INT UNSIGNED NULLABLE` — nomor rompi opsional), `full_name`, `nickname`, `nik`, `birth_date`, `gender`.
+- **Kolom Profil Teknis (Mengikuti `events.form_presets` & `custom_fields_schema`):** `preferred_position`, `secondary_position`, `dominant_foot`, `height_cm`, `weight_kg`, `current_club_ssb`, `playing_experience`, `jersey_size`, `custom_answers` (JSON).
+- **Kolom Darurat & Legal:** `emergency_contact_name`, `emergency_contact_phone`, `emergency_contact_relation`, `medical_notes`, `liability_accepted_at`.
+- **Kolom Berkas & Verifikasi Screening:** `photo_path`, `birth_certificate_path`, `family_card_path`, `additional_doc_path`, `document_statuses` (JSON status & catatan per dokumen), `screening_status` (`submitted`, `passed`, `rejected`), `screening_notes`, `screening_verified_by` (FK ke `users`), `screening_verified_at`, `screening_code` (`VARCHAR(64) UNIQUE` untuk URL verifikasi QR), `stage_status`, `status` (`pending_payment`, `active`, dst.), `slot_reserved_at`, `slot_expires_at`, `timestamps`, `softDeletes`.
+- **Indexing:** `(event_id, status)`, `(event_id, screening_status)`, `audition_participants_event_screening_id_idx (event_id, screening_status, id)`, `(user_id, event_id)`, `(event_id, nik)`, `(event_id, bib_number)`.
+
+### 4.4 Tabel `audition_attendances` (Presensi Gerbang Digital Pass)
+Mencatat kehadiran peserta per tahapan seleksi/kegiatan.
+- **Kolom Utama:** `id`, `audition_participant_id` (FK), `audition_stage_id` (FK), `scanned_by` (FK ke `users`), `check_in_at`, `status` (`present`, `absent`, `late`), `notes`, `timestamps`.
+- **Constraint Unik:** `UNIQUE(audition_participant_id, audition_stage_id)` (`participant_stage_unique`).
+
+### 4.5 Tabel `scouting_evaluations` (Penilaian Lapangan Talent Scout)
+Mencatat nilai lapangan per tahap dan per pemandu bakat.
+- **Kolom Utama:** `id`, `audition_participant_id` (FK), `audition_stage_id` (nullable FK), `scout_id` (FK ke `users`), `quick_grade` (`A`, `B`, `C`), `rating_stars` (1–5), `tags` (JSON), `coach_notes`, `is_locked` (Boolean), `timestamps`.
+- **Constraint Unik:** `UNIQUE(audition_participant_id, audition_stage_id, scout_id)` (`participant_stage_scout_unique`).
