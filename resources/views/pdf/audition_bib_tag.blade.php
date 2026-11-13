@@ -345,7 +345,7 @@
         <table class="status-table">
             <tr>
                 <td class="status-cell-left">
-                    ✓ STATUS: LUNAS &amp; TERVERIFIKASI SCREENING RESMI PANITIA
+                    <span style="display: inline-block; background: #059669; color: #ffffff; padding: 1px 6px; border-radius: 3px; font-size: 7pt; font-weight: bold; margin-right: 5px;">SAH</span> STATUS: LUNAS &amp; TERVERIFIKASI SCREENING RESMI PANITIA
                 </td>
                 <td class="status-cell-right">
                     KODE VERIFIKASI: <strong>{{ $participant->screening_code ?: 'SCR-VERIFIED' }}</strong>
@@ -447,7 +447,7 @@
                         SEC-HASH: {{ substr(md5(($participant->screening_code ?: '') . $participant->id), 0, 16) }}
                     </div>
                     <div class="seal-badge">
-                        ✓ Verified Digital Pass
+                        Verified Digital Pass
                     </div>
                     <div style="font-size: 6.5pt; color: #64748b; margin-top: 6px;">
                         Tunjukkan QR ini saat memasuki gerbang utama stadion / venue.
