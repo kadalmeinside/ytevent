@@ -180,8 +180,11 @@ const eventJsonLd = computed(() => {
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-8 sm:pt-3 sm:pb-12">
             <div class="mb-2.5">
-                <Link :href="route('home')" class="text-xs font-semibold text-slate-600 hover:text-orange-600 transition-colors">
-                    &larr; {{ isIndividual ? 'Kembali ke Katalog Event' : 'Kembali ke Katalog Kompetisi' }}
+                <Link :href="route('home')" class="inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-0 py-1 text-xs font-semibold text-slate-600 hover:text-orange-600 transition-colors">
+                    <svg class="w-3.5 h-3.5 shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                    <span>{{ isIndividual ? 'Kembali ke Katalog Event' : 'Kembali ke Katalog Kompetisi' }}</span>
                 </Link>
             </div>
 
@@ -189,42 +192,31 @@ const eventJsonLd = computed(() => {
                 <!-- Left Main Content -->
                 <div class="lg:col-span-2 space-y-6">
                     <!-- Event Hero Banner -->
-                    <div v-if="event.banner_url" class="rounded-2xl overflow-hidden border border-slate-200/80 shadow-sm bg-slate-100 max-h-72">
-                        <img :src="event.banner_url" :alt="event.name" class="w-full h-72 object-cover" />
+                    <div v-if="event.banner_url" class="rounded-2xl overflow-hidden border border-slate-200/80 bg-slate-100 max-h-72">
+                        <img
+                            :src="event.banner_url"
+                            :alt="event.name"
+                            width="1280"
+                            height="720"
+                            fetchpriority="high"
+                            decoding="async"
+                            class="w-full h-72 object-cover"
+                        />
                     </div>
 
                     <div class="frosted-card p-6">
-                        <div class="flex flex-wrap items-center gap-2 mb-3">
-                            <span class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-slate-900 text-white">
-                                {{ event.age_category }}
-                            </span>
-
-                            <span
-                                v-if="event.event_type === 'coaching_clinic'"
-                                class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200"
-                            >
-                                Coaching Clinic &bull; Individu
-                            </span>
-                            <span
-                                v-else-if="event.event_type === 'audition'"
-                                class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-purple-50 text-purple-800 border border-purple-200"
-                            >
-                                Audisi &amp; Seleksi &bull; Individu
-                            </span>
-                            <span
-                                v-else-if="isIndividual"
-                                class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200"
-                            >
-                                {{ event.format_label }} &bull; Individu
-                            </span>
-                            <template v-else>
-                                <span class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-orange-50 text-orange-800 border border-orange-200">
-                                    Turnamen Tim
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                            <div class="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-700">
+                                <span class="px-2.5 py-1 rounded-lg bg-slate-900 text-white">
+                                    {{ event.age_category }}
                                 </span>
-                                <span class="px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                                    {{ event.format_label }}
+                                <span class="px-2.5 py-1 rounded-lg bg-orange-50 text-orange-900 border border-orange-200">
+                                    <template v-if="event.event_type === 'coaching_clinic'">Coaching Clinic &middot; Individu</template>
+                                    <template v-else-if="event.event_type === 'audition'">Audisi &amp; Seleksi &middot; Individu</template>
+                                    <template v-else-if="isIndividual">{{ event.format_label }} &middot; Individu</template>
+                                    <template v-else>Turnamen Tim &middot; {{ event.format_label }}</template>
                                 </span>
-                            </template>
+                            </div>
 
                             <StatusBadge :status="event.status" />
                         </div>
@@ -234,7 +226,7 @@ const eventJsonLd = computed(() => {
 
                         <div class="mt-5 pt-4 border-t border-slate-200/80 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
                             <div>
-                                <span class="block text-slate-500">Stadion / Venue</span>
+                                <span class="block text-slate-600">Stadion / Venue</span>
                                 <div class="mt-0.5 flex flex-wrap items-center gap-1.5">
                                     <span class="font-semibold text-slate-900">{{ event.venue_name }}</span>
                                     <a
@@ -242,23 +234,23 @@ const eventJsonLd = computed(() => {
                                         :href="event.venue_maps_url"
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 transition-colors shadow-2xs"
+                                        class="inline-flex items-center gap-1 min-h-[36px] sm:min-h-0 px-2 py-1 rounded-lg text-[11px] font-semibold bg-orange-50 text-orange-800 hover:bg-orange-100 border border-orange-200 transition-colors"
                                         title="Buka Lokasi di Google Maps"
                                     >
-                                        <svg class="w-3 h-3 text-orange-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <svg class="w-3 h-3 text-orange-600 shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                         </svg>
-                                        Maps &nearr;
+                                        <span>Lihat Peta</span>
                                     </a>
                                 </div>
                             </div>
                             <div>
-                                <span class="block text-slate-500">Kota</span>
+                                <span class="block text-slate-600">Kota</span>
                                 <span class="font-semibold text-slate-900 mt-0.5 block">{{ event.city }}</span>
                             </div>
                             <div>
-                                <span class="block text-slate-500">{{ isIndividual ? 'Jadwal Pelaksanaan' : 'Kick-Off Kompetisi' }}</span>
+                                <span class="block text-slate-600">{{ isIndividual ? 'Jadwal Pelaksanaan' : 'Kick-Off Kompetisi' }}</span>
                                 <span class="font-semibold text-slate-900 tabular-data mt-0.5 block">
                                     <template v-if="event.match_end_date && event.match_end_date !== event.match_start_date">
                                         {{ formatDate(event.match_start_date) }} &ndash; {{ formatDate(event.match_end_date) }}
@@ -269,7 +261,7 @@ const eventJsonLd = computed(() => {
                                 </span>
                             </div>
                             <div>
-                                <span class="block text-slate-500">{{ isIndividual ? 'Batas Kelahiran Peserta' : 'Batas Kelahiran Pemain' }}</span>
+                                <span class="block text-slate-600">{{ isIndividual ? 'Batas Kelahiran Peserta' : 'Batas Kelahiran Pemain' }}</span>
                                 <span class="font-semibold text-slate-900 tabular-data mt-0.5 block">
                                     {{ formatDate(event.min_birth_date) }} &ndash; {{ formatDate(event.max_birth_date) }}
                                 </span>
@@ -279,10 +271,12 @@ const eventJsonLd = computed(() => {
 
                     <!-- Information Tabs -->
                     <div class="frosted-card overflow-hidden">
-                        <div class="border-b border-slate-200 bg-slate-100/70 px-4 flex items-center gap-1 overflow-x-auto">
+                        <div role="tablist" aria-label="Informasi Detail Event" class="border-b border-slate-200 bg-slate-100/70 px-4 flex items-center gap-1 overflow-x-auto">
                             <button
                                 type="button"
-                                class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
+                                role="tab"
+                                :aria-selected="activeTab === 'summary'"
+                                class="px-4 py-3 min-h-[44px] sm:min-h-0 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
                                 :class="activeTab === 'summary' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
                                 @click="activeTab = 'summary'"
                             >
@@ -294,7 +288,9 @@ const eventJsonLd = computed(() => {
                                 <button
                                     v-if="stages.length > 0"
                                     type="button"
-                                    class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
+                                    role="tab"
+                                    :aria-selected="activeTab === 'stages'"
+                                    class="px-4 py-3 min-h-[44px] sm:min-h-0 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
                                     :class="activeTab === 'stages' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
                                     @click="activeTab = 'stages'"
                                 >
@@ -302,7 +298,9 @@ const eventJsonLd = computed(() => {
                                 </button>
                                 <button
                                     type="button"
-                                    class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
+                                    role="tab"
+                                    :aria-selected="activeTab === 'participants'"
+                                    class="px-4 py-3 min-h-[44px] sm:min-h-0 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
                                     :class="activeTab === 'participants' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
                                     @click="activeTab = 'participants'"
                                 >
@@ -314,7 +312,9 @@ const eventJsonLd = computed(() => {
                             <template v-else>
                                 <button
                                     type="button"
-                                    class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
+                                    role="tab"
+                                    :aria-selected="activeTab === 'teams'"
+                                    class="px-4 py-3 min-h-[44px] sm:min-h-0 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
                                     :class="activeTab === 'teams' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
                                     @click="activeTab = 'teams'"
                                 >
@@ -323,7 +323,9 @@ const eventJsonLd = computed(() => {
                                 <button
                                     v-if="groups.length > 0"
                                     type="button"
-                                    class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
+                                    role="tab"
+                                    :aria-selected="activeTab === 'groups'"
+                                    class="px-4 py-3 min-h-[44px] sm:min-h-0 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
                                     :class="activeTab === 'groups' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
                                     @click="activeTab = 'groups'"
                                 >
@@ -332,7 +334,9 @@ const eventJsonLd = computed(() => {
                                 <button
                                     v-if="matches.length > 0"
                                     type="button"
-                                    class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
+                                    role="tab"
+                                    :aria-selected="activeTab === 'matches'"
+                                    class="px-4 py-3 min-h-[44px] sm:min-h-0 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
                                     :class="activeTab === 'matches' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
                                     @click="activeTab = 'matches'"
                                 >
@@ -341,7 +345,9 @@ const eventJsonLd = computed(() => {
                                 <button
                                     v-if="leaderboard.top_scorers && leaderboard.top_scorers.length > 0"
                                     type="button"
-                                    class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
+                                    role="tab"
+                                    :aria-selected="activeTab === 'leaderboard'"
+                                    class="px-4 py-3 min-h-[44px] sm:min-h-0 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
                                     :class="activeTab === 'leaderboard' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
                                     @click="activeTab = 'leaderboard'"
                                 >
@@ -351,7 +357,9 @@ const eventJsonLd = computed(() => {
 
                             <button
                                 type="button"
-                                class="px-4 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
+                                role="tab"
+                                :aria-selected="activeTab === 'contact'"
+                                class="px-4 py-3 min-h-[44px] sm:min-h-0 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap"
                                 :class="activeTab === 'contact' ? 'border-orange-600 text-orange-900' : 'border-transparent text-slate-600 hover:text-slate-900'"
                                 @click="activeTab = 'contact'"
                             >
@@ -363,9 +371,9 @@ const eventJsonLd = computed(() => {
                             <!-- Tab: Summary -->
                             <div v-if="activeTab === 'summary'" class="space-y-5 text-sm">
                                 <div>
-                                    <h3 class="text-sm font-bold text-slate-900 mb-2">
+                                    <h2 class="text-sm font-bold text-slate-900 mb-2">
                                         {{ isIndividual ? 'Ketentuan Peserta & Kelayakan Usia' : 'Aturan Kuota Komposisi Tim & Kelayakan Usia' }}
-                                    </h3>
+                                    </h2>
 
                                     <!-- Individual summary cards -->
                                     <div v-if="isIndividual" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -437,12 +445,12 @@ const eventJsonLd = computed(() => {
 
                                     <!-- Position caps if available -->
                                     <div v-if="isIndividual && hasPositionCaps" class="mt-4 pt-3 border-t border-slate-200/80">
-                                        <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Alokasi Batas Kuota per Posisi</h4>
+                                        <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Alokasi Batas Kuota per Posisi</h3>
                                         <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
                                             <div
                                                 v-for="(cap, pos) in activePositionCaps"
                                                 :key="pos"
-                                                class="p-2.5 rounded-xl bg-orange-50/60 border border-orange-200/70 text-center shadow-2xs"
+                                                class="p-2.5 rounded-xl bg-orange-50/60 border border-orange-200/70 text-center"
                                             >
                                                 <span class="font-bold text-orange-950 font-mono text-sm block">{{ pos }}</span>
                                                 <span class="text-[11px] text-slate-600 mt-0.5 block font-medium">Maks. {{ cap }} Atlet</span>
@@ -452,9 +460,9 @@ const eventJsonLd = computed(() => {
                                 </div>
 
                                 <div>
-                                    <h3 class="text-sm font-bold text-slate-900 mb-2">
+                                    <h2 class="text-sm font-bold text-slate-900 mb-2">
                                         {{ isIndividual ? 'Dokumen Screening Wajib Peserta' : 'Dokumen Screening Wajib per Pemain' }}
-                                    </h3>
+                                    </h2>
                                     <ul class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                                         <li class="flex items-center gap-2 p-2.5 rounded-xl bg-orange-50/70 border border-orange-200/80 text-orange-950 font-medium">
                                             <span>1. Pas Foto Resmi Terbaru (JPG/PNG/WebP)</span>
@@ -477,10 +485,10 @@ const eventJsonLd = computed(() => {
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                     </svg>
                                     <p class="font-bold text-slate-800 text-sm">Tahapan Seleksi Belum Diterbitkan</p>
-                                    <p class="text-slate-400">Jadwal tahapan seleksi akan diumumkan secara berkala oleh tim pemandu bakat / scouting.</p>
+                                    <p class="text-slate-600">Jadwal tahapan seleksi akan diumumkan secara berkala oleh tim pemandu bakat / scouting.</p>
                                 </div>
                                 <div v-else class="space-y-4">
-                                    <div class="flex items-center justify-between text-xs text-slate-500 pb-1">
+                                    <div class="flex items-center justify-between text-xs text-slate-600 pb-1">
                                         <span>Rangkaian alur seleksi bertahap ({{ stages.length }} Tahap Resmi):</span>
                                     </div>
                                     <div class="relative border-l-2 border-orange-200 ml-4 pl-6 space-y-6">
@@ -489,10 +497,10 @@ const eventJsonLd = computed(() => {
                                             :key="stage.id"
                                             class="relative group"
                                         >
-                                            <!-- Dot marker -->
+                                            <!-- Stage indicator -->
                                             <div
-                                                class="absolute -left-[35px] top-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold font-mono transition-transform group-hover:scale-110 shadow-2xs"
-                                                :class="stage.is_completed ? 'bg-emerald-600 text-white' : (stage.is_active ? 'bg-orange-600 text-white ring-4 ring-orange-100' : 'bg-slate-200 text-slate-700')"
+                                                class="absolute -left-[35px] top-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold tabular-nums"
+                                                :class="stage.is_completed ? 'bg-emerald-600 text-white' : (stage.is_active ? 'bg-orange-600 text-white ring-4 ring-orange-100' : 'bg-slate-200 text-slate-800')"
                                             >
                                                 {{ stage.stage_number }}
                                             </div>
@@ -527,18 +535,18 @@ const eventJsonLd = computed(() => {
                                                     </span>
                                                 </div>
 
-                                                <h4 class="text-sm font-bold text-slate-900 mt-2.5">{{ stage.stage_name }}</h4>
+                                                <h2 class="text-sm font-bold text-slate-900 mt-2.5">{{ stage.stage_name }}</h2>
 
-                                                <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600">
+                                                <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-700">
                                                     <div class="flex items-center gap-2">
-                                                        <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <svg class="w-4 h-4 text-slate-500 shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                         </svg>
-                                                        <span class="tabular-data font-semibold text-slate-800">{{ stage.stage_date_formatted || formatDate(stage.stage_date) }}</span>
-                                                        <span v-if="stage.start_time" class="font-mono text-slate-500">({{ stage.start_time }} - {{ stage.end_time || 'Selesai' }} WIB)</span>
+                                                        <span class="tabular-data font-semibold text-slate-900">{{ stage.stage_date_formatted || formatDate(stage.stage_date) }}</span>
+                                                        <span v-if="stage.start_time" class="tabular-nums text-slate-600">({{ stage.start_time }} - {{ stage.end_time || 'Selesai' }} WIB)</span>
                                                     </div>
                                                     <div class="flex items-center gap-2">
-                                                        <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <svg class="w-4 h-4 text-slate-500 shrink-0" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                                         </svg>
@@ -546,8 +554,8 @@ const eventJsonLd = computed(() => {
                                                     </div>
                                                 </div>
 
-                                                <div v-if="stage.instructions" class="mt-3 pt-2.5 border-t border-slate-100 text-xs text-slate-600 leading-relaxed bg-slate-50/70 p-3 rounded-lg">
-                                                    <p class="font-semibold text-slate-800 mb-1">Materi &amp; Tata Tertib Tahapan:</p>
+                                                <div v-if="stage.instructions" class="mt-3 pt-2.5 border-t border-slate-100 text-xs text-slate-700 leading-relaxed bg-slate-50/70 p-3 rounded-lg">
+                                                    <p class="font-semibold text-slate-900 mb-1">Materi &amp; Tata Tertib Tahapan:</p>
                                                     <p class="whitespace-pre-line">{{ stage.instructions }}</p>
                                                 </div>
                                             </div>
@@ -558,15 +566,15 @@ const eventJsonLd = computed(() => {
 
                             <!-- Tab: Participants (Peserta Terverifikasi untuk Audisi/Individu) -->
                             <div v-else-if="activeTab === 'participants'">
-                                <div v-if="registeredParticipants.length === 0" class="text-center py-10 text-xs text-slate-500 space-y-1">
-                                    <svg class="w-10 h-10 mx-auto text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div v-if="registeredParticipants.length === 0" class="text-center py-10 text-xs text-slate-600 space-y-1">
+                                    <svg class="w-10 h-10 mx-auto text-slate-400" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                     </svg>
-                                    <p class="font-bold text-slate-800 text-sm">Belum Ada Peserta Terverifikasi</p>
-                                    <p class="text-slate-400">Peserta dengan pembayaran terkonfirmasi dan screening berkas sah akan tampil di sini.</p>
+                                    <p class="font-bold text-slate-900 text-sm">Belum Ada Peserta Terverifikasi</p>
+                                    <p class="text-slate-600">Peserta dengan pembayaran terkonfirmasi dan screening berkas sah akan tampil di sini.</p>
                                 </div>
                                 <div v-else>
-                                    <div class="mb-3 flex items-center justify-between text-xs text-slate-500">
+                                    <div class="mb-3 flex items-center justify-between text-xs text-slate-600">
                                         <span>Menampilkan {{ registeredParticipants.length }} peserta terverifikasi dengan Digital Pass resmi.</span>
                                     </div>
 
@@ -589,14 +597,14 @@ const eventJsonLd = computed(() => {
                                                     class="hover:bg-orange-50/25 transition-colors"
                                                 >
                                                     <td class="table-td text-center">
-                                                        <span v-if="p.bib_number" class="inline-flex items-center justify-center px-2 py-0.5 rounded-md font-mono font-black text-xs bg-slate-900 text-white shadow-2xs">
+                                                        <span v-if="p.bib_number" class="inline-flex items-center justify-center px-2 py-0.5 rounded-lg font-mono font-black text-xs bg-slate-900 text-white">
                                                             #{{ p.bib_number }}
                                                         </span>
-                                                        <span v-else class="text-slate-400 text-xs font-mono">-</span>
+                                                        <span v-else class="text-slate-600 text-xs">-</span>
                                                     </td>
                                                     <td class="table-td font-semibold text-slate-900">
                                                         <div class="flex items-center gap-2.5">
-                                                            <div class="w-7 h-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs shrink-0">#</div>
+                                                            <div class="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0">#</div>
                                                             <div>
                                                                 <span class="block leading-tight font-bold text-slate-900">{{ p.public_label }}</span>
                                                             </div>
@@ -604,18 +612,18 @@ const eventJsonLd = computed(() => {
                                                     </td>
                                                     <td class="table-td text-xs text-slate-700">
                                                         <span class="font-medium">{{ p.preferred_position || '-' }}</span>
-                                                        <span v-if="p.dominant_foot" class="text-slate-400 block text-[11px]">
+                                                        <span v-if="p.dominant_foot" class="text-slate-600 block text-[11px]">
                                                             Kaki: {{ p.dominant_foot === 'right' ? 'Kanan' : (p.dominant_foot === 'left' ? 'Kiri' : 'Keduanya') }}
                                                         </span>
                                                     </td>
-                                                    <td class="table-td text-xs text-slate-500">Informasi peserta disimpan privat</td>
+                                                    <td class="table-td text-xs text-slate-600">Informasi peserta disimpan privat</td>
                                                     <td class="table-td text-right">
                                                         <span
-                                                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold"
+                                                            class="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-semibold"
                                                             :class="{
                                                                 'bg-emerald-50 text-emerald-800 border border-emerald-200': p.stage_status === 'day_1_passed' || p.stage_status === 'day_2_passed' || p.stage_status === 'final_selected',
                                                                 'bg-rose-50 text-rose-800 border border-rose-200': p.stage_status === 'day_1_eliminated' || p.stage_status === 'day_2_eliminated',
-                                                                'bg-sky-50 text-sky-800 border border-sky-200': p.stage_status === 'registered' || !p.stage_status || p.stage_status === 'stage_1',
+                                                                'bg-slate-100 text-slate-800 border border-slate-200': p.stage_status === 'registered' || !p.stage_status || p.stage_status === 'stage_1',
                                                             }"
                                                         >
                                                             {{ p.stage_status_label || 'Terdaftar' }}
@@ -634,23 +642,23 @@ const eventJsonLd = computed(() => {
                                             class="py-3 flex items-center justify-between gap-2.5"
                                         >
                                             <div class="flex items-center gap-2.5 min-w-0">
-                                                <span v-if="p.bib_number" class="font-mono text-xs font-black text-white bg-slate-900 px-1.5 py-0.5 rounded shrink-0">
+                                                <span v-if="p.bib_number" class="font-mono text-xs font-black text-white bg-slate-900 px-1.5 py-0.5 rounded-lg shrink-0">
                                                     #{{ p.bib_number }}
                                                 </span>
-                                                <div v-else class="w-6 text-center text-slate-400 font-mono text-xs shrink-0">-</div>
-                                                <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs shrink-0">#</div>
+                                                <div v-else class="w-6 text-center text-slate-600 text-xs shrink-0">-</div>
+                                                <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0">#</div>
                                                 <div class="min-w-0">
-                                                    <h5 class="text-xs font-bold text-slate-900 leading-tight truncate">{{ p.public_label }}</h5>
-                                                    <p class="text-[11px] text-slate-500 truncate">{{ p.preferred_position || '-' }}</p>
+                                                    <h3 class="text-xs font-bold text-slate-900 leading-tight truncate">{{ p.public_label }}</h3>
+                                                    <p class="text-[11px] text-slate-600 truncate">{{ p.preferred_position || '-' }}</p>
                                                 </div>
                                             </div>
                                             <div class="shrink-0">
                                                 <span
-                                                    class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                                                    class="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-semibold"
                                                     :class="{
                                                         'bg-emerald-50 text-emerald-800 border border-emerald-200': p.stage_status === 'day_1_passed' || p.stage_status === 'day_2_passed' || p.stage_status === 'final_selected',
                                                         'bg-rose-50 text-rose-800 border border-rose-200': p.stage_status === 'day_1_eliminated' || p.stage_status === 'day_2_eliminated',
-                                                        'bg-sky-50 text-sky-800 border border-sky-200': p.stage_status === 'registered' || !p.stage_status || p.stage_status === 'stage_1',
+                                                        'bg-slate-100 text-slate-800 border border-slate-200': p.stage_status === 'registered' || !p.stage_status || p.stage_status === 'stage_1',
                                                     }"
                                                 >
                                                     {{ p.stage_status_label || 'Terdaftar' }}
@@ -663,12 +671,12 @@ const eventJsonLd = computed(() => {
 
                             <!-- Tab: Teams (Desktop Table + Mobile Cards) -->
                             <div v-else-if="activeTab === 'teams'">
-                                <div v-if="registeredTeams.length === 0" class="text-center py-10 text-xs text-slate-500 space-y-1">
-                                    <svg class="w-10 h-10 mx-auto text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div v-if="registeredTeams.length === 0" class="text-center py-10 text-xs text-slate-600 space-y-1">
+                                    <svg class="w-10 h-10 mx-auto text-slate-400" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                                     </svg>
-                                    <p class="font-bold text-slate-800 text-sm">Belum Ada Tim Terverifikasi</p>
-                                    <p class="text-slate-400">Hanya tim yang telah menyelesaikan pelunasan dan verifikasi yang ditampilkan di sini.</p>
+                                    <p class="font-bold text-slate-900 text-sm">Belum Ada Tim Terverifikasi</p>
+                                    <p class="text-slate-600">Hanya tim yang telah menyelesaikan pelunasan dan verifikasi yang ditampilkan di sini.</p>
                                 </div>
                                 <div v-else>
                                     <div class="mb-3 flex items-center justify-between text-xs text-slate-500">
@@ -723,19 +731,22 @@ const eventJsonLd = computed(() => {
                                             class="py-3 flex items-center justify-between gap-2.5"
                                         >
                                             <div class="flex items-center gap-2.5">
-                                                <span class="font-mono text-xs font-bold text-slate-400 w-5 text-center">{{ index + 1 }}</span>
+                                                <span class="tabular-nums text-xs font-bold text-slate-600 w-5 text-center">{{ index + 1 }}</span>
                                                 <img
                                                     v-if="t.logo_url"
                                                     :src="t.logo_url"
                                                     :alt="t.name"
+                                                    width="32"
+                                                    height="32"
+                                                    loading="lazy"
                                                     class="w-8 h-8 rounded-lg object-cover border border-slate-200 bg-white shrink-0"
                                                 />
                                                 <div v-else class="w-8 h-8 rounded-lg bg-orange-100 text-orange-800 flex items-center justify-center font-bold text-xs shrink-0">
                                                     {{ t.name.charAt(0) }}
                                                 </div>
                                                 <div>
-                                                    <h5 class="text-xs font-bold text-slate-900 leading-tight">{{ t.name }}</h5>
-                                                    <p class="text-[11px] text-slate-500">{{ t.origin_association }}</p>
+                                                    <h3 class="text-xs font-bold text-slate-900 leading-tight">{{ t.name }}</h3>
+                                                    <p class="text-[11px] text-slate-600">{{ t.origin_association }}</p>
                                                 </div>
                                             </div>
                                             <StatusBadge :status="t.status" />
@@ -746,18 +757,18 @@ const eventJsonLd = computed(() => {
 
                             <!-- Tab: Groups & Standings -->
                             <div v-else-if="activeTab === 'groups'" class="space-y-6">
-                                <div v-if="groups.length === 0" class="text-center py-8 text-xs text-slate-500">
+                                <div v-if="groups.length === 0" class="text-center py-8 text-xs text-slate-600">
                                     Grup turnamen belum dibentuk oleh panitia.
                                 </div>
                                 <div v-else class="grid grid-cols-1 gap-6">
                                     <div
                                         v-for="g in groups"
                                         :key="g.id"
-                                        class="rounded-xl border border-slate-200 overflow-hidden shadow-2xs"
+                                        class="rounded-xl border border-slate-200 overflow-hidden"
                                     >
                                         <div class="px-4 py-2.5 bg-slate-900 text-white flex items-center justify-between text-xs">
                                             <span class="font-bold text-orange-400 tracking-wider">{{ g.name }}</span>
-                                            <span class="text-slate-400 font-mono">{{ g.standings.length }} Tim</span>
+                                            <span class="text-slate-300 tabular-nums">{{ g.standings.length }} Tim</span>
                                         </div>
                                         <div class="overflow-x-auto">
                                             <table class="w-full text-left text-xs border-collapse">
@@ -813,25 +824,25 @@ const eventJsonLd = computed(() => {
                                     <div
                                         v-for="m in matches"
                                         :key="m.id"
-                                        class="p-4 rounded-xl border border-slate-200 bg-white shadow-2xs hover:border-orange-300 transition-colors"
+                                        class="p-4 rounded-xl border border-slate-200 bg-white hover:border-orange-300 transition-colors"
                                     >
                                         <div class="flex items-center justify-between pb-2 border-b border-slate-100 text-xs">
                                             <div class="flex items-center gap-2">
-                                                <span class="px-2 py-0.5 rounded font-black bg-slate-900 text-white font-mono text-[10px]">#{{ m.match_number }}</span>
-                                                <span class="font-bold text-orange-950 bg-orange-50 px-2 py-0.5 rounded text-[11px]">{{ m.stage_label }}</span>
-                                                <span v-if="m.group_name" class="text-slate-500 font-medium">({{ m.group_name }})</span>
+                                                <span class="px-2 py-0.5 rounded-lg font-black bg-slate-900 text-white font-mono text-[10px]">#{{ m.match_number }}</span>
+                                                <span class="font-bold text-orange-950 bg-orange-50 px-2 py-0.5 rounded-lg text-[11px]">{{ m.stage_label }}</span>
+                                                <span v-if="m.group_name" class="text-slate-600 font-medium">({{ m.group_name }})</span>
                                             </div>
-                                            <span class="text-slate-500 text-[11px] font-mono">{{ m.kickoff_formatted }} &bull; {{ m.pitch_name }}</span>
+                                            <span class="text-slate-600 text-[11px] tabular-nums">{{ m.kickoff_formatted }} &bull; {{ m.pitch_name }}</span>
                                         </div>
                                         <div class="py-3 grid grid-cols-7 items-center gap-2 text-xs">
                                             <div class="col-span-3 text-right font-bold text-slate-900 truncate">
                                                 {{ m.home_team_name }}
                                             </div>
                                             <div class="col-span-1 text-center">
-                                                <span v-if="m.status === 'completed' || m.status === 'ongoing'" class="text-base font-black text-slate-900 tabular-data font-mono">
+                                                <span v-if="m.status === 'completed' || m.status === 'ongoing'" class="text-base font-black text-slate-900 tabular-data">
                                                     {{ m.home_score ?? 0 }} - {{ m.away_score ?? 0 }}
                                                 </span>
-                                                <span v-else class="text-[11px] font-bold text-slate-400">VS</span>
+                                                <span v-else class="text-[11px] font-bold text-slate-600">VS</span>
                                             </div>
                                             <div class="col-span-3 text-left font-bold text-slate-900 truncate">
                                                 {{ m.away_team_name }}
@@ -846,7 +857,7 @@ const eventJsonLd = computed(() => {
                                 <div class="rounded-xl border border-slate-200 overflow-hidden">
                                     <div class="px-4 py-2.5 bg-slate-900 text-white flex items-center justify-between text-xs">
                                         <span class="font-bold text-orange-400">Peringkat Top Scorer Resmi</span>
-                                        <span class="text-slate-400 font-mono">Golden Boot</span>
+                                        <span class="text-slate-300 font-semibold">Golden Boot</span>
                                     </div>
                                     <table class="w-full text-left text-xs border-collapse">
                                         <thead>
@@ -863,10 +874,10 @@ const eventJsonLd = computed(() => {
                                                 :key="p.player_id"
                                                 class="hover:bg-orange-50/20"
                                             >
-                                                <td class="py-2.5 px-3 text-center font-bold font-mono">{{ idx + 1 }}</td>
+                                                <td class="py-2.5 px-3 text-center font-bold tabular-nums">{{ idx + 1 }}</td>
                                                 <td class="py-2.5 px-3 font-bold text-slate-900">
                                                     {{ p.player_name }}
-                                                    <span v-if="p.jersey_number" class="text-slate-400 font-mono text-[10px] ml-1">#{{ p.jersey_number }}</span>
+                                                    <span v-if="p.jersey_number" class="text-slate-600 font-mono text-[10px] ml-1">#{{ p.jersey_number }}</span>
                                                 </td>
                                                 <td class="py-2.5 px-3 text-slate-600">{{ p.team_name }}</td>
                                                 <td class="py-2.5 px-3 text-center tabular-data font-black text-orange-900 bg-orange-50/60 text-sm">
@@ -946,11 +957,11 @@ const eventJsonLd = computed(() => {
                             <div class="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
                                 <div
                                     class="h-full rounded-full transition-all"
-                                    :class="event.available_slots === 0 ? 'bg-rose-600' : 'bg-gradient-to-r from-orange-500 to-red-600'"
+                                    :class="event.available_slots === 0 ? 'bg-rose-600' : 'bg-orange-600'"
                                     :style="{ width: `${quotaPercentage}%` }"
                                 />
                             </div>
-                            <p class="text-[11px] text-slate-500 leading-relaxed">
+                            <p class="text-[11px] text-slate-600 leading-relaxed">
                                 Sisa slot tersedia: <strong class="text-slate-900 tabular-data">{{ event.available_slots }} slot {{ participantUnit.toLowerCase() }}</strong>.
                                 Setiap pendaftar langsung menahan slot sementara selama
                                 <strong class="tabular-data">{{ event.payment_deadline_hours }} jam</strong> untuk menyelesaikan pembayaran.
@@ -972,7 +983,7 @@ const eventJsonLd = computed(() => {
                             <Link
                                 v-if="event.can_register"
                                 :href="isIndividual ? route('events.register-audition', { event: event.slug }) : route('events.register', { event: event.slug })"
-                                class="btn-pitch w-full py-2.5 flex items-center justify-center gap-2 shadow-md shadow-orange-500/20"
+                                class="btn-pitch w-full py-2.5 flex items-center justify-center gap-2"
                             >
                                 <span>{{ isIndividual ? 'Daftar Audisi Sekarang' : 'Daftar Tim Sekarang' }}</span>
                             </Link>
