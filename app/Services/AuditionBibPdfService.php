@@ -142,7 +142,7 @@ class AuditionBibPdfService
     }
 
     /**
-     * Render a dark-scrimmed cover banner data URI for the Digital Pass header.
+     * Render a dark-scrimmed banner data URI for the Digital Pass header while preserving aspect ratio.
      */
     private function createOverlayBannerDataUri(?array $file): ?string
     {
@@ -155,40 +155,25 @@ class AuditionBibPdfService
             return null;
         }
 
-        $srcW = imagesx($src);
-        $srcH = imagesy($src);
-        $dstW = 1100;
-        $dstH = 260;
+        $srcW = max(1, imagesx($src));
+        $srcH = max(1, imagesy($src));
+        $dstW = min(1200, $srcW);
+        $dstH = max(1, (int) round($srcH * ($dstW / $srcW)));
 
         $dst = imagecreatetruecolor($dstW, $dstH);
-        $srcRatio = $srcW / max(1, $srcH);
-        $dstRatio = $dstW / $dstH;
-
-        if ($srcRatio > $dstRatio) {
-            $cropH = $srcH;
-            $cropW = (int) round($srcH * $dstRatio);
-            $cropX = (int) round(($srcW - $cropW) / 2);
-            $cropY = 0;
-        } else {
-            $cropW = $srcW;
-            $cropH = (int) round($srcW / $dstRatio);
-            $cropX = 0;
-            $cropY = (int) round(($srcH - $cropH) / 2);
-        }
-
-        imagecopyresampled($dst, $src, 0, 0, $cropX, $cropY, $dstW, $dstH, max(1, $cropW), max(1, $cropH));
+        imagecopyresampled($dst, $src, 0, 0, 0, 0, $dstW, $dstH, $srcW, $srcH);
         imagedestroy($src);
 
-        // Dark slate horizontal gradient scrim so white header text stays high-contrast
+        // Subtle dark slate scrim (GD alpha: 0=opaque, 127=transparent) so banner stays clear while white text stays legible
         for ($x = 0; $x < $dstW; $x += 4) {
-            // Darker on the left (text side ~82% slate), slightly clearer toward right (~64% slate)
-            $alpha = (int) round(22 + (24 * ($x / $dstW)));
+            // ~58% slate on the left -> ~35% slate on the right
+            $alpha = (int) round(53 + (29 * ($x / $dstW)));
             $scrim = imagecolorallocatealpha($dst, 15, 23, 42, $alpha);
             imagefilledrectangle($dst, $x, 0, min($dstW - 1, $x + 3), $dstH - 1, $scrim);
         }
 
         ob_start();
-        imagejpeg($dst, null, 85);
+        imagejpeg($dst, null, 90);
         $out = ob_get_clean();
         imagedestroy($dst);
 
