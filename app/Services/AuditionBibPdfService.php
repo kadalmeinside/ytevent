@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AuditionParticipant;
+use App\Models\Event;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
@@ -59,10 +60,15 @@ class AuditionBibPdfService
             $validDatesLabel = $event->match_start_date->translatedFormat('d M Y');
         }
 
+        $formPresets = $event ? $event->normalizedFormPresets() : Event::DEFAULT_FORM_PRESETS;
+        $customFieldItems = self::extractCustomFieldItems($event, $participant);
+
         $data = [
             'participant' => $participant,
             'event' => $event,
             'session' => $participant->eventSession,
+            'form_presets' => $formPresets,
+            'custom_field_items' => $customFieldItems,
             'qr_code_svg' => $qrBase64,
             'photo_base64' => $photoBase64,
             'banner_overlay_base64' => $bannerOverlayBase64,
@@ -180,6 +186,49 @@ class AuditionBibPdfService
         return ($out !== false && $out !== '')
             ? 'data:image/jpeg;base64,' . base64_encode($out)
             : null;
+    }
+
+    /**
+     * Extract formatted custom answers strictly matching the event's configured custom_fields_schema.
+     *
+     * @return array<int, array{label: string, value: string}>
+     */
+    public static function extractCustomFieldItems(?Event $event, AuditionParticipant $participant): array
+    {
+        $schema = is_array($event?->custom_fields_schema) ? $event->custom_fields_schema : [];
+        $answers = is_array($participant->custom_answers) ? $participant->custom_answers : [];
+        $items = [];
+
+        foreach ($schema as $field) {
+            if (! is_array($field) || empty($field['key'])) {
+                continue;
+            }
+
+            $key = $field['key'];
+            $value = $answers[$key] ?? null;
+
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            if (is_bool($value)) {
+                $value = $value ? 'Ya' : 'Tidak';
+            } elseif (is_array($value)) {
+                $value = implode(', ', array_filter($value, static fn ($v) => $v !== null && $v !== ''));
+            }
+
+            $stringValue = trim((string) $value);
+            if ($stringValue === '') {
+                continue;
+            }
+
+            $items[] = [
+                'label' => (string) ($field['label'] ?? $key),
+                'value' => $stringValue,
+            ];
+        }
+
+        return $items;
     }
 }
 

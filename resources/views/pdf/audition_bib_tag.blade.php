@@ -465,6 +465,27 @@
             </div>
 
             <div class="content-inner">
+                @php
+                    $presets = $form_presets ?? ($event?->normalizedFormPresets() ?? \App\Models\Event::DEFAULT_FORM_PRESETS);
+                    $customItems = $custom_field_items ?? \App\Services\AuditionBibPdfService::extractCustomFieldItems($event, $participant);
+                    $showPhotoCell = ! empty($photo_base64) || ! empty($presets['photo']);
+
+                    $specItems = [];
+                    if (! empty($presets['position'])) {
+                        $posLabel = $participant->preferred_position ?: '-';
+                        if ($participant->secondary_position) {
+                            $posLabel .= ' / ' . $participant->secondary_position;
+                        }
+                        $specItems[] = 'POSISI: ' . $posLabel;
+                    }
+                    if (! empty($presets['foot_dominance'])) {
+                        $specItems[] = 'KAKI: ' . strtoupper($participant->dominant_foot ?: '-');
+                    }
+                    if (! empty($presets['jersey_size'])) {
+                        $specItems[] = 'JERSEY: ' . strtoupper($participant->jersey_size ?: '-');
+                    }
+                @endphp
+
                 <!-- 1. Hero ID Digital Pass Highlight -->
                 @if($event->event_type === 'clinic' || $event->event_type === 'coaching_clinic')
                     <div class="card-clinic-pass">
@@ -474,12 +495,19 @@
                         <div class="pass-id-number" style="color: #15803d;">
                             {{ $participant->registration_number ?: ('PASS-' . $participant->id) }}
                         </div>
-                        <div style="font-size: 8.5pt; font-weight: bold; color: #166534; margin-top: 2px;">
-                            Ukuran Jersey / Kit:
-                            <span style="background: #16a34a; color: #ffffff; padding: 1px 7px; border-radius: 4px;">
-                                {{ strtoupper($participant->jersey_size ?: 'ALL SIZE') }}
-                            </span>
-                        </div>
+                        @if(! empty($presets['jersey_size']))
+                            <div style="font-size: 8.5pt; font-weight: bold; color: #166534; margin-top: 2px;">
+                                Ukuran Jersey / Kit:
+                                <span style="background: #16a34a; color: #ffffff; padding: 1px 7px; border-radius: 4px;">
+                                    {{ strtoupper($participant->jersey_size ?: '-') }}
+                                </span>
+                            </div>
+                        @endif
+                        @if($participant->bib_number)
+                            <div class="optional-bib-pill" style="background: #dcfce7; border-color: #86efac; color: #166534;">
+                                No. Bib / Dada (Opsional): #{{ $participant->bib_number }}
+                            </div>
+                        @endif
                     </div>
                 @else
                     <div class="card-audition-pass">
@@ -489,13 +517,15 @@
                         <div class="pass-id-number">
                             {{ $participant->registration_number ?: ('PASS-' . $participant->id) }}
                         </div>
-                        <table class="specs-mini-table">
-                            <tr>
-                                <td>POSISI: {{ $participant->preferred_position ?: '-' }}</td>
-                                <td>KAKI: {{ strtoupper($participant->dominant_foot ?: '-') }}</td>
-                                <td>JERSEY: {{ strtoupper($participant->jersey_size ?: 'M') }}</td>
-                            </tr>
-                        </table>
+                        @if(count($specItems) > 0)
+                            <table class="specs-mini-table">
+                                <tr>
+                                    @foreach($specItems as $item)
+                                        <td>{{ $item }}</td>
+                                    @endforeach
+                                </tr>
+                            </table>
+                        @endif
                         @if($participant->bib_number)
                             <div class="optional-bib-pill">
                                 No. Bib / Dada (Opsional): #{{ $participant->bib_number }}
@@ -509,19 +539,27 @@
                     <tr>
                         <!-- Left: Athlete Profile & Face Check -->
                         <td class="col-profile">
-                            <div class="section-label">Profil Peserta &amp; Verifikasi Wajah Anti-Joki</div>
+                            <div class="section-label">
+                                @if($showPhotoCell)
+                                    Profil Peserta &amp; Verifikasi Wajah Anti-Joki
+                                @else
+                                    Profil &amp; Identitas Resmi Peserta
+                                @endif
+                            </div>
                             <table class="profile-inner-table">
                                 <tr>
-                                    <td class="profile-photo-cell">
-                                        @if($photo_base64)
-                                            <img class="athlete-photo" src="{{ $photo_base64 }}" alt="Pas Foto" />
-                                        @else
-                                            <div class="photo-placeholder">PAS FOTO RESMI</div>
-                                        @endif
-                                        <div style="font-size: 6pt; font-weight: bold; color: #64748b; text-transform: uppercase;">
-                                            Cocokkan Wajah Atlet
-                                        </div>
-                                    </td>
+                                    @if($showPhotoCell)
+                                        <td class="profile-photo-cell">
+                                            @if($photo_base64)
+                                                <img class="athlete-photo" src="{{ $photo_base64 }}" alt="Pas Foto" />
+                                            @else
+                                                <div class="photo-placeholder">PAS FOTO RESMI</div>
+                                            @endif
+                                            <div style="font-size: 6pt; font-weight: bold; color: #64748b; text-transform: uppercase;">
+                                                Cocokkan Wajah Atlet
+                                            </div>
+                                        </td>
+                                    @endif
                                     <td class="profile-detail-cell">
                                         <h2 class="player-name">{{ $participant->full_name }}</h2>
                                         @if($participant->nickname)
@@ -530,18 +568,33 @@
                                         <div class="identity-line identity-muted">
                                             NIK: {{ substr((string) $participant->nik, 0, 6) . '******' . substr((string) $participant->nik, -4) }}
                                         </div>
-                                        <div class="identity-line">
-                                            <strong>Asal SSB / Klub:</strong><br />
-                                            {{ $participant->current_club_ssb ?: 'Peserta Mandiri / Independen' }}
-                                        </div>
+                                        @if(! empty($presets['team_origin']))
+                                            <div class="identity-line">
+                                                <strong>Asal SSB / Klub:</strong><br />
+                                                {{ $participant->current_club_ssb ?: 'Peserta Mandiri / Independen' }}
+                                            </div>
+                                        @endif
                                         <div class="identity-line">
                                             <strong>Tanggal Lahir:</strong><br />
                                             {{ $participant->birth_date?->format('d/m/Y') }} ({{ $participant->birth_date?->age }} Thn)
                                         </div>
+                                        @if(! empty($presets['body_measurements']) && ($participant->height_cm || $participant->weight_kg))
+                                            <div class="identity-line">
+                                                <strong>Tinggi / Berat:</strong>
+                                                {{ $participant->height_cm ? $participant->height_cm . ' cm' : '-' }} / {{ $participant->weight_kg ? $participant->weight_kg . ' kg' : '-' }}
+                                            </div>
+                                        @endif
                                         @if($session)
                                             <div class="identity-line">
                                                 <strong>Sesi:</strong> {{ $session->session_name }}
                                             </div>
+                                        @endif
+                                        @if(count($customItems) > 0)
+                                            @foreach(array_slice($customItems, 0, 4) as $cItem)
+                                                <div class="identity-line">
+                                                    <strong>{{ $cItem['label'] }}:</strong> {{ $cItem['value'] }}
+                                                </div>
+                                            @endforeach
                                         @endif
                                     </td>
                                 </tr>

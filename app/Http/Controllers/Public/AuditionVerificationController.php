@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Public;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditionParticipant;
+use App\Models\Event;
 use App\Services\AuditionBibPdfService;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -51,8 +52,10 @@ class AuditionVerificationController extends Controller
                 'masked_nik' => $maskedNik,
                 'height_cm' => $participant->height_cm,
                 'weight_kg' => $participant->weight_kg,
+                'jersey_size' => $participant->jersey_size,
                 'current_club_ssb' => $participant->current_club_ssb ?: 'Independen',
                 'playing_experience' => $participant->playing_experience,
+                'custom_field_items' => AuditionBibPdfService::extractCustomFieldItems($event, $participant),
                 'stage_status' => $participant->stage_status,
                 'stage_status_label' => $participant->stageStatusLabel(),
                 'photo_url' => $participant->photo_path
@@ -72,6 +75,7 @@ class AuditionVerificationController extends Controller
                 'venue_name' => $event?->venue_name,
                 'city' => $event?->city,
                 'session_name' => $participant->eventSession?->session_name,
+                'form_presets' => $event ? $event->normalizedFormPresets() : Event::DEFAULT_FORM_PRESETS,
             ],
         ]);
     }

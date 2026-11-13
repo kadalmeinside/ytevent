@@ -536,4 +536,193 @@ class EventWorkspaceAndIndividualScreeningTest extends TestCase
                 ->where('participants.0.registration_number', 'AUD-2026-PASS01')
             );
     }
+
+    public function test_digital_pass_strictly_follows_event_form_presets_and_custom_fields(): void
+    {
+        // 1. Event Audisi tanpa Jersey, Foto, Kaki Dominan, Antropometri, dan Asal SSB
+        $eventNoExtras = $this->makeIndividualEvent('audition');
+        $eventNoExtras->update([
+            'form_presets' => [
+                'photo' => false,
+                'position' => true,
+                'foot_dominance' => false,
+                'team_origin' => false,
+                'body_measurements' => false,
+                'experience' => false,
+                'jersey_size' => false,
+            ],
+        ]);
+
+        $user1 = User::factory()->create();
+        $p1 = $this->makeParticipant($eventNoExtras, $user1, [
+            'registration_number' => 'AUD-2026-PRESET1',
+            'screening_status' => 'passed',
+            'screening_code' => 'SCR-PRESET-01',
+            'preferred_position' => 'ST',
+            'dominant_foot' => 'right',
+            'jersey_size' => null,
+            'photo_path' => null,
+            'current_club_ssb' => null,
+            'height_cm' => 170,
+            'weight_kg' => 60,
+        ]);
+
+        $htmlNoExtras = view('pdf.audition_bib_tag', [
+            'participant' => $p1,
+            'event' => $eventNoExtras->fresh(),
+            'session' => null,
+            'form_presets' => $eventNoExtras->fresh()->normalizedFormPresets(),
+            'custom_field_items' => [],
+            'qr_code_svg' => 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=',
+            'photo_base64' => null,
+            'banner_overlay_base64' => null,
+            'auth_signature' => 'ABCD-1234-EF56-7890',
+            'invoice_number' => 'INV-PRESET-01',
+            'verified_by_name' => 'Panitia',
+            'verified_at_label' => '13 Nov 2026',
+            'valid_dates_label' => '14 Nov 2026',
+            'generated_at' => '13 November 2026',
+        ])->render();
+
+        $this->assertStringContainsString('POSISI: ST', $htmlNoExtras);
+        $this->assertStringNotContainsString('JERSEY:', $htmlNoExtras);
+        $this->assertStringNotContainsString('KAKI:', $htmlNoExtras);
+        $this->assertStringNotContainsString('PAS FOTO RESMI', $htmlNoExtras);
+        $this->assertStringNotContainsString('Cocokkan Wajah Atlet', $htmlNoExtras);
+        $this->assertStringNotContainsString('Asal SSB / Klub', $htmlNoExtras);
+        $this->assertStringNotContainsString('Tinggi / Berat', $htmlNoExtras);
+
+        // 2. Event Clinic tanpa jersey_size juga tidak boleh memunculkan 'ALL SIZE' / 'Ukuran Jersey / Kit'
+        $clinicNoJersey = $this->makeIndividualEvent('coaching_clinic');
+        $clinicNoJersey->update([
+            'form_presets' => [
+                'photo' => false,
+                'position' => false,
+                'foot_dominance' => false,
+                'team_origin' => false,
+                'body_measurements' => false,
+                'experience' => false,
+                'jersey_size' => false,
+            ],
+        ]);
+        $pClinic = $this->makeParticipant($clinicNoJersey, User::factory()->create(), [
+            'registration_number' => 'CLN-2026-001',
+            'screening_status' => 'passed',
+            'screening_code' => 'SCR-CLN-01',
+            'jersey_size' => null,
+        ]);
+
+        $htmlClinic = view('pdf.audition_bib_tag', [
+            'participant' => $pClinic,
+            'event' => $clinicNoJersey->fresh(),
+            'session' => null,
+            'form_presets' => $clinicNoJersey->fresh()->normalizedFormPresets(),
+            'custom_field_items' => [],
+            'qr_code_svg' => 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=',
+            'photo_base64' => null,
+            'banner_overlay_base64' => null,
+            'auth_signature' => 'ABCD-1234-EF56-7890',
+            'invoice_number' => 'INV-CLN-01',
+            'verified_by_name' => 'Panitia',
+            'verified_at_label' => '13 Nov 2026',
+            'valid_dates_label' => '14 Nov 2026',
+            'generated_at' => '13 November 2026',
+        ])->render();
+
+        $this->assertStringNotContainsString('Ukuran Jersey / Kit', $htmlClinic);
+        $this->assertStringNotContainsString('ALL SIZE', $htmlClinic);
+
+        // 3. Event dengan jersey_size, body_measurements, dan custom_fields_schema aktif
+        $eventFull = $eventNoExtras;
+        $eventFull->update([
+            'form_presets' => [
+                'photo' => false,
+                'position' => true,
+                'foot_dominance' => true,
+                'team_origin' => true,
+                'body_measurements' => true,
+                'experience' => false,
+                'jersey_size' => true,
+            ],
+            'custom_fields_schema' => [
+                [
+                    'key' => 'golongan_darah',
+                    'label' => 'Golongan Darah',
+                    'type' => 'text',
+                    'required' => false,
+                ],
+            ],
+        ]);
+
+        $userFull = User::factory()->create();
+        $pFull = $this->makeParticipant($eventFull, $userFull, [
+            'registration_number' => 'AUD-2026-FULL1',
+            'screening_status' => 'passed',
+            'screening_code' => 'SCR-FULL-01',
+            'preferred_position' => 'GK',
+            'dominant_foot' => 'left',
+            'jersey_size' => 'xl',
+            'height_cm' => 165,
+            'weight_kg' => 55,
+            'current_club_ssb' => 'SSB Garuda Muda',
+            'custom_answers' => [
+                'golongan_darah' => 'O+',
+            ],
+        ]);
+
+        \App\Models\Payment::create([
+            'event_id' => $eventFull->id,
+            'user_id' => $userFull->id,
+            'audition_participant_id' => $pFull->id,
+            'invoice_number' => 'INV-FULL-01',
+            'amount' => 250000,
+            'base_amount' => 250000,
+            'total_amount' => 250000,
+            'status' => 'paid',
+            'method' => 'midtrans_qris',
+            'paid_at' => now(),
+        ]);
+
+        $customItems = \App\Services\AuditionBibPdfService::extractCustomFieldItems($eventFull->fresh(), $pFull);
+        $htmlFull = view('pdf.audition_bib_tag', [
+            'participant' => $pFull,
+            'event' => $eventFull->fresh(),
+            'session' => null,
+            'form_presets' => $eventFull->fresh()->normalizedFormPresets(),
+            'custom_field_items' => $customItems,
+            'qr_code_svg' => 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=',
+            'photo_base64' => null,
+            'banner_overlay_base64' => null,
+            'auth_signature' => 'ABCD-1234-EF56-7890',
+            'invoice_number' => 'INV-FULL-01',
+            'verified_by_name' => 'Panitia',
+            'verified_at_label' => '13 Nov 2026',
+            'valid_dates_label' => '14 Nov 2026',
+            'generated_at' => '13 November 2026',
+        ])->render();
+
+        $this->assertStringContainsString('JERSEY: XL', $htmlFull);
+        $this->assertStringContainsString('KAKI: LEFT', $htmlFull);
+        $this->assertStringContainsString('SSB Garuda Muda', $htmlFull);
+        $this->assertStringContainsString('165 cm / 55 kg', $htmlFull);
+        $this->assertStringContainsString('Golongan Darah:', $htmlFull);
+        $this->assertStringContainsString('O+', $htmlFull);
+
+        // Pastikan DomPDF merender 1 halaman A4 Portrait dengan bersih
+        $pdfBytes = app(\App\Services\AuditionBibPdfService::class)->generateBibPdf($pFull->fresh())->output();
+        $this->assertStringStartsWith('%PDF-', $pdfBytes);
+        $this->assertSame(1, preg_match_all('/\/Type\s*\/Page\b/', $pdfBytes));
+        $this->assertStringContainsString('595.280 841.890', $pdfBytes);
+
+        // Portal verifikasi QR juga menyertakan form_presets dan custom_field_items
+        $this->get(route('public.audition.verify', ['code' => 'SCR-FULL-01']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('isVerified', true)
+                ->where('event.form_presets.jersey_size', true)
+                ->where('participant.jersey_size', 'xl')
+                ->where('participant.custom_field_items.0.label', 'Golongan Darah')
+                ->where('participant.custom_field_items.0.value', 'O+')
+            );
+    }
 }

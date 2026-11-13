@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 
 const props = defineProps({
@@ -19,6 +20,9 @@ const props = defineProps({
         default: null,
     },
 });
+
+const presets = computed(() => props.event?.form_presets || {});
+const showPhotoBox = computed(() => Boolean(props.participant?.photo_url || presets.value?.photo));
 </script>
 
 <template>
@@ -65,7 +69,7 @@ const props = defineProps({
                 <div class="p-5 space-y-4">
                     <!-- Foto & Identitas Pokok -->
                     <div class="flex items-center gap-4 pb-4 border-b border-slate-100">
-                        <div class="relative shrink-0">
+                        <div v-if="showPhotoBox" class="relative shrink-0">
                             <img
                                 v-if="participant?.photo_url"
                                 :src="participant.photo_url"
@@ -82,7 +86,18 @@ const props = defineProps({
 
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center gap-1.5 mb-1 flex-wrap">
-                                <span class="px-2 py-0.5 rounded bg-orange-100 text-orange-800 font-bold text-[11px]">{{ participant?.preferred_position || 'Pemain' }}</span>
+                                <span
+                                    v-if="!showPhotoBox"
+                                    class="px-2 py-0.5 rounded bg-orange-600 text-white font-black font-mono text-[11px]"
+                                >
+                                    {{ participant?.registration_number || 'PASS SAH' }}
+                                </span>
+                                <span
+                                    v-if="presets.position && participant?.preferred_position"
+                                    class="px-2 py-0.5 rounded bg-orange-100 text-orange-800 font-bold text-[11px]"
+                                >
+                                    {{ participant.preferred_position }}
+                                </span>
                                 <span class="text-[11px] text-slate-500 font-semibold">{{ participant?.age }} Tahun</span>
                             </div>
                             <h2 class="text-base font-black text-slate-900 leading-tight truncate" :title="participant?.full_name">{{ participant?.full_name }}</h2>
@@ -93,17 +108,29 @@ const props = defineProps({
 
                     <!-- Informasi Teknis & Asal Klub -->
                     <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
-                        <div class="flex items-center justify-between text-xs">
+                        <div v-if="presets.team_origin" class="flex items-center justify-between text-xs">
                             <span class="text-slate-500">SSB / Klub Asal:</span>
                             <span class="font-bold text-slate-800">{{ participant?.current_club_ssb }}</span>
                         </div>
-                        <div class="flex items-center justify-between text-xs">
+                        <div v-if="presets.foot_dominance" class="flex items-center justify-between text-xs">
                             <span class="text-slate-500">Kaki Dominan:</span>
                             <span class="font-bold text-slate-800 uppercase">{{ participant?.dominant_foot || '-' }}</span>
                         </div>
-                        <div class="flex items-center justify-between text-xs">
+                        <div v-if="presets.body_measurements" class="flex items-center justify-between text-xs">
                             <span class="text-slate-500">Tinggi / Berat:</span>
                             <span class="font-bold text-slate-800">{{ participant?.height_cm ? `${participant.height_cm} cm` : '-' }} / {{ participant?.weight_kg ? `${participant.weight_kg} kg` : '-' }}</span>
+                        </div>
+                        <div v-if="presets.jersey_size" class="flex items-center justify-between text-xs">
+                            <span class="text-slate-500">Ukuran Jersey:</span>
+                            <span class="font-bold text-slate-800 uppercase">{{ participant?.jersey_size || '-' }}</span>
+                        </div>
+                        <div
+                            v-for="(item, idx) in participant?.custom_field_items || []"
+                            :key="idx"
+                            class="flex items-center justify-between text-xs gap-3"
+                        >
+                            <span class="text-slate-500 shrink-0">{{ item.label }}:</span>
+                            <span class="font-bold text-slate-800 text-right">{{ item.value }}</span>
                         </div>
                         <div class="flex items-center justify-between text-xs pt-1 border-t border-slate-200/60">
                             <span class="text-slate-500">Status Seleksi:</span>
