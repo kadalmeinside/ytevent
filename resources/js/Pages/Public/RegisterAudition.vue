@@ -34,12 +34,26 @@ const {
     checkFile,
 } = useFormValidator();
 
+const toPresetBool = (value, fallback = false) => {
+    if (value === undefined || value === null || value === '') return fallback;
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value !== 0;
+    const normalized = String(value).trim().toLowerCase();
+    if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+    if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+    return fallback;
+};
+
 const presets = computed(() => {
     const raw = props.event.form_presets || {};
     return {
-        ...raw,
-        foot_dominance: raw.foot_dominance ?? raw.foot ?? false,
-        jersey_size: raw.jersey_size ?? raw.jersey ?? false,
+        photo: toPresetBool(raw.photo, false),
+        position: toPresetBool(raw.position, true),
+        foot_dominance: toPresetBool(raw.foot_dominance ?? raw.foot, false),
+        team_origin: toPresetBool(raw.team_origin, false),
+        body_measurements: toPresetBool(raw.body_measurements, false),
+        experience: toPresetBool(raw.experience, false),
+        jersey_size: toPresetBool(raw.jersey_size ?? raw.jersey, false),
     };
 });
 const customFields = computed(() => props.event.custom_fields_schema || []);
@@ -66,12 +80,12 @@ const form = useForm({
     // Presets
     preferred_position: '',
     secondary_position: '',
-    dominant_foot: 'right',
+    dominant_foot: presets.value.foot_dominance ? 'right' : '',
     height_cm: '',
     weight_kg: '',
     current_club_ssb: '',
     playing_experience: '',
-    jersey_size: 'M',
+    jersey_size: presets.value.jersey_size ? 'M' : '',
 
     // Safety & Contact
     emergency_contact_name: '',
@@ -206,7 +220,7 @@ const submit = () => {
         }
 
         // 5. Berkas Unggahan
-        if (props.event?.form_presets?.photo) {
+        if (presets.value.photo) {
             const photoCheck = checkFile(form.photo, ['image/png', 'image/jpeg', 'image/webp'], 3 * 1024 * 1024);
             if (!photoCheck.valid) {
                 if (photoCheck.reason === 'missing') errs.photo = 'Pas foto resmi peserta wajib diunggah.';
@@ -714,7 +728,7 @@ const submit = () => {
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <!-- Pas Foto (Hanya jika preset photo aktif) -->
-                        <div v-if="event.form_presets?.photo" data-field="photo">
+                        <div v-if="presets.photo" data-field="photo">
                             <label class="block text-xs font-semibold text-slate-700 mb-1">Pas Foto Resmi Peserta *</label>
                             <FileInput
                                 accept="image/png,image/jpeg,image/webp"

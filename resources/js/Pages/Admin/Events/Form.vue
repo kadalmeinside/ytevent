@@ -68,6 +68,18 @@ const getInitialType = () => {
 
 const initialType = getInitialType();
 
+const toPresetBool = (value, fallback = false) => {
+    if (value === undefined || value === null || value === '') return fallback;
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value !== 0;
+    const normalized = String(value).trim().toLowerCase();
+    if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+    if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+    return fallback;
+};
+
+const rawPresets = props.event?.form_presets || {};
+
 const form = useForm({
     name: props.event?.name || '',
     event_type: props.event?.event_type || (initialType === 'individual' ? 'audition' : 'tournament'),
@@ -82,13 +94,13 @@ const form = useForm({
         FW: props.event?.position_quota_caps?.FW ?? null,
     },
     form_presets: {
-        photo: props.event?.form_presets?.photo ?? false,
-        position: props.event?.form_presets?.position ?? true,
-        foot_dominance: props.event?.form_presets?.foot_dominance ?? true,
-        team_origin: props.event?.form_presets?.team_origin ?? true,
-        body_measurements: props.event?.form_presets?.body_measurements ?? true,
-        experience: props.event?.form_presets?.experience ?? true,
-        jersey_size: props.event?.form_presets?.jersey_size ?? false,
+        photo: toPresetBool(rawPresets.photo, false),
+        position: toPresetBool(rawPresets.position, true),
+        foot_dominance: toPresetBool(rawPresets.foot_dominance ?? rawPresets.foot, true),
+        team_origin: toPresetBool(rawPresets.team_origin, true),
+        body_measurements: toPresetBool(rawPresets.body_measurements, true),
+        experience: toPresetBool(rawPresets.experience, true),
+        jersey_size: toPresetBool(rawPresets.jersey_size ?? rawPresets.jersey, false),
     },
     custom_fields_schema: props.event?.custom_fields_schema || [],
     short_description: props.event?.short_description || '',

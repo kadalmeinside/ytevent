@@ -260,6 +260,39 @@ class Event extends Model
     }
 
     /**
+     * Normalize any incoming form_presets payload (including legacy keys or FormData strings)
+     * into strict canonical boolean flags.
+     *
+     * @return array<string, bool>
+     */
+    public static function normalizeFormPresetsArray(?array $raw): array
+    {
+        $raw = is_array($raw) ? $raw : [];
+        $presets = array_merge(self::DEFAULT_FORM_PRESETS, $raw);
+
+        if (array_key_exists('foot', $presets) && ! array_key_exists('foot_dominance', $raw)) {
+            $presets['foot_dominance'] = $presets['foot'];
+        }
+
+        if (array_key_exists('jersey', $presets) && ! array_key_exists('jersey_size', $raw)) {
+            $presets['jersey_size'] = $presets['jersey'];
+        }
+
+        unset($presets['foot'], $presets['jersey']);
+
+        foreach ($presets as $key => $value) {
+            if (is_bool($value)) {
+                continue;
+            }
+
+            $parsed = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            $presets[$key] = $parsed ?? false;
+        }
+
+        return $presets;
+    }
+
+    /**
      * Return form presets using the canonical keys consumed by public forms.
      *
      * Older events may contain the legacy `foot` and `jersey` keys, so keep
@@ -267,19 +300,7 @@ class Event extends Model
      */
     public function normalizedFormPresets(): array
     {
-        $presets = array_merge(self::DEFAULT_FORM_PRESETS, $this->form_presets ?? []);
-
-        if (array_key_exists('foot', $presets) && ! array_key_exists('foot_dominance', $this->form_presets ?? [])) {
-            $presets['foot_dominance'] = (bool) $presets['foot'];
-        }
-
-        if (array_key_exists('jersey', $presets) && ! array_key_exists('jersey_size', $this->form_presets ?? [])) {
-            $presets['jersey_size'] = (bool) $presets['jersey'];
-        }
-
-        unset($presets['foot'], $presets['jersey']);
-
-        return $presets;
+        return self::normalizeFormPresetsArray($this->form_presets);
     }
 
     public function availableSlotsCount(): ?int

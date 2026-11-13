@@ -725,4 +725,96 @@ class EventWorkspaceAndIndividualScreeningTest extends TestCase
                 ->where('participant.custom_field_items.0.value', 'O+')
             );
     }
+
+    public function test_event_update_normalizes_form_data_preset_booleans_and_hides_disabled_fields(): void
+    {
+        $admin = $this->makeSuperadmin();
+        $event = $this->makeIndividualEvent('audition');
+
+        // Simulasikan kondisi legacy di DB yang menyimpan string "1"/"0" dari FormData
+        $event->forceFill([
+            'form_presets' => [
+                'photo' => '1',
+                'position' => '1',
+                'foot_dominance' => '1',
+                'team_origin' => '1',
+                'body_measurements' => '1',
+                'experience' => '1',
+                'jersey_size' => '0',
+            ],
+        ])->saveQuietly();
+
+        // Edit page harus menormalisasi prop form_presets ke strict boolean true/false
+        $this->actingAs($admin)
+            ->get(route('admin.events.edit', ['event' => $event->id]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('event.form_presets.photo', true)
+                ->where('event.form_presets.jersey_size', false)
+            );
+
+        // Simulasikan submit FormData dimana boolean dikirim sebagai string '0'/'1'
+        $this->actingAs($admin)
+            ->post(route('admin.events.update', ['event' => $event->id]), [
+                'name' => $event->name,
+                'venue_name' => $event->venue_name,
+                'city' => $event->city,
+                'event_type' => 'audition',
+                'participant_type' => 'individual',
+                'quota_type' => 'fixed',
+                'max_participants' => 100,
+                'format' => 'audition',
+                'age_category' => 'U-14',
+                'required_documents' => ['birth_certificate', 'family_card'],
+                'registration_fee' => 250000,
+                'payment_deadline_hours' => 24,
+                'reupload_grace_hours' => 6,
+                'status' => 'open',
+                'form_presets' => [
+                    'photo' => '0',
+                    'position' => '1',
+                    'foot_dominance' => '0',
+                    'team_origin' => '0',
+                    'body_measurements' => '0',
+                    'experience' => '0',
+                    'jersey_size' => '0',
+                ],
+            ])
+            ->assertRedirect();
+
+        $freshEvent = $event->fresh();
+        $this->assertSame(false, $freshEvent->form_presets['photo']);
+        $this->assertSame(true, $freshEvent->form_presets['position']);
+        $this->assertSame(false, $freshEvent->form_presets['jersey_size']);
+        $this->assertFalse($freshEvent->normalizedFormPresets()['jersey_size']);
+
+        // Peserta yang sudah terlanjur memiliki jersey_size = 'M' tetap tidak menampilkan JERSEY pada E-Tiket
+        $participant = $this->makeParticipant($freshEvent, User::factory()->create(), [
+            'registration_number' => 'AUD-2026-NORM1',
+            'screening_status' => 'passed',
+            'screening_code' => 'SCR-NORM-01',
+            'jersey_size' => 'M',
+            'preferred_position' => 'CMF',
+        ]);
+
+        $renderedHtml = view('pdf.audition_bib_tag', [
+            'participant' => $participant,
+            'event' => $freshEvent,
+            'session' => null,
+            'form_presets' => $freshEvent->normalizedFormPresets(),
+            'custom_field_items' => [],
+            'qr_code_svg' => 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=',
+            'photo_base64' => null,
+            'banner_overlay_base64' => null,
+            'auth_signature' => 'ABCD-1234-EF56-7890',
+            'invoice_number' => 'INV-NORM-01',
+            'verified_by_name' => 'Panitia',
+            'verified_at_label' => '13 Nov 2026',
+            'valid_dates_label' => '14 Nov 2026',
+            'generated_at' => '13 November 2026',
+        ])->render();
+
+        $this->assertStringContainsString('POSISI: CMF', $renderedHtml);
+        $this->assertStringNotContainsString('JERSEY:', $renderedHtml);
+    }
 }

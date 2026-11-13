@@ -25,8 +25,12 @@ class StoreEventRequest extends FormRequest
         if (! $this->has('quota_type')) {
             $this->merge(['quota_type' => 'fixed']);
         }
-        if (! $this->has('form_presets') || empty($this->input('form_presets'))) {
+        if (! $this->has('form_presets') || ! is_array($this->input('form_presets')) || empty($this->input('form_presets'))) {
             $this->merge(['form_presets' => Event::DEFAULT_FORM_PRESETS]);
+        } else {
+            $this->merge([
+                'form_presets' => Event::normalizeFormPresetsArray($this->input('form_presets')),
+            ]);
         }
 
         // Jika event individual (Audisi/Seleksi/Clinic), berikan nilai default yang aman untuk parameter teknis skuad tim
@@ -91,6 +95,7 @@ class StoreEventRequest extends FormRequest
             ],
             'position_quota_caps' => ['nullable', 'array'],
             'form_presets' => ['nullable', 'array'],
+            'form_presets.*' => ['boolean'],
             'custom_fields_schema' => ['nullable', 'array'],
             'custom_fields_schema.*.key' => ['required', 'string', 'regex:/^[a-z][a-z0-9_]*$/', 'max:50'],
             'custom_fields_schema.*.label' => ['required', 'string', 'max:160'],
