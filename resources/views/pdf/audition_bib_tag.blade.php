@@ -2,11 +2,11 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Nomor Dada - Bib #{{ $participant->bib_number }} - {{ $participant->full_name }}</title>
+    <title>Digital Pass (E-Tiket) - {{ $participant->registration_number }} - {{ $participant->full_name }}</title>
     <style>
         @page {
             size: a4 landscape;
-            margin: 10mm;
+            margin: 8mm;
         }
         * {
             box-sizing: border-box;
@@ -18,288 +18,438 @@
             background-color: #ffffff;
             color: #0f172a;
         }
-        .bib-container {
+        .pass-container {
             width: 100%;
-            height: 185mm;
-            border: 4px dashed #ea580c;
-            border-radius: 20px;
-            padding: 12mm 15mm;
-            position: relative;
+            border: 2px solid #cbd5e1;
+            border-radius: 16px;
             background: #ffffff;
+            overflow: hidden;
         }
-        .pin-hole {
-            position: absolute;
-            width: 14mm;
-            height: 14mm;
-            border: 2px dashed #94a3b8;
-            border-radius: 50%;
-            text-align: center;
-            line-height: 14mm;
-            font-size: 8pt;
-            color: #94a3b8;
-        }
-        .pin-tl { top: 6mm; left: 6mm; }
-        .pin-tr { top: 6mm; right: 6mm; }
-        .pin-bl { bottom: 6mm; left: 6mm; }
-        .pin-br { bottom: 6mm; right: 6mm; }
 
         /* Header Table */
         .header-table {
             width: 100%;
             border-collapse: collapse;
-            border-bottom: 3px solid #0f172a;
-            padding-bottom: 8px;
-            margin-bottom: 12px;
+            background: #0f172a;
+            color: #ffffff;
+            padding: 0;
+        }
+        .header-cell-left {
+            padding: 12px 18px;
+            vertical-align: middle;
+        }
+        .header-cell-right {
+            padding: 12px 18px;
+            text-align: right;
+            vertical-align: middle;
+        }
+        .brand-badge {
+            font-size: 7.5pt;
+            font-weight: 800;
+            color: #fdba74;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 2px;
         }
         .event-title {
-            font-size: 20pt;
+            font-size: 17pt;
             font-weight: 900;
-            color: #ea580c;
+            color: #ffffff;
             text-transform: uppercase;
             letter-spacing: -0.5px;
             margin: 0;
-            line-height: 1.1;
+            line-height: 1.15;
         }
         .event-subtitle {
-            font-size: 11pt;
+            font-size: 9pt;
             font-weight: bold;
-            color: #475569;
+            color: #94a3b8;
             margin: 3px 0 0 0;
         }
-        .event-category-badge {
+        .pass-type-badge {
             display: inline-block;
-            background: #0f172a;
+            background: #ea580c;
             color: #ffffff;
-            padding: 4px 14px;
-            border-radius: 8px;
-            font-size: 12pt;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 9.5pt;
             font-weight: 900;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .pass-age-badge {
+            display: inline-block;
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 9.5pt;
+            font-weight: 800;
+            margin-right: 4px;
         }
 
-        /* Main Content Table */
+        /* Status Banner */
+        .status-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #ecfdf5;
+            border-bottom: 2px solid #a7f3d0;
+            color: #065f46;
+            font-size: 8.5pt;
+            font-weight: bold;
+        }
+        .status-cell-left {
+            padding: 5px 18px;
+            text-align: left;
+        }
+        .status-cell-right {
+            padding: 5px 18px;
+            text-align: right;
+            font-family: monospace;
+            font-size: 8pt;
+        }
+
+        /* Main Content Table (3 Columns) */
         .content-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
+            table-layout: fixed;
         }
-        .left-col {
-            width: 25%;
-            vertical-align: middle;
+        .col-profile {
+            width: 29%;
+            vertical-align: top;
             text-align: center;
+            padding: 14px 12px;
+            border-right: 2px dashed #e2e8f0;
         }
-        .center-col {
-            width: 50%;
-            vertical-align: middle;
+        .col-access {
+            width: 43%;
+            vertical-align: top;
+            padding: 14px 16px;
+            border-right: 2px dashed #e2e8f0;
+        }
+        .col-gate {
+            width: 28%;
+            vertical-align: top;
             text-align: center;
-        }
-        .right-col {
-            width: 25%;
-            vertical-align: middle;
-            text-align: center;
-        }
-
-        /* Center Giant Bib Number */
-        .bib-number-box {
-            background: #ffffff;
-            border: 4px solid #ea580c;
-            border-radius: 24px;
-            padding: 8px 15px;
-            display: inline-block;
-            min-width: 90%;
-            box-shadow: 0 4px 10px rgba(234, 88, 12, 0.15);
-        }
-        .bib-number {
-            font-size: 115pt;
-            font-weight: 900;
-            color: #ea580c;
-            line-height: 0.9;
-            letter-spacing: -3px;
-            margin: 0;
-            font-family: 'Arial Black', Impact, sans-serif;
-        }
-        .player-name {
-            font-size: 22pt;
-            font-weight: 900;
-            color: #0f172a;
-            text-transform: uppercase;
-            margin: 8px 0 0 0;
-            letter-spacing: -0.5px;
-        }
-        .player-nickname {
-            font-size: 14pt;
-            font-weight: bold;
-            color: #ea580c;
-            margin: 2px 0 0 0;
-        }
-
-        /* Left QR Code Box */
-        .qr-box {
+            padding: 14px 12px;
             background: #f8fafc;
-            border: 2px solid #cbd5e1;
-            border-radius: 16px;
-            padding: 12px;
-            text-align: center;
-        }
-        .qr-img {
-            width: 38mm;
-            height: 38mm;
-            margin: 0 auto;
-        }
-        .reg-number {
-            font-family: monospace;
-            font-size: 9pt;
-            font-weight: bold;
-            color: #334155;
-            margin-top: 6px;
-        }
-        .anti-joki-label {
-            font-size: 7.5pt;
-            color: #64748b;
-            text-transform: uppercase;
-            font-weight: bold;
-            margin-top: 4px;
         }
 
-        /* Right Photo & Specs Box */
-        .photo-box {
-            background: #f8fafc;
-            border: 2px solid #cbd5e1;
-            border-radius: 16px;
-            padding: 10px;
-            text-align: center;
-        }
+        /* Profile Column Elements */
         .athlete-photo {
             width: 32mm;
             height: 42mm;
             object-fit: cover;
             border-radius: 10px;
             border: 2px solid #0f172a;
-            margin-bottom: 6px;
+            margin: 0 auto 6px auto;
+            display: block;
         }
-        .spec-item {
-            font-size: 9pt;
+        .photo-placeholder {
+            width: 32mm;
+            height: 42mm;
+            line-height: 42mm;
+            text-align: center;
+            background: #f1f5f9;
+            border: 2px dashed #cbd5e1;
+            border-radius: 10px;
+            font-size: 8pt;
+            color: #94a3b8;
             font-weight: bold;
-            color: #1e293b;
-            margin: 3px 0;
+            margin: 0 auto 6px auto;
         }
-        .spec-pos {
-            background: #ea580c;
-            color: #ffffff;
-            padding: 3px 10px;
-            border-radius: 6px;
-            font-size: 10pt;
+        .player-name {
+            font-size: 12pt;
             font-weight: 900;
-            display: inline-block;
+            color: #0f172a;
+            text-transform: uppercase;
+            line-height: 1.2;
+            margin: 0;
+        }
+        .player-nickname {
+            font-size: 9.5pt;
+            font-weight: bold;
+            color: #ea580c;
+            margin: 2px 0 0 0;
+        }
+        .meta-nik {
+            font-family: monospace;
+            font-size: 8pt;
+            color: #64748b;
+            margin-top: 4px;
+        }
+        .meta-club {
+            font-size: 8.5pt;
+            font-weight: bold;
+            color: #334155;
+            margin-top: 3px;
+        }
+        .meta-birth {
+            font-size: 7.5pt;
+            color: #64748b;
+            margin-top: 2px;
+        }
+
+        /* Access Column Elements */
+        .card-audition-bib {
+            background: #fff7ed;
+            border: 2px solid #ea580c;
+            border-radius: 12px;
+            padding: 10px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .card-clinic-access {
+            background: #f0fdf4;
+            border: 2px solid #16a34a;
+            border-radius: 12px;
+            padding: 12px 10px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .bib-giant-number {
+            font-size: 44pt;
+            font-weight: 900;
+            color: #ea580c;
+            line-height: 1;
+            font-family: 'Arial Black', Impact, sans-serif;
+            margin: 2px 0;
+        }
+        .specs-mini-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 8pt;
+            font-weight: bold;
+            color: #431407;
+            margin-top: 4px;
+        }
+        .specs-mini-table td {
+            text-align: center;
+            padding: 2px 4px;
+        }
+        .rules-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 7.5pt;
+            color: #334155;
+            line-height: 1.45;
+        }
+        .rules-title {
+            font-size: 8pt;
+            font-weight: 900;
+            color: #0f172a;
+            text-transform: uppercase;
             margin-bottom: 4px;
+        }
+
+        /* Gate Column Elements */
+        .qr-img {
+            width: 44mm;
+            height: 44mm;
+            margin: 0 auto 6px auto;
+            display: block;
+        }
+        .reg-number {
+            font-family: monospace;
+            font-size: 11pt;
+            font-weight: 900;
+            color: #0f172a;
+            margin-top: 4px;
+        }
+        .gate-scan-label {
+            font-size: 7.5pt;
+            font-weight: bold;
+            color: #ea580c;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+        .sec-hash {
+            font-family: monospace;
+            font-size: 7pt;
+            color: #94a3b8;
+            margin-top: 3px;
+        }
+        .seal-badge {
+            display: inline-block;
+            background: #ecfdf5;
+            border: 1.5px solid #059669;
+            border-radius: 6px;
+            padding: 3px 8px;
+            font-size: 7pt;
+            font-weight: 900;
+            color: #065f46;
+            margin-top: 8px;
+            text-transform: uppercase;
         }
 
         /* Footer Table */
         .footer-table {
             width: 100%;
             border-collapse: collapse;
-            position: absolute;
-            bottom: 8mm;
-            left: 15mm;
-            right: 15mm;
-            width: calc(100% - 30mm);
-            border-top: 2px solid #e2e8f0;
-            padding-top: 6px;
-            font-size: 8pt;
-            color: #64748b;
+            background: #0f172a;
+            color: #94a3b8;
+            font-size: 7pt;
+            padding: 0;
         }
-        .footer-auth {
+        .footer-left {
+            padding: 6px 18px;
+            text-align: left;
+        }
+        .footer-right {
+            padding: 6px 18px;
             text-align: right;
-            font-weight: bold;
-            color: #059669;
+            color: #cbd5e1;
         }
     </style>
 </head>
 <body>
-    <div class="bib-container">
-        <!-- Pin Holes for Chest Attachment -->
-        <div class="pin-hole pin-tl">PENITI</div>
-        <div class="pin-hole pin-tr">PENITI</div>
-        <div class="pin-hole pin-bl">PENITI</div>
-        <div class="pin-hole pin-br">PENITI</div>
-
-        <!-- Header -->
+    <div class="pass-container">
+        <!-- Header Bar -->
         <table class="header-table">
             <tr>
-                <td style="width: 75%;">
+                <td class="header-cell-left">
+                    <div class="brand-badge">Persija Development • Official Digital Pass</div>
                     <h1 class="event-title">{{ $event->name }}</h1>
                     <p class="event-subtitle">
                         {{ $event->venue_name ?: 'Training Ground Persija' }} • {{ $event->city ?: 'DKI Jakarta' }}
                         @if($session)
-                            • <strong style="color: #ea580c;">{{ $session->session_name }}</strong>
+                            • <strong style="color: #fdba74;">{{ $session->session_name }}</strong>
                         @endif
                     </p>
                 </td>
-                <td style="width: 25%; text-align: right;">
-                    <span class="event-category-badge">{{ $event->age_category ?: 'TALENT' }}</span>
+                <td class="header-cell-right">
+                    <span class="pass-age-badge">{{ $event->age_category ?: 'TALENT' }}</span>
+                    <span class="pass-type-badge">
+                        {{ strtoupper($event->event_type === 'clinic' ? 'COACHING CLINIC' : ($event->event_type === 'audition' ? 'AUDISI RESMI' : 'DIGITAL PASS')) }}
+                    </span>
                 </td>
             </tr>
         </table>
 
-        <!-- Main Content -->
+        <!-- Status & Screening Banner -->
+        <table class="status-table">
+            <tr>
+                <td class="status-cell-left">
+                    ✓ STATUS: LUNAS &amp; TERVERIFIKASI SCREENING RESMI PANITIA
+                </td>
+                <td class="status-cell-right">
+                    KODE VERIFIKASI: <strong>{{ $participant->screening_code ?: 'SCR-VERIFIED' }}</strong>
+                </td>
+            </tr>
+        </table>
+
+        <!-- Main Content 3-Column Table -->
         <table class="content-table">
             <tr>
-                <!-- Left: QR Code & Verification -->
-                <td class="left-col">
-                    <div class="qr-box">
-                        <img class="qr-img" src="{{ $qr_code_svg }}" alt="QR Keabsahan" />
-                        <div class="reg-number">{{ $participant->registration_number }}</div>
-                        <div class="anti-joki-label">Scan Kehadiran Matchday</div>
-                        <div style="font-size: 7.5pt; color: #475569; margin-top: 4px;">
-                            NIK: {{ substr($participant->nik, 0, 6) . '******' . substr($participant->nik, -4) }}
-                        </div>
+                <!-- Column 1: Profil Peserta & Anti-Joki -->
+                <td class="col-profile">
+                    @if($photo_base64)
+                        <img class="athlete-photo" src="{{ $photo_base64 }}" alt="Pas Foto" />
+                    @else
+                        <div class="photo-placeholder">PAS FOTO RESMI</div>
+                    @endif
+                    <div style="font-size: 6.5pt; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 4px;">
+                        Verifikasi Wajah Anti-Joki
                     </div>
-                </td>
 
-                <!-- Center: GIANT BIB NUMBER -->
-                <td class="center-col">
-                    <div class="bib-number-box">
-                        <div class="bib-number">{{ $participant->bib_number }}</div>
-                    </div>
-                    <div class="player-name">{{ $participant->full_name }}</div>
+                    <h2 class="player-name">{{ $participant->full_name }}</h2>
                     @if($participant->nickname)
                         <div class="player-nickname">"{{ $participant->nickname }}"</div>
                     @endif
+
+                    <div class="meta-nik">
+                        NIK: {{ substr($participant->nik, 0, 6) . '******' . substr($participant->nik, -4) }}
+                    </div>
+                    <div class="meta-club">
+                        {{ $participant->current_club_ssb ?: 'Peserta Mandiri / Independen' }}
+                    </div>
+                    <div class="meta-birth">
+                        Lahir: {{ $participant->birth_date?->format('d/m/Y') }} (Usia: {{ $participant->birth_date?->age }} Thn)
+                    </div>
                 </td>
 
-                <!-- Right: Photo & Technical Specs -->
-                <td class="right-col">
-                    <div class="photo-box">
-                        @if($photo_base64)
-                            <img class="athlete-photo" src="{{ $photo_base64 }}" alt="Pas Foto" />
-                        @else
-                            <div class="athlete-photo" style="background: #e2e8f0; line-height: 42mm; color: #94a3b8; font-weight: bold;">FOTO</div>
-                        @endif
-                        <div>
-                            <span class="spec-pos">{{ $participant->preferred_position ?: 'PEMAIN' }}</span>
+                <!-- Column 2: Akses Kegiatan & Aturan Gerbang -->
+                <td class="col-access">
+                    @if($event->event_type === 'audition' || $participant->bib_number)
+                        <!-- Audition Allocation Card -->
+                        <div class="card-audition-bib">
+                            <div style="font-size: 7.5pt; font-weight: 900; color: #c2410c; letter-spacing: 0.5px; text-transform: uppercase;">
+                                Alokasi Rompi Seleksi Lapangan
+                            </div>
+                            <div class="bib-giant-number">
+                                #{{ $participant->bib_number }}
+                            </div>
+                            <table class="specs-mini-table">
+                                <tr>
+                                    <td>POSISI: {{ $participant->preferred_position ?: '-' }}</td>
+                                    <td>KAKI: {{ strtoupper($participant->dominant_foot ?: '-') }}</td>
+                                    <td>JERSEY: {{ strtoupper($participant->jersey_size ?: 'M') }}</td>
+                                </tr>
+                            </table>
+                            <div style="font-size: 6.5pt; color: #9a3412; margin-top: 3px;">
+                                *Rompi lapangan bernomor di atas akan dibagikan di meja registrasi saat check-in gerbang.
+                            </div>
                         </div>
-                        <div class="spec-item">Kaki: {{ strtoupper($participant->dominant_foot ?: '-') }}</div>
-                        <div class="spec-item">Tgl Lahir: {{ $participant->birth_date?->format('d/m/Y') }}</div>
-                        <div class="spec-item" style="font-size: 8pt; color: #64748b;">
-                            {{ $participant->current_club_ssb ?: 'Independen' }}
+                    @else
+                        <!-- Coaching Clinic / Workshop Allocation Card -->
+                        <div class="card-clinic-access">
+                            <div style="font-size: 8pt; font-weight: 900; color: #166534; letter-spacing: 0.5px; text-transform: uppercase;">
+                                Akses Workshop &amp; Masterclass Clinic
+                            </div>
+                            <div style="font-size: 16pt; font-weight: 900; color: #15803d; line-height: 1.2; margin: 4px 0;">
+                                PESERTA RESMI
+                            </div>
+                            <div style="font-size: 8.5pt; font-weight: bold; color: #166534;">
+                                Ukuran Jersey / Kit: <span style="background: #16a34a; color: #ffffff; padding: 1px 6px; border-radius: 4px;">{{ strtoupper($participant->jersey_size ?: 'ALL SIZE') }}</span>
+                            </div>
+                            <div style="font-size: 7pt; color: #14532d; margin-top: 4px;">
+                                *Kit pelatihan resmi dan materi eksklusif dibagikan di meja akreditasi gerbang.
+                            </div>
                         </div>
+                    @endif
+
+                    <!-- Petunjuk Kehadiran Gerbang SOP -->
+                    <div class="rules-box">
+                        <div class="rules-title">Petunjuk Check-in Gatekeeper:</div>
+                        <div>1. Tunjukkan QR Code tiket ini ke petugas gerbang (Gatekeeper).</div>
+                        <div>2. Wajib membawa identitas asli (KIA / Kartu Pelajar / Akta Lahir).</div>
+                        <div>3. Tiba di lokasi minimal 30 menit sebelum sesi dimulai.</div>
+                        <div>4. Mengenakan perlengkapan olahraga lengkap sesuai regulasi kegiatan.</div>
+                    </div>
+                </td>
+
+                <!-- Column 3: Gatekeeper QR & Validasi -->
+                <td class="col-gate">
+                    <img class="qr-img" src="{{ $qr_code_svg }}" alt="QR Keabsahan" />
+                    <div class="reg-number">{{ $participant->registration_number }}</div>
+                    <div class="gate-scan-label">Scan Gatekeeper Check-in</div>
+                    <div class="sec-hash">
+                        SEC-HASH: {{ substr(md5(($participant->screening_code ?: '') . $participant->id), 0, 16) }}
+                    </div>
+                    <div class="seal-badge">
+                        ✓ Verified Digital Pass
+                    </div>
+                    <div style="font-size: 6.5pt; color: #64748b; margin-top: 6px;">
+                        Tunjukkan QR ini saat memasuki gerbang utama stadion / venue.
                     </div>
                 </td>
             </tr>
         </table>
 
-        <!-- Footer -->
+        <!-- Footer Bar -->
         <table class="footer-table">
             <tr>
-                <td style="width: 50%;">
-                    Kode Keabsahan: <strong style="font-family: monospace;">{{ $participant->screening_code }}</strong> • Diterbitkan: {{ $generated_at }}
+                <td class="footer-left">
+                    Diterbitkan secara resmi oleh Sistem Akreditasi &amp; Tiket Digital Persija Development • {{ $generated_at }}
                 </td>
-                <td class="footer-auth" style="width: 50%;">
-                    ✓ STATUS SCREENING: SAH &amp; TERVERIFIKASI PANITIA PELAKSANA
+                <td class="footer-right">
+                    Penyalahgunaan atau pemalsuan pass digital ini akan ditindak sesuai regulasi yang berlaku.
                 </td>
             </tr>
         </table>
     </div>
 </body>
 </html>
-

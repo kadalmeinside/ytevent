@@ -303,7 +303,7 @@ const submit = () => {
                         <span>Identitas Orang Tua / Wali Pendaftar</span>
                     </h2>
                     <p class="text-xs text-slate-500 mb-4">
-                        Data akun portal untuk memantau status kelolosan, hasil penilaian, dan tiket nomor dada.
+                        Data akun portal untuk memantau status verifikasi berkas, penilaian, dan Digital Pass (E-Tiket).
                     </p>
 
                     <div v-if="isAuthenticated" class="p-3.5 rounded-xl bg-orange-50/80 border border-orange-200/80 text-xs text-slate-700 flex items-center justify-between">
@@ -709,7 +709,7 @@ const submit = () => {
                         <span>Unggah Berkas Keabsahan Atlet</span>
                     </h2>
                     <p class="text-xs text-slate-500 mb-4">
-                        Dokumen wajib diverifikasi oleh Panitia Screening sebelum nomor dada diterbitkan.
+                        Dokumen wajib diverifikasi oleh Panitia Screening sebelum Digital Pass (E-Tiket) resmi diterbitkan.
                     </p>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">

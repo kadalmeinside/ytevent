@@ -22,15 +22,16 @@ class AuditionParticipantController extends Controller
         $isOwner = $user && $user->id === $participant->user_id;
         $isStaff = $user && ($user->hasRole('superadmin') || $user->can('screening.view_queue') || $user->can('teams.view_all'));
 
-        abort_unless($isOwner || $isStaff, 403, 'Anda tidak memiliki hak akses untuk mengunduh nomor dada peserta ini.');
+        abort_unless($isOwner || $isStaff, 403, 'Anda tidak memiliki hak akses untuk mengunduh Digital Pass peserta ini.');
 
         if (! $participant->canDownloadBib()) {
-            abort(403, 'Nomor dada belum dapat diunduh. Pastikan pembayaran telah lunas dan berkas screening telah disetujui panitia.');
+            abort(403, 'Digital Pass (E-Tiket) belum dapat diunduh. Pastikan pembayaran telah lunas dan berkas screening telah disetujui panitia.');
         }
 
         $pdf = $pdfService->generateBibPdf($participant);
         $cleanName = preg_replace('/[^A-Za-z0-9_-]/', '_', $participant->full_name);
-        $fileName = sprintf('BIB-%03d-%s.pdf', $participant->bib_number, $cleanName);
+        $ticketId = $participant->registration_number ?: ('PASS-' . $participant->id);
+        $fileName = sprintf('DIGITAL-PASS-%s-%s.pdf', $ticketId, $cleanName);
 
         return $pdf->download($fileName);
     }

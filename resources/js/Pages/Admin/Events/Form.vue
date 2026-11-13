@@ -400,7 +400,7 @@ const submit = () => {
                             </span>
                         </div>
                         <p class="text-[11px] text-slate-600 mt-2.5 leading-relaxed">
-                            Pendaftaran mandiri peserta, form preset profil (posisi, antropometri, SSB asal), kartu nomor dada / tiket QR, presensi gerbang, dan sertifikat partisipasi atau seleksi.
+                            Pendaftaran mandiri peserta, form preset profil (posisi, antropometri, SSB asal), Digital Pass (E-Tiket) QR, presensi gerbang, dan sertifikat partisipasi atau seleksi.
                         </p>
                     </div>
                 </div>
@@ -1005,7 +1005,7 @@ const submit = () => {
                             </span>
                         </div>
                         <p class="text-xs text-slate-500 mt-1.5">
-                            Pilih kolom profil apa saja yang wajib diisi oleh pendaftar. Data ini akan ditampilkan pada lembar presensi, nomor dada, atau berkas kegiatan.
+                            Pilih kolom profil apa saja yang wajib diisi oleh pendaftar. Data ini akan ditampilkan pada lembar presensi, Digital Pass (E-Tiket), atau berkas kegiatan.
                         </p>
 
                         <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

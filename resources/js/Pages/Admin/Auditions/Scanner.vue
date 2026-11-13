@@ -125,7 +125,7 @@ const handleCheckIn = async (codeToLookup = null) => {
         }
 
         scanHistory.value.unshift({
-            code: response.data.participant?.bib_number ? `Bib #${response.data.participant.bib_number}` : code,
+            code: response.data.participant?.registration_number || (response.data.participant?.bib_number ? `Rompi #${response.data.participant.bib_number}` : code),
             name: response.data.participant?.full_name || 'Peserta',
             status: response.data.already_checked_in ? 'Sudah Hadir' : 'Check-in Sukses',
             status_type: response.data.already_checked_in ? 'warning' : 'success',
@@ -136,11 +136,11 @@ const handleCheckIn = async (codeToLookup = null) => {
     } catch (err) {
         const errorData = err.response?.data;
         result.value = errorData || null;
-        errorMessage.value = errorData?.message || 'Gagal memverifikasi kode. Periksa koneksi jaringan atau nomor bib.';
+        errorMessage.value = errorData?.message || 'Gagal memverifikasi kode. Periksa koneksi jaringan atau kode tiket.';
         playSound('error');
 
         scanHistory.value.unshift({
-            code: errorData?.participant?.bib_number ? `Bib #${errorData.participant.bib_number}` : code,
+            code: errorData?.participant?.registration_number || (errorData?.participant?.bib_number ? `Rompi #${errorData.participant.bib_number}` : code),
             name: errorData?.participant?.full_name || 'Gagal Check-in',
             status: 'Ditolak: ' + (errorData?.gatekeeper_status || 'ERROR'),
             status_type: 'error',
@@ -275,13 +275,13 @@ onUnmounted(() => {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="frosted-card p-4">
                     <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Pilih Event Audisi
+                        Pilih Event Kegiatan
                     </label>
                     <select
                         v-model="currentEventId"
                         class="input-pitch w-full text-sm"
                         :disabled="isLoading"
-                        title="Pilih event untuk memuat tahap audisi"
+                        title="Pilih event untuk memuat tahap atau sesi acara"
                         @change="onEventChange"
                     >
                         <option v-for="ev in events" :key="ev.id" :value="ev.id">
@@ -292,13 +292,13 @@ onUnmounted(() => {
 
                 <div class="frosted-card p-4">
                     <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Pilih Tahap / Hari Audisi
+                        Pilih Tahap / Sesi Acara
                     </label>
                     <select
                         v-model="currentStageId"
                         class="input-pitch w-full text-sm"
                         :disabled="isLoading || stages.length === 0"
-                        :title="stages.length === 0 ? 'Belum ada tahap audisi yang dikonfigurasi' : 'Pilih tahap untuk check-in'"
+                        :title="stages.length === 0 ? 'Belum ada tahap / sesi yang dikonfigurasi' : 'Pilih tahap untuk check-in'"
                         @change="onStageChange"
                     >
                         <option v-if="stages.length === 0" :value="0">
@@ -362,23 +362,23 @@ onUnmounted(() => {
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                                 </svg>
-                                <p class="text-xs">Klik "Buka Kamera" untuk scan QR nomor dada secara otomatis.</p>
+                                <p class="text-xs">Klik "Buka Kamera" untuk scan QR Digital Pass (E-Tiket) secara otomatis.</p>
                             </div>
                         </div>
 
                         <!-- Input Manual Fallback -->
                         <form class="mt-4 pt-3 border-t border-slate-100 space-y-2" @submit.prevent="handleCheckIn()">
                             <label class="block text-xs font-bold text-slate-600">
-                                Atau Ketik Nomor Dada / Kode Screening:
+                                Atau Masukkan Kode Digital Pass / NIK / Rompi:
                             </label>
                             <div class="flex gap-2">
                                 <input
                                     v-model="inputCode"
                                     type="text"
-                                    placeholder="Contoh: 042 atau AUD-2026-..."
+                                    placeholder="Contoh: AUD-2026-..., CLN-..., atau 042"
                                     class="input-pitch flex-1 text-sm font-mono uppercase"
                                     :disabled="isLoading"
-                                    :title="isLoading ? 'Pemeriksaan sedang berlangsung' : 'Masukkan nomor dada atau kode screening'"
+                                    :title="isLoading ? 'Pemeriksaan sedang berlangsung' : 'Masukkan kode Digital Pass, NIK, atau rompi'"
                                 />
                                 <button
                                     type="submit"
@@ -492,10 +492,18 @@ onUnmounted(() => {
 
                                 <!-- Participant Identity -->
                                 <div class="flex-1 space-y-2 text-center sm:text-left">
-                                    <div class="inline-block bg-orange-50 border border-orange-200 rounded-xl px-4 py-1.5">
-                                        <div class="text-[10px] font-bold uppercase tracking-wider text-orange-700">Nomor Dada</div>
-                                        <div class="text-4xl font-black text-orange-600 font-mono tracking-tight">
-                                            #{{ result.participant.bib_number }}
+                                    <div class="flex flex-wrap gap-2 items-center justify-center sm:justify-start">
+                                        <div v-if="result.participant.bib_number" class="inline-block bg-orange-50 border border-orange-200 rounded-xl px-4 py-1.5">
+                                            <div class="text-[10px] font-bold uppercase tracking-wider text-orange-700">Rompi Seleksi</div>
+                                            <div class="text-3xl font-black text-orange-600 font-mono tracking-tight">
+                                                #{{ result.participant.bib_number }}
+                                            </div>
+                                        </div>
+                                        <div class="inline-block bg-slate-50 border border-slate-200 rounded-xl px-4 py-1.5">
+                                            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500">ID Digital Pass</div>
+                                            <div class="text-sm font-black text-slate-800 font-mono tracking-tight mt-1">
+                                                {{ result.participant.registration_number || ('#' + result.participant.id) }}
+                                            </div>
                                         </div>
                                     </div>
 
@@ -566,9 +574,9 @@ onUnmounted(() => {
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                             </svg>
                         </div>
-                        <h3 class="text-sm font-bold text-slate-700">Menunggu Scan Nomor Dada</h3>
+                        <h3 class="text-sm font-bold text-slate-700">Menunggu Scan Digital Pass / E-Tiket</h3>
                         <p class="text-xs text-slate-500 max-w-sm mx-auto">
-                            Arahkan QR Code peserta ke kamera atau masukkan nomor bib secara manual di panel kiri untuk memverifikasi keabsahan atlet.
+                            Arahkan QR Code Digital Pass ke kamera atau ketik kode tiket / nomor rompi secara manual di panel kiri untuk memverifikasi keabsahan peserta.
                         </p>
                     </div>
                 </div>

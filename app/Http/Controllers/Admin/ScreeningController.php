@@ -450,7 +450,7 @@ class ScreeningController extends Controller
                 ]
             );
 
-            return redirect()->back()->with('success', "Peserta {$participant->full_name} dinyatakan LOLOS SCREENING dengan Nomor Dada #{$bib}!");
+            return redirect()->back()->with('success', "Peserta {$participant->full_name} dinyatakan LOLOS SCREENING! Digital Pass (E-Tiket) resmi aktif (Rompi #{$bib}).");
         }
 
         // Status rejected

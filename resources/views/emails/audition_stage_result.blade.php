@@ -25,7 +25,7 @@
                             🎉 SELAMAT! RESMI LOLOS KE TAHAP BERIKUTNYA
                         </div>
                         <p style="font-size: 13px; line-height: 1.6; color: #14532D; margin: 0;">
-                            Berdasarkan hasil pemantauan teknis dan keputusan dewan pemandu bakat (talent scout) Persija Development pada <strong>{{ $event->name }}</strong>, atlet <strong>{{ $participant->full_name }}</strong> (Nomor Dada: <strong>#{{ $participant->bib_number }}</strong>) dinyatakan <strong>LOLOS</strong> dengan status: <strong>{{ $stageLabel }}</strong>.
+                            Berdasarkan hasil pemantauan teknis dan keputusan dewan pemandu bakat (talent scout) Persija Development pada <strong>{{ $event->name }}</strong>, atlet <strong>{{ $participant->full_name }}</strong> (ID Pass: <strong>{{ $participant->registration_number }}</strong>@if($participant->bib_number) • Rompi: <strong>#{{ $participant->bib_number }}</strong>@endif) dinyatakan <strong>LOLOS</strong> dengan status: <strong>{{ $stageLabel }}</strong>.
                         </p>
                     </div>
 
@@ -34,7 +34,7 @@
                             Instruksi Kehadiran Tahap Lanjutan:
                         </div>
                         <ul style="font-size: 13px; color: #7C2D12; margin: 0; padding-left: 20px; line-height: 1.6;">
-                            <li>Wajib membawa <strong>Nomor Dada (Bib Tag)</strong> asli yang sudah dicetak.</li>
+                            <li>Wajib membawa <strong>Digital Pass / E-Tiket</strong> (versi cetak atau layar smartphone).</li>
                             <li>Hadir 30 menit sebelum sesi dimulai untuk registrasi ulang melalui Scanner Gatekeeper.</li>
                             <li>Mengenakan pakaian olahraga, pelindung tulang kering (shin guard), dan sepatu bola standar.</li>
                         </ul>
@@ -66,7 +66,7 @@
                 </div>
 
                 <p style="font-size: 12px; color: #94A3B8; text-align: center; margin: 0;">
-                    Anda dapat mengunduh E-Sertifikat resmi dan Nomor Dada melalui Dashboard akun Anda.
+                    Anda dapat mengunduh E-Sertifikat resmi dan Digital Pass (E-Tiket) melalui Dashboard akun Anda.
                 </p>
             </td>
         </tr>

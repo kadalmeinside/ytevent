@@ -567,7 +567,7 @@ const eventJsonLd = computed(() => {
                                 </div>
                                 <div v-else>
                                     <div class="mb-3 flex items-center justify-between text-xs text-slate-500">
-                                        <span>Menampilkan {{ registeredParticipants.length }} atlet peserta terverifikasi dengan nomor dada resmi.</span>
+                                        <span>Menampilkan {{ registeredParticipants.length }} peserta terverifikasi dengan Digital Pass resmi.</span>
                                     </div>
 
                                     <!-- DESKTOP TABLE -->
@@ -575,7 +575,7 @@ const eventJsonLd = computed(() => {
                                         <table class="w-full text-left border-collapse">
                                             <thead>
                                                 <tr>
-                                                    <th class="table-th w-20 text-center">No. Dada</th>
+                                                    <th class="table-th w-20 text-center">{{ event.event_type === 'audition' ? 'Rompi' : 'Pass' }}</th>
                                                     <th class="table-th">Peserta</th>
                                                     <th class="table-th">Posisi Utama</th>
                                                     <th class="table-th">Asal Klub / SSB</th>

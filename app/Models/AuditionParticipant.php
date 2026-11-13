@@ -136,7 +136,12 @@ class AuditionParticipant extends Model
 
     public function canDownloadBib(): bool
     {
-        return $this->isPaid() && $this->isScreeningPassed() && ! empty($this->bib_number);
+        return $this->isPaid() && $this->isScreeningPassed() && (! empty($this->bib_number) || $this->event?->event_type !== 'audition');
+    }
+
+    public function canDownloadPass(): bool
+    {
+        return $this->canDownloadBib();
     }
 
     public function canDownloadCertificate(): bool

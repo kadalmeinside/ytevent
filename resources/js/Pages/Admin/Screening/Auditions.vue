@@ -105,7 +105,7 @@ const submitReject = () => {
                         <span>Screening Keabsahan Atlet</span>
                     </h1>
                     <p class="text-xs sm:text-sm text-slate-500 mt-1">
-                        Pemeriksaan berkas resmi Akta Lahir, Kartu Keluarga, dan penerbitan Nomor Dada atlet.
+                        Pemeriksaan berkas resmi Akta Lahir, Kartu Keluarga, dan aktivasi Digital Pass (E-Tiket) atlet.
                     </p>
                 </div>
 
@@ -361,7 +361,7 @@ const submitReject = () => {
                 <h3 class="text-base font-bold text-slate-900">Konfirmasi Pengesahan Berkas</h3>
                 <p class="text-xs text-slate-600 leading-relaxed">
                     Apakah Anda yakin ingin menyatakan berkas keabsahan atlet <strong>{{ selectedParticipant?.full_name }}</strong> sebagai <strong>SAH (LOLOS)</strong>?
-                    Sistem akan otomatis menerbitkan Nomor Dada dan kode verifikasi keabsahan resmi.
+                    Sistem akan otomatis mengaktifkan Digital Pass (E-Tiket), alokasi rompi, dan kode verifikasi keabsahan resmi.
                 </p>
                 <div class="flex items-center justify-end gap-2 pt-2">
                     <button type="button" class="btn-secondary text-xs" @click="isApproveModalOpen = false">Batal</button>
