@@ -38,7 +38,13 @@ class AuditionBibPdfService
             throw new HttpException(403, 'Digital Pass (E-Tiket) belum dapat diunduh. Pastikan pembayaran telah lunas dan berkas screening telah disetujui panitia.');
         }
 
-        $participant->loadMissing(['event', 'eventSession', 'user', 'screeningOfficer', 'latestPayment']);
+        $participant->loadMissing([
+            'event.auditionStages' => fn ($query) => $query->orderBy('stage_number'),
+            'eventSession',
+            'user',
+            'screeningOfficer',
+            'latestPayment',
+        ]);
         $event = $participant->event;
 
         $verifyUrl = route('public.audition.verify', ['code' => $participant->screening_code ?: 'UNVERIFIED']);
@@ -51,6 +57,7 @@ class AuditionBibPdfService
         $photoBase64 = $this->toDompdfDataUri($this->readStorageImage($participant->photo_path));
         $bannerOverlayBase64 = $this->createOverlayBannerDataUri($this->readStorageImage($event?->banner_path));
 
+        $stages = $event?->auditionStages ?? collect();
         $validDatesLabel = null;
         if ($event?->match_start_date && $event?->match_end_date) {
             $validDatesLabel = $event->match_start_date->isSameDay($event->match_end_date)
@@ -58,10 +65,31 @@ class AuditionBibPdfService
                 : $event->match_start_date->translatedFormat('d M') . ' - ' . $event->match_end_date->translatedFormat('d M Y');
         } elseif ($event?->match_start_date) {
             $validDatesLabel = $event->match_start_date->translatedFormat('d M Y');
+        } elseif ($stages->isNotEmpty()) {
+            $firstDate = $stages->first()->stage_date;
+            $lastDate = $stages->last()->stage_date;
+            if ($firstDate && $lastDate) {
+                $validDatesLabel = $firstDate->isSameDay($lastDate)
+                    ? $firstDate->translatedFormat('d M Y')
+                    : $firstDate->translatedFormat('d M') . ' - ' . $lastDate->translatedFormat('d M Y');
+            }
         }
 
         $formPresets = $event ? $event->normalizedFormPresets() : Event::DEFAULT_FORM_PRESETS;
         $customFieldItems = self::extractCustomFieldItems($event, $participant);
+        $requiredDocumentLabels = self::extractRequiredDocumentLabels($event);
+        $stagesSummary = $stages->map(static function ($stage): array {
+            $timeParts = array_filter([$stage->start_time, $stage->end_time]);
+            return [
+                'stage_number' => $stage->stage_number,
+                'stage_name' => $stage->stage_name,
+                'date_label' => $stage->stage_date?->translatedFormat('d M Y'),
+                'time_label' => count($timeParts) > 0 ? implode(' - ', $timeParts) . ' WIB' : null,
+                'venue_name' => $stage->venue_name,
+            ];
+        })->values()->all();
+
+        $isFreeEvent = ((float) ($event?->registration_fee ?? 0)) <= 0 && ! $participant->latestPayment;
 
         $data = [
             'participant' => $participant,
@@ -69,11 +97,15 @@ class AuditionBibPdfService
             'session' => $participant->eventSession,
             'form_presets' => $formPresets,
             'custom_field_items' => $customFieldItems,
+            'required_document_labels' => $requiredDocumentLabels,
+            'stages_summary' => $stagesSummary,
+            'is_free_event' => $isFreeEvent,
+            'checkin_cutoff_minutes' => max(0, (int) ($event?->dsp_cutoff_minutes ?? 30)),
             'qr_code_svg' => $qrBase64,
             'photo_base64' => $photoBase64,
             'banner_overlay_base64' => $bannerOverlayBase64,
             'auth_signature' => self::computeAuthSignature($participant),
-            'invoice_number' => $participant->latestPayment?->invoice_number ?: '-',
+            'invoice_number' => $participant->latestPayment?->invoice_number ?: ($isFreeEvent ? 'GRATIS' : '-'),
             'paid_at_label' => $participant->latestPayment?->paid_at?->translatedFormat('d M Y H:i') . ($participant->latestPayment?->paid_at ? ' WIB' : ''),
             'verified_by_name' => $participant->screeningOfficer?->name ?: 'Panitia Screening Resmi',
             'verified_at_label' => $participant->screening_verified_at
@@ -229,6 +261,27 @@ class AuditionBibPdfService
         }
 
         return $items;
+    }
+
+    /**
+     * Map the event's configured required_documents into human-readable Indonesian labels.
+     *
+     * @return array<int, string>
+     */
+    public static function extractRequiredDocumentLabels(?Event $event): array
+    {
+        $rawDocs = is_array($event?->required_documents) ? $event->required_documents : [];
+        $labels = [];
+
+        foreach ($rawDocs as $doc) {
+            $key = is_array($doc) ? ($doc['type'] ?? $doc['key'] ?? null) : $doc;
+            if (! is_string($key) || trim($key) === '') {
+                continue;
+            }
+            $labels[] = Event::DOCUMENT_TYPES[$key] ?? ucwords(str_replace('_', ' ', $key));
+        }
+
+        return array_values(array_unique($labels));
     }
 }
 

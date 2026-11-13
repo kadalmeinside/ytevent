@@ -364,7 +364,31 @@
             border-collapse: collapse;
         }
         .auth-meta-table td {
-            padding: 2.5px 4px;
+            padding: 2px 4px;
+            vertical-align: top;
+        }
+        .stages-box {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 7px 12px;
+            margin-bottom: 10px;
+            font-size: 7.2pt;
+            color: #334155;
+        }
+        .stages-title {
+            font-size: 7.2pt;
+            font-weight: 900;
+            color: #0f172a;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+        }
+        .stages-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .stages-table td {
+            padding: 1.5px 3px;
             vertical-align: top;
         }
 
@@ -412,9 +436,41 @@
     </style>
 </head>
 <body>
+    @php
+        $presets = $form_presets ?? ($event?->normalizedFormPresets() ?? \App\Models\Event::DEFAULT_FORM_PRESETS);
+        $customItems = $custom_field_items ?? \App\Services\AuditionBibPdfService::extractCustomFieldItems($event, $participant);
+        $docLabels = $required_document_labels ?? \App\Services\AuditionBibPdfService::extractRequiredDocumentLabels($event);
+        $isFree = $is_free_event ?? (((float) ($event?->registration_fee ?? 0)) <= 0 && ! $participant->latestPayment);
+        $cutoffMins = $checkin_cutoff_minutes ?? max(0, (int) ($event?->dsp_cutoff_minutes ?? 30));
+
+        $stagesList = $stages_summary ?? (($event && $event->relationLoaded('auditionStages'))
+            ? $event->auditionStages->sortBy('stage_number')->map(static function ($stage): array {
+                $timeParts = array_filter([$stage->start_time, $stage->end_time]);
+                return [
+                    'stage_number' => $stage->stage_number,
+                    'stage_name' => $stage->stage_name,
+                    'date_label' => $stage->stage_date?->translatedFormat('d M Y'),
+                    'time_label' => count($timeParts) > 0 ? implode(' - ', $timeParts) . ' WIB' : null,
+                    'venue_name' => $stage->venue_name,
+                ];
+            })->values()->all()
+            : []);
+
+        $eventTypeKey = $event?->event_type ?? 'audition';
+        $isClinic = in_array($eventTypeKey, ['clinic', 'coaching_clinic'], true);
+        $isFestival = $eventTypeKey === 'festival';
+        $typeBadgeLabel = match ($eventTypeKey) {
+            'clinic', 'coaching_clinic' => 'COACHING CLINIC',
+            'festival' => 'GRASSROOTS FESTIVAL',
+            'audition' => 'AUDISI RESMI',
+            'tournament' => 'KOMPETISI RESMI',
+            default => 'DIGITAL PASS',
+        };
+        $accentHex = $isClinic ? '#16a34a' : ($isFestival ? '#0284c7' : '#ea580c');
+    @endphp
     <div class="pass-container">
         <!-- Header Overlay Banner -->
-        <div class="header-wrap">
+        <div class="header-wrap" style="border-bottom-color: {{ $accentHex }};">
             @if(! empty($banner_overlay_base64))
                 <img class="header-banner-img" src="{{ $banner_overlay_base64 }}" alt="Banner Event" />
             @endif
@@ -424,15 +480,17 @@
                         <div class="header-badges-row">
                             <span class="brand-badge">Persija Development &bull; Official Digital Pass</span>
                             <span class="badges-right">
-                                <span class="pass-age-badge">{{ $event->age_category ?: 'TALENT' }}</span>
-                                <span class="pass-type-badge">
-                                    {{ strtoupper($event->event_type === 'clinic' || $event->event_type === 'coaching_clinic' ? 'COACHING CLINIC' : ($event->event_type === 'audition' ? 'AUDISI RESMI' : 'DIGITAL PASS')) }}
+                                @if(! empty($event?->age_category))
+                                    <span class="pass-age-badge">{{ $event->age_category }}</span>
+                                @endif
+                                <span class="pass-type-badge" style="background: {{ $accentHex }};">
+                                    {{ $typeBadgeLabel }}
                                 </span>
                             </span>
                         </div>
-                        <h1 class="event-title">{{ $event->name }}</h1>
+                        <h1 class="event-title">{{ $event?->name }}</h1>
                         <p class="event-subtitle">
-                            {{ $event->venue_name ?: 'Training Ground Persija' }} &bull; {{ $event->city ?: 'DKI Jakarta' }}
+                            {{ $event?->venue_name ?: 'Lokasi Resmi Penyelenggara' }}@if(! empty($event?->city)) &bull; {{ $event->city }}@endif
                             <br />
                             Berlaku: <strong style="color: #ffffff;">{{ $valid_dates_label }}</strong>
                             @if($session)
@@ -448,10 +506,19 @@
         <table class="status-table">
             <tr>
                 <td class="status-cell-left">
-                    <span style="display: inline-block; background: #059669; color: #ffffff; padding: 1px 6px; border-radius: 3px; font-size: 7pt; font-weight: bold; margin-right: 5px;">SAH</span> STATUS: LUNAS &amp; TERVERIFIKASI SCREENING RESMI
+                    <span style="display: inline-block; background: #059669; color: #ffffff; padding: 1px 6px; border-radius: 3px; font-size: 7pt; font-weight: bold; margin-right: 5px;">SAH</span>
+                    @if($isFree)
+                        STATUS: TERDAFTAR &amp; TERVERIFIKASI SCREENING RESMI
+                    @else
+                        STATUS: LUNAS &amp; TERVERIFIKASI SCREENING RESMI
+                    @endif
                 </td>
                 <td class="status-cell-right">
-                    INV: <strong>{{ $invoice_number }}</strong> &bull; KODE: <strong>{{ $participant->screening_code ?: 'SCR-VERIFIED' }}</strong>
+                    @if($isFree)
+                        BEBAS BIAYA &bull; KODE: <strong>{{ $participant->screening_code ?: 'SCR-VERIFIED' }}</strong>
+                    @else
+                        INV: <strong>{{ $invoice_number }}</strong> &bull; KODE: <strong>{{ $participant->screening_code ?: 'SCR-VERIFIED' }}</strong>
+                    @endif
                 </td>
             </tr>
         </table>
@@ -466,8 +533,6 @@
 
             <div class="content-inner">
                 @php
-                    $presets = $form_presets ?? ($event?->normalizedFormPresets() ?? \App\Models\Event::DEFAULT_FORM_PRESETS);
-                    $customItems = $custom_field_items ?? \App\Services\AuditionBibPdfService::extractCustomFieldItems($event, $participant);
                     $showPhotoCell = ! empty($photo_base64) || ! empty($presets['photo']);
 
                     $specItems = [];
@@ -487,7 +552,7 @@
                 @endphp
 
                 <!-- 1. Hero ID Digital Pass Highlight -->
-                @if($event->event_type === 'clinic' || $event->event_type === 'coaching_clinic')
+                @if($isClinic)
                     <div class="card-clinic-pass">
                         <div class="pass-kicker" style="color: #166534;">
                             ID Digital Pass Resmi &bull; Akses Workshop &amp; Clinic
@@ -510,15 +575,15 @@
                         @endif
                     </div>
                 @else
-                    <div class="card-audition-pass">
-                        <div class="pass-kicker" style="color: #c2410c;">
-                            ID Digital Pass Resmi (E-Tiket Peserta)
+                    <div class="card-audition-pass" @if($isFestival) style="background: #f0f9ff; border-color: #0284c7;" @endif>
+                        <div class="pass-kicker" style="color: {{ $isFestival ? '#0369a1' : '#c2410c' }};">
+                            ID Digital Pass Resmi ({{ $isFestival ? 'E-Tiket Festival' : 'E-Tiket Peserta' }})
                         </div>
                         <div class="pass-id-number">
                             {{ $participant->registration_number ?: ('PASS-' . $participant->id) }}
                         </div>
                         @if(count($specItems) > 0)
-                            <table class="specs-mini-table">
+                            <table class="specs-mini-table" @if($isFestival) style="color: #0c4a6e; border-top-color: #7dd3fc;" @endif>
                                 <tr>
                                     @foreach($specItems as $item)
                                         <td>{{ $item }}</td>
@@ -584,6 +649,11 @@
                                                 {{ $participant->height_cm ? $participant->height_cm . ' cm' : '-' }} / {{ $participant->weight_kg ? $participant->weight_kg . ' kg' : '-' }}
                                             </div>
                                         @endif
+                                        @if(! empty($presets['experience']) && ! empty($participant->playing_experience))
+                                            <div class="identity-line">
+                                                <strong>Pengalaman:</strong> {{ \Illuminate\Support\Str::limit($participant->playing_experience, 70) }}
+                                            </div>
+                                        @endif
                                         @if($session)
                                             <div class="identity-line">
                                                 <strong>Sesi:</strong> {{ $session->session_name }}
@@ -628,11 +698,43 @@
                             <td style="width: 50%;"><strong>Waktu Sah:</strong> {{ $verified_at_label }}</td>
                         </tr>
                         <tr>
-                            <td><strong>No. Invoice Lunas:</strong> <span style="font-family: monospace;">{{ $invoice_number }}</span></td>
+                            <td>
+                                @if($isFree)
+                                    <strong>Status Biaya:</strong> Bebas Biaya (Gratis)
+                                @else
+                                    <strong>No. Invoice Lunas:</strong> <span style="font-family: monospace;">{{ $invoice_number }}</span>
+                                @endif
+                            </td>
                             <td><strong>Masa Berlaku:</strong> {{ $valid_dates_label }}</td>
                         </tr>
+                        @if(! empty($event?->contact_person) || ! empty($event?->contact_whatsapp))
+                            <tr>
+                                <td colspan="2">
+                                    <strong>Kontak Panitia:</strong>
+                                    {{ $event?->contact_person ?: 'Panitia Penyelenggara' }}@if(! empty($event?->contact_whatsapp)) ({{ $event->contact_whatsapp }})@endif
+                                </td>
+                            </tr>
+                        @endif
                     </table>
                 </div>
+
+                @if(count($stagesList) > 0)
+                    <div class="stages-box">
+                        <div class="stages-title">Jadwal Tahapan Kegiatan:</div>
+                        <table class="stages-table">
+                            @foreach(array_slice($stagesList, 0, 3) as $stageItem)
+                                <tr>
+                                    <td style="width: 52%; font-weight: bold; color: #0f172a;">
+                                        {{ $stageItem['stage_name'] }}
+                                    </td>
+                                    <td style="width: 48%; color: #475569; text-align: right;">
+                                        {{ $stageItem['date_label'] }}@if(! empty($stageItem['time_label'])) &bull; {{ $stageItem['time_label'] }}@endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </table>
+                    </div>
+                @endif
 
                 <div class="ticket-divider"></div>
 
@@ -640,9 +742,13 @@
                 <div class="rules-box">
                     <div class="rules-title">Petunjuk Check-in Gatekeeper:</div>
                     <div>1. Tunjukkan QR Code atau ID Digital Pass ini (cetak / layar smartphone) ke petugas gerbang.</div>
-                    <div>2. Wajib membawa dokumen identitas asli peserta (KIA / Kartu Pelajar / Akta Lahir) untuk pencocokan.</div>
-                    <div>3. Hadir di lokasi kegiatan minimal 30 menit sebelum sesi dimulai.</div>
-                    <div>4. Mengenakan perlengkapan olahraga lengkap dan mematuhi tata tertib resmi penyelenggara.</div>
+                    @if(count($docLabels) > 0)
+                        <div>2. Wajib membawa dokumen asli kelengkapan event ({{ implode(', ', $docLabels) }}) untuk pencocokan.</div>
+                    @else
+                        <div>2. Wajib membawa dokumen identitas asli peserta yang sah untuk pencocokan gatekeeper.</div>
+                    @endif
+                    <div>3. Hadir di lokasi kegiatan minimal {{ $cutoffMins }} menit sebelum sesi atau tahapan dimulai.</div>
+                    <div>4. Mengenakan perlengkapan {{ $isClinic ? 'latihan olahraga' : 'olahraga lengkap' }} dan mematuhi tata tertib resmi penyelenggara.</div>
                 </div>
             </div>
         </div>

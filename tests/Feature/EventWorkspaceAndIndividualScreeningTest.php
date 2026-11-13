@@ -816,5 +816,73 @@ class EventWorkspaceAndIndividualScreeningTest extends TestCase
 
         $this->assertStringContainsString('POSISI: CMF', $renderedHtml);
         $this->assertStringNotContainsString('JERSEY:', $renderedHtml);
+        $this->assertStringContainsString('Akta Kelahiran, Kartu Keluarga (KK)', $renderedHtml);
+
+        // 4. Event gratis dengan 3 tahapan, kontak panitia, dan 4 dokumen wajib tetap muat 1 halaman A4 Portrait
+        $freshEvent->update([
+            'registration_fee' => 0,
+            'dsp_cutoff_minutes' => 45,
+            'contact_person' => 'Panitia Seleksi EPA',
+            'contact_whatsapp' => '081122334455',
+            'required_documents' => ['birth_certificate', 'family_card', 'student_card_kia', 'report_card_diploma'],
+            'form_presets' => [
+                'photo' => true,
+                'position' => true,
+                'foot_dominance' => true,
+                'team_origin' => true,
+                'body_measurements' => true,
+                'experience' => true,
+                'jersey_size' => true,
+            ],
+        ]);
+
+        for ($i = 1; $i <= 3; $i++) {
+            \App\Models\AuditionStage::create([
+                'event_id' => $freshEvent->id,
+                'stage_number' => $i,
+                'stage_name' => "Tahap {$i}: Uji Seleksi Bagian {$i}",
+                'stage_date' => now()->addDays($i)->toDateString(),
+                'start_time' => '08:00',
+                'end_time' => '16:00',
+                'is_active' => $i === 1,
+            ]);
+        }
+
+        $participant->update([
+            'status' => 'active',
+            'playing_experience' => 'Juara 1 Liga TopSkor Regional Jabodetabek U-13',
+            'height_cm' => 168,
+            'weight_kg' => 58,
+            'jersey_size' => 'L',
+        ]);
+
+        $freeHtml = view('pdf.audition_bib_tag', [
+            'participant' => $participant->fresh(),
+            'event' => $freshEvent->fresh()->load('auditionStages'),
+            'session' => null,
+            'form_presets' => $freshEvent->fresh()->normalizedFormPresets(),
+            'custom_field_items' => [],
+            'qr_code_svg' => 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=',
+            'photo_base64' => null,
+            'banner_overlay_base64' => null,
+            'auth_signature' => 'ABCD-1234-EF56-7890',
+            'invoice_number' => 'GRATIS',
+            'verified_by_name' => 'Panitia',
+            'verified_at_label' => '13 Nov 2026',
+            'valid_dates_label' => '14 - 16 Nov 2026',
+            'generated_at' => '13 November 2026',
+        ])->render();
+
+        $this->assertStringContainsString('BEBAS BIAYA', $freeHtml);
+        $this->assertStringContainsString('Tahap 1: Uji Seleksi Bagian 1', $freeHtml);
+        $this->assertStringContainsString('Panitia Seleksi EPA (081122334455)', $freeHtml);
+        $this->assertStringContainsString('minimal 45 menit', $freeHtml);
+        $this->assertStringContainsString('Rapor Sekolah / Ijazah Terakhir', $freeHtml);
+
+        $pdfService = app(\App\Services\AuditionBibPdfService::class);
+        $freePdfBytes = $pdfService->generateBibPdf($participant->fresh())->output();
+        $this->assertStringStartsWith('%PDF-', $freePdfBytes);
+        $this->assertSame(1, preg_match_all('/\/Type\s*\/Page\b/', $freePdfBytes));
+        $this->assertStringContainsString('595.280 841.890', $freePdfBytes);
     }
 }

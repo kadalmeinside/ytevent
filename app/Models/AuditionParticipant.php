@@ -129,7 +129,12 @@ class AuditionParticipant extends Model
 
     public function isPaid(): bool
     {
-        return $this->latestPayment?->status === 'paid';
+        if ($this->latestPayment?->status === 'paid') {
+            return true;
+        }
+
+        return $this->status !== 'pending_payment'
+            && (float) ($this->event?->registration_fee ?? 0) <= 0;
     }
 
     public function isScreeningPassed(): bool
