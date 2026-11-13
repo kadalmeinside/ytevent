@@ -1243,7 +1243,7 @@ const submit = () => {
                                     class="mt-0.5 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
                                 />
                                 <div class="text-xs">
-                                    <span class="font-bold block">Ukuran Kaos / Rompi</span>
+                                    <span class="font-bold block">Ukuran Jersey / Kaos Kegiatan</span>
                                     <span class="text-slate-500 text-[11px] block mt-0.5">Pilihan ukuran baju (S/M/L/XL/XXL) jika panitia membagikan perlengkapan.</span>
                                 </div>
                             </label>

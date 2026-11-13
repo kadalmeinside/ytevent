@@ -22,7 +22,7 @@ const props = defineProps({
 </script>
 
 <template>
-    <Head :title="isVerified ? `Verifikasi Atlet: ${participant?.full_name} (Bib #${participant?.bib_number})` : 'Verifikasi Peserta Audisi Tidak Ditemukan'">
+    <Head :title="isVerified ? `Verifikasi Atlet: ${participant?.full_name} (${participant?.registration_number || 'Digital Pass'})` : 'Verifikasi Peserta Audisi Tidak Ditemukan'">
         <meta head-key="robots" name="robots" content="noindex, nofollow, noarchive, nosnippet" />
         <meta head-key="googlebot" name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
     </Head>
@@ -75,8 +75,8 @@ const props = defineProps({
                             <div v-else class="w-20 h-24 rounded-xl bg-slate-100 border border-slate-300 text-slate-400 flex items-center justify-center font-bold text-xs">
                                 NO FOTO
                             </div>
-                            <span class="absolute -bottom-2 -right-2 px-2.5 py-0.5 rounded-md bg-orange-600 text-white font-black text-xs shadow-sm">
-                                Bib #{{ participant?.bib_number }}
+                            <span class="absolute -bottom-2 -right-2 px-2 py-0.5 rounded-md bg-orange-600 text-white font-black font-mono text-[10px] shadow-sm">
+                                {{ participant?.registration_number || 'PASS SAH' }}
                             </span>
                         </div>
 

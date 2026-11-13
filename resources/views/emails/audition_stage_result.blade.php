@@ -25,7 +25,7 @@
                             🎉 SELAMAT! RESMI LOLOS KE TAHAP BERIKUTNYA
                         </div>
                         <p style="font-size: 13px; line-height: 1.6; color: #14532D; margin: 0;">
-                            Berdasarkan hasil pemantauan teknis dan keputusan dewan pemandu bakat (talent scout) Persija Development pada <strong>{{ $event->name }}</strong>, atlet <strong>{{ $participant->full_name }}</strong> (ID Pass: <strong>{{ $participant->registration_number }}</strong>@if($participant->bib_number) • Rompi: <strong>#{{ $participant->bib_number }}</strong>@endif) dinyatakan <strong>LOLOS</strong> dengan status: <strong>{{ $stageLabel }}</strong>.
+                            Berdasarkan hasil pemantauan teknis dan keputusan dewan pemandu bakat (talent scout) Persija Development pada <strong>{{ $event->name }}</strong>, atlet <strong>{{ $participant->full_name }}</strong> (ID Digital Pass: <strong>{{ $participant->registration_number }}</strong>) dinyatakan <strong>LOLOS</strong> dengan status: <strong>{{ $stageLabel }}</strong>.
                         </p>
                     </div>
 

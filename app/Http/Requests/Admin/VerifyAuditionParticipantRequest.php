@@ -16,6 +16,7 @@ class VerifyAuditionParticipantRequest extends FormRequest
     {
         return [
             'status' => ['required', 'string', Rule::in(['passed', 'rejected'])],
+            'bib_number' => ['nullable', 'integer', 'min:1', 'max:99999'],
             'notes' => [
                 Rule::requiredIf(fn () => $this->input('status') === 'rejected'),
                 'nullable',

@@ -235,10 +235,10 @@ const setStatusFilter = (status) => {
                                         <span v-if="p.nickname" class="text-xs font-semibold text-slate-600">({{ p.nickname }})</span>
                                     </h3>
                                     <span
-                                        v-if="p.can_download_bib || p.bib_number"
+                                        v-if="p.can_download_bib || p.screening_status === 'passed'"
                                         class="px-2 py-0.5 rounded-md text-xs font-bold bg-orange-50 text-orange-800 border border-orange-200"
                                     >
-                                        Digital Pass Aktif<template v-if="p.bib_number"> &middot; Rompi #{{ p.bib_number }}</template>
+                                        Digital Pass Aktif<template v-if="p.registration_number"> &middot; {{ p.registration_number }}</template>
                                     </span>
                                     <span v-else class="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
                                         Tiket Belum Terbit

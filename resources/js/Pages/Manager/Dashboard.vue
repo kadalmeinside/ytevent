@@ -633,8 +633,8 @@ const calculatePercent = (current, total) => {
                                 <div v-else class="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
                                     Tiket Belum Terbit
                                 </div>
-                                <div v-if="p.bib_number && p.event?.event_type === 'audition'" class="text-[10px] font-bold text-orange-600 mt-0.5">
-                                    Rompi #{{ p.bib_number }}
+                                <div v-if="p.bib_number" class="text-[10px] font-semibold text-slate-500 mt-0.5">
+                                    Bib (Opsional) #{{ p.bib_number }}
                                 </div>
                             </div>
                         </div>

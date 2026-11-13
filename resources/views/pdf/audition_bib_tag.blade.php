@@ -209,12 +209,24 @@
             margin-bottom: 10px;
         }
         .bib-giant-number {
-            font-size: 44pt;
+            font-size: 20pt;
             font-weight: 900;
-            color: #ea580c;
-            line-height: 1;
-            font-family: 'Arial Black', Impact, sans-serif;
-            margin: 2px 0;
+            color: #0f172a;
+            line-height: 1.15;
+            font-family: monospace;
+            letter-spacing: 0.5px;
+            margin: 6px 0 4px 0;
+        }
+        .optional-bib-pill {
+            display: inline-block;
+            margin-top: 4px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #ffedd5;
+            border: 1px solid #fdba74;
+            color: #9a3412;
+            font-size: 7.5pt;
+            font-weight: bold;
         }
         .specs-mini-table {
             width: 100%;
@@ -373,14 +385,30 @@
 
                 <!-- Column 2: Akses Kegiatan & Aturan Gerbang -->
                 <td class="col-access">
-                    @if($event->event_type === 'audition' || $participant->bib_number)
-                        <!-- Audition Allocation Card -->
+                    @if($event->event_type === 'clinic' || $event->event_type === 'coaching_clinic')
+                        <!-- Coaching Clinic / Workshop Allocation Card -->
+                        <div class="card-clinic-access">
+                            <div style="font-size: 7.5pt; font-weight: 900; color: #166534; letter-spacing: 0.5px; text-transform: uppercase;">
+                                ID Digital Pass • Akses Workshop &amp; Clinic
+                            </div>
+                            <div class="bib-giant-number" style="color: #15803d;">
+                                {{ $participant->registration_number ?: ('PASS-' . $participant->id) }}
+                            </div>
+                            <div style="font-size: 8.5pt; font-weight: bold; color: #166534; margin-top: 2px;">
+                                Ukuran Jersey / Kit: <span style="background: #16a34a; color: #ffffff; padding: 1px 6px; border-radius: 4px;">{{ strtoupper($participant->jersey_size ?: 'ALL SIZE') }}</span>
+                            </div>
+                            <div style="font-size: 7pt; color: #14532d; margin-top: 4px;">
+                                *Tunjukkan ID Digital Pass ini saat registrasi gerbang dan pengambilan kit kegiatan.
+                            </div>
+                        </div>
+                    @else
+                        <!-- Official Digital Pass Card -->
                         <div class="card-audition-bib">
                             <div style="font-size: 7.5pt; font-weight: 900; color: #c2410c; letter-spacing: 0.5px; text-transform: uppercase;">
-                                Alokasi Rompi Seleksi Lapangan
+                                ID Digital Pass Resmi (E-Tiket)
                             </div>
                             <div class="bib-giant-number">
-                                #{{ $participant->bib_number }}
+                                {{ $participant->registration_number ?: ('PASS-' . $participant->id) }}
                             </div>
                             <table class="specs-mini-table">
                                 <tr>
@@ -389,24 +417,13 @@
                                     <td>JERSEY: {{ strtoupper($participant->jersey_size ?: 'M') }}</td>
                                 </tr>
                             </table>
-                            <div style="font-size: 6.5pt; color: #9a3412; margin-top: 3px;">
-                                *Rompi lapangan bernomor di atas akan dibagikan di meja registrasi saat check-in gerbang.
-                            </div>
-                        </div>
-                    @else
-                        <!-- Coaching Clinic / Workshop Allocation Card -->
-                        <div class="card-clinic-access">
-                            <div style="font-size: 8pt; font-weight: 900; color: #166534; letter-spacing: 0.5px; text-transform: uppercase;">
-                                Akses Workshop &amp; Masterclass Clinic
-                            </div>
-                            <div style="font-size: 16pt; font-weight: 900; color: #15803d; line-height: 1.2; margin: 4px 0;">
-                                PESERTA RESMI
-                            </div>
-                            <div style="font-size: 8.5pt; font-weight: bold; color: #166534;">
-                                Ukuran Jersey / Kit: <span style="background: #16a34a; color: #ffffff; padding: 1px 6px; border-radius: 4px;">{{ strtoupper($participant->jersey_size ?: 'ALL SIZE') }}</span>
-                            </div>
-                            <div style="font-size: 7pt; color: #14532d; margin-top: 4px;">
-                                *Kit pelatihan resmi dan materi eksklusif dibagikan di meja akreditasi gerbang.
+                            @if($participant->bib_number)
+                                <div class="optional-bib-pill">
+                                    No. Bib / Dada (Opsional): #{{ $participant->bib_number }}
+                                </div>
+                            @endif
+                            <div style="font-size: 6.5pt; color: #9a3412; margin-top: 4px;">
+                                *Gunakan ID Digital Pass &amp; QR Code di samping sebagai tanda pengenal resmi saat check-in gerbang.
                             </div>
                         </div>
                     @endif

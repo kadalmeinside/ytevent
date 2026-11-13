@@ -147,7 +147,7 @@ class RegisterAuditionRequest extends FormRequest
             'height_cm.required' => 'Tinggi badan wajib diisi.',
             'weight_kg.required' => 'Berat badan wajib diisi.',
             'current_club_ssb.required' => 'Asal SSB / Klub / Sekolah wajib diisi.',
-            'jersey_size.required' => 'Ukuran jersey / rompi wajib dipilih.',
+            'jersey_size.required' => 'Ukuran jersey / kaos wajib dipilih.',
             'emergency_contact_name.required' => 'Nama kontak darurat kedua wajib diisi.',
             'emergency_contact_phone.required' => 'Nomor WhatsApp kontak darurat kedua wajib diisi.',
             'liability_waiver.accepted' => 'Anda wajib menyetujui pernyataan bebas tanggung jawab medis dan tata tertib audisi.',

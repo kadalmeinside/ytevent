@@ -137,10 +137,6 @@ class EventController extends Controller
                 ->where('screening_status', 'passed')
                 ->whereHas('latestPayment', fn ($q) => $q->where('status', 'paid'));
 
-            if ($eventType === 'audition') {
-                $digitalPassQuery->whereNotNull('bib_number');
-            }
-
             $summary = [
                 'total' => $totalCount,
                 'paid' => $paidCount,

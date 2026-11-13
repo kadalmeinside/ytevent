@@ -72,13 +72,14 @@ const positionFilters = [
 
 const filteredParticipants = computed(() => {
     return props.participants.filter((p) => {
-        // Search bib number or name
+        // Search Digital Pass ID, optional bib number, or name
         if (searchBib.value.trim()) {
             const query = searchBib.value.trim().toLowerCase();
+            const passMatch = (p.registration_number || '').toLowerCase().includes(query);
             const bibMatch = String(p.bib_number || '').includes(query);
             const nameMatch = (p.full_name || '').toLowerCase().includes(query);
             const nickMatch = (p.nickname || '').toLowerCase().includes(query);
-            if (!bibMatch && !nameMatch && !nickMatch) return false;
+            if (!passMatch && !bibMatch && !nameMatch && !nickMatch) return false;
         }
 
         // Filter position
@@ -270,7 +271,7 @@ const handleLockSession = async () => {
                         <input
                             v-model="searchBib"
                             type="text"
-                            placeholder="Cari No. Bib (cth: 42) atau Nama..."
+                            placeholder="Cari ID Digital Pass atau Nama..."
                             class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-orange-500"
                         />
                         <svg class="w-4 h-4 text-slate-400 absolute left-2.5 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -300,7 +301,7 @@ const handleLockSession = async () => {
             <!-- Empty state -->
             <div v-if="filteredParticipants.length === 0" class="p-8 text-center bg-white rounded-2xl shadow-sm text-slate-400">
                 <p class="text-sm font-bold">Tidak ada peserta yang cocok dengan filter atau pencarian.</p>
-                <p class="text-xs mt-1">Coba sesuaikan kata kunci pencarian nomor dada.</p>
+                <p class="text-xs mt-1">Coba sesuaikan kata kunci ID Digital Pass atau nama peserta.</p>
             </div>
 
             <!-- Participant Cards List -->
@@ -309,14 +310,15 @@ const handleLockSession = async () => {
                 :key="p.id"
                 class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 transition-shadow hover:shadow-md space-y-3"
             >
-                <!-- Card Header: Bib & Basic Specs -->
+                <!-- Card Header: Digital Pass & Basic Specs -->
                 <div class="flex items-start justify-between gap-3">
                     <div class="flex items-center gap-3">
-                        <!-- Bib Number Badge -->
+                        <!-- Digital Pass Badge & Presence -->
                         <div class="relative shrink-0 text-center">
-                            <div class="w-14 h-14 rounded-xl bg-orange-50 border-2 border-orange-500 flex flex-col items-center justify-center shadow-inner">
-                                <span class="text-[9px] font-black uppercase text-orange-600 tracking-wider">BIB</span>
-                                <span class="text-xl font-black text-orange-700 font-mono leading-none">#{{ p.bib_number }}</span>
+                            <div class="px-2.5 py-2 min-w-[84px] rounded-xl bg-orange-50 border-2 border-orange-500 flex flex-col items-center justify-center shadow-inner">
+                                <span class="text-[9px] font-black uppercase text-orange-600 tracking-wider">DIGITAL PASS</span>
+                                <span class="text-[11px] font-black text-orange-800 font-mono leading-tight mt-0.5">{{ p.registration_number || ('PASS-' + p.id) }}</span>
+                                <span v-if="p.bib_number" class="text-[9px] font-bold text-slate-600 mt-0.5">Bib #{{ p.bib_number }}</span>
                             </div>
                             <span
                                 class="inline-block mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full"

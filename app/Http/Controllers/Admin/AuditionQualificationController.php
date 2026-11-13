@@ -37,9 +37,9 @@ class AuditionQualificationController extends Controller
             ->where('event_id', $event->id)
             ->where('screening_status', 'passed')
             ->where('status', 'active')
-            ->whereNotNull('bib_number')
             ->with(['evaluations.scout', 'attendances.stage'])
-            ->orderBy('bib_number')
+            ->orderBy('registration_number')
+            ->orderBy('id')
             ->get()
             ->map(function (AuditionParticipant $p) {
                 $evals = $p->evaluations;
@@ -72,6 +72,8 @@ class AuditionQualificationController extends Controller
 
                 return [
                     'id' => $p->id,
+                    'registration_number' => $p->registration_number,
+                    'screening_code' => $p->screening_code,
                     'bib_number' => $p->bib_number,
                     'full_name' => $p->full_name,
                     'nickname' => $p->nickname,

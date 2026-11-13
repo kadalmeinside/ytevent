@@ -560,7 +560,7 @@ onBeforeUnmount(() => {
                                 id="review-queue-search"
                                 v-model="searchQuery"
                                 type="text"
-                                placeholder="Cari nama, NIK, No. Reg, Rompi..."
+                                placeholder="Cari nama, NIK, atau ID Digital Pass..."
                                 class="input-field text-xs py-1.5"
                             />
                         </div>
@@ -610,7 +610,7 @@ onBeforeUnmount(() => {
                                 class="font-bold px-1.5 py-0.5 rounded text-xs tabular-nums"
                                 :class="Number(activeParticipant?.id) === Number(p.id) ? 'bg-orange-700 text-white' : 'bg-white text-slate-700 border border-slate-200'"
                             >
-                                {{ p.bib_number ? `#${p.bib_number}` : `#${(pagination?.from || 1) + idx}` }}
+                                {{ p.registration_number || `#${(pagination?.from || 1) + idx}` }}
                             </span>
                             <span class="truncate max-w-[140px]">{{ p.full_name }}</span>
                             <span
@@ -671,8 +671,8 @@ onBeforeUnmount(() => {
                                     <span class="px-2 py-0.5 rounded text-xs font-black bg-slate-900 text-white font-mono">
                                         {{ activeParticipant.registration_number }}
                                     </span>
-                                    <span v-if="activeParticipant.bib_number && isAudition" class="px-2 py-0.5 rounded text-xs font-black bg-orange-600 text-white tabular-nums">
-                                        Rompi #{{ activeParticipant.bib_number }}
+                                    <span v-if="activeParticipant.bib_number" class="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 tabular-nums">
+                                        Bib #{{ activeParticipant.bib_number }}
                                     </span>
                                     <span v-if="activeParticipant.preferred_position" class="px-2 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-800 uppercase border border-slate-200">
                                         {{ activeParticipant.preferred_position }}
@@ -1004,7 +1004,7 @@ onBeforeUnmount(() => {
                 <div class="frosted-card p-4 bg-slate-900/95 text-white backdrop-blur-md border border-slate-700 shadow-lg flex flex-wrap items-center justify-between gap-3 rounded-2xl">
                     <div class="flex items-center gap-3">
                         <span class="px-2.5 h-8 rounded-lg bg-orange-600 text-white font-mono font-bold flex items-center justify-center text-xs">
-                            {{ activeParticipant.bib_number ? `#${activeParticipant.bib_number}` : activeParticipant.registration_number }}
+                            {{ activeParticipant.registration_number }}
                         </span>
                         <div>
                             <div class="flex items-center gap-2">
@@ -1492,7 +1492,7 @@ onBeforeUnmount(() => {
                     <div class="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 space-y-1.5">
                         <div class="font-bold">Seluruh Berkas Terverifikasi Sah</div>
                         <p class="text-xs text-emerald-800 leading-relaxed">
-                            Peserta ini akan dinyatakan <strong>SAH (Lolos Screening)</strong>. Sistem akan menerbitkan Digital Pass (E-Tiket) resmi dan nomor alokasi rompi lapangan (untuk event audisi).
+                            Peserta ini akan dinyatakan <strong>SAH (Lolos Screening)</strong>. Sistem akan menerbitkan Digital Pass (E-Tiket) resmi berdasarkan ID Digital Pass peserta.
                         </p>
                     </div>
 

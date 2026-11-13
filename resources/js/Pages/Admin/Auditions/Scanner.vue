@@ -125,7 +125,7 @@ const handleCheckIn = async (codeToLookup = null) => {
         }
 
         scanHistory.value.unshift({
-            code: response.data.participant?.registration_number || (response.data.participant?.bib_number ? `Rompi #${response.data.participant.bib_number}` : code),
+            code: response.data.participant?.registration_number || response.data.participant?.screening_code || code,
             name: response.data.participant?.full_name || 'Peserta',
             status: response.data.already_checked_in ? 'Sudah Hadir' : 'Check-in Sukses',
             status_type: response.data.already_checked_in ? 'warning' : 'success',
@@ -140,7 +140,7 @@ const handleCheckIn = async (codeToLookup = null) => {
         playSound('error');
 
         scanHistory.value.unshift({
-            code: errorData?.participant?.registration_number || (errorData?.participant?.bib_number ? `Rompi #${errorData.participant.bib_number}` : code),
+            code: errorData?.participant?.registration_number || errorData?.participant?.screening_code || code,
             name: errorData?.participant?.full_name || 'Gagal Check-in',
             status: 'Ditolak: ' + (errorData?.gatekeeper_status || 'ERROR'),
             status_type: 'error',
@@ -369,16 +369,16 @@ onUnmounted(() => {
                         <!-- Input Manual Fallback -->
                         <form class="mt-4 pt-3 border-t border-slate-100 space-y-2" @submit.prevent="handleCheckIn()">
                             <label class="block text-xs font-bold text-slate-600">
-                                Atau Masukkan Kode Digital Pass / NIK / Rompi:
+                                Atau Masukkan ID Digital Pass / Kode QR / NIK:
                             </label>
                             <div class="flex gap-2">
                                 <input
                                     v-model="inputCode"
                                     type="text"
-                                    placeholder="Contoh: AUD-2026-..., CLN-..., atau 042"
+                                    placeholder="Contoh: AUD-2026-..., SCR-AUD-..., atau NIK"
                                     class="input-pitch flex-1 text-sm font-mono uppercase"
                                     :disabled="isLoading"
-                                    :title="isLoading ? 'Pemeriksaan sedang berlangsung' : 'Masukkan kode Digital Pass, NIK, atau rompi'"
+                                    :title="isLoading ? 'Pemeriksaan sedang berlangsung' : 'Masukkan ID Digital Pass, kode QR, atau NIK'"
                                 />
                                 <button
                                     type="submit"
@@ -493,16 +493,16 @@ onUnmounted(() => {
                                 <!-- Participant Identity -->
                                 <div class="flex-1 space-y-2 text-center sm:text-left">
                                     <div class="flex flex-wrap gap-2 items-center justify-center sm:justify-start">
-                                        <div v-if="result.participant.bib_number" class="inline-block bg-orange-50 border border-orange-200 rounded-xl px-4 py-1.5">
-                                            <div class="text-[10px] font-bold uppercase tracking-wider text-orange-700">Rompi Seleksi</div>
-                                            <div class="text-3xl font-black text-orange-600 font-mono tracking-tight">
-                                                #{{ result.participant.bib_number }}
+                                        <div class="inline-block bg-orange-50 border border-orange-200 rounded-xl px-4 py-1.5">
+                                            <div class="text-[10px] font-bold uppercase tracking-wider text-orange-700">ID Digital Pass</div>
+                                            <div class="text-xl font-black text-orange-700 font-mono tracking-tight">
+                                                {{ result.participant.registration_number || ('PASS-' + result.participant.id) }}
                                             </div>
                                         </div>
-                                        <div class="inline-block bg-slate-50 border border-slate-200 rounded-xl px-4 py-1.5">
-                                            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500">ID Digital Pass</div>
-                                            <div class="text-sm font-black text-slate-800 font-mono tracking-tight mt-1">
-                                                {{ result.participant.registration_number || ('#' + result.participant.id) }}
+                                        <div v-if="result.participant.bib_number" class="inline-block bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-1.5">
+                                            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500">No. Bib (Opsional)</div>
+                                            <div class="text-sm font-black text-slate-800 font-mono tracking-tight mt-0.5">
+                                                #{{ result.participant.bib_number }}
                                             </div>
                                         </div>
                                     </div>
@@ -576,7 +576,7 @@ onUnmounted(() => {
                         </div>
                         <h3 class="text-sm font-bold text-slate-700">Menunggu Scan Digital Pass / E-Tiket</h3>
                         <p class="text-xs text-slate-500 max-w-sm mx-auto">
-                            Arahkan QR Code Digital Pass ke kamera atau ketik kode tiket / nomor rompi secara manual di panel kiri untuk memverifikasi keabsahan peserta.
+                            Arahkan QR Code Digital Pass ke kamera atau ketik ID Digital Pass / NIK secara manual di panel kiri untuk memverifikasi keabsahan peserta.
                         </p>
                     </div>
                 </div>

@@ -435,4 +435,84 @@ class EventWorkspaceAndIndividualScreeningTest extends TestCase
         $this->assertSame(1, $audition->auditionStages()->count());
         $this->assertSame('Screening Fisik & Teknik', $audition->auditionStages()->first()->stage_name);
     }
+
+    public function test_digital_pass_e_ticket_scouting_and_qualification_work_without_bib_number(): void
+    {
+        $admin = $this->makeSuperadmin();
+        $event = $this->makeIndividualEvent('audition');
+        $stage = \App\Models\AuditionStage::create([
+            'event_id' => $event->id,
+            'stage_number' => 1,
+            'stage_name' => 'Hari 1',
+            'stage_date' => now()->toDateString(),
+            'is_active' => true,
+        ]);
+
+        $user = User::factory()->create();
+        $participant = $this->makeParticipant($event, $user, [
+            'registration_number' => 'AUD-2026-PASS01',
+            'bib_number' => null,
+            'screening_status' => 'passed',
+            'screening_code' => 'SCR-AUD-DIGITALPASS1',
+            'stage_status' => 'registered',
+            'status' => 'active',
+        ]);
+
+        \App\Models\Payment::create([
+            'event_id' => $event->id,
+            'user_id' => $user->id,
+            'audition_participant_id' => $participant->id,
+            'invoice_number' => 'INV-TEST-PASS01',
+            'amount' => 150000,
+            'base_amount' => 150000,
+            'total_amount' => 150000,
+            'status' => 'paid',
+            'method' => 'midtrans_qris',
+            'paid_at' => now(),
+        ]);
+
+        $this->assertTrue($participant->fresh()->canDownloadPass());
+
+        // 1. E-Tiket PDF dapat diunduh tanpa bib_number
+        $pdfResponse = $this->actingAs($admin)->get(route('audition.bib.download', ['participant' => $participant->id]));
+        $pdfResponse->assertOk();
+        $this->assertSame('application/pdf', $pdfResponse->headers->get('content-type'));
+
+        // 2. Summary digital_pass_active menghitung peserta meski bib_number null
+        $this->actingAs($admin)
+            ->get(route('admin.events.show', ['event' => $event->id]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('summary.digital_pass_active', 1)
+            );
+
+        // 3. Check-in scanner menggunakan ID Digital Pass (registration_number)
+        $this->actingAs($admin)
+            ->postJson(route('admin.auditions.scanner.check-in'), [
+                'code' => 'AUD-2026-PASS01',
+                'stage_id' => $stage->id,
+            ])
+            ->assertOk()
+            ->assertJson([
+                'success' => true,
+                'gatekeeper_status' => 'CHECK_IN_SUCCESS',
+            ]);
+
+        // 4. Panel Scouting & Panel Kelolosan tetap menampilkan peserta tanpa bib_number
+        $this->actingAs($admin)
+            ->get(route('scout.events.show', ['event' => $event->id, 'stage_id' => $stage->id]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('participants', 1)
+                ->where('participants.0.registration_number', 'AUD-2026-PASS01')
+            );
+
+        $this->actingAs($admin)
+            ->get(route('admin.events.auditions.qualifications', ['event' => $event->id, 'stage_id' => $stage->id]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('participants', 1)
+                ->where('participants.0.registration_number', 'AUD-2026-PASS01')
+            );
+    }
 }

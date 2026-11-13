@@ -60,10 +60,11 @@ const filteredParticipants = computed(() => {
     return props.participants.filter((p) => {
         if (searchQuery.value.trim()) {
             const q = searchQuery.value.trim().toLowerCase();
+            const passMatch = (p.registration_number || '').toLowerCase().includes(q);
             const bibMatch = String(p.bib_number || '').includes(q);
             const nameMatch = (p.full_name || '').toLowerCase().includes(q);
             const nickMatch = (p.nickname || '').toLowerCase().includes(q);
-            if (!bibMatch && !nameMatch && !nickMatch) return false;
+            if (!passMatch && !bibMatch && !nameMatch && !nickMatch) return false;
         }
 
         if (filterPosition.value !== 'ALL') {
@@ -195,7 +196,7 @@ const submitAdvance = () => {
                     <input
                         v-model="searchQuery"
                         type="text"
-                        placeholder="Ketik Bib # atau nama atlet..."
+                        placeholder="Ketik ID Digital Pass atau nama atlet..."
                         class="input-pitch w-full text-xs"
                     />
                 </div>
@@ -245,7 +246,7 @@ const submitAdvance = () => {
                                         @change="toggleSelectAll"
                                     />
                                 </th>
-                                <th class="p-3 w-16 text-center">No. Bib</th>
+                                <th class="p-3 w-36">ID Digital Pass</th>
                                 <th class="p-3">Identitas Atlet</th>
                                 <th class="p-3">Posisi &amp; SSB</th>
                                 <th class="p-3 text-center">Absensi Sesi</th>
@@ -275,9 +276,12 @@ const submitAdvance = () => {
                                     />
                                 </td>
 
-                                <td class="p-3 text-center">
-                                    <div class="w-12 h-10 rounded-lg bg-orange-50 border border-orange-300 flex items-center justify-center font-mono font-black text-sm text-orange-700 mx-auto">
-                                        #{{ p.bib_number }}
+                                <td class="p-3">
+                                    <div class="inline-flex items-center px-2.5 py-1 rounded-lg bg-orange-50 border border-orange-300 font-mono font-black text-xs text-orange-800 whitespace-nowrap">
+                                        {{ p.registration_number || ('PASS-' + p.id) }}
+                                    </div>
+                                    <div v-if="p.bib_number" class="text-[10px] font-semibold text-slate-500 mt-1">
+                                        Bib #{{ p.bib_number }}
                                     </div>
                                 </td>
 
@@ -394,7 +398,7 @@ const submitAdvance = () => {
                         <textarea
                             v-model="advanceForm.notes"
                             rows="3"
-                            placeholder="Contoh: Jadwal Hari 2 dimulai pukul 08:00 WIB di Lapangan A. Jangan lupa membawa Bib Tag asli..."
+                            placeholder="Contoh: Jadwal Hari 2 dimulai pukul 08:00 WIB di Lapangan A. Jangan lupa membawa Digital Pass (E-Tiket)..."
                             class="input-pitch w-full text-xs"
                         ></textarea>
                     </div>

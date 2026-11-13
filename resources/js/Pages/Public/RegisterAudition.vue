@@ -166,7 +166,7 @@ const submit = () => {
         }
 
         if (presets.value.jersey_size && isEmpty(form.jersey_size)) {
-            errs.jersey_size = 'Ukuran jersey / rompi wajib dipilih.';
+            errs.jersey_size = 'Ukuran jersey / kaos wajib dipilih.';
         }
 
         // 3. Kontak Darurat Cadangan
@@ -407,7 +407,7 @@ const submit = () => {
                             <input
                                 v-model="form.nickname"
                                 type="text"
-                                placeholder="Nama panggilan di jersey / rompi"
+                                placeholder="Nama panggilan di jersey / atribut"
                                 class="input-field"
                                 :class="{ 'input-field-error': form.errors.nickname }"
                             />
@@ -532,9 +532,9 @@ const submit = () => {
                             <InputError :message="form.errors.dominant_foot" />
                         </div>
 
-                        <!-- Ukuran Jersey / Rompi -->
+                        <!-- Ukuran Jersey / Kaos -->
                         <div v-if="presets.jersey_size" data-field="jersey_size">
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">Ukuran Jersey / Rompi *</label>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Ukuran Jersey / Kaos *</label>
                             <select
                                 v-model="form.jersey_size"
                                 class="input-field"

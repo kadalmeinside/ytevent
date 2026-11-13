@@ -239,7 +239,7 @@ class Phase8AuditionRegistrationAndScreeningTest extends TestCase
 
         $participant->refresh();
         $this->assertSame('passed', $participant->screening_status);
-        $this->assertSame(1, $participant->bib_number); // Nomor dada otomatis terbit mulai dari #1
+        $this->assertNull($participant->bib_number); // Nomor bib/rompi bersifat opsional
         $this->assertNotNull($participant->screening_code);
         $this->assertSame($officer->id, $participant->screening_verified_by);
         $this->assertNotNull($participant->screening_verified_at);
@@ -422,8 +422,9 @@ class Phase8AuditionRegistrationAndScreeningTest extends TestCase
             ->has('stages', 2)
             ->where('stages.0.stage_name', 'Tahap 1: Screening Fisik & Tes Teknik')
             ->has('registeredParticipants', 1)
+            ->where('registeredParticipants.0.registration_number', 'AUD-2026-ESP0101')
             ->where('registeredParticipants.0.bib_number', 101)
-            ->where('registeredParticipants.0.public_label', 'Peserta #101')
+            ->where('registeredParticipants.0.public_label', 'Pass AUD-2026-ESP0101')
             ->where('event.participant_type', 'individual')
             ->where('event.format', 'audition')
         );

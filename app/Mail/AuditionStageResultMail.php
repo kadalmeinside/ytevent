@@ -27,8 +27,8 @@ class AuditionStageResultMail extends Mailable
             ? 'Selamat! Hasil Seleksi Tahap:'
             : 'Apresiasi & Piagam Penghargaan:';
 
-        $bibStr = $this->participant->bib_number ? " (Bib #{$this->participant->bib_number})" : '';
-        $subject = "[Persija Talent] {$subjectPrefix} {$this->participant->full_name}{$bibStr}";
+        $passStr = $this->participant->registration_number ? " ({$this->participant->registration_number})" : '';
+        $subject = "[Persija Talent] {$subjectPrefix} {$this->participant->full_name}{$passStr}";
 
         return new Envelope(subject: $subject);
     }

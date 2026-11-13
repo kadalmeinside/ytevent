@@ -51,8 +51,11 @@ const props = defineProps({
                     <div class="text-center pb-4 border-b border-slate-100">
                         <div class="text-[11px] text-slate-500 uppercase font-bold">Penerima Piagam:</div>
                         <h2 class="text-xl font-black text-slate-900 mt-0.5">{{ certificate.recipient_name }}</h2>
-                        <div v-if="certificate.bib_number" class="text-xs font-bold text-orange-600 mt-0.5">
-                            Nomor Dada: #{{ certificate.bib_number }}
+                        <div v-if="certificate.registration_number" class="text-xs font-mono font-bold text-orange-600 mt-0.5">
+                            ID Digital Pass: {{ certificate.registration_number }}
+                        </div>
+                        <div v-else-if="certificate.bib_number" class="text-xs font-bold text-orange-600 mt-0.5">
+                            No. Bib: #{{ certificate.bib_number }}
                         </div>
                     </div>
 

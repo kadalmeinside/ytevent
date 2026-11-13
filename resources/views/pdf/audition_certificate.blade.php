@@ -150,7 +150,7 @@
             <div class="player-name">{{ $participant->full_name }}</div>
 
             <div class="player-details">
-                Nomor Dada: <strong>#{{ $participant->bib_number }}</strong> • Posisi: <strong>{{ $participant->preferred_position }}</strong>
+                ID Digital Pass: <strong>{{ $participant->registration_number ?: ('#' . $participant->id) }}</strong> • Posisi: <strong>{{ $participant->preferred_position }}</strong>
                 @if($participant->current_club_ssb)
                     • Asal SSB: <strong>{{ $participant->current_club_ssb }}</strong>
                 @endif

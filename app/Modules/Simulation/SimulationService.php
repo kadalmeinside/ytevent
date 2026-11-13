@@ -1014,9 +1014,6 @@ class SimulationService
         $birthCertPath = $this->storeDummyPngOnDisk('auditions/documents/birth_cert', 'private', 'sim-akta');
         $familyCardPath = $this->storeDummyPngOnDisk('auditions/documents/family_card', 'private', 'sim-kk');
 
-        $maxBib = (int) AuditionParticipant::where('event_id', $event->id)->max('bib_number');
-        $bibNumber = $maxBib + 1;
-
         $session = EventSession::where('event_id', $event->id)->where('is_active', true)->inRandomOrder()->first();
         if ($session) {
             $session->increment('occupied_slots');
@@ -1029,7 +1026,7 @@ class SimulationService
             'event_session_id' => $session?->id,
             'user_id' => $guardian->id,
             'registration_number' => $regPrefix . '-' . now()->format('Y') . '-' . Str::upper(Str::random(6)),
-            'bib_number' => $bibNumber,
+            'bib_number' => null,
             'full_name' => $fullName,
             'nickname' => explode(' ', $fullName)[0],
             'nik' => $nik,

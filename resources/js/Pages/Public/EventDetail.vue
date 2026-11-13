@@ -583,7 +583,7 @@ const eventJsonLd = computed(() => {
                                         <table class="w-full text-left border-collapse">
                                             <thead>
                                                 <tr>
-                                                    <th class="table-th w-20 text-center">{{ event.event_type === 'audition' ? 'Rompi' : 'Pass' }}</th>
+                                                    <th class="table-th">ID Digital Pass</th>
                                                     <th class="table-th">Peserta</th>
                                                     <th class="table-th">Posisi Utama</th>
                                                     <th class="table-th">Asal Klub / SSB</th>
@@ -596,11 +596,10 @@ const eventJsonLd = computed(() => {
                                                     :key="p.id"
                                                     class="hover:bg-orange-50/25 transition-colors"
                                                 >
-                                                    <td class="table-td text-center">
-                                                        <span v-if="p.bib_number" class="inline-flex items-center justify-center px-2 py-0.5 rounded-lg font-mono font-black text-xs bg-slate-900 text-white">
-                                                            #{{ p.bib_number }}
+                                                    <td class="table-td">
+                                                        <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-lg font-mono font-black text-xs bg-slate-900 text-white whitespace-nowrap">
+                                                            {{ p.registration_number || ('PASS-' + p.id) }}
                                                         </span>
-                                                        <span v-else class="text-slate-600 text-xs">-</span>
                                                     </td>
                                                     <td class="table-td font-semibold text-slate-900">
                                                         <div class="flex items-center gap-2.5">
@@ -642,10 +641,9 @@ const eventJsonLd = computed(() => {
                                             class="py-3 flex items-center justify-between gap-2.5"
                                         >
                                             <div class="flex items-center gap-2.5 min-w-0">
-                                                <span v-if="p.bib_number" class="font-mono text-xs font-black text-white bg-slate-900 px-1.5 py-0.5 rounded-lg shrink-0">
-                                                    #{{ p.bib_number }}
+                                                <span class="font-mono text-xs font-black text-white bg-slate-900 px-1.5 py-0.5 rounded-lg shrink-0">
+                                                    {{ p.registration_number || ('PASS-' + p.id) }}
                                                 </span>
-                                                <div v-else class="w-6 text-center text-slate-600 text-xs shrink-0">-</div>
                                                 <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0">#</div>
                                                 <div class="min-w-0">
                                                     <h3 class="text-xs font-bold text-slate-900 leading-tight truncate">{{ p.public_label }}</h3>

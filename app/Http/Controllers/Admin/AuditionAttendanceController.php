@@ -215,7 +215,7 @@ class AuditionAttendanceController extends Controller
             'success' => true,
             'already_checked_in' => false,
             'gatekeeper_status' => 'CHECK_IN_SUCCESS',
-            'message' => "CHECK-IN SAH: Selamat bertanding, {$participant->full_name} (Bib #{$participant->bib_number})!",
+            'message' => "CHECK-IN SAH: Selamat hadir, {$participant->full_name} (ID Digital Pass: {$participant->registration_number})!",
             'check_in_at' => $attendance->check_in_at?->format('H:i:s'),
             'total_attendances_count' => $newCount,
             'participant' => $this->formatParticipantPayload($participant),

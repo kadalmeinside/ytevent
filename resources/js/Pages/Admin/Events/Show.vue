@@ -671,7 +671,7 @@ const birthDateSummary = computed(() => {
                                                     <div class="font-bold text-slate-900">{{ p.full_name }}</div>
                                                     <div class="font-mono text-[11px] text-slate-500">
                                                         {{ p.registration_number }}
-                                                        <span v-if="p.bib_number" class="ml-1 text-orange-700 font-bold">• Rompi #{{ p.bib_number }}</span>
+                                                        <span v-if="p.bib_number" class="ml-1 text-slate-600 font-semibold">• Bib #{{ p.bib_number }}</span>
                                                     </div>
                                                 </div>
                                             </div>

@@ -313,10 +313,10 @@ class SimulationModuleTest extends TestCase
         $this->assertNotNull($participant);
         $this->assertSame('passed', $participant->screening_status);
         $this->assertNotEmpty($participant->registration_number);
-        $this->assertNotEmpty($participant->bib_number);
+        $this->assertNotEmpty($participant->screening_code);
         $this->assertSame('paid', $participant->latestPayment?->status);
         $this->assertTrue($participant->isPaid());
-        $this->assertTrue($participant->canDownloadBib());
+        $this->assertTrue($participant->canDownloadPass());
     }
 
     public function test_simulation_bulk_inject_individual_participants(): void
@@ -488,7 +488,8 @@ class SimulationModuleTest extends TestCase
         $participant = AuditionParticipant::where('event_id', $this->auditionEvent->id)->latest('id')->first();
         $this->assertNotNull($participant);
         $this->assertStringStartsWith('AUD-', $participant->registration_number);
-        $this->assertNotNull($participant->bib_number);
+        $this->assertNotEmpty($participant->screening_code);
+        $this->assertNull($participant->bib_number);
         $this->assertSame('passed', $participant->screening_status);
         $this->assertSame('active', $participant->status);
     }

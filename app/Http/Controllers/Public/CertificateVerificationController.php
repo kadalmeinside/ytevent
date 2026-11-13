@@ -48,6 +48,7 @@ class CertificateVerificationController extends Controller
                 'code' => $code,
                 'certificate' => [
                     'recipient_name' => $participant->full_name,
+                    'registration_number' => $participant->registration_number,
                     'bib_number' => $participant->bib_number,
                     'position' => $participant->preferred_position,
                     'event_name' => $participant->event?->name,

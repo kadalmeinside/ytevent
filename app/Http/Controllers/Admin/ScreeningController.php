@@ -718,13 +718,9 @@ class ScreeningController extends Controller
         $user = $request->user();
 
         if ($status === 'passed') {
-            $bib = $participant->bib_number;
-            if (! $bib) {
-                $maxBib = AuditionParticipant::query()
-                    ->where('event_id', $participant->event_id)
-                    ->max('bib_number') ?? 0;
-                $bib = $maxBib + 1;
-            }
+            $bib = array_key_exists('bib_number', $validated) && $validated['bib_number'] !== null
+                ? (int) $validated['bib_number']
+                : $participant->bib_number;
 
             $screeningCode = $participant->screening_code ?: ('SCR-AUD-' . strtoupper(Str::random(10)));
 
@@ -750,12 +746,13 @@ class ScreeningController extends Controller
                 action: 'audition.screening.passed',
                 actor: $user,
                 metadata: [
+                    'registration_number' => $participant->registration_number,
                     'bib_number' => $bib,
                     'screening_code' => $screeningCode,
                 ]
             );
 
-            return redirect()->back()->with('success', "Peserta {$participant->full_name} dinyatakan LOLOS SCREENING! Digital Pass (E-Tiket) resmi aktif (Rompi #{$bib}).");
+            return redirect()->back()->with('success', "Peserta {$participant->full_name} dinyatakan LOLOS SCREENING! Digital Pass / E-Tiket ({$participant->registration_number}) resmi aktif.");
         }
 
         // Status rejected

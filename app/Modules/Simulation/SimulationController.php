@@ -399,7 +399,7 @@ class SimulationController extends Controller
         $participant = $this->simulationService->simulateRegisterAuditionParticipant($event, $request->user());
 
         return redirect()->back()
-            ->with('success', "[SIMULASI AUDISI] Atlet '{$participant->full_name}' (#{$participant->bib_number}) berhasil didaftarkan ke event '{$participant->event?->name}' dengan berkas lengkap & lolos verifikasi!");
+            ->with('success', "[SIMULASI AUDISI] Atlet '{$participant->full_name}' (ID Digital Pass: {$participant->registration_number}) berhasil didaftarkan ke event '{$participant->event?->name}' dengan berkas lengkap & lolos verifikasi!");
     }
 
     /**

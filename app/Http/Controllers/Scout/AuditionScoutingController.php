@@ -35,7 +35,6 @@ class AuditionScoutingController extends Controller
             ->where('event_id', $event->id)
             ->where('screening_status', 'passed')
             ->where('status', 'active')
-            ->whereNotNull('bib_number')
             ->with(['eventSession', 'attendances']);
 
         // Jika tahap 2 atau 3, bisa tetap tampilkan semua atau tandai yang lolos
@@ -50,7 +49,8 @@ class AuditionScoutingController extends Controller
                 ->where('audition_stage_id', $stage->id)->where('status', 'present'));
         }
         $participants = $participantsQuery
-            ->orderBy('bib_number')
+            ->orderBy('registration_number')
+            ->orderBy('id')
             ->get();
 
         // Ambil evaluasi milik scout yang sedang login pada tahap ini
@@ -81,6 +81,8 @@ class AuditionScoutingController extends Controller
 
             return [
                 'id' => $p->id,
+                'registration_number' => $p->registration_number,
+                'screening_code' => $p->screening_code,
                 'bib_number' => $p->bib_number,
                 'full_name' => $p->full_name,
                 'nickname' => $p->nickname,

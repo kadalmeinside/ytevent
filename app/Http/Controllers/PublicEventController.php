@@ -133,14 +133,13 @@ class PublicEventController extends Controller
             $registeredParticipants = $event->auditionParticipants()
                 ->whereIn('status', ['active', 'confirmed', 'passed', 'registered'])
                 ->where('screening_status', 'passed')
-                ->whereNotNull('bib_number')
-                ->orderByRaw('CASE WHEN bib_number IS NOT NULL THEN 0 ELSE 1 END, bib_number ASC, created_at ASC')
+                ->orderByRaw('COALESCE(screening_verified_at, created_at) ASC, id ASC')
                 ->get()
                 ->map(fn (AuditionParticipant $p) => [
                     'id' => $p->id,
                     'registration_number' => $p->registration_number,
                     'bib_number' => $p->bib_number,
-                    'public_label' => $p->bib_number ? 'Peserta #'.$p->bib_number : 'Peserta Terverifikasi',
+                    'public_label' => 'Pass ' . ($p->registration_number ?: ('#' . $p->id)),
                     'preferred_position' => $p->preferred_position,
                     'stage_status' => $p->stage_status,
                     'stage_status_label' => AuditionParticipant::STAGE_STATUSES[$p->stage_status] ?? $p->stage_status,
