@@ -244,7 +244,7 @@ class PersijaEpaAuditionSeeder extends Seeder
                 'stars' => 4,
                 'tags' => ['Dribbling', 'Pace', 'Crossing', 'Workrate'],
                 'notes' => 'Akselerasi sprint eksplosif, umpan silang akurat menggunakan kaki kiri murni.',
-                'stage_status' => 'stage_1',
+                'stage_status' => 'registered',
             ],
             [
                 'name' => 'Kenzo Rafael Siregar',
@@ -262,7 +262,7 @@ class PersijaEpaAuditionSeeder extends Seeder
                 'stars' => 4,
                 'tags' => ['Stamina', 'Short Pass', 'Pressing', 'Recovery'],
                 'notes' => 'Daya jelajah lapangan luar biasa (box-to-box), agresif saat kehilangan bola.',
-                'stage_status' => 'stage_1',
+                'stage_status' => 'registered',
             ],
             [
                 'name' => 'Fathir Ahmad Fadillah',
@@ -280,7 +280,7 @@ class PersijaEpaAuditionSeeder extends Seeder
                 'stars' => 3,
                 'tags' => ['Speed', 'Overlapping', 'Tackling'],
                 'notes' => 'Disiplin bertahan cukup baik, overlap aktif membantu serangan sayap kanan.',
-                'stage_status' => 'stage_1',
+                'stage_status' => 'registered',
             ],
             [
                 'name' => 'Danendra Satria Wibowo',
@@ -298,7 +298,7 @@ class PersijaEpaAuditionSeeder extends Seeder
                 'stars' => 4,
                 'tags' => ['Shot Stopping', 'Communication', 'Bravery'],
                 'notes' => 'Komunikasi vokal mengorganisasi bek, tangguh dalam situasi 1-on-1.',
-                'stage_status' => 'stage_1',
+                'stage_status' => 'registered',
             ],
         ];
 
@@ -389,6 +389,22 @@ class PersijaEpaAuditionSeeder extends Seeder
                     'notes' => 'Check-in gatekeeper sah di gerbang Lapangan Utama.',
                 ]
             );
+
+            // Presensi Check-in Tahap 2 untuk peserta yang sudah lolos Hari 1
+            if ($item['stage_status'] === 'day_1_passed') {
+                AuditionAttendance::updateOrCreate(
+                    [
+                        'audition_participant_id' => $participant->id,
+                        'audition_stage_id' => $stage2->id,
+                    ],
+                    [
+                        'scanned_by' => $officerUser->id,
+                        'check_in_at' => Carbon::create(2026, 11, 11, 7, 45, 0),
+                        'status' => 'present',
+                        'notes' => 'Check-in gatekeeper sah Tahap 2 (Lolos Hari 1).',
+                    ]
+                );
+            }
 
             // Penilaian Pemandu Bakat (Scouting Evaluation)
             ScoutingEvaluation::updateOrCreate(

@@ -2,17 +2,21 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\AuditionParticipant;
 use App\Models\EmailNotificationLog;
 use App\Models\Event;
+use App\Models\EventAnnouncement;
 use App\Models\Payment;
 use App\Models\Player;
 use App\Models\SystemSetting;
 use App\Models\Team;
+use App\Models\User;
 use App\Models\WebhookLog;
 use App\Modules\Simulation\SimulationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -102,6 +106,9 @@ class HandleInertiaRequests extends Middleware
                     'total_actionable' => $pendingPayments + $refundRequired + $pendingScreeningPlayers + $failedEmails + $failedWebhooks + $failedJobs,
                 ];
             })() : null,
+            'accountNotifications' => fn () => $user && $user->hasAnyRole(['team_manager', 'participant_parent'])
+                ? $this->buildAccountNotifications($user)
+                : null,
             'systemSettings' => fn () => [
                 'app_name' => SystemSetting::get('app_name', config('app.name', 'YTEvent Football')),
                 'app_tagline' => SystemSetting::get('app_tagline', 'Multi-Event Competition Portal'),
@@ -158,6 +165,212 @@ class HandleInertiaRequests extends Middleware
                     'teams' => $recentTeams,
                 ];
             })() : ['enabled' => false, 'master_enabled' => false],
+        ];
+    }
+
+    /**
+     * Susun notifikasi lintas kepesertaan akun (tim turnamen, peserta perorangan, dan pengumuman event aktif).
+     *
+     * @return array{items: array<int, array<string, mixed>>, unpaid_total_count: int}
+     */
+    protected function buildAccountNotifications(User $user): array
+    {
+        $items = collect();
+        $unpaidTotalCount = 0;
+        $activeEventIds = collect();
+
+        $teams = Team::query()
+            ->with(['event', 'latestPayment', 'players'])
+            ->where('user_id', $user->id)
+            ->orderByDesc('id')
+            ->get();
+
+        foreach ($teams as $team) {
+            $event = $team->event;
+            $isCompleted = $event?->status === 'completed';
+            $latestPayment = $team->latestPayment;
+            $isPaid = $latestPayment?->status === 'paid' || (float) ($event?->registration_fee ?? 0) <= 0;
+            $rejectedPlayersCount = $team->players->where('screening_status', 'rejected')->count();
+
+            if ($event && ! $isCompleted) {
+                $activeEventIds->push($event->id);
+            }
+
+            if (! $isCompleted && (! $isPaid || in_array($team->status, ['pending_payment', 'expired'], true) || $latestPayment?->status === 'rejected')) {
+                $unpaidTotalCount++;
+                $isRejected = $latestPayment?->status === 'rejected';
+                $items->push([
+                    'id' => "team-pay-{$team->id}-" . ($latestPayment?->status ?? $team->status ?? 'unpaid'),
+                    'category' => 'Tagihan Tim',
+                    'variant' => $isRejected ? 'danger' : 'warning',
+                    'priority' => $isRejected ? 0 : 1,
+                    'title' => $isRejected
+                        ? "Bukti Pembayaran Ditolak: {$team->name}"
+                        : "Menunggu Pembayaran: {$team->name}",
+                    'message' => $isRejected
+                        ? ($latestPayment->rejection_reason ?: "Unggah ulang bukti transfer atau bayar ulang untuk {$event?->name}.")
+                        : "Selesaikan tagihan pendaftaran agar slot {$event?->name} tetap aktif.",
+                    'context_label' => $event?->name ?? 'Turnamen Tim',
+                    'time_label' => $latestPayment?->updated_at?->diffForHumans() ?? $team->created_at?->diffForHumans(),
+                    'href' => route('manager.payments', ['team_id' => $team->id, 'team_context' => 1]),
+                    'action_label' => 'Buka Pembayaran',
+                ]);
+            } elseif (! $isCompleted && $rejectedPlayersCount > 0) {
+                $items->push([
+                    'id' => "team-players-rejected-{$team->id}-{$rejectedPlayersCount}",
+                    'category' => 'Perlu Revisi',
+                    'variant' => 'danger',
+                    'priority' => 0,
+                    'title' => "{$rejectedPlayersCount} Berkas Pemain Perlu Revisi",
+                    'message' => "Tim {$team->name} ({$event?->name}) memiliki berkas pemain yang ditolak panitia.",
+                    'context_label' => $team->name,
+                    'time_label' => $team->updated_at?->diffForHumans(),
+                    'href' => route('manager.players', ['team_id' => $team->id]),
+                    'action_label' => 'Perbaiki Berkas',
+                ]);
+            } elseif (! $isCompleted && $team->status === 'active' && $team->screening_status === 'all_passed') {
+                $items->push([
+                    'id' => "team-ready-lock-{$team->id}",
+                    'category' => 'Aksi Tim',
+                    'variant' => 'warning',
+                    'priority' => 1,
+                    'title' => "Skuad Siap Dikunci: {$team->name}",
+                    'message' => "Seluruh pemain sah lolos screening. Kunci skuad final untuk mengunduh ID Card {$event?->name}.",
+                    'context_label' => $team->name,
+                    'time_label' => $team->updated_at?->diffForHumans(),
+                    'href' => route('manager.accreditation.index', ['team_id' => $team->id]),
+                    'action_label' => 'Kunci Skuad',
+                ]);
+            } elseif (! $isCompleted && $team->status === 'locked_roster') {
+                $items->push([
+                    'id' => "team-locked-{$team->id}",
+                    'category' => 'Status Tim',
+                    'variant' => 'success',
+                    'priority' => 3,
+                    'title' => "ID Card & Roster Siap Cetak: {$team->name}",
+                    'message' => "Skuad final {$team->name} untuk {$event?->name} telah disahkan dan terkunci.",
+                    'context_label' => $event?->name ?? $team->name,
+                    'time_label' => $team->roster_locked_at?->diffForHumans() ?? $team->updated_at?->diffForHumans(),
+                    'href' => route('manager.accreditation.index', ['team_id' => $team->id]),
+                    'action_label' => 'Lihat Akreditasi',
+                ]);
+            }
+        }
+
+        $participants = AuditionParticipant::query()
+            ->with(['event', 'latestPayment'])
+            ->where('user_id', $user->id)
+            ->orderByDesc('id')
+            ->get();
+
+        foreach ($participants as $participant) {
+            $event = $participant->event;
+            $isCompleted = $event?->status === 'completed';
+            $isPaid = $participant->isPaid();
+            $latestPayment = $participant->latestPayment;
+
+            if ($event && ! $isCompleted) {
+                $activeEventIds->push($event->id);
+            }
+
+            if (! $isCompleted && ! $isPaid) {
+                $unpaidTotalCount++;
+                $isRejected = $latestPayment?->status === 'rejected';
+                $items->push([
+                    'id' => "aud-pay-{$participant->id}-" . ($latestPayment?->status ?? 'unpaid'),
+                    'category' => 'Tagihan Peserta',
+                    'variant' => $isRejected ? 'danger' : 'warning',
+                    'priority' => $isRejected ? 0 : 1,
+                    'title' => "Tagihan Belum Lunas: {$participant->full_name}",
+                    'message' => "Selesaikan pembayaran pendaftaran untuk {$event?->name}.",
+                    'context_label' => $event?->name ?? 'Seleksi Perorangan',
+                    'time_label' => $latestPayment?->updated_at?->diffForHumans() ?? $participant->created_at?->diffForHumans(),
+                    'href' => route('manager.payments', ['participant_id' => $participant->id]),
+                    'action_label' => 'Bayar Tagihan',
+                ]);
+            } elseif (! $isCompleted && $participant->screening_status === 'rejected') {
+                $items->push([
+                    'id' => "aud-rejected-{$participant->id}",
+                    'category' => 'Perlu Revisi',
+                    'variant' => 'danger',
+                    'priority' => 0,
+                    'title' => "Berkas Peserta Perlu Revisi: {$participant->full_name}",
+                    'message' => $participant->screening_notes ?: "Periksa catatan perbaikan berkas pada {$event?->name}.",
+                    'context_label' => $participant->full_name,
+                    'time_label' => $participant->updated_at?->diffForHumans(),
+                    'href' => route('manager.dashboard', ['view' => 'audition', 'participant_id' => $participant->id]),
+                    'action_label' => 'Lihat Catatan',
+                ]);
+            } elseif ($isPaid && $participant->screening_status === 'passed') {
+                if ($isCompleted && $event?->certificates_released) {
+                    $items->push([
+                        'id' => "aud-cert-{$participant->id}",
+                        'category' => 'Piagam Terbit',
+                        'variant' => 'success',
+                        'priority' => 2,
+                        'title' => "Piagam & Sertifikat Tersedia: {$participant->full_name}",
+                        'message' => "Status akhir: {$participant->stageStatusLabel()} pada {$event?->name}.",
+                        'context_label' => $event?->name ?? $participant->full_name,
+                        'time_label' => $participant->updated_at?->diffForHumans(),
+                        'href' => route('manager.dashboard', ['view' => 'audition', 'participant_id' => $participant->id]),
+                        'action_label' => 'Buka Piagam',
+                    ]);
+                } elseif (! $isCompleted) {
+                    $bibLabel = $participant->bib_number ? " (Bib #{$participant->bib_number})" : '';
+                    $items->push([
+                        'id' => "aud-pass-{$participant->id}-{$participant->stage_status}",
+                        'category' => 'Status Seleksi',
+                        'variant' => 'info',
+                        'priority' => 2,
+                        'title' => "Digital Pass Aktif: {$participant->full_name}{$bibLabel}",
+                        'message' => "Status seleksi: {$participant->stageStatusLabel()} pada {$event?->name}.",
+                        'context_label' => $event?->name ?? $participant->full_name,
+                        'time_label' => $participant->screening_verified_at?->diffForHumans() ?? $participant->updated_at?->diffForHumans(),
+                        'href' => route('manager.dashboard', ['view' => 'audition', 'participant_id' => $participant->id]),
+                        'action_label' => 'Lihat E-Tiket',
+                    ]);
+                }
+            }
+        }
+
+        $uniqueEventIds = $activeEventIds->unique()->values();
+        if ($uniqueEventIds->isNotEmpty()) {
+            $announcements = EventAnnouncement::query()
+                ->with('event:id,name')
+                ->where(function ($q) use ($uniqueEventIds) {
+                    $q->whereIn('event_id', $uniqueEventIds)
+                        ->orWhereNull('event_id');
+                })
+                ->orderByDesc('is_pinned')
+                ->latest('id')
+                ->take(3)
+                ->get();
+
+            foreach ($announcements as $announcement) {
+                $targetTeam = $announcement->event_id
+                    ? $teams->firstWhere('event_id', $announcement->event_id)
+                    : $teams->first();
+
+                $items->push([
+                    'id' => "ann-{$announcement->id}",
+                    'category' => 'Pengumuman',
+                    'variant' => $announcement->is_pinned ? 'warning' : 'info',
+                    'priority' => $announcement->is_pinned ? 1 : 2,
+                    'title' => "Pengumuman: {$announcement->title}",
+                    'message' => Str::limit(trim(strip_tags((string) $announcement->content)), 110),
+                    'context_label' => $announcement->event?->name ?? 'Informasi Panitia',
+                    'time_label' => $announcement->created_at?->diffForHumans(),
+                    'href' => $targetTeam
+                        ? route('manager.dashboard', ['view' => 'team', 'team_id' => $targetTeam->id])
+                        : route('manager.dashboard'),
+                    'action_label' => 'Baca Pengumuman',
+                ]);
+            }
+        }
+
+        return [
+            'items' => $items->sortBy('priority')->values()->all(),
+            'unpaid_total_count' => $unpaidTotalCount,
         ];
     }
 }

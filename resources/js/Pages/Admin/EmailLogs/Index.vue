@@ -3,6 +3,8 @@ import { reactive, ref } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
+import TableSkeletonCard from '@/Components/Skeletons/TableSkeletonCard.vue';
+import { useNavigationLoading } from '@/Composables/useNavigationLoading';
 
 const props = defineProps({
     logs: {
@@ -33,6 +35,8 @@ const filterState = reactive({
     type: props.filters.type || '',
     event_id: props.filters.event_id || '',
 });
+
+const { isPartialLoading } = useNavigationLoading();
 
 const applyFilters = () => {
     router.get(
@@ -185,7 +189,7 @@ const getStatusBadge = (status) => {
                         <!-- Dropdown Jenis Notifikasi -->
                         <select
                             v-model="filterState.type"
-                            class="input-field text-xs w-auto min-w-[190px]"
+                            class="input-field text-xs w-full sm:w-52 shrink-0"
                             @change="applyFilters"
                         >
                             <option value="">Semua Jenis Notifikasi</option>
@@ -197,7 +201,7 @@ const getStatusBadge = (status) => {
                         <!-- Dropdown Event -->
                         <select
                             v-model="filterState.event_id"
-                            class="input-field text-xs w-auto min-w-[190px]"
+                            class="input-field text-xs w-full sm:w-52 shrink-0"
                             @change="applyFilters"
                         >
                             <option value="">Semua Kompetisi</option>
@@ -260,8 +264,10 @@ const getStatusBadge = (status) => {
 
             <!-- Email Notification Cards (Responsive Card List View) -->
             <div class="space-y-3.5">
+                <TableSkeletonCard v-if="isPartialLoading" mode="cards" :rows="5" />
+
                 <!-- Empty State -->
-                <div v-if="logs.data.length === 0" class="frosted-card p-12 text-center text-xs text-slate-500 bg-white">
+                <div v-else-if="logs.data.length === 0" class="frosted-card p-12 text-center text-xs text-slate-500 bg-white">
                     <svg class="w-12 h-12 mx-auto mb-2.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
@@ -270,6 +276,7 @@ const getStatusBadge = (status) => {
                 </div>
 
                 <!-- Log Card Items -->
+                <template v-else>
                 <div
                     v-for="log in logs.data"
                     :key="log.id"
@@ -375,6 +382,7 @@ const getStatusBadge = (status) => {
                         </div>
                     </div>
                 </div>
+                </template>
             </div>
 
             <!-- Pagination Container -->

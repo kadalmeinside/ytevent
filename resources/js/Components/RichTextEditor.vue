@@ -309,7 +309,7 @@ const formatBlock = (tag) => {
                 v-show="!isCodeView"
                 ref="editorRef"
                 contenteditable="true"
-                class="w-full p-3.5 text-sm text-slate-900 focus:outline-none overflow-y-auto prose prose-sm max-w-none leading-relaxed"
+                class="w-full p-3.5 text-sm text-slate-900 focus:outline-none overflow-y-auto leading-relaxed rich-text-content"
                 :style="{ minHeight: minHeight }"
                 :data-placeholder="placeholder"
                 @input="handleInput"

@@ -3,10 +3,13 @@ import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { usePage, useForm, Link } from '@inertiajs/vue3';
 import FlashAlert from '@/Components/FlashAlert.vue';
 import SimulationFloatingTool from '@/Components/SimulationFloatingTool.vue';
+import PageSkeleton from '@/Components/Skeletons/PageSkeleton.vue';
+import { useNavigationLoading } from '@/Composables/useNavigationLoading';
 
 const page = usePage();
 const user = computed(() => page.props.auth?.user);
 const systemSettings = computed(() => page.props.systemSettings || {});
+const { isNavigating, skeletonVariant } = useNavigationLoading();
 const isAdmin = computed(() =>
     user.value?.roles?.some((r) => ['superadmin', 'finance'].includes(r))
 );
@@ -124,13 +127,18 @@ const logout = () => {
         </header>
 
         <main class="flex-1">
-            <div
-                v-if="$page.props.flash?.success || $page.props.flash?.error || $page.props.flash?.warning || $page.props.flash?.info"
-                class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2"
-            >
-                <FlashAlert />
+            <div v-if="isNavigating" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <PageSkeleton :variant="skeletonVariant" />
             </div>
-            <slot />
+            <div v-show="!isNavigating" class="page-transition-enter">
+                <div
+                    v-if="$page.props.flash?.success || $page.props.flash?.error || $page.props.flash?.warning || $page.props.flash?.info"
+                    class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2"
+                >
+                    <FlashAlert />
+                </div>
+                <slot />
+            </div>
         </main>
 
         <footer class="frosted-header border-t border-slate-200/80 mt-16 py-6 text-center text-xs text-slate-500">

@@ -17,6 +17,7 @@ use App\Models\Team;
 use App\Models\TeamOfficial;
 use App\Models\User;
 use App\Services\AccreditationService;
+use App\Services\InvoiceService;
 use App\Services\PaymentService;
 use App\Services\ScreeningService;
 use App\Services\TeamRegistrationService;
@@ -31,7 +32,8 @@ class SimulationService
         protected TeamRegistrationService $teamRegistrationService,
         protected PaymentService $paymentService,
         protected ScreeningService $screeningService,
-        protected AccreditationService $accreditationService
+        protected AccreditationService $accreditationService,
+        protected InvoiceService $invoiceService
     ) {}
 
     /**
@@ -220,14 +222,17 @@ class SimulationService
     {
         $payment = $team->latestPayment;
         if (! $payment) {
+            $issuedAt = now();
             $payment = Payment::create([
-                'invoice_number' => $this->teamRegistrationService->generateInvoiceNumber($team->event),
+                'invoice_number' => $this->invoiceService->generateNumber($team->event),
                 'team_id' => $team->id,
                 'event_id' => $team->event_id,
+                'billing_snapshot' => $this->invoiceService->buildSnapshot($team->event, $team, null, $team->manager),
                 'amount' => $team->event?->registration_fee ?? 1500000,
                 'gateway_fee' => 0,
                 'total_amount' => $team->event?->registration_fee ?? 1500000,
-                'expires_at' => now()->addHours(24),
+                'expires_at' => $issuedAt->copy()->addHours(24),
+                'issued_at' => $issuedAt,
                 'status' => 'unpaid',
             ]);
         }
@@ -1014,7 +1019,7 @@ class SimulationService
         $birthCertPath = $this->storeDummyPngOnDisk('auditions/documents/birth_cert', 'private', 'sim-akta');
         $familyCardPath = $this->storeDummyPngOnDisk('auditions/documents/family_card', 'private', 'sim-kk');
 
-        $session = EventSession::where('event_id', $event->id)->where('is_active', true)->inRandomOrder()->first();
+        $session = EventSession::where('event_id', $event->id)->inRandomOrder()->first();
         if ($session) {
             $session->increment('occupied_slots');
         }
@@ -1057,20 +1062,24 @@ class SimulationService
             'slot_reserved_at' => now(),
         ]);
 
-        if ($isPaid && (float) $event->registration_fee > 0) {
+        if ($isPaid) {
+            $issuedAt = now();
+            $isFree = (float) $event->registration_fee <= 0;
             Payment::create([
                 'event_id' => $event->id,
                 'audition_participant_id' => $participant->id,
-                'invoice_number' => 'INV-' . $regPrefix . '-' . date('Ymd') . '-' . Str::upper(Str::random(6)),
-                'amount' => $event->registration_fee,
+                'invoice_number' => $this->invoiceService->generateNumber($event),
+                'billing_snapshot' => $this->invoiceService->buildSnapshot($event, null, $participant, $participant->user),
+                'amount' => $event->registration_fee ?? 0,
                 'gateway_fee' => 0,
-                'total_amount' => $event->registration_fee,
+                'total_amount' => $event->registration_fee ?? 0,
                 'method' => 'manual',
-                'payment_channel' => 'manual_transfer',
+                'payment_channel' => $isFree ? 'Pendaftaran Gratis' : 'manual_transfer',
                 'status' => 'paid',
-                'paid_at' => now(),
-                'verified_at' => now(),
-                'proof_file_path' => $this->storeDummyPngOnDisk('simulation/payments', 'public', 'sim-aud-pay'),
+                'issued_at' => $issuedAt,
+                'paid_at' => $issuedAt,
+                'verified_at' => $issuedAt,
+                'proof_file_path' => $isFree ? null : $this->storeDummyPngOnDisk('simulation/payments', 'public', 'sim-aud-pay'),
             ]);
         }
 
@@ -1329,6 +1338,332 @@ class SimulationService
         }
 
         return $count;
+    }
+
+    /**
+     * 17. Simulasi Akun Lengkap Multi-Peran (Full-Journey Multi-Role Account):
+     * 1 akun pengguna terpadu yang memiliki:
+     * - 1 Tim Turnamen Aktif (Ongoing/Open) - Skuad terkunci & lunas
+     * - 1 Tim Turnamen yang Sudah Lalu (Completed 2025) - Selesai & arsip
+     * - 1 Pendaftaran Anak Audisi Aktif (Ongoing 2026) - Lolos screening, Digital Pass & Bib aktif
+     * - 1 Pendaftaran Anak Audisi yang Sudah Lalu (Completed 2025) - Terpilih Skuad Inti & Piagam Sertifikat aktif
+     *
+     * @return array{
+     *     user: User,
+     *     active_team: Team,
+     *     past_team: Team,
+     *     active_audition: AuditionParticipant,
+     *     past_audition: AuditionParticipant
+     * }
+     */
+    public function simulateMultiRegistrationPersona(?User $existingUser = null): array
+    {
+        // 1. Akun Pengguna Terpadu
+        $user = $existingUser ?: User::where('email', 'bambang.santoso@persijadev.id')->first();
+        if (! $user) {
+            $user = User::create([
+                'name' => 'Bambang Santoso',
+                'email' => 'bambang.santoso@persijadev.id',
+                'phone' => '081298765432',
+                'password' => bcrypt('password'),
+                'is_active' => true,
+            ]);
+        }
+
+        if (! $user->hasRole('team_manager')) {
+            $user->assignRole('team_manager');
+        }
+        if (! $user->hasRole('participant_parent')) {
+            $user->assignRole('participant_parent');
+        }
+
+        // 2. Tim Turnamen Aktif (Musim 2026)
+        $activeTeam = Team::where('user_id', $user->id)
+            ->whereHas('event', fn ($q) => $q->where('status', '!=', 'completed')->where('participant_type', 'team'))
+            ->first();
+
+        if (! $activeTeam) {
+            $activeEvent = Event::query()
+                ->where('participant_type', 'team')
+                ->whereIn('status', ['open', 'ongoing'])
+                ->latest('id')
+                ->first();
+
+            if (! $activeEvent) {
+                $year = now()->format('Y');
+                $activeEvent = Event::create([
+                    'name' => "Young Tiger Championship {$year}",
+                    'slug' => 'young-tiger-championship-' . Str::lower(Str::random(4)),
+                    'short_description' => 'Turnamen resmi pembinaan usia muda Persija Development musim berjalan.',
+                    'venue_name' => 'Stadion Utama Soemantri Brodjonegoro',
+                    'city' => 'Jakarta Selatan',
+                    'format' => 'cup',
+                    'age_category' => 'U-12',
+                    'min_birth_date' => now()->subYears(12)->startOfYear()->toDateString(),
+                    'max_birth_date' => now()->subYears(10)->endOfYear()->toDateString(),
+                    'min_players_per_team' => 12,
+                    'max_players_per_team' => 18,
+                    'min_gk_per_team' => 2,
+                    'max_officials_per_team' => 5,
+                    'show_coach_license' => true,
+                    'require_coach_license' => true,
+                    'required_documents' => ['birth_certificate', 'family_card'],
+                    'max_teams' => 16,
+                    'registration_fee' => 2500000,
+                    'lock_roster_until_paid' => true,
+                    'payment_deadline_hours' => 24,
+                    'match_start_date' => now()->addDays(20)->toDateString(),
+                    'match_end_date' => now()->addDays(23)->toDateString(),
+                    'status' => 'open',
+                ]);
+            }
+
+            $activeTeam = $this->simulateRegisterTeam($activeEvent, $user);
+            $activeTeam->update([
+                'user_id' => $user->id,
+                'name' => 'SSB Young Tiger Menteng',
+                'manager_name' => $user->name,
+                'manager_email' => $user->email,
+                'manager_whatsapp' => $user->phone ?? '081298765432',
+            ]);
+
+            $this->simulateFullTeamToLockedRoster(team: $activeTeam, actor: $user);
+            $activeTeam->refresh();
+        } elseif ($activeTeam->name !== 'SSB Young Tiger Menteng') {
+            $activeTeam->update(['name' => 'SSB Young Tiger Menteng']);
+        }
+
+        // 3. Tim Turnamen yang Sudah Lalu (Musim 2025 - Selesai)
+        $pastTeam = Team::where('user_id', $user->id)
+            ->whereHas('event', fn ($q) => $q->where('status', 'completed')->where('participant_type', 'team'))
+            ->first();
+
+        if (! $pastTeam) {
+            $pastEvent = Event::create([
+                'name' => 'Festival Sepak Bola Usia Dini Persija 2025 (Selesai)',
+                'slug' => 'festival-sepak-bola-persija-2025-' . Str::lower(Str::random(4)),
+                'short_description' => 'Arsip turnamen musim lalu yang telah selesai diselenggarakan oleh panitia.',
+                'venue_name' => 'Lapangan C Gelora Bung Karno Senayan',
+                'city' => 'Jakarta Pusat',
+                'format' => 'cup',
+                'age_category' => 'U-11',
+                'min_birth_date' => '2013-01-01',
+                'max_birth_date' => '2014-12-31',
+                'min_players_per_team' => 12,
+                'max_players_per_team' => 18,
+                'min_gk_per_team' => 2,
+                'max_officials_per_team' => 5,
+                'show_coach_license' => true,
+                'require_coach_license' => true,
+                'required_documents' => ['birth_certificate', 'family_card'],
+                'max_teams' => 16,
+                'registration_fee' => 2000000,
+                'lock_roster_until_paid' => true,
+                'payment_deadline_hours' => 24,
+                'match_start_date' => '2025-06-15',
+                'match_end_date' => '2025-06-17',
+                'status' => 'open', // dibuka sementara agar registrasi valid
+            ]);
+
+            $pastTeam = $this->simulateRegisterTeam($pastEvent, $user);
+            $pastTeam->update([
+                'user_id' => $user->id,
+                'name' => 'SSB Young Tiger Menteng',
+                'manager_name' => $user->name,
+                'manager_email' => $user->email,
+                'manager_whatsapp' => $user->phone ?? '081298765432',
+            ]);
+
+            $this->simulateFullTeamToLockedRoster(team: $pastTeam, actor: $user);
+            $pastTeam->refresh();
+
+            // Tandai event selesai dan set tanggal historis
+            $pastEvent->update([
+                'status' => 'completed',
+                'registration_open_at' => '2025-05-01',
+                'registration_close_at' => '2025-06-01',
+            ]);
+        } elseif ($pastTeam->name !== 'SSB Young Tiger Menteng') {
+            $pastTeam->update(['name' => 'SSB Young Tiger Menteng']);
+        }
+
+        // 4. Pendaftaran Anak Audisi Aktif (Musim 2026)
+        $activeAudition = AuditionParticipant::where('user_id', $user->id)
+            ->whereHas('event', fn ($q) => $q->where('status', '!=', 'completed')->where('participant_type', 'individual'))
+            ->first();
+
+        if (! $activeAudition) {
+            $activeAuditionEvent = Event::query()
+                ->where('participant_type', 'individual')
+                ->where('event_type', 'audition')
+                ->where('status', 'open')
+                ->latest('id')
+                ->first();
+
+            if (! $activeAuditionEvent) {
+                $activeAuditionEvent = $this->simulateCreateAuditionEvent();
+            }
+
+            $activeAudition = $this->simulateRegisterIndividualParticipant(
+                event: $activeAuditionEvent,
+                authenticatedUser: $user,
+                isPaid: true,
+                screeningStatus: 'passed',
+                eventType: 'audition'
+            );
+
+            $activeAudition->update([
+                'full_name' => 'Rizky Santoso (Anak Aktif)',
+                'nickname' => 'Rizky',
+                'bib_number' => 108,
+                'preferred_position' => 'CMF',
+                'dominant_foot' => 'right',
+                'stage_status' => 'registered',
+                'status' => 'active',
+            ]);
+            $activeAudition->refresh();
+        }
+
+        // 5. Pendaftaran Anak Audisi yang Sudah Lalu (Musim 2025 - Selesai & Lolos Seleksi)
+        $pastAudition = AuditionParticipant::where('user_id', $user->id)
+            ->whereHas('event', fn ($q) => $q->where('status', 'completed')->where('participant_type', 'individual'))
+            ->first();
+
+        if (! $pastAudition) {
+            $pastAuditionEvent = Event::create([
+                'name' => 'Seleksi Bakat Muda U-10 Persija 2025 (Selesai)',
+                'slug' => 'seleksi-bakat-muda-u10-2025-' . Str::lower(Str::random(4)),
+                'short_description' => 'Arsip seleksi talenta akademi musim 2025 yang telah selesai dan diterbitkan sertifikatnya.',
+                'venue_name' => 'Persija Training Ground Bojongsari',
+                'city' => 'Kota Depok',
+                'venue_maps_url' => 'https://maps.google.com/?q=Persija+Training+Ground',
+                'event_type' => 'audition',
+                'participant_type' => 'individual',
+                'quota_type' => 'fixed',
+                'format' => 'audition',
+                'age_category' => 'U-10',
+                'min_birth_date' => '2015-01-01',
+                'max_birth_date' => '2016-12-31',
+                'max_participants' => 100,
+                'registration_fee' => 200000,
+                'required_documents' => ['birth_certificate', 'family_card'],
+                'form_presets' => [
+                    'photo' => true,
+                    'position' => true,
+                    'foot_dominance' => true,
+                    'team_origin' => true,
+                    'body_measurements' => true,
+                    'experience' => true,
+                    'jersey_size' => true,
+                ],
+                'match_start_date' => '2025-07-10',
+                'match_end_date' => '2025-07-12',
+                'status' => 'open', // dibuka sementara agar registrasi valid
+                'certificates_released' => true,
+            ]);
+
+            $stage1 = AuditionStage::create([
+                'event_id' => $pastAuditionEvent->id,
+                'stage_number' => 1,
+                'stage_name' => 'Tahap 1: Tes Fisik & Fundamental',
+                'stage_date' => '2025-07-10',
+                'start_time' => '08:00:00',
+                'end_time' => '12:00:00',
+                'venue_name' => 'Persija Training Ground',
+                'target_quota' => 100,
+            ]);
+
+            $stage2 = AuditionStage::create([
+                'event_id' => $pastAuditionEvent->id,
+                'stage_number' => 2,
+                'stage_name' => 'Tahap 2: Game Simulasi & Final Roster',
+                'stage_date' => '2025-07-12',
+                'start_time' => '08:00:00',
+                'end_time' => '13:00:00',
+                'venue_name' => 'Persija Training Ground',
+                'target_quota' => 30,
+            ]);
+
+            $pastAudition = $this->simulateRegisterIndividualParticipant(
+                event: $pastAuditionEvent,
+                authenticatedUser: $user,
+                isPaid: true,
+                screeningStatus: 'passed',
+                eventType: 'audition'
+            );
+
+            $pastAudition->update([
+                'full_name' => 'Dimas Santoso (Anak Lolos 2025)',
+                'nickname' => 'Dimas',
+                'bib_number' => 42,
+                'preferred_position' => 'RW',
+                'dominant_foot' => 'left',
+                'screening_status' => 'passed',
+                'stage_status' => 'final_selected',
+                'status' => 'passed',
+            ]);
+
+            // Catat kehadiran present untuk Tahap 1 dan Tahap 2 agar canDownloadCertificate() valid
+            AuditionAttendance::firstOrCreate([
+                'audition_participant_id' => $pastAudition->id,
+                'audition_stage_id' => $stage1->id,
+            ], [
+                'scanned_by' => 1,
+                'status' => 'present',
+                'check_in_at' => '2025-07-10 07:45:00',
+                'notes' => 'Presensi hadir Tahap 1 (2025)',
+            ]);
+
+            AuditionAttendance::firstOrCreate([
+                'audition_participant_id' => $pastAudition->id,
+                'audition_stage_id' => $stage2->id,
+            ], [
+                'scanned_by' => 1,
+                'status' => 'present',
+                'check_in_at' => '2025-07-12 07:40:00',
+                'notes' => 'Presensi hadir Final Day (2025) - Terpilih Skuad Inti Akademi',
+            ]);
+
+            $pastAuditionEvent->update([
+                'status' => 'completed',
+                'certificates_released' => true,
+                'registration_open_at' => '2025-06-01',
+                'registration_close_at' => '2025-07-01',
+            ]);
+            $pastAudition->refresh();
+        }
+
+        // Pastikan seluruh event simulasi memiliki banner agar kartu portal tampil representatif
+        $teamBannerDefault = Storage::disk('public')->exists('events/young-tiger-cup-u12-banner.jpg')
+            ? 'events/young-tiger-cup-u12-banner.jpg'
+            : null;
+        $auditionBannerDefault = Storage::disk('public')->exists('events/persija-epa-future-stars-2026.jpg')
+            ? 'events/persija-epa-future-stars-2026.jpg'
+            : null;
+
+        if ($teamBannerDefault) {
+            foreach ([$activeTeam->event, $pastTeam->event] as $teamEvent) {
+                if ($teamEvent && ! $teamEvent->banner_path) {
+                    $teamEvent->update(['banner_path' => $teamBannerDefault]);
+                }
+            }
+        }
+
+        if ($auditionBannerDefault) {
+            foreach ([$activeAudition->event, $pastAudition->event] as $auditionEvent) {
+                if ($auditionEvent && ! $auditionEvent->banner_path) {
+                    $auditionEvent->update(['banner_path' => $auditionBannerDefault]);
+                }
+            }
+        }
+
+        return [
+            'user' => $user->fresh(),
+            'active_team' => $activeTeam->fresh(['event']),
+            'past_team' => $pastTeam->fresh(['event']),
+            'active_audition' => $activeAudition->fresh(['event']),
+            'past_audition' => $pastAudition->fresh(['event']),
+        ];
     }
 }
 

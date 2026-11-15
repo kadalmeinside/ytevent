@@ -135,6 +135,7 @@ class Event extends Model
         'reupload_grace_hours',
         'registration_open_at',
         'registration_close_at',
+        'tnc_version_id',
         'match_start_date',
         'match_end_date',
         'regulation_pdf_path',
@@ -154,6 +155,7 @@ class Event extends Model
             'match_end_date' => 'date',
             'registration_open_at' => 'datetime',
             'registration_close_at' => 'datetime',
+            'tnc_version_id' => 'integer',
             'required_documents' => 'array',
             'max_teams' => 'integer',
             'max_participants' => 'integer',
@@ -180,6 +182,16 @@ class Event extends Model
     public function teams(): HasMany
     {
         return $this->hasMany(Team::class);
+    }
+
+    public function tncVersion(): BelongsTo
+    {
+        return $this->belongsTo(TncVersion::class, 'tnc_version_id');
+    }
+
+    public function resolveTncVersion(): TncVersion
+    {
+        return TncVersion::resolveForEvent($this);
     }
 
     public function eventSessions(): HasMany
@@ -233,12 +245,19 @@ class Event extends Model
             'teams as active_teams_count' => function (Builder $teamQuery) {
                 $teamQuery->whereIn('status', ['active', 'locked_roster']);
             },
+            'auditionParticipants as occupied_audition_slots_count' => function (Builder $participantQuery) {
+                $participantQuery->whereIn('status', ['registered', 'confirmed', 'active', 'passed']);
+            },
         ]);
     }
 
     public function occupiedSlotsCount(): int
     {
         if ($this->isIndividual()) {
+            if (array_key_exists('occupied_audition_slots_count', $this->attributes)) {
+                return (int) $this->attributes['occupied_audition_slots_count'];
+            }
+
             return $this->auditionParticipants()->whereIn('status', ['registered', 'confirmed', 'active', 'passed'])->count();
         }
 
@@ -389,7 +408,7 @@ class Event extends Model
             return;
         }
 
-        $occupied = $occupiedCount ?? $this->teams()->occupyingQuotaAt(now())->count();
+        $occupied = $occupiedCount ?? $this->occupiedSlotsCount();
         $capacity = $this->isIndividual() ? ($this->max_participants ?? $this->max_teams ?? 0) : ($this->max_teams ?? 0);
 
         if ($capacity > 0 && $occupied >= $capacity && $this->status !== 'quota_full') {

@@ -12,6 +12,7 @@ use App\Services\AuditionNoShowService;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
 class Phase8BibAndAttendanceTest extends TestCase
@@ -121,6 +122,13 @@ class Phase8BibAndAttendanceTest extends TestCase
         $response = $this->actingAs($parent)->get(route('audition.bib.download', ['participant' => $participant->id]));
         $response->assertOk();
         $this->assertEquals('application/pdf', $response->headers->get('content-type'));
+        $this->assertStringStartsWith('attachment;', (string) $response->headers->get('content-disposition'));
+
+        // 1b. Owner parent can preview inline (?inline=1)
+        $inlineResponse = $this->actingAs($parent)->get(route('audition.bib.download', ['participant' => $participant->id, 'inline' => 1]));
+        $inlineResponse->assertOk();
+        $this->assertEquals('application/pdf', $inlineResponse->headers->get('content-type'));
+        $this->assertStringStartsWith('inline;', (string) $inlineResponse->headers->get('content-disposition'));
 
         // 2. Unrelated user is forbidden
         $stranger = User::create([
@@ -152,6 +160,30 @@ class Phase8BibAndAttendanceTest extends TestCase
         $this->actingAs($parent)
             ->get(route('audition.bib.download', ['participant' => $participant->id]))
             ->assertForbidden();
+    }
+
+    public function test_bib_download_is_blocked_when_event_is_completed_archive_while_certificate_remains_available(): void
+    {
+        [$event, $stage1, $stage2, $parent, $participant, $payment] = $this->createAuditionParticipant();
+
+        $this->assertTrue($participant->canDownloadBib());
+
+        $event->update(['status' => 'completed']);
+        $participant->refresh();
+
+        $this->assertFalse($participant->canDownloadBib());
+
+        $this->actingAs($parent)
+            ->get(route('audition.bib.download', ['participant' => $participant->id]))
+            ->assertForbidden();
+
+        $this->actingAs($parent)
+            ->get(route('manager.dashboard'))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->where('auditionParticipants.0.can_download_bib', false)
+                ->where('auditionParticipants.0.event.is_completed', true)
+            );
     }
 
     public function test_public_can_verify_audition_participant_via_qr_code(): void

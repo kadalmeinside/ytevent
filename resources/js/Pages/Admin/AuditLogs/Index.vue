@@ -2,6 +2,8 @@
 import { reactive } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import TableSkeletonCard from '@/Components/Skeletons/TableSkeletonCard.vue';
+import { useNavigationLoading } from '@/Composables/useNavigationLoading';
 
 const props = defineProps({
     logs: { type: Object, required: true },
@@ -17,6 +19,8 @@ const filterState = reactive({
     entity_type: props.filters.entity_type || '',
     actor_id: props.filters.actor_id || '',
 });
+
+const { isPartialLoading } = useNavigationLoading();
 
 const safeRoute = (name, params = {}, fallback = '') => {
     try {
@@ -81,19 +85,19 @@ const actionLabel = (action) => action.replaceAll('_', ' ');
                         class="input-field text-xs flex-1"
                         @keyup.enter="applyFilters"
                     />
-                    <select v-model="filterState.action" class="input-field text-xs" @change="applyFilters">
+                    <select v-model="filterState.action" class="input-field text-xs w-full lg:w-44 shrink-0" @change="applyFilters">
                         <option value="">Semua action</option>
                         <option v-for="action in actions" :key="action" :value="action">
                             {{ actionLabel(action) }}
                         </option>
                     </select>
-                    <select v-model="filterState.entity_type" class="input-field text-xs" @change="applyFilters">
+                    <select v-model="filterState.entity_type" class="input-field text-xs w-full lg:w-44 shrink-0" @change="applyFilters">
                         <option value="">Semua entitas</option>
                         <option v-for="entity in entityTypes" :key="entity.value" :value="entity.value">
                             {{ entity.label }}
                         </option>
                     </select>
-                    <select v-model="filterState.actor_id" class="input-field text-xs" @change="applyFilters">
+                    <select v-model="filterState.actor_id" class="input-field text-xs w-full lg:w-44 shrink-0" @change="applyFilters">
                         <option value="">Semua actor</option>
                         <option v-for="actor in actors" :key="actor.id" :value="actor.id">
                             {{ actor.name }}
@@ -106,7 +110,9 @@ const actionLabel = (action) => action.replaceAll('_', ' ');
                 </div>
             </div>
 
-            <div class="frosted-card overflow-hidden bg-white">
+            <TableSkeletonCard v-if="isPartialLoading" mode="table" :rows="6" :columns="6" />
+
+            <div v-else class="frosted-card overflow-hidden bg-white">
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-xs">
                         <thead class="bg-slate-50 border-b border-slate-200">

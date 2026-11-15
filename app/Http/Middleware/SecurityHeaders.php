@@ -43,12 +43,12 @@ class SecurityHeaders
     {
         return implode('; ', [
             "default-src 'self'",
-            "script-src 'self' 'nonce-{$nonce}' https://app.midtrans.com https://app.sandbox.midtrans.com",
+            "script-src 'self' 'nonce-{$nonce}' https://app.midtrans.com https://app.sandbox.midtrans.com https://www.googletagmanager.com https://www.google-analytics.com https://plausible.io",
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.bunny.net",
             "font-src 'self' data: https://fonts.gstatic.com https://fonts.bunny.net",
             "img-src 'self' data: blob: https:",
             "media-src 'self' blob:",
-            "connect-src 'self' https://app.midtrans.com https://app.sandbox.midtrans.com",
+            "connect-src 'self' https://app.midtrans.com https://app.sandbox.midtrans.com https://www.google-analytics.com https://analytics.google.com https://stats.g.doubleclick.net https://plausible.io",
             "frame-src 'self' https://app.midtrans.com https://app.sandbox.midtrans.com",
             "object-src 'none'",
             "base-uri 'self'",

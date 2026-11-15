@@ -39,46 +39,50 @@ const triggerResync = () => {
             <!-- Executive KPI Metric Cards -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <!-- Card 1: Total Pendapatan Lunas -->
-                <div class="frosted-card p-4 sm:p-5 bg-white hover:border-emerald-300 hover:shadow-md transition-all duration-150 flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Total Pendapatan Lunas</span>
-                            <div class="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </div>
-                        </div>
+                <div class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white via-white to-emerald-50/90 p-4 sm:p-5 hover:border-emerald-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-emerald-950/[0.04] transition-all duration-300 ease-out flex flex-col justify-between">
+                    <svg
+                        aria-hidden="true"
+                        class="pointer-events-none select-none absolute -right-2 top-2.5 w-24 h-24 text-emerald-500/[0.11] transition-all duration-500 ease-out group-hover:text-emerald-500/[0.20] group-hover:scale-110 group-hover:-translate-x-1.5 group-hover:-translate-y-1 group-hover:-rotate-6"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div class="relative z-10">
+                        <span class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-600">Total Pendapatan Lunas</span>
                         <p class="text-2xl sm:text-3xl font-black text-slate-900 tabular-data mt-2 font-mono tracking-tight">
                             {{ formatRupiah(metrics.total_paid_revenue) }}
                         </p>
                     </div>
-                    <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                        <span class="text-slate-500">Tim Lunas:</span>
-                        <strong class="text-emerald-700 font-bold tabular-data">{{ metrics.active_teams_total }} tim terkonfirmasi</strong>
+                    <div class="relative z-10 mt-3 pt-3 border-t border-emerald-200/50 flex items-center justify-between text-[11px]">
+                        <span class="text-slate-600">Tim Lunas:</span>
+                        <strong class="text-emerald-800 font-bold tabular-data">{{ metrics.active_teams_total }} tim terkonfirmasi</strong>
                     </div>
                 </div>
 
                 <!-- Card 2: Antrean Bukti Transfer -->
-                <div class="frosted-card p-4 sm:p-5 bg-white hover:border-amber-300 hover:shadow-md transition-all duration-150 flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Antrean Verifikasi Manual</span>
-                            <div class="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </div>
-                        </div>
-                        <p class="text-2xl sm:text-3xl font-black tabular-data mt-2 font-mono tracking-tight" :class="metrics.waiting_verification_count > 0 ? 'text-amber-800' : 'text-slate-900'">
-                            {{ metrics.waiting_verification_count }} <span class="text-base font-bold text-slate-500">Bukti</span>
+                <div class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white via-white to-amber-50/90 p-4 sm:p-5 hover:border-amber-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-amber-950/[0.04] transition-all duration-300 ease-out flex flex-col justify-between">
+                    <svg
+                        aria-hidden="true"
+                        class="pointer-events-none select-none absolute -right-2 top-2.5 w-24 h-24 text-amber-500/[0.11] transition-all duration-500 ease-out group-hover:text-amber-500/[0.21] group-hover:scale-110 group-hover:-translate-x-1.5 group-hover:-translate-y-1 group-hover:rotate-6"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div class="relative z-10">
+                        <span class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-600">Antrean Verifikasi Manual</span>
+                        <p class="text-2xl sm:text-3xl font-black tabular-data mt-2 font-mono tracking-tight" :class="metrics.waiting_verification_count > 0 ? 'text-amber-900' : 'text-slate-900'">
+                            {{ metrics.waiting_verification_count }} <span class="text-base font-bold text-slate-600">Bukti</span>
                         </p>
                     </div>
-                    <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                        <span class="text-slate-500">Status Pemeriksaan:</span>
+                    <div class="relative z-10 mt-3 pt-3 border-t border-amber-200/50 flex items-center justify-between text-[11px]">
+                        <span class="text-slate-600">Status Pemeriksaan:</span>
                         <Link
                             :href="route('admin.payments.manual-verification')"
-                            class="font-bold text-orange-600 hover:text-orange-700 inline-flex items-center gap-1 transition-colors"
+                            class="font-bold text-orange-700 hover:text-orange-800 inline-flex items-center gap-1 transition-colors"
                         >
                             <span>Buka Antrean &rarr;</span>
                         </Link>
@@ -86,30 +90,32 @@ const triggerResync = () => {
                 </div>
 
                 <!-- Card 3: Slot Kuota Terisi -->
-                <div class="frosted-card p-4 sm:p-5 bg-white hover:border-orange-300 hover:shadow-md transition-all duration-150 flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Kapasitas Slot Terisi</span>
-                            <div class="w-8 h-8 rounded-lg bg-orange-50 border border-orange-200 text-orange-600 flex items-center justify-center shrink-0">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                </svg>
-                            </div>
-                        </div>
+                <div class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white via-white to-orange-50/90 p-4 sm:p-5 hover:border-orange-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-950/[0.04] transition-all duration-300 ease-out flex flex-col justify-between">
+                    <svg
+                        aria-hidden="true"
+                        class="pointer-events-none select-none absolute -right-2 top-2.5 w-24 h-24 text-orange-500/[0.11] transition-all duration-500 ease-out group-hover:text-orange-500/[0.20] group-hover:scale-110 group-hover:-translate-x-1.5 group-hover:-translate-y-1 group-hover:-rotate-6"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <div class="relative z-10">
+                        <span class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-600">Kapasitas Slot Terisi</span>
                         <p class="text-2xl sm:text-3xl font-black text-slate-900 tabular-data mt-2 font-mono tracking-tight">
-                            {{ metrics.occupied_slots_total }} <span class="text-base font-bold text-slate-500">Tim</span>
+                            {{ metrics.occupied_slots_total }} <span class="text-base font-bold text-slate-600">Tim</span>
                         </p>
                     </div>
-                    <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                        <span class="text-slate-500">Klub Lunas: <strong class="text-slate-900 font-bold tabular-data">{{ metrics.active_teams_total }}</strong></span>
+                    <div class="relative z-10 mt-3 pt-3 border-t border-orange-200/50 flex items-center justify-between text-[11px]">
+                        <span class="text-slate-600">Klub Lunas: <strong class="text-slate-900 font-bold tabular-data">{{ metrics.active_teams_total }}</strong></span>
                         <button
                             type="button"
-                            class="font-bold text-orange-600 hover:text-orange-700 inline-flex items-center gap-1 transition-colors cursor-pointer"
+                            class="font-bold text-orange-700 hover:text-orange-800 inline-flex items-center gap-1 transition-colors cursor-pointer"
                             :disabled="isSyncing"
                             title="Pindai dan lepas pendaftaran yang telat bayar"
                             @click="triggerResync"
                         >
-                            <svg class="w-3 h-3 text-orange-600 shrink-0" :class="{ 'animate-spin': isSyncing }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-3 h-3 text-orange-700 shrink-0" :class="{ 'animate-spin': isSyncing }" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
                             <span>{{ isSyncing ? 'Sinkron...' : 'Cek Slot' }}</span>
@@ -118,28 +124,30 @@ const triggerResync = () => {
                 </div>
 
                 <!-- Card 4: Screening Berkas Pemain -->
-                <div class="frosted-card p-4 sm:p-5 bg-white hover:border-indigo-300 hover:shadow-md transition-all duration-150 flex flex-col justify-between">
-                    <div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Screening Berkas Pemain</span>
-                            <div class="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center shrink-0">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
-                                </svg>
-                            </div>
-                        </div>
+                <div class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white via-white to-sky-50/90 p-4 sm:p-5 hover:border-sky-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-sky-950/[0.04] transition-all duration-300 ease-out flex flex-col justify-between">
+                    <svg
+                        aria-hidden="true"
+                        class="pointer-events-none select-none absolute -right-2 top-2.5 w-24 h-24 text-sky-600/[0.10] transition-all duration-500 ease-out group-hover:text-sky-600/[0.19] group-hover:scale-110 group-hover:-translate-x-1.5 group-hover:-translate-y-1 group-hover:rotate-6"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
+                    </svg>
+                    <div class="relative z-10">
+                        <span class="block text-[11px] font-extrabold uppercase tracking-wider text-slate-600">Screening Berkas Pemain</span>
                         <p class="text-2xl sm:text-3xl font-black text-slate-900 tabular-data mt-2 font-mono tracking-tight">
-                            {{ metrics.players_submitted_count }} <span class="text-base font-bold text-slate-500">Pemain</span>
+                            {{ metrics.players_submitted_count }} <span class="text-base font-bold text-slate-600">Pemain</span>
                         </p>
                     </div>
-                    <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                        <span class="text-slate-500">
-                            Siap Kunci: <strong class="text-amber-700 font-bold tabular-data">{{ metrics.ready_to_lock_teams_count || 0 }}</strong>
-                            &bull; Final: <strong class="text-emerald-700 font-bold tabular-data">{{ metrics.locked_teams_count || 0 }}</strong>
+                    <div class="relative z-10 mt-3 pt-3 border-t border-sky-200/50 flex items-center justify-between text-[11px]">
+                        <span class="text-slate-600">
+                            Siap Kunci: <strong class="text-amber-800 font-bold tabular-data">{{ metrics.ready_to_lock_teams_count || 0 }}</strong>
+                            &bull; Final: <strong class="text-emerald-800 font-bold tabular-data">{{ metrics.locked_teams_count || 0 }}</strong>
                         </span>
                         <Link
                             :href="route('admin.screening.index')"
-                            class="font-bold text-orange-600 hover:text-orange-700 inline-flex items-center gap-1 transition-colors"
+                            class="font-bold text-orange-700 hover:text-orange-800 inline-flex items-center gap-1 transition-colors"
                         >
                             <span>Screening &rarr;</span>
                         </Link>
@@ -250,13 +258,13 @@ const triggerResync = () => {
                     <div
                         v-for="evt in eventsOverview"
                         :key="evt.id"
-                        class="frosted-card p-4 sm:p-5 hover:border-orange-300 hover:shadow-md transition-all duration-150 bg-white"
+                        class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white via-white to-orange-50/45 p-4 sm:p-5 hover:border-orange-300 hover:-translate-y-0.5 hover:shadow-md transition-all duration-300 ease-out"
                     >
                         <!-- Top Header: Trophy, Name, Category & Status -->
-                        <div class="flex flex-wrap items-center justify-between gap-3 pb-3 mb-3 border-b border-slate-100">
+                        <div class="flex flex-wrap items-center justify-between gap-3 pb-3 mb-3 border-b border-slate-200/70">
                             <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center font-bold text-base shadow-2xs shrink-0 border border-orange-200">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-100 to-orange-50 text-orange-700 flex items-center justify-center font-bold text-base shadow-2xs shrink-0 border border-orange-200 transition-transform duration-300 ease-out group-hover:scale-110 group-hover:-rotate-6">
+                                    <svg class="w-5 h-5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.45 1-1 1H8c-.55 0-1 .45-1 1v1h10v-1c0-.55-.45-1-1-1h-1c-.55 0-1-.45-1-1v-2.34c3.27-.47 5.76-3.23 5.76-6.66V4H5.24v4c0 3.43 2.49 6.19 5.76 6.66z" />
                                     </svg>
                                 </div>
@@ -282,7 +290,7 @@ const triggerResync = () => {
                         </div>
 
                         <!-- Card Body Grid -->
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 text-xs items-center">
+                        <div class="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 text-xs items-center">
                             <!-- Quota Progress (Col 1-5) -->
                             <div class="lg:col-span-5 space-y-1.5">
                                 <div class="flex items-center justify-between text-xs">

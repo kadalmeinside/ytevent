@@ -42,7 +42,7 @@ const submit = () => {
             <meta head-key="googlebot" name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
         </Head>
 
-        <div class="max-w-md w-full mx-auto">
+        <div class="max-w-md w-full mx-auto page-transition-enter">
             <div class="text-center mb-6">
                 <Link :href="route('home')" class="inline-flex items-center gap-2.5">
                     <div class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-sm shadow-sm">

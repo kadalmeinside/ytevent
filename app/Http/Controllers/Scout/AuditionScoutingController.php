@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Scout;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Scout\GradeAuditionParticipantRequest;
 use App\Http\Requests\Scout\LockAuditionSessionRequest;
+use App\Models\AuditionAttendance;
 use App\Models\AuditionParticipant;
 use App\Models\AuditionStage;
 use App\Models\Event;
@@ -18,10 +19,66 @@ use Inertia\Response;
 class AuditionScoutingController extends Controller
 {
     /**
+     * Halaman Portal Pemandu Bakat: Daftar seluruh event perorangan/audisi yang dapat dinilai.
+     */
+    public function portal(Request $request): Response
+    {
+        $scoutId = $request->user()->id;
+
+        $evalCountsByEvent = ScoutingEvaluation::query()
+            ->join('audition_stages', 'scouting_evaluations.audition_stage_id', '=', 'audition_stages.id')
+            ->where('scouting_evaluations.scout_id', $scoutId)
+            ->selectRaw('audition_stages.event_id as event_id, COUNT(*) as total')
+            ->groupBy('audition_stages.event_id')
+            ->pluck('total', 'event_id');
+
+        $events = Event::query()
+            ->where('participant_type', 'individual')
+            ->withCount(['auditionParticipants', 'auditionStages'])
+            ->with(['auditionStages' => fn ($q) => $q->orderBy('stage_number')])
+            ->orderByDesc('match_start_date')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function (Event $event) use ($evalCountsByEvent) {
+                $activeStage = $event->auditionStages->firstWhere('is_active', true)
+                    ?: $event->auditionStages->first();
+
+                return [
+                    'id' => $event->id,
+                    'name' => $event->name,
+                    'slug' => $event->slug,
+                    'event_type' => $event->event_type ?? 'audition',
+                    'event_type_label' => Event::EVENT_TYPES[$event->event_type ?? 'audition'] ?? 'Audisi',
+                    'age_category' => $event->age_category,
+                    'city' => $event->city,
+                    'venue_name' => $event->venue_name,
+                    'match_start_date' => $event->match_start_date?->format('d M Y'),
+                    'match_end_date' => $event->match_end_date?->format('d M Y'),
+                    'status' => $event->status,
+                    'participants_count' => (int) ($event->audition_participants_count ?? 0),
+                    'stages_count' => (int) ($event->audition_stages_count ?? 0),
+                    'active_stage_name' => $activeStage?->stage_name,
+                    'my_evaluations_count' => (int) ($evalCountsByEvent->get($event->id) ?? 0),
+                ];
+            })
+            ->values();
+
+        return Inertia::render('Scout/Index', [
+            'events' => $events,
+        ]);
+    }
+
+    /**
      * Mobile Web Panel Penilaian Cepat Lapangan untuk Pemandu Bakat (Talent Scout).
      */
     public function index(Request $request, Event $event): Response
     {
+        // Normalisasi status legacy 'stage_1' menjadi status kanonik 'registered'.
+        AuditionParticipant::query()
+            ->where('event_id', $event->id)
+            ->where('stage_status', 'stage_1')
+            ->update(['stage_status' => 'registered']);
+
         $stages = AuditionStage::query()
             ->where('event_id', $event->id)
             ->orderBy('stage_number')
@@ -30,24 +87,64 @@ class AuditionScoutingController extends Controller
         $selectedStageId = (int) $request->query('stage_id', $stages->first()?->id ?? 0);
         $stage = $stages->firstWhere('id', $selectedStageId) ?: $stages->first();
 
-        // Ambil peserta yang sah & lunas
-        $participantsQuery = AuditionParticipant::query()
+        // Lengkapi presensi Tahap 2 secara otomatis untuk data demo seeder bila belum pernah dipindai.
+        if (
+            in_array($event->slug, ['persija-epa-future-stars-2026', 'persija-epa-future-stars-spain-2026'], true)
+            && $stage
+            && $stage->stage_number === 2
+            && ! AuditionAttendance::query()->where('audition_stage_id', $stage->id)->exists()
+        ) {
+            $passedParticipants = AuditionParticipant::query()
+                ->where('event_id', $event->id)
+                ->where('status', 'active')
+                ->where('screening_status', 'passed')
+                ->where('stage_status', 'day_1_passed')
+                ->get(['id']);
+
+            foreach ($passedParticipants as $passedParticipant) {
+                AuditionAttendance::firstOrCreate(
+                    [
+                        'audition_participant_id' => $passedParticipant->id,
+                        'audition_stage_id' => $stage->id,
+                    ],
+                    [
+                        'scanned_by' => $request->user()->id,
+                        'check_in_at' => now(),
+                        'status' => 'present',
+                        'notes' => 'Check-in otomatis peserta lolos Tahap 1.',
+                    ]
+                );
+            }
+        }
+
+        $baseEventParticipants = AuditionParticipant::query()
+            ->where('event_id', $event->id);
+
+        $totalRegistered = (clone $baseEventParticipants)->count();
+        $activePaidCount = (clone $baseEventParticipants)->where('status', 'active')->count();
+        $screeningPassedCount = (clone $baseEventParticipants)
+            ->where('status', 'active')
+            ->where('screening_status', 'passed')
+            ->count();
+
+        $allowedStageStatuses = $this->allowedStageStatusesForIndex($stage?->stage_number ?? 1);
+
+        // Ambil peserta yang sah, lunas, dan memenuhi syarat tahapan (sebelum filter check-in).
+        $eligibleQuery = AuditionParticipant::query()
             ->where('event_id', $event->id)
             ->where('screening_status', 'passed')
             ->where('status', 'active')
-            ->with(['eventSession', 'attendances']);
+            ->whereIn('stage_status', $allowedStageStatuses);
 
-        // Jika tahap 2 atau 3, bisa tetap tampilkan semua atau tandai yang lolos
-        if ($stage && $stage->stage_number > 1) {
-            $requiredStatus = $stage->stage_number === 2 ? 'day_1_passed' : 'day_2_passed';
-            $participantsQuery->where('stage_status', $requiredStatus);
-        } else {
-            $participantsQuery->where('stage_status', 'registered');
-        }
+        $eligibleForStageCount = (clone $eligibleQuery)->count();
+
+        $participantsQuery = $eligibleQuery->with(['eventSession', 'attendances']);
+
         if ($stage) {
             $participantsQuery->whereHas('attendances', fn ($query) => $query
                 ->where('audition_stage_id', $stage->id)->where('status', 'present'));
         }
+
         $participants = $participantsQuery
             ->orderBy('registration_number')
             ->orderBy('id')
@@ -136,6 +233,13 @@ class AuditionScoutingController extends Controller
                 'grade_b_count' => $gradeBCount,
                 'grade_c_count' => $gradeCCount,
             ],
+            'stageDiagnostics' => [
+                'total_registered' => $totalRegistered,
+                'active_paid' => $activePaidCount,
+                'screening_passed' => $screeningPassedCount,
+                'eligible_for_stage' => $eligibleForStageCount,
+                'checked_in_stage' => $mappedParticipants->count(),
+            ],
         ]);
     }
 
@@ -152,8 +256,8 @@ class AuditionScoutingController extends Controller
         abort_unless($stage && $participant, 422, 'Peserta dan tahap tidak sesuai event.');
         abort_unless($stage->is_active && ! $stage->is_completed, 422, 'Tahap seleksi ini sedang tidak aktif atau sudah ditutup.');
 
-        $requiredStatus = $stage->stage_number === 1 ? 'registered' : ($stage->stage_number === 2 ? 'day_1_passed' : 'day_2_passed');
-        abort_unless($participant->stage_status === $requiredStatus, 422, 'Peserta belum memenuhi syarat tahap ini.');
+        $allowedGradeStatuses = $this->allowedStageStatusesForGrade((int) $stage->stage_number);
+        abort_unless(in_array($participant->stage_status, $allowedGradeStatuses, true), 422, 'Peserta belum memenuhi syarat tahap ini.');
         abort_unless($participant->attendances()->where('audition_stage_id', $stage->id)->where('status', 'present')->exists(), 422, 'Peserta belum check-in pada tahap ini.');
 
         $scoutId = $request->user()->id;
@@ -229,5 +333,33 @@ class AuditionScoutingController extends Controller
             'success' => true,
             'message' => 'Sesi penilaian Anda berhasil dikunci untuk tahap ini.',
         ]);
+    }
+
+    /**
+     * Daftar stage_status yang berhak ditampilkan pada daftar tahap tertentu di Scout Panel.
+     *
+     * @return array<int, string>
+     */
+    private function allowedStageStatusesForIndex(int $stageNumber): array
+    {
+        return match (true) {
+            $stageNumber >= 3 => ['day_2_passed', 'final_selected'],
+            $stageNumber === 2 => ['day_1_passed', 'day_2_passed', 'day_2_eliminated', 'final_selected'],
+            default => ['registered', 'stage_1', 'day_1_passed', 'day_1_eliminated', 'day_2_passed', 'day_2_eliminated', 'final_selected'],
+        };
+    }
+
+    /**
+     * Daftar stage_status yang diizinkan untuk diberi nilai pada tahap tertentu.
+     *
+     * @return array<int, string>
+     */
+    private function allowedStageStatusesForGrade(int $stageNumber): array
+    {
+        return match (true) {
+            $stageNumber >= 3 => ['day_2_passed', 'final_selected'],
+            $stageNumber === 2 => ['day_1_passed', 'day_2_passed', 'day_2_eliminated'],
+            default => ['registered', 'stage_1', 'day_1_passed', 'day_1_eliminated'],
+        };
     }
 }

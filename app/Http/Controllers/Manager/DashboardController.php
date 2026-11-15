@@ -7,6 +7,7 @@ use App\Http\Controllers\Manager\Concerns\ResolvesActiveTeam;
 use App\Http\Requests\Manager\UpdateManagerPasswordRequest;
 use App\Http\Requests\Manager\UpdateTeamProfileRequest;
 use App\Models\AuditionParticipant;
+use App\Models\Event;
 use App\Models\EventAnnouncement;
 use App\Models\Team;
 use App\Services\ImageOptimizationService;
@@ -49,6 +50,7 @@ class DashboardController extends Controller
                     'expires_at' => $latestPayment->expires_at?->toIso8601String(),
                     'paid_at' => $latestPayment->paid_at?->toIso8601String(),
                     'rejection_reason' => $latestPayment->rejection_reason,
+                    'invoice_url' => route('manager.payments.invoice', ['payment' => $latestPayment->id]),
                 ] : null,
                 'players_total' => $players->count(),
                 'players_draft' => $players->where('screening_status', 'draft')->count(),
@@ -81,10 +83,39 @@ class DashboardController extends Controller
         $user = $request->user();
         $auditionParticipants = AuditionParticipant::query()
             ->where('user_id', $user->id)
-            ->with(['event', 'latestPayment', 'eventSession'])
+            ->with(['event.auditionStages', 'latestPayment', 'eventSession', 'attendances.stage'])
             ->latest()
             ->get()
+            ->sortBy(function (AuditionParticipant $p) {
+                $isCompleted = $p->event?->status === 'completed';
+                $needsAction = ! $isCompleted && (! $p->isPaid() || $p->screening_status === 'rejected');
+                $tier = $isCompleted ? 2 : ($needsAction ? 0 : 1);
+                $dateKey = $p->event?->match_start_date
+                    ? ($isCompleted ? -$p->event->match_start_date->timestamp : $p->event->match_start_date->timestamp)
+                    : PHP_INT_MAX;
+
+                return sprintf('%d_%012d_%012d', $tier, $dateKey + 10000000000, -$p->created_at?->timestamp ?? 0);
+            })
             ->map(function (AuditionParticipant $p) {
+                $event = $p->event;
+                $isCompleted = $event?->status === 'completed';
+                $isPaid = $p->isPaid();
+                $stages = $event
+                    ? $event->auditionStages->sortBy('stage_number')->values()->map(fn ($s) => [
+                        'id' => $s->id,
+                        'stage_number' => (int) $s->stage_number,
+                        'stage_name' => $s->stage_name,
+                        'stage_date' => $s->stage_date?->format('d M Y'),
+                    ])
+                    : collect();
+                $presentStageNumbers = $p->attendances
+                    ->where('status', 'present')
+                    ->map(fn ($a) => (int) ($a->stage?->stage_number ?? 0))
+                    ->filter(fn ($n) => $n > 0)
+                    ->unique()
+                    ->values()
+                    ->all();
+
                 return [
                     'id' => $p->id,
                     'registration_number' => $p->registration_number,
@@ -109,17 +140,26 @@ class DashboardController extends Controller
                     'stage_status_label' => $p->stageStatusLabel(),
                     'screening_status_label' => $p->screeningStatusLabel(),
                     'status' => $p->status,
-                    'is_paid' => $p->isPaid(),
+                    'is_paid' => $isPaid,
+                    'needs_attention' => ! $isCompleted && (! $isPaid || $p->screening_status === 'rejected'),
                     'can_download_bib' => $p->canDownloadBib(),
                     'can_download_certificate' => $p->canDownloadCertificate(),
+                    'present_stage_numbers' => $presentStageNumbers,
                     'photo_url' => $p->photo_path ? Storage::disk('public')->url($p->photo_path) : null,
-                    'event' => $p->event ? [
-                        'id' => $p->event->id,
-                        'name' => $p->event->name,
-                        'slug' => $p->event->slug,
-                        'age_category' => $p->event->age_category,
-                        'city' => $p->event->city,
-                        'match_start_date' => $p->event->match_start_date?->format('d/m/Y'),
+                    'event' => $event ? [
+                        'id' => $event->id,
+                        'name' => $event->name,
+                        'slug' => $event->slug,
+                        'banner_url' => $event->banner_url,
+                        'event_type' => $event->event_type ?? 'audition',
+                        'status' => $event->status,
+                        'status_label' => Event::STATUSES[$event->status] ?? $event->status,
+                        'is_completed' => $isCompleted,
+                        'certificates_released' => (bool) $event->certificates_released,
+                        'age_category' => $event->age_category,
+                        'city' => $event->city,
+                        'match_start_date' => $event->match_start_date?->format('d M Y'),
+                        'stages' => $stages,
                     ] : null,
                     'session' => $p->eventSession ? [
                         'id' => $p->eventSession->id,
@@ -133,6 +173,7 @@ class DashboardController extends Controller
                         'total_amount' => (float) $p->latestPayment->total_amount,
                         'status' => $p->latestPayment->status,
                         'method' => $p->latestPayment->method,
+                        'invoice_url' => route('manager.payments.invoice', ['payment' => $p->latestPayment->id]),
                     ] : null,
                 ];
             })
@@ -150,6 +191,7 @@ class DashboardController extends Controller
     {
         $this->authorize('view', $team);
         $request->session()->put('active_manager_team_id', $team->id);
+        $request->session()->put('active_payment_context', 'team');
 
         return redirect()->back()
             ->with('info', "Konteks tim aktif dialihkan ke {$team->name}.");

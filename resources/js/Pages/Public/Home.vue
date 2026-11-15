@@ -1,14 +1,16 @@
 <script setup>
 import { reactive, computed } from 'vue';
-import { router, usePage } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import PublicLayout from '@/Layouts/PublicLayout.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
+import CatalogGridSkeleton from '@/Components/Skeletons/CatalogGridSkeleton.vue';
 import { useFormatters } from '@/Composables/useFormatters';
+import { useNavigationLoading } from '@/Composables/useNavigationLoading';
 
 const props = defineProps({
     events: {
-        type: Array,
-        default: () => [],
+        type: [Object, Array],
+        default: () => ({ data: [], links: [] }),
     },
     filters: {
         type: Object,
@@ -34,6 +36,7 @@ const props = defineProps({
 
 const page = usePage();
 const systemSettings = computed(() => page.props.systemSettings || {});
+const { isPartialLoading } = useNavigationLoading();
 const { formatRupiah, formatDate } = useFormatters();
 
 const seoTitle = computed(() => 'Katalog Kompetisi & Turnamen Sepak Bola Resmi');
@@ -42,8 +45,12 @@ const seoDescription = computed(() => {
     return `Portal resmi pendaftaran turnamen dan liga sepak bola ${appName}. Reservasi slot tim real-time, pembayaran terverifikasi, screening dokumen usia pemain, dan penerbitan ID Card akreditasi.`;
 });
 
+const eventItems = computed(() => (Array.isArray(props.events) ? props.events : (props.events?.data || [])));
+const eventTotal = computed(() => (Array.isArray(props.events) ? props.events.length : (props.events?.total ?? eventItems.value.length)));
+const paginationLinks = computed(() => (Array.isArray(props.events) ? [] : (props.events?.links || [])));
+
 const structuredCatalogJsonLd = computed(() => {
-    const items = (props.events || []).map((ev, idx) => ({
+    const items = eventItems.value.map((ev, idx) => ({
         '@type': 'ListItem',
         position: idx + 1,
         item: {
@@ -248,7 +255,7 @@ const stripHtml = (html) => {
                     v-if="filterState.search || filterState.format || filterState.participant_type || filterState.age_category || filterState.status"
                     class="mt-3 pt-2.5 border-t border-slate-200/70 flex items-center justify-between text-xs text-slate-500"
                 >
-                    <span>Menampilkan {{ events.length }} kompetisi sesuai filter</span>
+                    <span>Menampilkan {{ eventTotal }} kompetisi sesuai filter</span>
                     <button type="button" class="text-orange-600 font-semibold hover:text-orange-700 hover:underline" @click="resetFilters">
                         Reset Filter
                     </button>
@@ -258,14 +265,16 @@ const stripHtml = (html) => {
 
         <!-- Event Cards Grid -->
         <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div v-if="events.length === 0" class="frosted-card p-10 text-center">
+            <CatalogGridSkeleton v-if="isPartialLoading" :count="9" />
+
+            <div v-else-if="eventItems.length === 0" class="frosted-card p-10 text-center">
                 <p class="text-sm font-semibold text-slate-800">Tidak ditemukan kompetisi yang sesuai dengan filter.</p>
                 <p class="text-xs text-slate-500 mt-1">Silakan ubah kata kunci pencarian atau reset filter untuk melihat seluruh event aktif.</p>
             </div>
 
             <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 <article
-                    v-for="event in events"
+                    v-for="event in eventItems"
                     :key="event.id"
                     class="frosted-card flex flex-col justify-between overflow-hidden hover:border-orange-300/80 hover:shadow-lg transition-all"
                 >
@@ -377,7 +386,40 @@ const stripHtml = (html) => {
                         </div>
                     </div>
 
-                    <div class="mt-5 pt-3 border-t border-slate-200/70 flex items-center gap-2">
+                    <!-- Status Pendaftaran Akun pada Event Ini -->
+                    <div
+                        v-if="event.user_context?.registered_team"
+                        class="mt-3 px-3 py-2 rounded-xl border text-[11px] font-semibold truncate"
+                        :class="['pending_payment', 'expired'].includes(event.user_context.registered_team.status)
+                            ? 'bg-amber-50/90 border-amber-200 text-amber-900'
+                            : 'bg-emerald-50/90 border-emerald-200 text-emerald-900'"
+                        :title="event.user_context.registered_team.name"
+                    >
+                        <template v-if="event.user_context.registered_team.status === 'pending_payment'">
+                            Tim Anda ({{ event.user_context.registered_team.name }}) menunggu pembayaran
+                        </template>
+                        <template v-else-if="event.user_context.registered_team.status === 'expired'">
+                            Reservasi tim ({{ event.user_context.registered_team.name }}) kedaluwarsa
+                        </template>
+                        <template v-else>
+                            Tim terdaftar: {{ event.user_context.registered_team.name }}
+                        </template>
+                    </div>
+                    <div
+                        v-else-if="event.user_context?.conflicting_team"
+                        class="mt-3 px-3 py-2 rounded-xl border bg-amber-50/90 border-amber-200 text-amber-900 text-[11px] font-semibold truncate"
+                        :title="`Jadwal bertabrakan dengan ${event.user_context.conflicting_team.event_name}`"
+                    >
+                        Bentrok jadwal: {{ event.user_context.conflicting_team.event_name }}
+                    </div>
+                    <div
+                        v-else-if="event.user_context?.registered_participants_count > 0"
+                        class="mt-3 px-3 py-2 rounded-xl border bg-emerald-50/90 border-emerald-200 text-emerald-900 text-[11px] font-semibold truncate"
+                    >
+                        {{ event.user_context.registered_participants_count }} anak terdaftar di event ini
+                    </div>
+
+                    <div class="mt-4 pt-3 border-t border-slate-200/70 flex items-center gap-2">
                         <Link
                             :href="route('events.show', { event: event.slug })"
                             class="btn-secondary flex-1 text-center"
@@ -385,21 +427,64 @@ const stripHtml = (html) => {
                             Detail &amp; Regulasi
                         </Link>
                         <Link
-                            v-if="event.can_register"
+                            v-if="event.user_context?.registered_team"
+                            :href="route('manager.dashboard', { team_id: event.user_context.registered_team.id })"
+                            class="btn-success flex-1 text-center"
+                        >
+                            Kelola Tim
+                        </Link>
+                        <span
+                            v-else-if="event.user_context?.conflicting_team"
+                            class="flex-1 h-9 sm:h-10 inline-flex items-center justify-center text-center text-xs font-semibold px-3 rounded-lg sm:rounded-xl bg-amber-50 text-amber-800 border border-amber-200 cursor-not-allowed"
+                            :title="`Jadwal bertabrakan dengan ${event.user_context.conflicting_team.event_name}`"
+                        >
+                            Jadwal Bentrok
+                        </span>
+                        <Link
+                            v-else-if="event.can_register"
                             :href="event.participant_type === 'individual' ? route('events.register-audition', { event: event.slug }) : route('events.register', { event: event.slug })"
                             class="btn-pitch flex-1 text-center"
                         >
-                            {{ event.registration_label }}
+                            {{ event.participant_type === 'individual' && event.user_context?.registered_participants_count > 0 ? 'Daftar Anak Lagi' : event.registration_label }}
                         </Link>
                         <span
                             v-else
-                            class="flex-1 h-10 inline-flex items-center justify-center text-center text-xs font-semibold px-3 rounded-xl bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed"
+                            class="flex-1 h-9 sm:h-10 inline-flex items-center justify-center text-center text-xs font-semibold px-3 rounded-lg sm:rounded-xl bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed"
                         >
                             {{ event.available_slots === 0 ? 'Kuota Penuh' : 'Ditutup' }}
                         </span>
                     </div>
                     </div>
                 </article>
+            </div>
+
+            <!-- Pagination -->
+            <div
+                v-if="paginationLinks.length > 3"
+                class="mt-8 flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200/70"
+            >
+                <p class="text-xs text-slate-600 tabular-data">
+                    Menampilkan <strong class="text-slate-900">{{ events.from || 0 }} - {{ events.to || 0 }}</strong> dari
+                    <strong class="text-slate-900">{{ events.total || 0 }}</strong> kompetisi
+                </p>
+                <nav aria-label="Navigasi halaman katalog event" class="flex flex-wrap items-center justify-center gap-1.5">
+                    <Component
+                        :is="link.url ? Link : 'span'"
+                        v-for="(link, i) in paginationLinks"
+                        :key="i"
+                        :href="link.url"
+                        preserve-scroll
+                        class="px-3 py-2 sm:py-1.5 min-h-[44px] sm:min-h-0 rounded-lg text-xs font-semibold transition-colors inline-flex items-center justify-center"
+                        :class="
+                            link.active
+                                ? 'bg-orange-600 text-white shadow-xs'
+                                : link.url
+                                ? 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                                : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                        "
+                        v-html="link.label"
+                    />
+                </nav>
             </div>
         </section>
     </PublicLayout>

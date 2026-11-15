@@ -39,6 +39,11 @@ class AuditionParticipant extends Model
         'medical_notes',
         'custom_answers',
         'liability_accepted_at',
+        'accepted_tnc_version_id',
+        'accepted_tnc_version',
+        'accepted_tnc_hash',
+        'accepted_ip',
+        'accepted_user_agent',
         'photo_path',
         'birth_certificate_path',
         'family_card_path',
@@ -90,6 +95,11 @@ class AuditionParticipant extends Model
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);
+    }
+
+    public function acceptedTncVersion(): BelongsTo
+    {
+        return $this->belongsTo(TncVersion::class, 'accepted_tnc_version_id');
     }
 
     public function user(): BelongsTo
@@ -144,6 +154,12 @@ class AuditionParticipant extends Model
 
     public function canDownloadBib(): bool
     {
+        $event = $this->event;
+
+        if (! $event || $this->status === 'cancelled' || in_array($event->status, ['completed', 'cancelled'], true)) {
+            return false;
+        }
+
         return $this->isPaid() && $this->isScreeningPassed();
     }
 
@@ -165,6 +181,10 @@ class AuditionParticipant extends Model
 
         // Coaching Clinic / Festival tidak menggunakan seleksi eliminasi bertahap: cukup hadir (present).
         if (($this->event->event_type ?? 'audition') !== 'audition') {
+            if ($this->relationLoaded('attendances')) {
+                return $this->attendances->contains(fn ($attendance) => $attendance->status === 'present');
+            }
+
             return $this->attendances()
                 ->where('status', 'present')
                 ->exists();
@@ -174,12 +194,28 @@ class AuditionParticipant extends Model
             return false;
         }
 
-        $maxStage = (int) ($this->event->auditionStages()->max('stage_number') ?: 1);
+        $maxStage = $this->event->relationLoaded('auditionStages')
+            ? (int) ($this->event->auditionStages->max('stage_number') ?: 1)
+            : (int) ($this->event->auditionStages()->max('stage_number') ?: 1);
         $requiredStage = match ($this->stage_status) {
             'day_1_passed' => 1,
             'day_2_passed' => min(2, $maxStage),
             'final_selected' => $maxStage,
         };
+
+        if ($this->relationLoaded('attendances')) {
+            return $this->attendances->contains(function ($attendance) use ($requiredStage) {
+                if ($attendance->status !== 'present') {
+                    return false;
+                }
+
+                if ($attendance->relationLoaded('stage')) {
+                    return (int) ($attendance->stage?->stage_number ?? 0) === $requiredStage;
+                }
+
+                return (int) ($attendance->stage()->value('stage_number') ?? 0) === $requiredStage;
+            });
+        }
 
         return $this->attendances()
             ->whereHas('stage', fn ($query) => $query->where('stage_number', $requiredStage))

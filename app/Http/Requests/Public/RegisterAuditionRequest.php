@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Public;
 
+use App\Models\AuditionParticipant;
 use App\Models\Event;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -23,7 +24,15 @@ class RegisterAuditionRequest extends FormRequest
         $requiredDocuments = collect($event->required_documents ?? []);
         $extraDocumentsRequired = $requiredDocuments->contains(fn (string $document) => ! in_array($document, ['birth_certificate', 'family_card'], true));
 
+        $sourceParticipant = null;
+        if ($isLoggedIn && $this->filled('source_participant_id')) {
+            $sourceParticipant = AuditionParticipant::query()
+                ->where('user_id', $this->user()->id)
+                ->find((int) $this->input('source_participant_id'));
+        }
+
         $rules = [
+            'source_participant_id' => ['nullable', 'integer'],
             // Data Atlet Anak
             'full_name' => ['required', 'string', 'max:150'],
             'nickname' => ['nullable', 'string', 'max:50'],
@@ -60,17 +69,18 @@ class RegisterAuditionRequest extends FormRequest
             'emergency_contact_relation' => ['nullable', 'string', 'max:50'],
             'medical_notes' => ['nullable', 'string', 'max:1000'],
             'liability_waiver' => ['accepted'],
+            'tnc_version_id' => ['nullable', 'integer'],
 
             // Berkas Unggahan
-            'photo' => ! empty($presets['photo'])
+            'photo' => ! empty($presets['photo']) && empty($sourceParticipant?->photo_path)
                 ? ['required', 'image', 'mimes:jpeg,png,jpg,webp', 'max:3072']
                 : ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:3072'],
             'birth_certificate' => [
-                $requiredDocuments->contains('birth_certificate') ? 'required' : 'nullable',
+                $requiredDocuments->contains('birth_certificate') && empty($sourceParticipant?->birth_certificate_path) ? 'required' : 'nullable',
                 'file', 'mimes:jpeg,png,jpg,pdf', 'max:4096',
             ],
             'family_card' => [
-                $requiredDocuments->contains('family_card') ? 'required' : 'nullable',
+                $requiredDocuments->contains('family_card') && empty($sourceParticipant?->family_card_path) ? 'required' : 'nullable',
                 'file', 'mimes:jpeg,png,jpg,pdf', 'max:4096',
             ],
             'additional_doc' => [
@@ -124,7 +134,7 @@ class RegisterAuditionRequest extends FormRequest
         // Data Wali jika belum login
         if (! $isLoggedIn) {
             $rules['guardian_name'] = ['required', 'string', 'max:150'];
-            $rules['guardian_email'] = ['required', 'string', 'email:rfc', 'max:160'];
+            $rules['guardian_email'] = ['required', 'string', 'email:rfc', 'max:160', 'unique:users,email'];
             $rules['guardian_phone'] = ['required', 'string', 'max:25', 'regex:/^[0-9+\s\-()]{8,25}$/'];
             $rules['guardian_password'] = ['required', 'string', 'min:8'];
         }
@@ -158,6 +168,7 @@ class RegisterAuditionRequest extends FormRequest
             'additional_doc.required' => 'Dokumen tambahan yang dipilih panitia wajib diunggah.',
             'guardian_name.required' => 'Nama lengkap orang tua / wali wajib diisi.',
             'guardian_email.required' => 'Alamat email orang tua / wali wajib diisi.',
+            'guardian_email.unique' => 'Email ini sudah memiliki akun terdaftar. Silakan masukkan kata sandi akun Anda untuk masuk terlebih dahulu.',
             'guardian_phone.required' => 'Nomor WhatsApp orang tua / wali wajib diisi.',
             'guardian_password.required' => 'Kata sandi akun portal wajib diisi.',
             'guardian_password.min' => 'Kata sandi minimal berjumlah 8 karakter.',
@@ -194,6 +205,16 @@ class RegisterAuditionRequest extends FormRequest
                     }
                     if (in_array($type, ['select', 'radio'], true) && $value !== '' && ! in_array($value, $field['options'] ?? [], true)) {
                         $validator->errors()->add("custom_answers.{$key}", 'Pilihan yang dikirim tidak tersedia pada event ini.');
+                    }
+                }
+
+                if ($this->filled('tnc_version_id')) {
+                    $activeTnc = $event->resolveTncVersion();
+                    if ((int) $this->input('tnc_version_id') !== $activeTnc->id) {
+                        $validator->errors()->add(
+                            'liability_waiver',
+                            'Dokumen Syarat & Ketentuan / Pernyataan Medis telah diperbarui oleh panitia. Silakan baca dan setujui versi terbaru terlebih dahulu.'
+                        );
                     }
                 }
             },

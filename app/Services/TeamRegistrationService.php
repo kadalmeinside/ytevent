@@ -18,19 +18,101 @@ class TeamRegistrationService
 {
     public function __construct(
         protected QuotaExpirationService $quotaExpiration,
-        protected ImageOptimizationService $imageOptimization
+        protected ImageOptimizationService $imageOptimization,
+        protected InvoiceService $invoiceService
     ) {}
+
+    public function resolvePrimaryTeamForUser(User $user): ?Team
+    {
+        return Team::query()
+            ->where('user_id', $user->id)
+            ->latest('id')
+            ->first();
+    }
+
+    public function findConflictingActiveRegistration(User $user, Event $targetEvent): ?Team
+    {
+        $activeTeams = Team::query()
+            ->with('event')
+            ->where('user_id', $user->id)
+            ->where('event_id', '!=', $targetEvent->id)
+            ->whereIn('status', ['pending_payment', 'active', 'locked_roster'])
+            ->whereHas('event', fn ($q) => $q->where('status', '!=', 'completed'))
+            ->get();
+
+        return $this->findConflictingTeamInCollection($activeTeams, $targetEvent);
+    }
+
+    public function findConflictingTeamInCollection(\Illuminate\Support\Collection $activeTeams, Event $targetEvent): ?Team
+    {
+        if (! $targetEvent->match_start_date) {
+            return null;
+        }
+
+        $targetStart = $targetEvent->match_start_date->copy()->startOfDay();
+        $targetEnd = ($targetEvent->match_end_date ?? $targetEvent->match_start_date)->copy()->endOfDay();
+
+        return $activeTeams->first(function (Team $existingTeam) use ($targetEvent, $targetStart, $targetEnd) {
+            if ($existingTeam->event_id === $targetEvent->id) {
+                return false;
+            }
+
+            if ($existingTeam->status === 'pending_payment' && $existingTeam->slot_expires_at?->isPast()) {
+                return false;
+            }
+
+            $existingEvent = $existingTeam->event;
+            if (! $existingEvent?->match_start_date || $existingEvent->status === 'completed') {
+                return false;
+            }
+
+            $existingStart = $existingEvent->match_start_date->copy()->startOfDay();
+            $existingEnd = ($existingEvent->match_end_date ?? $existingEvent->match_start_date)->copy()->endOfDay();
+
+            return $targetStart->lte($existingEnd) && $targetEnd->gte($existingStart);
+        });
+    }
+
+    public function formatEventDateRange(Event $event): string
+    {
+        if (! $event->match_start_date) {
+            return 'Jadwal menyusul';
+        }
+
+        $start = $event->match_start_date->translatedFormat('d M Y');
+        if ($event->match_end_date && ! $event->match_end_date->isSameDay($event->match_start_date)) {
+            return $start.' - '.$event->match_end_date->translatedFormat('d M Y');
+        }
+
+        return $start;
+    }
 
     public function registerNewTeam(
         Event $event,
         array $validated,
-        UploadedFile $logoFile,
-        ?User $authenticatedUser = null
+        ?UploadedFile $logoFile = null,
+        ?User $authenticatedUser = null,
+        ?string $acceptedIp = null,
+        ?string $acceptedUserAgent = null
     ): Team {
-        $logo = $this->imageOptimization->storeWithOptimizedVariant($logoFile, 'teams/logos', 'public', 1200, 85);
+        $primaryTeam = $authenticatedUser ? $this->resolvePrimaryTeamForUser($authenticatedUser) : null;
+        $uploadedNewLogo = $logoFile !== null;
+
+        if ($logoFile !== null) {
+            $logo = $this->imageOptimization->storeWithOptimizedVariant($logoFile, 'teams/logos', 'public', 1200, 85);
+        } elseif ($primaryTeam && ($primaryTeam->logo_path || $primaryTeam->logo_optimized_path)) {
+            $logo = [
+                'original_path' => $primaryTeam->logo_path,
+                'optimized_path' => $primaryTeam->logo_optimized_path,
+            ];
+        } else {
+            throw ValidationException::withMessages([
+                'logo' => 'Logo resmi tim wajib diunggah.',
+            ]);
+        }
 
         try {
-            $result = DB::transaction(function () use ($event, $validated, $logo, $authenticatedUser) {
+            $result = DB::transaction(function () use ($event, $validated, $logo, $authenticatedUser, $primaryTeam, $acceptedIp, $acceptedUserAgent) {
                 $lockedEvent = Event::query()->whereKey($event->id)->lockForUpdate()->firstOrFail();
 
                 // 1. Lazy Expiration Sweep agar slot yang baru saja lewat expires_at langsung tersedia
@@ -62,18 +144,8 @@ class TeamRegistrationService
                     ];
                 }
 
-                // 4. Pastikan keunikan nama tim & email di dalam transaksi terkunci
-                $nameExists = $lockedEvent->teams()
-                    ->where('name', $validated['team_name'])
-                    ->exists();
-
-                if ($nameExists) {
-                    return [
-                        'ok' => false,
-                        'field' => 'team_name',
-                        'message' => 'Nama tim ini sudah terdaftar pada kompetisi yang dipilih.',
-                    ];
-                }
+                // 4. Pastikan aturan 1 tim per akun, anti bentrok jadwal, serta keunikan nama tim & email
+                $teamName = $primaryTeam ? $primaryTeam->name : trim($validated['team_name']);
 
                 if ($authenticatedUser) {
                     $alreadyInSameEvent = $lockedEvent->teams()
@@ -86,6 +158,15 @@ class TeamRegistrationService
                             'ok' => false,
                             'field' => 'event_quota',
                             'message' => 'Akun Anda sudah memiliki tim aktif pada kompetisi ini.',
+                        ];
+                    }
+
+                    $conflictTeam = $this->findConflictingActiveRegistration($authenticatedUser, $lockedEvent);
+                    if ($conflictTeam && $conflictTeam->event) {
+                        return [
+                            'ok' => false,
+                            'field' => 'event_quota',
+                            'message' => "Tim Anda ({$conflictTeam->name}) sudah terdaftar pada kompetisi {$conflictTeam->event->name} ({$this->formatEventDateRange($conflictTeam->event)}) yang tanggal penyelenggaraannya bertabrakan dengan kompetisi ini.",
                         ];
                     }
 
@@ -112,19 +193,33 @@ class TeamRegistrationService
                     $managerUser->assignRole('team_manager');
                 }
 
+                $nameExists = $lockedEvent->teams()
+                    ->where('name', $teamName)
+                    ->exists();
+
+                if ($nameExists) {
+                    return [
+                        'ok' => false,
+                        'field' => 'team_name',
+                        'message' => 'Nama tim ini sudah terdaftar pada kompetisi yang dipilih.',
+                    ];
+                }
+
                 // 5. Reservasi Slot & Pembuatan Tim + Invoice
                 $now = now();
                 $deadlineHours = max(1, (int) ($lockedEvent->payment_deadline_hours ?: 24));
                 $expiresAt = $now->copy()->addHours($deadlineHours);
                 $isFree = ((float) $lockedEvent->registration_fee) <= 0;
 
-                $baseSlug = Str::slug($validated['team_name']);
+                $baseSlug = Str::slug($teamName);
                 $slug = $baseSlug.'-'.Str::lower(Str::random(5));
+
+                $tncVersion = $lockedEvent->resolveTncVersion();
 
                 $team = Team::create([
                     'event_id' => $lockedEvent->id,
                     'user_id' => $managerUser->id,
-                    'name' => trim($validated['team_name']),
+                    'name' => $teamName,
                     'slug' => $slug,
                     'logo_path' => $logo['original_path'],
                     'logo_optimized_path' => $logo['optimized_path'],
@@ -136,6 +231,11 @@ class TeamRegistrationService
                     'head_coach_name' => trim($validated['head_coach_name']),
                     'head_coach_license' => $validated['head_coach_license'] ?? null,
                     'terms_accepted_at' => $now,
+                    'accepted_tnc_version_id' => $tncVersion->id,
+                    'accepted_tnc_version' => $tncVersion->version,
+                    'accepted_tnc_hash' => $tncVersion->contentHashForEvent($lockedEvent),
+                    'accepted_ip' => $acceptedIp,
+                    'accepted_user_agent' => $acceptedUserAgent ? Str::limit($acceptedUserAgent, 500, '') : null,
                     'status' => $isFree ? 'active' : 'pending_payment',
                     'slot_reserved_at' => $now,
                     'slot_expires_at' => $isFree ? null : $expiresAt,
@@ -157,12 +257,14 @@ class TeamRegistrationService
                     'invoice_number' => $invoiceNumber,
                     'team_id' => $team->id,
                     'event_id' => $lockedEvent->id,
+                    'billing_snapshot' => $this->invoiceService->buildSnapshot($lockedEvent, $team, null, $managerUser),
                     'amount' => $lockedEvent->registration_fee,
                     'gateway_fee' => 0,
                     'total_amount' => $lockedEvent->registration_fee,
                     'method' => $isFree ? 'manual' : null,
                     'payment_channel' => $isFree ? 'Pendaftaran Gratis' : null,
                     'expires_at' => $isFree ? null : $expiresAt,
+                    'issued_at' => $now,
                     'status' => $isFree ? 'paid' : 'unpaid',
                     'paid_at' => $isFree ? $now : null,
                 ]);
@@ -183,18 +285,22 @@ class TeamRegistrationService
                 ];
             });
         } catch (\Throwable $e) {
-            Storage::disk('public')->delete(array_unique([
-                $logo['original_path'],
-                $logo['optimized_path'],
-            ]));
+            if ($uploadedNewLogo) {
+                Storage::disk('public')->delete(array_values(array_filter(array_unique([
+                    $logo['original_path'],
+                    $logo['optimized_path'],
+                ]))));
+            }
             throw $e;
         }
 
         if (! $result['ok']) {
-            Storage::disk('public')->delete(array_unique([
-                $logo['original_path'],
-                $logo['optimized_path'],
-            ]));
+            if ($uploadedNewLogo) {
+                Storage::disk('public')->delete(array_values(array_filter(array_unique([
+                    $logo['original_path'],
+                    $logo['optimized_path'],
+                ]))));
+            }
             throw ValidationException::withMessages([
                 $result['field'] => $result['message'],
             ]);
@@ -256,14 +362,17 @@ class TeamRegistrationService
                 'slot_expires_at' => $expiresAt,
             ]);
 
+            $now = now();
             $payment = Payment::create([
                 'invoice_number' => $this->generateInvoiceNumber($lockedEvent),
                 'team_id' => $lockedTeam->id,
                 'event_id' => $lockedEvent->id,
+                'billing_snapshot' => $this->invoiceService->buildSnapshot($lockedEvent, $lockedTeam, null, $lockedTeam->manager),
                 'amount' => $lockedEvent->registration_fee,
                 'gateway_fee' => 0,
                 'total_amount' => $lockedEvent->registration_fee,
                 'expires_at' => $expiresAt,
+                'issued_at' => $now,
                 'status' => 'unpaid',
             ]);
 
@@ -286,16 +395,6 @@ class TeamRegistrationService
 
     public function generateInvoiceNumber(Event $lockedEvent): string
     {
-        $year = now()->format('Y');
-        $evtCode = 'EVT'.str_pad((string) $lockedEvent->id, 2, '0', STR_PAD_LEFT);
-        $seq = Payment::withTrashed()->where('event_id', $lockedEvent->id)->count() + 1;
-
-        do {
-            $candidate = sprintf('INV-%s-%s-%04d', $year, $evtCode, $seq);
-            $exists = Payment::withTrashed()->where('invoice_number', $candidate)->exists();
-            $seq++;
-        } while ($exists);
-
-        return $candidate;
+        return $this->invoiceService->generateNumber($lockedEvent);
     }
 }

@@ -512,5 +512,58 @@ class SimulationModuleTest extends TestCase
         $this->assertSame('passed', $participant->screening_status);
         $this->assertSame('active', $participant->status);
     }
+
+    public function test_simulation_multi_registration_persona_creates_active_and_past_teams_and_auditions(): void
+    {
+        $service = app(SimulationService::class);
+        $data = $service->simulateMultiRegistrationPersona();
+
+        $user = $data['user'];
+        $activeTeam = $data['active_team'];
+        $pastTeam = $data['past_team'];
+        $activeAudition = $data['active_audition'];
+        $pastAudition = $data['past_audition'];
+
+        // User assertions
+        $this->assertNotNull($user);
+        $this->assertTrue($user->hasRole('team_manager'));
+        $this->assertTrue($user->hasRole('participant_parent'));
+
+        // Active Team assertions
+        $this->assertSame('locked_roster', $activeTeam->status);
+        $this->assertNotSame('completed', $activeTeam->event->status);
+        $this->assertSame($user->id, $activeTeam->user_id);
+        $this->assertSame('paid', $activeTeam->latestPayment?->status);
+
+        // Past Team assertions
+        $this->assertSame('locked_roster', $pastTeam->status);
+        $this->assertSame('completed', $pastTeam->event->status);
+        $this->assertSame($user->id, $pastTeam->user_id);
+        $this->assertSame('paid', $pastTeam->latestPayment?->status);
+
+        // Active Audition assertions
+        $this->assertSame('passed', $activeAudition->screening_status);
+        $this->assertSame('registered', $activeAudition->stage_status);
+        $this->assertNotSame('completed', $activeAudition->event->status);
+        $this->assertSame($user->id, $activeAudition->user_id);
+        $this->assertTrue($activeAudition->canDownloadBib());
+
+        // Past Audition assertions
+        $this->assertSame('passed', $pastAudition->screening_status);
+        $this->assertSame('final_selected', $pastAudition->stage_status);
+        $this->assertSame('completed', $pastAudition->event->status);
+        $this->assertSame($user->id, $pastAudition->user_id);
+        $this->assertTrue($pastAudition->canDownloadCertificate());
+
+        // Test switch persona endpoint
+        $response = $this->actingAs($this->superadmin)
+            ->post(route('simulation.switch-persona'), [
+                'role' => 'dual_manager_parent',
+            ]);
+
+        $response->assertRedirect(route('manager.dashboard'));
+        $response->assertSessionHas('success');
+        $this->assertAuthenticatedAs($user);
+    }
 }
 

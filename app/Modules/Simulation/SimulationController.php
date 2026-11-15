@@ -52,11 +52,25 @@ class SimulationController extends Controller
         $this->ensureSimulationEnabled();
 
         $validated = $request->validate([
-            'role' => ['required', 'string', 'in:superadmin,finance,screening_officer,team_manager,scout,talent_scout,participant_parent'],
+            'role' => ['required', 'string', 'in:superadmin,finance,screening_officer,team_manager,scout,talent_scout,participant_parent,dual_manager_parent'],
             'team_id' => ['nullable', 'integer', 'exists:teams,id'],
         ]);
 
         $role = $validated['role'];
+
+        if ($role === 'dual_manager_parent') {
+            $data = $this->simulationService->simulateMultiRegistrationPersona();
+            $user = $data['user'];
+
+            Auth::login($user);
+            $request->session()->regenerate();
+            if (! empty($data['active_team'])) {
+                $request->session()->put('active_manager_team_id', $data['active_team']->id);
+            }
+
+            return redirect()->route('manager.dashboard')
+                ->with('success', "[SIMULASI] Beralih ke Akun Multi-Pendaftaran: {$user->name} ({$user->email}) - Memiliki Tim Aktif & Selesai serta Anak Audisi Aktif & Selesai.");
+        }
 
         if ($role === 'team_manager') {
             $team = ! empty($validated['team_id'])

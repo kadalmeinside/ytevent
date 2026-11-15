@@ -220,7 +220,7 @@ onUnmounted(() => {
                             type="text"
                             v-model="inputCode"
                             placeholder="Scan Barcode / Ketik Kode Akreditasi (Contoh: YT-E01-PL0001 atau OFF-0001)..."
-                            class="form-input text-xs w-full py-2.5 font-mono uppercase tracking-wider"
+                            class="input-field font-mono uppercase tracking-wider"
                             autofocus
                         />
                         <button
@@ -257,9 +257,36 @@ onUnmounted(() => {
                 </div>
             </div>
 
+            <!-- ================= RESULT INSPECTION SKELETON ================= -->
+            <div
+                v-if="isLoading"
+                role="status"
+                aria-live="polite"
+                aria-busy="true"
+                class="frosted-card rounded-3xl p-6 sm:p-8 bg-white border border-slate-200 space-y-6"
+            >
+                <span class="sr-only">Memeriksa data akreditasi...</span>
+                <div class="skeleton-block h-12 w-full rounded-2xl" aria-hidden="true" />
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-6 items-center" aria-hidden="true">
+                    <div class="sm:col-span-1 flex flex-col items-center space-y-2">
+                        <div class="skeleton-block w-28 h-36 rounded-2xl" />
+                        <div class="skeleton-block h-3 w-20" />
+                    </div>
+                    <div class="sm:col-span-3 space-y-3">
+                        <div class="skeleton-block h-3 w-24" />
+                        <div class="skeleton-block h-7 w-2/3" />
+                        <div class="skeleton-block h-3.5 w-1/2" />
+                        <div class="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100">
+                            <div class="skeleton-block h-4 w-4/5" />
+                            <div class="skeleton-block h-4 w-3/5" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- ================= RESULT INSPECTION CARD ================= -->
             <div
-                v-if="result"
+                v-else-if="result"
                 class="rounded-3xl p-6 sm:p-8 border-2 shadow-xl transition-all"
                 :class="result.is_eligible
                     ? 'bg-emerald-500/10 border-emerald-500 text-slate-900'

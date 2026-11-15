@@ -35,7 +35,10 @@ class AuditionBibPdfService
     public function generateBibPdf(AuditionParticipant $participant): \Barryvdh\DomPDF\PDF
     {
         if (! $participant->canDownloadBib()) {
-            throw new HttpException(403, 'Digital Pass (E-Tiket) belum dapat diunduh. Pastikan pembayaran telah lunas dan berkas screening telah disetujui panitia.');
+            $message = in_array($participant->event?->status, ['completed', 'cancelled'], true)
+                ? 'Kegiatan telah berakhir atau diarsipkan sehingga Digital Pass (E-Tiket) tidak lagi berlaku untuk diunduh.'
+                : 'Digital Pass (E-Tiket) belum dapat diunduh. Pastikan pembayaran telah lunas dan berkas screening telah disetujui panitia.';
+            throw new HttpException(403, $message);
         }
 
         $participant->loadMissing([

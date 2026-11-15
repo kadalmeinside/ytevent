@@ -140,7 +140,15 @@ const executeReject = () => {
                             <span class="font-bold tabular-data text-slate-900 text-sm font-mono">{{ item.invoice_number }}</span>
                             <StatusBadge :status="item.status" />
                         </div>
-                        <p class="font-semibold text-slate-800 text-sm">{{ item.team?.name }}</p>
+                        <div class="flex items-center gap-1.5">
+                            <p class="font-semibold text-slate-800 text-sm truncate">{{ item.payer?.name || item.team?.name }}</p>
+                            <span
+                                class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase shrink-0"
+                                :class="item.payer?.subject_type === 'individual' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-slate-100 text-slate-600 border border-slate-200'"
+                            >
+                                {{ item.payer?.subject_type === 'individual' ? 'Individu' : 'Tim' }}
+                            </span>
+                        </div>
                         <p class="text-[11px] text-slate-500">{{ item.event?.name }}</p>
                         <div class="mt-2 pt-2 border-t border-slate-200/60 flex items-center justify-between">
                             <span class="text-slate-500">{{ item.sender_bank_name }} a.n {{ item.sender_account_holder }}</span>
@@ -156,9 +164,24 @@ const executeReject = () => {
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
                         <div>
                             <span class="text-[11px] font-semibold text-slate-500 uppercase">Verifikasi Tagihan</span>
-                            <h2 class="text-lg font-bold text-slate-900 tabular-data font-mono">{{ selectedPayment.invoice_number }}</h2>
-                            <p class="text-xs text-slate-600">
-                                Klub: <strong>{{ selectedPayment.team?.name }}</strong> &bull; Manajer: {{ selectedPayment.team?.manager_name }} ({{ selectedPayment.team?.manager_whatsapp }})
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h2 class="text-lg font-bold text-slate-900 tabular-data font-mono">{{ selectedPayment.invoice_number }}</h2>
+                                <a
+                                    v-if="selectedPayment.invoice_url"
+                                    :href="selectedPayment.invoice_url"
+                                    target="_blank"
+                                    class="btn-sm-secondary text-[11px]"
+                                >
+                                    Unduh Invoice PDF
+                                </a>
+                            </div>
+                            <p class="text-xs text-slate-600 mt-0.5">
+                                {{ selectedPayment.payer?.subject_type === 'individual' ? 'Peserta' : 'Klub' }}:
+                                <strong>{{ selectedPayment.payer?.name || selectedPayment.team?.name }}</strong>
+                                &bull; PJ: {{ selectedPayment.payer?.contact_name || selectedPayment.team?.manager_name || '-' }}
+                                <template v-if="selectedPayment.payer?.contact_phone || selectedPayment.team?.manager_whatsapp">
+                                    ({{ selectedPayment.payer?.contact_phone || selectedPayment.team?.manager_whatsapp }})
+                                </template>
                             </p>
                         </div>
                         <div class="text-left sm:text-right">
@@ -243,7 +266,7 @@ const executeReject = () => {
             <div class="bg-white/95 backdrop-blur-xl border border-slate-200 rounded-xl shadow-xl max-w-md w-full p-6">
                 <h3 class="text-base font-bold text-slate-900">Tolak Bukti Pembayaran Manual</h3>
                 <p class="text-xs text-slate-600 mt-1">
-                    Invoice: <strong class="tabular-data font-mono">{{ selectedPayment?.invoice_number }}</strong> &mdash; {{ selectedPayment?.team?.name }}
+                    Invoice: <strong class="tabular-data font-mono">{{ selectedPayment?.invoice_number }}</strong> &mdash; {{ selectedPayment?.payer?.name || selectedPayment?.team?.name }}
                 </p>
 
                 <div class="mt-4">

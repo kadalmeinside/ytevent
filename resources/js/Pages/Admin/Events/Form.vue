@@ -51,6 +51,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    tncVersions: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const isEdit = computed(() => Boolean(props.event?.id));
@@ -147,6 +151,12 @@ const form = useForm({
         : [],
     contact_person: props.event?.contact_person || '',
     contact_whatsapp: props.event?.contact_whatsapp || '',
+    tnc_mode: 'existing',
+    tnc_version_id: props.event?.tnc_version_id || null,
+    tnc_code: '',
+    tnc_title: '',
+    tnc_summary: '',
+    tnc_content: '',
     status: props.event?.status || 'draft',
     banner_file: null,
     regulation_pdf: null,
@@ -158,6 +168,49 @@ const isIndividual = computed(() => form.participant_type === 'individual');
 const isAudition = computed(() => isIndividual.value && form.event_type === 'audition');
 const isCoachingClinic = computed(() => isIndividual.value && form.event_type === 'coaching_clinic');
 const isFestival = computed(() => form.event_type === 'festival');
+
+const recommendedTncScope = computed(() => {
+    if (!isIndividual.value) return 'team';
+    return isCoachingClinic.value ? 'coaching_clinic' : 'audition';
+});
+
+const defaultTncOption = computed(() => {
+    const scopeMatch = props.tncVersions.find((item) => item.scope === recommendedTncScope.value);
+    return scopeMatch || props.tncVersions[0] || null;
+});
+
+if (!form.tnc_version_id && defaultTncOption.value) {
+    form.tnc_version_id = defaultTncOption.value.id;
+}
+
+const selectedTnc = computed(() => {
+    const id = Number(form.tnc_version_id || defaultTncOption.value?.id || 0);
+    return props.tncVersions.find((item) => Number(item.id) === id) || defaultTncOption.value;
+});
+
+const tncScopeLabel = (scope) => ({
+    team: 'Kompetisi Tim',
+    audition: 'Audisi / Seleksi',
+    coaching_clinic: 'Coaching Clinic',
+    individual: 'Umum Perorangan',
+    all: 'Semua Jenis Event',
+}[scope] || scope);
+
+const switchToNewTncMode = (cloneSelected = false) => {
+    form.tnc_mode = 'new';
+    if (cloneSelected && selectedTnc.value) {
+        form.tnc_code = selectedTnc.value.code;
+        form.tnc_title = selectedTnc.value.title;
+        form.tnc_summary = selectedTnc.value.summary || '';
+        form.tnc_content = selectedTnc.value.content_html || '';
+    } else if (!form.tnc_title) {
+        form.tnc_code = '';
+        form.tnc_title = '';
+        form.tnc_summary = '';
+        form.tnc_content = '';
+    }
+    form.clearErrors('tnc_title', 'tnc_content', 'tnc_version_id');
+};
 
 const ageLimitSummary = computed(() => formatBirthDateRange(form.min_birth_date, form.max_birth_date));
 
@@ -316,9 +369,38 @@ const customFieldTypes = [
     { value: 'url', label: 'URL / tautan' },
 ];
 
+const scrollToSection = (sectionId) => {
+    const el = document.getElementById(sectionId);
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+};
+
+const slugifyFieldKey = (value) => {
+    return String(value || '')
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+};
+
+const manualCustomKeyFields = new WeakSet();
+
+const onCustomFieldLabelInput = (field, index) => {
+    if (!manualCustomKeyFields.has(field)) {
+        const slug = slugifyFieldKey(field.label);
+        field.key = slug || `kolom_${index + 1}`;
+    }
+};
+
+const onCustomFieldKeyInput = (field) => {
+    manualCustomKeyFields.add(field);
+};
+
 const addCustomField = () => {
+    const nextIdx = form.custom_fields_schema.length + 1;
     form.custom_fields_schema.push({
-        key: `field_${Date.now()}`,
+        key: `kolom_${nextIdx}`,
         label: '',
         type: 'text',
         options: [],
@@ -383,6 +465,15 @@ const submit = () => {
         
         if (isEmpty(form.required_documents) || form.required_documents.length === 0) {
             errs.required_documents = 'Pilih minimal satu jenis dokumen kelengkapan wajib untuk screening.';
+        }
+        if (form.tnc_mode === 'new') {
+            if (isEmpty(form.tnc_title)) {
+                errs.tnc_title = 'Judul dokumen Syarat & Ketentuan wajib diisi.';
+            }
+            const strippedTncContent = String(form.tnc_content || '').replace(/<[^>]+>/g, '').trim();
+            if (!strippedTncContent) {
+                errs.tnc_content = 'Isi dokumen Syarat & Ketentuan wajib diisi.';
+            }
         }
         return errs;
     });
@@ -449,13 +540,15 @@ const submit = () => {
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <!-- Card 1: Turnamen Tim Beregu -->
-                    <div
-                        @click="!isEdit && selectParticipantType('team')"
-                        class="p-4 rounded-xl border-2 transition-all relative"
+                    <button
+                        type="button"
+                        :disabled="isEdit"
+                        @click="selectParticipantType('team')"
+                        class="text-left p-4 rounded-xl border-2 transition-all relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
                         :class="[
                             !isIndividual
-                                ? 'border-orange-600 bg-orange-50/20 shadow-sm'
-                                : 'border-slate-200 bg-slate-50/60 hover:bg-white hover:border-slate-300 opacity-75',
+                                ? 'border-orange-600 bg-orange-50/30 shadow-sm'
+                                : 'border-slate-200 bg-slate-50/60 hover:bg-white hover:border-slate-300 opacity-85',
                             isEdit ? 'cursor-not-allowed' : 'cursor-pointer'
                         ]"
                     >
@@ -478,16 +571,18 @@ const submit = () => {
                         <p class="text-[11px] text-slate-600 mt-2.5 leading-relaxed">
                             Pendaftaran per tim, pembagian grup &amp; bagan gugur, susunan DSP starting lineup (11v11 / 7v7), jadwal tanding, dan klasemen/top score.
                         </p>
-                    </div>
+                    </button>
 
                     <!-- Card 2: Individu / Perorangan -->
-                    <div
-                        @click="!isEdit && selectParticipantType('individual')"
-                        class="p-4 rounded-xl border-2 transition-all relative"
+                    <button
+                        type="button"
+                        :disabled="isEdit"
+                        @click="selectParticipantType('individual')"
+                        class="text-left p-4 rounded-xl border-2 transition-all relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
                         :class="[
                             isIndividual
-                                ? 'border-orange-600 bg-orange-50/20 shadow-sm'
-                                : 'border-slate-200 bg-slate-50/60 hover:bg-white hover:border-slate-300 opacity-75',
+                                ? 'border-orange-600 bg-orange-50/30 shadow-sm'
+                                : 'border-slate-200 bg-slate-50/60 hover:bg-white hover:border-slate-300 opacity-85',
                             isEdit ? 'cursor-not-allowed' : 'cursor-pointer'
                         ]"
                     >
@@ -510,16 +605,64 @@ const submit = () => {
                         <p class="text-[11px] text-slate-600 mt-2.5 leading-relaxed">
                             Pendaftaran mandiri peserta, form preset profil (posisi, antropometri, SSB asal), Digital Pass (E-Tiket) QR, presensi gerbang, dan sertifikat partisipasi atau seleksi.
                         </p>
-                    </div>
+                    </button>
                 </div>
             </div>
 
             <div class="frosted-card p-6 sm:p-8">
+                <nav
+                    aria-label="Navigasi bagian formulir event"
+                    class="sticky top-16 z-20 -mx-6 sm:-mx-8 -mt-6 sm:-mt-8 mb-6 px-6 sm:px-8 py-2.5 bg-white/95 border-b border-slate-200 rounded-t-2xl flex items-center gap-1.5 overflow-x-auto"
+                >
+                    <button
+                        type="button"
+                        @click="scrollToSection('section-basic')"
+                        class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:text-orange-700 hover:bg-orange-50 transition-colors whitespace-nowrap"
+                    >
+                        1. Info Dasar
+                    </button>
+                    <button
+                        type="button"
+                        @click="scrollToSection('section-quota')"
+                        class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:text-orange-700 hover:bg-orange-50 transition-colors whitespace-nowrap"
+                    >
+                        2. Kuota &amp; Biaya
+                    </button>
+                    <button
+                        type="button"
+                        @click="scrollToSection('section-eligibility')"
+                        class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:text-orange-700 hover:bg-orange-50 transition-colors whitespace-nowrap"
+                    >
+                        3. Usia &amp; Dokumen
+                    </button>
+                    <button
+                        type="button"
+                        @click="scrollToSection('section-presets')"
+                        class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:text-orange-700 hover:bg-orange-50 transition-colors whitespace-nowrap"
+                    >
+                        4. Form Peserta
+                    </button>
+                    <button
+                        type="button"
+                        @click="scrollToSection('section-schedule')"
+                        class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:text-orange-700 hover:bg-orange-50 transition-colors whitespace-nowrap"
+                    >
+                        5. Jadwal &amp; Regulasi
+                    </button>
+                    <button
+                        type="button"
+                        @click="scrollToSection('section-tnc')"
+                        class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-700 hover:text-orange-700 hover:bg-orange-50 transition-colors whitespace-nowrap"
+                    >
+                        6. Syarat &amp; Ketentuan
+                    </button>
+                </nav>
+
                 <FormErrorBanner :errors="form.errors" />
 
                 <form @submit.prevent="submit" novalidate class="space-y-6">
                     <!-- SECTION 1: INFORMASI DASAR EVENT -->
-                    <div>
+                    <div id="section-basic" class="scroll-mt-28">
                         <h2 class="text-sm font-bold text-slate-900 pb-2 border-b border-slate-200 flex items-center gap-2">
                             <span>1.</span>
                             <span>{{ isIndividual ? 'Informasi Dasar Event Perorangan' : 'Informasi Dasar Kompetisi Turnamen' }}</span>
@@ -651,7 +794,7 @@ const submit = () => {
 
                             <div data-field="venue_maps_url" class="sm:col-span-2">
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">
-                                    Link Google Maps Lokasi Lapangan <span class="text-slate-400 font-normal">(Disarankan)</span>
+                                    Link Google Maps Lokasi Lapangan <span class="text-slate-600 font-normal">(Disarankan)</span>
                                 </label>
                                 <input
                                     v-model="form.venue_maps_url"
@@ -685,7 +828,7 @@ const submit = () => {
                     </div>
 
                     <!-- SECTION 2: KEBIJAKAN KUOTA & PENGATURAN BIAYA -->
-                    <div>
+                    <div id="section-quota" class="scroll-mt-28">
                         <h2 class="text-sm font-bold text-slate-900 pb-2 border-b border-slate-200 flex items-center gap-2">
                             <span>2.</span>
                             <span>Kebijakan Kuota Pendaftaran &amp; Biaya</span>
@@ -867,7 +1010,7 @@ const submit = () => {
                                 </div>
 
                                 <div class="mt-3 grid grid-cols-2 sm:grid-cols-5 gap-3">
-                                    <div class="p-2.5 rounded-lg bg-white border border-slate-200 shadow-2xs">
+                                    <div class="p-2.5 rounded-lg bg-white border border-slate-200 shadow-sm">
                                         <label class="block text-xs font-bold text-slate-900 mb-1">
                                             GK <span class="font-normal text-slate-500 text-[11px]">(Kiper)</span>
                                         </label>
@@ -879,7 +1022,7 @@ const submit = () => {
                                             class="input-field tabular-data text-xs"
                                         />
                                     </div>
-                                    <div class="p-2.5 rounded-lg bg-white border border-slate-200 shadow-2xs">
+                                    <div class="p-2.5 rounded-lg bg-white border border-slate-200 shadow-sm">
                                         <label class="block text-xs font-bold text-slate-900 mb-1">
                                             CB <span class="font-normal text-slate-500 text-[11px]">(Bek Tengah)</span>
                                         </label>
@@ -891,7 +1034,7 @@ const submit = () => {
                                             class="input-field tabular-data text-xs"
                                         />
                                     </div>
-                                    <div class="p-2.5 rounded-lg bg-white border border-slate-200 shadow-2xs">
+                                    <div class="p-2.5 rounded-lg bg-white border border-slate-200 shadow-sm">
                                         <label class="block text-xs font-bold text-slate-900 mb-1">
                                             FB <span class="font-normal text-slate-500 text-[11px]">(Bek Sayap)</span>
                                         </label>
@@ -903,7 +1046,7 @@ const submit = () => {
                                             class="input-field tabular-data text-xs"
                                         />
                                     </div>
-                                    <div class="p-2.5 rounded-lg bg-white border border-slate-200 shadow-2xs">
+                                    <div class="p-2.5 rounded-lg bg-white border border-slate-200 shadow-sm">
                                         <label class="block text-xs font-bold text-slate-900 mb-1">
                                             MF <span class="font-normal text-slate-500 text-[11px]">(Gelandang)</span>
                                         </label>
@@ -915,7 +1058,7 @@ const submit = () => {
                                             class="input-field tabular-data text-xs"
                                         />
                                     </div>
-                                    <div class="p-2.5 rounded-lg bg-white border border-slate-200 shadow-2xs">
+                                    <div class="p-2.5 rounded-lg bg-white border border-slate-200 shadow-sm">
                                         <label class="block text-xs font-bold text-slate-900 mb-1">
                                             FW <span class="font-normal text-slate-500 text-[11px]">(Penyerang)</span>
                                         </label>
@@ -936,7 +1079,7 @@ const submit = () => {
                     </div>
 
                     <!-- SECTION 3: KELAYAKAN USIA & DOKUMEN SCREENING -->
-                    <div>
+                    <div id="section-eligibility" class="scroll-mt-28">
                         <h2 class="text-sm font-bold text-slate-900 pb-2 border-b border-slate-200 flex items-center gap-2">
                             <span>3.</span>
                             <span>{{ isIndividual ? 'Kelayakan Usia &amp; Dokumen Verifikasi Wajib' : 'Regulasi Kelayakan Usia Pemain &amp; Dokumen Skuad' }}</span>
@@ -1140,7 +1283,7 @@ const submit = () => {
                     </div>
 
                     <!-- SECTION 4: KUSTOMISASI FORMULIR PENDAFTARAN PESERTA (FORM PRESETS) -->
-                    <div :class="isIndividual ? 'p-5 rounded-xl bg-slate-50 border border-slate-200' : ''">
+                    <div id="section-presets" class="scroll-mt-28" :class="isIndividual ? 'p-5 rounded-xl bg-slate-50 border border-slate-200' : ''">
                         <div class="flex items-center justify-between pb-2 border-b border-slate-200">
                             <h2 class="text-sm font-bold text-slate-900 flex items-center gap-2">
                                 <span>4.</span>
@@ -1273,34 +1416,71 @@ const submit = () => {
                         <div v-if="form.custom_fields_schema.length" class="mt-4 space-y-3">
                             <div
                                 v-for="(field, index) in form.custom_fields_schema"
-                                :key="field.key || index"
-                                class="grid grid-cols-1 md:grid-cols-12 gap-2 p-3 rounded-lg bg-slate-50 border border-slate-200"
+                                :key="index"
+                                class="grid grid-cols-1 md:grid-cols-12 gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200 items-end"
                             >
-                                <input v-model="field.key" type="text" class="input-field md:col-span-2" placeholder="Kunci unik" />
-                                <input v-model="field.label" type="text" class="input-field md:col-span-3" placeholder="Label pertanyaan" />
-                                <select v-model="field.type" class="input-field md:col-span-2">
-                                    <option v-for="type in customFieldTypes" :key="type.value" :value="type.value">{{ type.label }}</option>
-                                </select>
-                                <input
-                                    v-if="field.type === 'select' || field.type === 'radio'"
-                                    :value="Array.isArray(field.options) ? field.options.join(', ') : field.options"
-                                    type="text"
-                                    class="input-field md:col-span-3"
-                                    placeholder="Pilihan dipisah koma"
-                                    @input="field.options = $event.target.value"
-                                    @blur="normalizeCustomOptions(field)"
-                                />
-                                <label class="flex items-center gap-1 text-[11px] text-slate-700 md:col-span-1">
-                                    <input v-model="field.required" type="checkbox" class="rounded border-slate-300 text-orange-600" />
-                                    Wajib
-                                </label>
-                                <button type="button" class="text-rose-700 text-xs font-semibold md:col-span-1" @click="removeCustomField(index)">Hapus</button>
+                                <div class="md:col-span-3">
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1">Label Pertanyaan</label>
+                                    <input
+                                        v-model="field.label"
+                                        type="text"
+                                        class="input-field text-xs"
+                                        placeholder="Contoh: Nomor Darurat Ortu"
+                                        @input="onCustomFieldLabelInput(field, index)"
+                                    />
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1">Tipe Input</label>
+                                    <select v-model="field.type" class="input-field text-xs">
+                                        <option v-for="type in customFieldTypes" :key="type.value" :value="type.value">{{ type.label }}</option>
+                                    </select>
+                                </div>
+                                <div class="md:col-span-3">
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1">
+                                        {{ field.type === 'select' || field.type === 'radio' ? 'Pilihan (Pisahkan Koma)' : 'Opsi Tambahan' }}
+                                    </label>
+                                    <input
+                                        v-if="field.type === 'select' || field.type === 'radio'"
+                                        :value="Array.isArray(field.options) ? field.options.join(', ') : field.options"
+                                        type="text"
+                                        class="input-field text-xs"
+                                        placeholder="Contoh: Kanan, Kiri, Keduanya"
+                                        @input="field.options = $event.target.value"
+                                        @blur="normalizeCustomOptions(field)"
+                                    />
+                                    <div v-else class="h-[38px] px-3 rounded-lg border border-slate-200 bg-slate-100/70 text-[11px] text-slate-600 flex items-center">
+                                        Tidak perlu daftar pilihan
+                                    </div>
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="block text-[11px] font-semibold text-slate-700 mb-1">Kunci Sistem</label>
+                                    <input
+                                        v-model="field.key"
+                                        type="text"
+                                        class="input-field font-mono text-[11px]"
+                                        placeholder="otomatis_dari_label"
+                                        @input="onCustomFieldKeyInput(field)"
+                                    />
+                                </div>
+                                <div class="md:col-span-2 flex items-center justify-between gap-2 pb-1">
+                                    <label class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 cursor-pointer">
+                                        <input v-model="field.required" type="checkbox" class="rounded border-slate-300 text-orange-600 focus:ring-orange-500" />
+                                        <span>Wajib</span>
+                                    </label>
+                                    <button
+                                        type="button"
+                                        class="min-h-[36px] px-2.5 py-1 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-semibold transition-colors"
+                                        @click="removeCustomField(index)"
+                                    >
+                                        Hapus
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- SECTION 5: JADWAL PELAKSANAAN & BERKAS RESMI -->
-                    <div>
+                    <div id="section-schedule" class="scroll-mt-28">
                         <h2 class="text-sm font-bold text-slate-900 pb-2 border-b border-slate-200 flex items-center gap-2">
                             <span>5.</span>
                             <span>Jadwal Pelaksanaan &amp; Berkas Regulasi</span>
@@ -1386,7 +1566,7 @@ const submit = () => {
                                             </div>
                                             <button
                                                 type="button"
-                                                class="text-xs font-semibold text-rose-700 hover:underline"
+                                                class="min-h-[34px] px-2.5 py-1 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-xs font-semibold text-rose-700 transition-colors"
                                                 @click="removeStage(idx)"
                                             >
                                                 Hapus
@@ -1470,11 +1650,145 @@ const submit = () => {
                         </div>
                     </div>
 
-                    <div class="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
-                        <Link :href="route('admin.events.index')" class="btn-secondary">Batal</Link>
-                        <button type="submit" class="btn-pitch" :disabled="form.processing">
-                            {{ form.processing ? 'Menyimpan...' : (isEdit ? 'Perbarui Pengaturan Event' : 'Simpan &amp; Publikasikan Event') }}
-                        </button>
+                    <!-- Seksi TnC Versioning -->
+                    <div id="section-tnc" class="scroll-mt-28 pt-5 border-t border-slate-200 space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <div>
+                                <h3 class="text-sm font-bold text-slate-900">
+                                    Syarat &amp; Ketentuan Event (TnC Versioning)
+                                </h3>
+                                <p class="text-xs text-slate-500 mt-0.5">
+                                    Peserta wajib membaca isi dokumen di modal sebelum dapat menyetujui pendaftaran. Setiap perubahan dibuat sebagai versi baru (immutable).
+                                </p>
+                            </div>
+                            <div class="inline-flex rounded-xl p-1 bg-slate-100 border border-slate-200 shrink-0 self-start">
+                                <button
+                                    type="button"
+                                    class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                                    :class="form.tnc_mode === 'existing' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'"
+                                    @click="form.tnc_mode = 'existing'"
+                                >
+                                    Pilih Versi Tersedia
+                                </button>
+                                <button
+                                    type="button"
+                                    class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                                    :class="form.tnc_mode === 'new' ? 'bg-white text-orange-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'"
+                                    @click="switchToNewTncMode(false)"
+                                >
+                                    Buat Versi Baru
+                                </button>
+                            </div>
+                        </div>
+
+                        <div v-if="form.tnc_mode === 'existing'" class="space-y-3">
+                            <div class="flex flex-col sm:flex-row gap-2.5">
+                                <div class="flex-1">
+                                    <select
+                                        v-model="form.tnc_version_id"
+                                        class="input-field"
+                                        @change="form.clearErrors('tnc_version_id')"
+                                    >
+                                        <option v-for="tnc in tncVersions" :key="tnc.id" :value="tnc.id">
+                                            {{ tnc.title }} (v{{ tnc.version }}) - {{ tncScopeLabel(tnc.scope) }}
+                                        </option>
+                                    </select>
+                                    <InputError :message="form.errors.tnc_version_id" />
+                                </div>
+                                <button
+                                    v-if="selectedTnc"
+                                    type="button"
+                                    class="btn-secondary text-xs shrink-0"
+                                    @click="switchToNewTncMode(true)"
+                                >
+                                    Revisi dari Versi Ini (Bump Versi)
+                                </button>
+                            </div>
+
+                            <div v-if="selectedTnc" class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+                                <div class="flex flex-wrap items-center gap-2 text-xs">
+                                    <span class="px-2 py-0.5 rounded-md font-bold bg-orange-100 text-orange-800 border border-orange-200">
+                                        v{{ selectedTnc.version }}
+                                    </span>
+                                    <span class="font-semibold text-slate-800">{{ selectedTnc.title }}</span>
+                                    <span class="font-mono text-[11px] text-slate-600">({{ selectedTnc.code }})</span>
+                                </div>
+                                <p v-if="selectedTnc.summary" class="text-xs text-slate-600 leading-relaxed">
+                                    <span class="font-semibold text-slate-700">Teks Checkbox:</span> {{ selectedTnc.summary }}
+                                </p>
+                                <div
+                                    class="max-h-36 overflow-y-auto p-3 rounded-lg bg-white border border-slate-200 text-xs text-slate-600 rich-text-content"
+                                    v-html="selectedTnc.content_html"
+                                />
+                            </div>
+                        </div>
+
+                        <div v-else class="p-4 rounded-xl bg-orange-50/40 border border-orange-200/80 space-y-3.5">
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div class="sm:col-span-2">
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1">
+                                        Judul Dokumen Syarat &amp; Ketentuan *
+                                    </label>
+                                    <input
+                                        v-model="form.tnc_title"
+                                        type="text"
+                                        placeholder="Contoh: Syarat & Ketentuan Audisi Nasional 2026"
+                                        class="input-field"
+                                        @input="form.clearErrors('tnc_title')"
+                                    />
+                                    <InputError :message="form.errors.tnc_title" />
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1">
+                                        Kode Dokumen (Grouping Versi)
+                                    </label>
+                                    <input
+                                        v-model="form.tnc_code"
+                                        type="text"
+                                        placeholder="Otomatis dari judul"
+                                        class="input-field font-mono text-xs"
+                                    />
+                                    <p class="text-[11px] text-slate-500 mt-0.5">
+                                        Kode sama otomatis menaikkan versi (v2.0, v3.0, dst).
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">
+                                    Ringkasan Teks di Samping Checkbox Persetujuan (Opsional)
+                                </label>
+                                <textarea
+                                    v-model="form.tnc_summary"
+                                    rows="2"
+                                    placeholder="Kosongkan untuk teks standar otomatis. Placeholder tersedia: {{event_name}}, {{payment_deadline_hours}}"
+                                    class="input-field text-xs"
+                                />
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">
+                                    Isi Lengkap Dokumen (Ditampilkan di Modal Persetujuan) *
+                                </label>
+                                <RichTextEditor
+                                    v-model="form.tnc_content"
+                                    placeholder="Tuliskan poin-poin regulasi, pernyataan medis, atau ketentuan resmi event ini..."
+                                />
+                                <InputError :message="form.errors.tnc_content" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sticky bottom-0 z-20 -mx-6 sm:-mx-8 -mb-6 sm:-mb-8 px-6 sm:px-8 py-4 bg-white/95 border-t border-slate-200 rounded-b-2xl flex flex-wrap items-center justify-between gap-3">
+                        <span class="text-xs text-slate-600">
+                            {{ isEdit ? 'Perubahan disimpan langsung ke pengaturan event.' : 'Pastikan kuota, usia, dan dokumen regulasi sudah sesuai.' }}
+                        </span>
+                        <div class="flex items-center gap-3 ml-auto">
+                            <Link :href="route('admin.events.index')" class="btn-secondary">Batal</Link>
+                            <button type="submit" class="btn-pitch" :disabled="form.processing">
+                                {{ form.processing ? 'Menyimpan...' : (isEdit ? 'Perbarui Pengaturan Event' : 'Simpan & Publikasikan Event') }}
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>

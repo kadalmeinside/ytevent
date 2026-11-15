@@ -16,6 +16,8 @@
             || request()->is('admin/*')
             || request()->is('manager')
             || request()->is('manager/*')
+            || request()->is('scout')
+            || request()->is('scout/*')
             || request()->is('private-media/*')
             || request()->is('verify/player/*')
             || request()->is('forgot-password')
@@ -119,6 +121,25 @@
     @routes(null, \Illuminate\Support\Facades\Vite::cspNonce())
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @inertiaHead
+    @if(!$isPrivatePath)
+        @php
+            $ga4Id = trim((string) \App\Models\SystemSetting::get('ga4_measurement_id', ''));
+            $plausibleDomain = trim((string) \App\Models\SystemSetting::get('plausible_domain', ''));
+            $cspNonce = \Illuminate\Support\Facades\Vite::cspNonce() ?? '';
+        @endphp
+        @if($ga4Id !== '')
+            <script async src="https://www.googletagmanager.com/gtag/js?id={{ urlencode($ga4Id) }}" nonce="{{ $cspNonce }}"></script>
+            <script nonce="{{ $cspNonce }}">
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', @json($ga4Id), { anonymize_ip: true });
+            </script>
+        @endif
+        @if($plausibleDomain !== '')
+            <script defer data-domain="{{ $plausibleDomain }}" src="https://plausible.io/js/script.js" nonce="{{ $cspNonce }}"></script>
+        @endif
+    @endif
 </head>
 <body class="font-sans antialiased text-slate-900 selection:bg-orange-600 selection:text-white bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-orange-100/35 via-slate-50/90 to-slate-100/70 min-h-screen">
     @inertia

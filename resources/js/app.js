@@ -4,9 +4,12 @@ import '../css/app.css';
 import { createApp, h } from 'vue';
 import { createInertiaApp, Link, Head } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
+import { initNavigationLoading } from './Composables/useNavigationLoading';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Persija Development';
 window.__APP_VERSION__ = '1.0.1-persija';
+
+initNavigationLoading();
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),

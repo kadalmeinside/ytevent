@@ -271,7 +271,7 @@ const fillIndividualDomFormIfPresent = () => {
                         </label>
                         <select
                             v-model="selectedEventId"
-                            class="w-full rounded-lg bg-slate-900 border border-slate-700 text-white text-xs px-2.5 py-1.5 focus:outline-none focus:border-orange-500"
+                            class="select-dark w-full"
                         >
                             <option v-for="evt in (teamEvents.length ? teamEvents : simCtx.events)" :key="evt.id" :value="evt.id">
                                 {{ evt.name }} ({{ evt.age_category }})
@@ -285,7 +285,7 @@ const fillIndividualDomFormIfPresent = () => {
                         </label>
                         <select
                             v-model="selectedTeamId"
-                            class="w-full rounded-lg bg-slate-900 border border-slate-700 text-white text-xs px-2.5 py-1.5 focus:outline-none focus:border-orange-500"
+                            class="select-dark w-full"
                         >
                             <option v-for="t in simCtx.teams" :key="t.id" :value="t.id">
                                 #{{ t.id }} {{ t.name }} [{{ t.status }} / {{ t.screening_status }}]
@@ -467,6 +467,17 @@ const fillIndividualDomFormIfPresent = () => {
                         >
                             Login Tim Screening
                         </button>
+                        <button
+                            type="button"
+                            class="col-span-2 px-3 py-2 rounded-lg bg-gradient-to-r from-orange-950 via-slate-900 to-amber-950 hover:from-orange-900 hover:to-amber-900 border border-orange-500/50 text-[11px] font-bold text-orange-200 hover:text-white cursor-pointer text-center transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                            :disabled="isBusy"
+                            @click="runSimAction('simulation.switch-persona', { role: 'dual_manager_parent' })"
+                        >
+                            <svg class="w-3.5 h-3.5 text-orange-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            <span>Login Akun Lengkap (Tim + Audisi Aktif &amp; Lalu)</span>
+                        </button>
                     </div>
                 </div>
 
@@ -582,7 +593,7 @@ const fillIndividualDomFormIfPresent = () => {
                         </div>
                         <select
                             v-model="selectedIndividualEventId"
-                            class="w-full rounded-lg bg-slate-900 border border-slate-700 text-white text-xs px-2.5 py-1.5 focus:outline-none focus:border-orange-500"
+                            class="select-dark w-full"
                         >
                             <option
                                 v-for="evt in (individualEvents.length ? individualEvents : simCtx.events)"
@@ -686,7 +697,7 @@ const fillIndividualDomFormIfPresent = () => {
                         <span class="text-[10px] font-bold text-slate-300 uppercase">Tahap / Hari Seleksi:</span>
                         <select
                             v-model="individualStageNumber"
-                            class="rounded bg-slate-900 border border-slate-700 text-white text-[11px] px-2 py-1 focus:outline-none focus:border-orange-500"
+                            class="select-dark !h-7 text-[11px]"
                         >
                             <option :value="1">Tahap 1 / Hari Ke-1</option>
                             <option :value="2">Tahap 2 / Hari Ke-2</option>
@@ -728,7 +739,7 @@ const fillIndividualDomFormIfPresent = () => {
                             <span class="text-[10px] font-bold text-emerald-400 uppercase">Target Status Kelolosan:</span>
                             <select
                                 v-model="individualTargetAdvanceStatus"
-                                class="rounded bg-slate-900 border border-slate-700 text-white text-[11px] px-2 py-1 focus:outline-none focus:border-orange-500"
+                                class="select-dark !h-7 text-[11px]"
                             >
                                 <option value="day_1_passed">Lolos Tahap 1 (Day 1 Passed)</option>
                                 <option value="day_2_passed">Lolos Tahap 2 (Day 2 Passed)</option>
@@ -788,6 +799,17 @@ const fillIndividualDomFormIfPresent = () => {
                             @click="runSimAction('simulation.switch-persona', { role: 'superadmin' })"
                         >
                             Login Superadmin
+                        </button>
+                        <button
+                            type="button"
+                            class="col-span-2 px-3 py-2 rounded-lg bg-gradient-to-r from-orange-950 via-slate-900 to-amber-950 hover:from-orange-900 hover:to-amber-900 border border-orange-500/50 text-[11px] font-bold text-orange-200 hover:text-white cursor-pointer text-center transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                            :disabled="isBusy"
+                            @click="runSimAction('simulation.switch-persona', { role: 'dual_manager_parent' })"
+                        >
+                            <svg class="w-3.5 h-3.5 text-orange-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            <span>Login Akun Lengkap (Tim + Audisi Aktif &amp; Lalu)</span>
                         </button>
                     </div>
                 </div>

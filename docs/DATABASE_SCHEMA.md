@@ -154,3 +154,16 @@ Mencatat kehadiran peserta per tahapan seleksi/kegiatan.
 Mencatat nilai lapangan per tahap dan per pemandu bakat.
 - **Kolom Utama:** `id`, `audition_participant_id` (FK), `audition_stage_id` (nullable FK), `scout_id` (FK ke `users`), `quick_grade` (`A`, `B`, `C`), `rating_stars` (1–5), `tags` (JSON), `coach_notes`, `is_locked` (Boolean), `timestamps`.
 - **Constraint Unik:** `UNIQUE(audition_participant_id, audition_stage_id, scout_id)` (`participant_stage_scout_unique`).
+
+---
+
+## 5. Ekstensi Versi Syarat & Ketentuan (*TnC Versioning* — Fase 11)
+
+### 5.1 Tabel `tnc_versions`
+Menyimpan dokumen Syarat & Ketentuan maupun Surat Pernyataan Bebas Tanggung Jawab Medis yang bersifat *immutable* per versi (`v1.0`, `v2.0`, dst.) untuk seluruh jenis event (`team`, `audition`, `coaching_clinic`, `individual`, `all`).
+- **Kolom Utama:** `id`, `code` (`string(64)`), `title` (`string(180)`), `scope`, `version` (`string(32)`), `version_number` (`unsignedInteger`), `summary` (`string(500)`, opsional dengan placeholder `{{event_name}}` & `{{payment_deadline_hours}}`), `content` (`longText`, disanitasi via `HtmlSanitizer::clean`), `content_hash` (SHA-256), `is_active` (`boolean`), `published_at` (`timestamp`), `created_by` (FK ke `users`), `timestamps`.
+- **Constraint Unik:** `UNIQUE(code, version_number)`.
+
+### 5.2 Kolom Tautan & Audit Trail pada `events`, `teams`, dan `audition_participants`
+- **`events`:** `tnc_version_id` (nullable FK ke `tnc_versions`). Jika kosong, sistem otomatis me-resolve dokumen aktif sesuai tipe event.
+- **`teams` & `audition_participants`:** `accepted_tnc_version_id` (nullable FK ke `tnc_versions`), `accepted_tnc_version`, `accepted_tnc_hash` (SHA-256 isi final yang dilihat peserta), `accepted_ip`, dan `accepted_user_agent`.

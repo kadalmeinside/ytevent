@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import InputError from '@/Components/InputError.vue';
+import ConfirmModal from '@/Components/ConfirmModal.vue';
 
 const props = defineProps({
     event: {
@@ -269,12 +270,59 @@ const submitScore = () => {
     });
 };
 
+const tournamentPhases = [
+    { key: 'registration', step: 1, label: 'Pendaftaran' },
+    { key: 'technical_meeting', step: 2, label: 'Technical Meeting' },
+    { key: 'group_drawn', step: 3, label: 'Drawing Grup' },
+    { key: 'scheduling', step: 4, label: 'Kunci & Jadwal' },
+    { key: 'matchday', step: 5, label: 'Matchday' },
+    { key: 'completed', step: 6, label: 'Selesai' },
+];
+
+const currentPhaseIndex = computed(() => {
+    const idx = tournamentPhases.findIndex((p) => p.key === props.controls?.current_phase);
+    return idx >= 0 ? idx : 0;
+});
+
+const confirmState = ref({
+    show: false,
+    title: '',
+    description: '',
+    confirmText: 'Ya, Hapus',
+    processing: false,
+    action: null,
+});
+
+const closeConfirm = () => {
+    if (confirmState.value.processing) return;
+    confirmState.value.show = false;
+    confirmState.value.action = null;
+};
+
+const runConfirmAction = () => {
+    if (!confirmState.value.action || confirmState.value.processing) return;
+    confirmState.value.action();
+};
+
 const deleteMatch = (match) => {
-    if (confirm(`Yakin ingin menghapus Pertandingan #${match.match_number} (${match.home_team_name} vs ${match.away_team_name})?`)) {
-        router.delete(route('admin.matches.destroy', { match: match.id }), {
-            preserveScroll: true,
-        });
-    }
+    confirmState.value = {
+        show: true,
+        title: `Hapus Pertandingan #${match.match_number}?`,
+        description: `Pertandingan ${match.home_team_name} vs ${match.away_team_name} akan dihapus permanen dari jadwal turnamen.`,
+        confirmText: 'Ya, Hapus Pertandingan',
+        processing: false,
+        action: () => {
+            confirmState.value.processing = true;
+            router.delete(route('admin.matches.destroy', { match: match.id }), {
+                preserveScroll: true,
+                onFinish: () => {
+                    confirmState.value.processing = false;
+                    confirmState.value.show = false;
+                    confirmState.value.action = null;
+                },
+            });
+        },
+    };
 };
 
 const submitAnnouncement = () => {
@@ -288,11 +336,24 @@ const submitAnnouncement = () => {
 };
 
 const deleteAnnouncement = (announcement) => {
-    if (confirm(`Hapus pengumuman "${announcement.title}"?`)) {
-        router.delete(route('admin.announcements.destroy', { announcement: announcement.id }), {
-            preserveScroll: true,
-        });
-    }
+    confirmState.value = {
+        show: true,
+        title: 'Hapus Pengumuman?',
+        description: `Pengumuman "${announcement.title}" akan dihapus dan tidak lagi tampil di dashboard manajer tim.`,
+        confirmText: 'Ya, Hapus Pengumuman',
+        processing: false,
+        action: () => {
+            confirmState.value.processing = true;
+            router.delete(route('admin.announcements.destroy', { announcement: announcement.id }), {
+                preserveScroll: true,
+                onFinish: () => {
+                    confirmState.value.processing = false;
+                    confirmState.value.show = false;
+                    confirmState.value.action = null;
+                },
+            });
+        },
+    };
 };
 
 const openAchievementModal = (team) => {
@@ -334,12 +395,16 @@ const filteredMatches = computed(() => {
         <div class="space-y-6">
             <!-- Top Navigation / Breadcrumb -->
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div class="flex items-center gap-2 text-xs">
-                    <Link :href="route('admin.events.index')" class="text-slate-500 hover:text-orange-600 transition-colors font-medium">
-                        &larr; Kembali ke Daftar Event
+                <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <Link :href="route('admin.events.index')" class="text-slate-600 hover:text-orange-600 transition-colors font-medium">
+                        &larr; Daftar Event
                     </Link>
-                    <span class="text-slate-300">/</span>
-                    <span class="font-bold text-slate-800">{{ event.name }}</span>
+                    <span class="text-slate-400">/</span>
+                    <Link :href="route('admin.events.show', { event: event.id })" class="text-slate-600 hover:text-orange-600 transition-colors font-medium">
+                        Kelola Event
+                    </Link>
+                    <span class="text-slate-400">/</span>
+                    <span class="font-bold text-slate-900">{{ event.name }}</span>
                 </div>
                 <div class="flex items-center gap-2">
                     <Link
@@ -366,7 +431,7 @@ const filteredMatches = computed(() => {
 
             <!-- Banner SOP Siklus Operasional Turnamen -->
             <div
-                class="rounded-2xl border p-4 sm:p-5 transition-all shadow-2xs"
+                class="rounded-2xl border p-4 sm:p-5 transition-all shadow-sm"
                 :class="{
                     'bg-amber-50/90 border-amber-300 text-amber-950': controls?.current_phase === 'registration',
                     'bg-sky-50/90 border-sky-300 text-sky-950': controls?.current_phase === 'technical_meeting',
@@ -379,7 +444,7 @@ const filteredMatches = computed(() => {
                 <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div class="flex items-start gap-3">
                         <span
-                            class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-black text-xs shadow-xs"
+                            class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-black text-xs shadow-sm"
                             :class="{
                                 'bg-amber-500 text-white': controls?.current_phase === 'registration',
                                 'bg-sky-600 text-white': controls?.current_phase === 'technical_meeting',
@@ -394,14 +459,14 @@ const filteredMatches = computed(() => {
                             <span v-else-if="controls?.current_phase === 'group_drawn'">3</span>
                             <span v-else-if="controls?.current_phase === 'scheduling'">4</span>
                             <span v-else-if="controls?.current_phase === 'matchday'">5</span>
-                            <svg v-else class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg v-else class="w-4 h-4 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
                             </svg>
                         </span>
                         <div class="space-y-1">
                             <div class="flex flex-wrap items-center gap-2">
                                 <span
-                                    class="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full"
+                                    class="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md"
                                     :class="{
                                         'bg-amber-200/90 text-amber-900': controls?.current_phase === 'registration',
                                         'bg-sky-200/90 text-sky-900': controls?.current_phase === 'technical_meeting',
@@ -446,51 +511,98 @@ const filteredMatches = computed(() => {
                         </div>
                     </div>
                     <div class="flex items-center gap-2 self-start md:self-center shrink-0">
-                        <span class="text-[11px] font-mono font-bold px-2.5 py-1 rounded-lg bg-black/10">
+                        <span
+                            class="text-[11px] font-mono font-bold px-2.5 py-1 rounded-lg tabular-data"
+                            :class="controls?.current_phase === 'completed' ? 'bg-white/10 text-slate-200' : 'bg-black/10 text-slate-900'"
+                        >
                             Tim Sah: {{ eligibleTeams.length }} / {{ event.max_teams }}
                         </span>
+                    </div>
+                </div>
+
+                <!-- 6-Phase Tournament SOP Progress Stepper -->
+                <div
+                    class="mt-4 pt-3 border-t grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2"
+                    :class="controls?.current_phase === 'completed' ? 'border-slate-700' : 'border-black/10'"
+                >
+                    <div
+                        v-for="(phase, idx) in tournamentPhases"
+                        :key="phase.key"
+                        class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors"
+                        :class="[
+                            idx < currentPhaseIndex
+                                ? (controls?.current_phase === 'completed' ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-200' : 'bg-white/80 border-emerald-300 text-emerald-900')
+                                : (idx === currentPhaseIndex
+                                    ? (controls?.current_phase === 'completed' ? 'bg-amber-400 border-amber-300 text-slate-950 font-bold' : 'bg-slate-900 border-slate-900 text-white font-bold shadow-sm')
+                                    : (controls?.current_phase === 'completed' ? 'bg-slate-800/60 border-slate-700 text-slate-300' : 'bg-white/40 border-black/10 text-slate-600'))
+                        ]"
+                    >
+                        <span
+                            class="w-4 h-4 rounded flex items-center justify-center text-[10px] font-black shrink-0"
+                            :class="[
+                                idx < currentPhaseIndex
+                                    ? 'bg-emerald-600 text-white'
+                                    : (idx === currentPhaseIndex ? 'bg-orange-500 text-white' : 'bg-black/10 text-current')
+                            ]"
+                        >
+                            <svg v-if="idx < currentPhaseIndex" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span v-else>{{ phase.step }}</span>
+                        </span>
+                        <span class="truncate">{{ phase.label }}</span>
                     </div>
                 </div>
             </div>
 
             <!-- Tab Navigation Bar -->
-            <div class="frosted-card p-1.5 flex items-center gap-1 overflow-x-auto">
+            <div role="tablist" aria-label="Menu pusat turnamen" class="frosted-card p-1.5 flex items-center gap-1 overflow-x-auto">
                 <button
                     type="button"
+                    role="tab"
+                    :aria-selected="activeTab === 'groups'"
                     class="px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
-                    :class="activeTab === 'groups' ? 'bg-orange-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'"
+                    :class="activeTab === 'groups' ? 'bg-orange-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'"
                     @click="activeTab = 'groups'"
                 >
                     Pembagian Grup &amp; Klasemen ({{ groups.length }})
                 </button>
                 <button
                     type="button"
+                    role="tab"
+                    :aria-selected="activeTab === 'matches'"
                     class="px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
-                    :class="activeTab === 'matches' ? 'bg-orange-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'"
+                    :class="activeTab === 'matches' ? 'bg-orange-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'"
                     @click="activeTab = 'matches'"
                 >
                     Jadwal &amp; Hasil Pertandingan ({{ matches.length }})
                 </button>
                 <button
                     type="button"
+                    role="tab"
+                    :aria-selected="activeTab === 'announcements'"
                     class="px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
-                    :class="activeTab === 'announcements' ? 'bg-orange-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'"
+                    :class="activeTab === 'announcements' ? 'bg-orange-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'"
                     @click="activeTab = 'announcements'"
                 >
                     Pengumuman &amp; Technical Meeting ({{ announcements.length }})
                 </button>
                 <button
                     type="button"
+                    role="tab"
+                    :aria-selected="activeTab === 'leaderboard'"
                     class="px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
-                    :class="activeTab === 'leaderboard' ? 'bg-orange-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'"
+                    :class="activeTab === 'leaderboard' ? 'bg-orange-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'"
                     @click="activeTab = 'leaderboard'"
                 >
                     Top Scorer &amp; Fair Play
                 </button>
                 <button
                     type="button"
+                    role="tab"
+                    :aria-selected="activeTab === 'achievements'"
                     class="px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
-                    :class="activeTab === 'achievements' ? 'bg-orange-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'"
+                    :class="activeTab === 'achievements' ? 'bg-orange-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'"
                     @click="activeTab = 'achievements'"
                 >
                     Predikat Juara / E-Certificate
@@ -507,11 +619,11 @@ const filteredMatches = computed(() => {
                     <div class="flex items-center gap-2">
                         <button
                             type="button"
-                            class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all border inline-flex items-center gap-1.5 shadow-2xs"
+                            class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all border inline-flex items-center gap-1.5 shadow-sm"
                             :disabled="!controls?.can_toggle_group_lock"
                             :class="[
                                 !controls?.can_toggle_group_lock
-                                    ? 'opacity-50 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200'
+                                    ? 'opacity-60 cursor-not-allowed bg-slate-100 text-slate-500 border-slate-200'
                                     : (
                                         event.is_group_locked
                                             ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100 cursor-pointer'
@@ -547,8 +659,10 @@ const filteredMatches = computed(() => {
                 </div>
 
                 <div v-if="groups.length === 0" class="frosted-card p-10 text-center space-y-3">
-                    <div class="w-12 h-12 mx-auto rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-lg">
-                        #
+                    <div class="w-12 h-12 mx-auto rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
                     </div>
                     <h3 class="text-sm font-bold text-slate-800">Belum Ada Grup yang Dibentuk</h3>
                     <p class="text-xs text-slate-500 max-w-md mx-auto">
@@ -575,16 +689,16 @@ const filteredMatches = computed(() => {
                     <div
                         v-for="group in groups"
                         :key="group.id"
-                        class="frosted-card overflow-hidden border border-slate-200/90 shadow-2xs"
+                        class="frosted-card overflow-hidden border border-slate-200/90 shadow-sm"
                     >
                         <div class="px-5 py-3.5 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between">
                             <div class="flex items-center gap-2">
                                 <span class="px-2 py-0.5 rounded text-[11px] font-black bg-orange-600 text-white tracking-wider">
                                     {{ group.name }}
                                 </span>
-                                <span class="text-xs text-slate-300 font-medium">Klasemen Fase Grup</span>
+                                <span class="text-xs text-slate-200 font-medium">Klasemen Fase Grup</span>
                             </div>
-                            <span class="text-[11px] text-slate-400 font-mono">{{ group.standings.length }} Tim</span>
+                            <span class="text-[11px] text-slate-300 font-mono tabular-data">{{ group.standings.length }} Tim</span>
                         </div>
 
                         <div class="overflow-x-auto">
@@ -615,8 +729,8 @@ const filteredMatches = computed(() => {
                                     >
                                         <td class="py-2.5 px-3 text-center font-bold font-mono">
                                             <span
-                                                class="w-5 h-5 inline-flex items-center justify-center rounded-full text-[10px]"
-                                                :class="sIndex < 2 ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'"
+                                                class="w-5 h-5 inline-flex items-center justify-center rounded-md text-[10px]"
+                                                :class="sIndex < 2 ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-700'"
                                             >
                                                 {{ sIndex + 1 }}
                                             </span>
@@ -682,7 +796,7 @@ const filteredMatches = computed(() => {
                         <button
                             v-if="groups.length > 0"
                             type="button"
-                            class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-orange-300 bg-orange-50 text-orange-950 inline-flex items-center gap-1.5 shadow-2xs"
+                            class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-orange-300 bg-orange-50 text-orange-950 inline-flex items-center gap-1.5 shadow-sm"
                             :disabled="!controls?.can_generate_knockout"
                             :class="[
                                 !controls?.can_generate_knockout
@@ -752,7 +866,7 @@ const filteredMatches = computed(() => {
                     <div
                         v-for="m in filteredMatches"
                         :key="m.id"
-                        class="frosted-card p-4 sm:p-5 hover:border-orange-300 transition-all border border-slate-200/90 shadow-2xs"
+                        class="frosted-card p-4 sm:p-5 hover:border-orange-300 transition-all border border-slate-200/90 shadow-sm"
                     >
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 text-xs">
                             <div class="flex items-center gap-2">
@@ -787,7 +901,7 @@ const filteredMatches = computed(() => {
                             <div class="sm:col-span-3 flex items-center justify-start sm:justify-end gap-3 text-right">
                                 <div class="space-y-0.5">
                                     <h4 class="text-sm font-black text-slate-900 leading-tight">{{ m.home_team_name }}</h4>
-                                    <p v-if="m.home_jersey_color" class="text-[11px] text-slate-400">Jersey: {{ m.home_jersey_color }}</p>
+                                    <p v-if="m.home_jersey_color" class="text-[11px] text-slate-600">Jersey: {{ m.home_jersey_color }}</p>
                                 </div>
                                 <div class="w-8 h-8 rounded-lg bg-orange-100 text-orange-900 font-bold flex items-center justify-center shrink-0 text-xs">
                                     {{ m.home_team_name.charAt(0) }}
@@ -798,13 +912,13 @@ const filteredMatches = computed(() => {
                             <div class="sm:col-span-1 flex flex-col items-center justify-center">
                                 <div v-if="m.status === 'completed' || m.status === 'ongoing'" class="flex items-center gap-2">
                                     <span class="text-2xl font-black text-slate-900 tabular-data font-mono">{{ m.home_score ?? 0 }}</span>
-                                    <span class="text-slate-400 font-bold">-</span>
+                                    <span class="text-slate-500 font-bold">-</span>
                                     <span class="text-2xl font-black text-slate-900 tabular-data font-mono">{{ m.away_score ?? 0 }}</span>
                                 </div>
-                                <div v-else class="text-xs font-black text-slate-400 tracking-wider">
+                                <div v-else class="text-xs font-black text-slate-600 tracking-wider">
                                     VS
                                 </div>
-                                <span v-if="m.home_penalty_score !== null" class="text-[10px] text-slate-500 font-mono mt-0.5">
+                                <span v-if="m.home_penalty_score !== null" class="text-[10px] text-slate-600 font-mono mt-0.5">
                                     (Pen: {{ m.home_penalty_score }} - {{ m.away_penalty_score }})
                                 </span>
                             </div>
@@ -816,14 +930,14 @@ const filteredMatches = computed(() => {
                                 </div>
                                 <div class="space-y-0.5">
                                     <h4 class="text-sm font-black text-slate-900 leading-tight">{{ m.away_team_name }}</h4>
-                                    <p v-if="m.away_jersey_color" class="text-[11px] text-slate-400">Jersey: {{ m.away_jersey_color }}</p>
+                                    <p v-if="m.away_jersey_color" class="text-[11px] text-slate-600">Jersey: {{ m.away_jersey_color }}</p>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Match Events Pill Badges (Goals & Cards) -->
                         <div v-if="m.events && m.events.length > 0" class="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-1.5 text-[11px]">
-                            <span class="text-slate-400 font-medium mr-1">Kejadian:</span>
+                            <span class="text-slate-600 font-medium mr-1">Kejadian:</span>
                             <span
                                 v-for="ev in m.events"
                                 :key="ev.id"
@@ -869,7 +983,8 @@ const filteredMatches = computed(() => {
                                 </button>
                                 <button
                                     type="button"
-                                    class="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-600 hover:border-rose-300 transition-colors"
+                                    aria-label="Hapus Pertandingan"
+                                    class="w-9 h-9 inline-flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:text-rose-700 hover:border-rose-300 hover:bg-rose-50 transition-colors"
                                     title="Hapus Pertandingan"
                                     @click="deleteMatch(m)"
                                 >
@@ -911,7 +1026,7 @@ const filteredMatches = computed(() => {
                     <div
                         v-for="a in announcements"
                         :key="a.id"
-                        class="frosted-card p-5 border border-slate-200/90 shadow-2xs relative"
+                        class="frosted-card p-5 border border-slate-200/90 shadow-sm relative"
                         :class="{ 'border-l-4 border-l-orange-600 bg-orange-50/20': a.is_pinned }"
                     >
                         <div class="flex items-start justify-between gap-3">
@@ -928,7 +1043,8 @@ const filteredMatches = computed(() => {
                             </div>
                             <button
                                 type="button"
-                                class="text-slate-400 hover:text-rose-600 p-1"
+                                aria-label="Hapus Pengumuman"
+                                class="w-9 h-9 inline-flex items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:text-rose-700 hover:border-rose-300 hover:bg-rose-50 transition-colors shrink-0"
                                 title="Hapus Pengumuman"
                                 @click="deleteAnnouncement(a)"
                             >
@@ -964,10 +1080,10 @@ const filteredMatches = computed(() => {
 
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <!-- Top Scorer Table -->
-                    <div class="frosted-card overflow-hidden border border-slate-200/90 shadow-2xs">
+                    <div class="frosted-card overflow-hidden border border-slate-200/90 shadow-sm">
                         <div class="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between">
                             <h3 class="text-xs font-black uppercase tracking-wider text-orange-400">Peringkat Pencetak Gol Terbanyak</h3>
-                            <span class="text-[11px] text-slate-400 font-mono">Golden Boot</span>
+                            <span class="text-[11px] text-slate-300 font-mono">Golden Boot</span>
                         </div>
                         <div v-if="leaderboard.top_scorers.length === 0" class="p-6 text-center text-xs text-slate-500">
                             Belum ada catatan gol yang dimasukkan.
@@ -989,15 +1105,15 @@ const filteredMatches = computed(() => {
                                 >
                                     <td class="py-2.5 px-3 text-center font-bold font-mono">
                                         <span
-                                            class="w-5 h-5 inline-flex items-center justify-center rounded-full text-[10px]"
-                                            :class="idx === 0 ? 'bg-amber-400 text-amber-950 font-black' : (idx === 1 ? 'bg-slate-300 text-slate-800' : 'bg-slate-100 text-slate-600')"
+                                            class="w-5 h-5 inline-flex items-center justify-center rounded-md text-[10px]"
+                                            :class="idx === 0 ? 'bg-amber-400 text-amber-950 font-black' : (idx === 1 ? 'bg-slate-300 text-slate-800' : 'bg-slate-100 text-slate-700')"
                                         >
                                             {{ idx + 1 }}
                                         </span>
                                     </td>
                                     <td class="py-2.5 px-3 font-bold text-slate-900">
                                         {{ p.player_name }}
-                                        <span v-if="p.jersey_number" class="text-slate-400 font-mono text-[10px] ml-1">#{{ p.jersey_number }}</span>
+                                        <span v-if="p.jersey_number" class="text-slate-600 font-mono text-[10px] ml-1">#{{ p.jersey_number }}</span>
                                     </td>
                                     <td class="py-2.5 px-3 text-slate-600">{{ p.team_name }}</td>
                                     <td class="py-2.5 px-3 text-center tabular-data font-black text-orange-900 bg-orange-50/60 text-sm">
@@ -1009,10 +1125,10 @@ const filteredMatches = computed(() => {
                     </div>
 
                     <!-- Fair Play Table -->
-                    <div class="frosted-card overflow-hidden border border-slate-200/90 shadow-2xs">
+                    <div class="frosted-card overflow-hidden border border-slate-200/90 shadow-sm">
                         <div class="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between">
                             <h3 class="text-xs font-black uppercase tracking-wider text-emerald-400">Peringkat Fair Play Tim</h3>
-                            <span class="text-[11px] text-slate-400 font-mono">Disiplin Kartu Terendah</span>
+                            <span class="text-[11px] text-slate-300 font-mono">Disiplin Kartu Terendah</span>
                         </div>
                         <div v-if="leaderboard.fair_play.length === 0" class="p-6 text-center text-xs text-slate-500">
                             Belum ada data pertandingan fair play.
@@ -1057,11 +1173,11 @@ const filteredMatches = computed(() => {
                     <div class="flex items-center gap-2">
                         <button
                             type="button"
-                            class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all border inline-flex items-center gap-1.5 shadow-2xs"
+                            class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all border inline-flex items-center gap-1.5 shadow-sm"
                             :disabled="!controls?.can_release_certificates && !event.certificates_released"
                             :class="[
                                 (!controls?.can_release_certificates && !event.certificates_released)
-                                    ? 'opacity-50 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200'
+                                    ? 'opacity-60 cursor-not-allowed bg-slate-100 text-slate-500 border-slate-200'
                                     : (
                                         event.certificates_released
                                             ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700 cursor-pointer'
@@ -1079,7 +1195,7 @@ const filteredMatches = computed(() => {
                     </div>
                 </div>
 
-                <div class="frosted-card overflow-hidden border border-slate-200/90 shadow-2xs">
+                <div class="frosted-card overflow-hidden border border-slate-200/90 shadow-sm">
                     <table class="w-full text-left text-xs border-collapse">
                         <thead>
                             <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
@@ -1097,7 +1213,7 @@ const filteredMatches = computed(() => {
                                 :key="team.id"
                                 class="hover:bg-orange-50/20"
                             >
-                                <td class="py-3 px-4 text-center font-bold font-mono text-slate-400">{{ idx + 1 }}</td>
+                                <td class="py-3 px-4 text-center font-bold font-mono text-slate-600">{{ idx + 1 }}</td>
                                 <td class="py-3 px-4 font-bold text-slate-900">{{ team.name }}</td>
                                 <td class="py-3 px-4 text-slate-600">{{ team.origin_association || '-' }}</td>
                                 <td class="py-3 px-4 tabular-data font-semibold text-slate-700">{{ team.players.length }} Pemain</td>
@@ -1126,18 +1242,18 @@ const filteredMatches = computed(() => {
         </div>
 
         <!-- ================= MODAL: AUTO-DRAW GROUPS ================= -->
-        <div v-if="showDrawModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div v-if="showDrawModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                     <h3 class="text-sm font-bold text-slate-900">Drawing &amp; Bentuk Grup Otomatis</h3>
-                    <button type="button" class="text-slate-400 hover:text-slate-600" @click="showDrawModal = false">
+                    <button type="button" aria-label="Tutup modal drawing grup" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors" @click="showDrawModal = false">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
-                <form @submit.prevent="submitDrawGroups" class="space-y-4">
+                <form novalidate @submit.prevent="submitDrawGroups" class="space-y-4">
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Jumlah Grup yang Dibentuk</label>
-                        <select v-model="drawForm.group_count" class="form-input text-xs w-full">
+                        <select v-model="drawForm.group_count" class="input-field text-xs">
                             <option :value="1">1 Grup (Full Round Robin)</option>
                             <option :value="2">2 Grup (Grup A, Grup B)</option>
                             <option :value="3">3 Grup (Grup A, B, C)</option>
@@ -1165,30 +1281,30 @@ const filteredMatches = computed(() => {
         </div>
 
         <!-- ================= MODAL: GENERATE ROUND ROBIN ================= -->
-        <div v-if="showGenMatchesModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div v-if="showGenMatchesModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                     <h3 class="text-sm font-bold text-slate-900">Jadwalkan Fase Grup Otomatis</h3>
-                    <button type="button" class="text-slate-400 hover:text-slate-600" @click="showGenMatchesModal = false">
+                    <button type="button" aria-label="Tutup modal jadwal otomatis" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors" @click="showGenMatchesModal = false">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
-                <form @submit.prevent="submitGenMatches" class="space-y-4">
+                <form novalidate @submit.prevent="submitGenMatches" class="space-y-4">
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Waktu Mulai Pertandingan Pertama</label>
-                        <input type="datetime-local" v-model="genMatchesForm.start_time" class="form-input text-xs w-full" />
+                        <input type="datetime-local" v-model="genMatchesForm.start_time" class="input-field text-xs" />
                         <InputError :message="genMatchesForm.errors.start_time" />
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Interval Antar Pertandingan (Menit)</label>
-                        <input type="number" v-model="genMatchesForm.interval_minutes" min="15" max="240" step="5" class="form-input text-xs w-full" />
+                        <input type="number" v-model="genMatchesForm.interval_minutes" min="15" max="240" step="5" class="input-field text-xs" />
                         <InputError :message="genMatchesForm.errors.interval_minutes" />
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Nama Lapangan / Pitch (Pisahkan koma)</label>
-                        <input type="text" v-model="genMatchesForm.pitches" placeholder="Lapangan A, Lapangan B" class="form-input text-xs w-full" />
+                        <input type="text" v-model="genMatchesForm.pitches" placeholder="Lapangan A, Lapangan B" class="input-field text-xs" />
                         <InputError :message="genMatchesForm.errors.pitches" />
                     </div>
 
@@ -1203,26 +1319,26 @@ const filteredMatches = computed(() => {
         </div>
 
         <!-- ================= MODAL: TAMBAH PERTANDINGAN MANUAL ================= -->
-        <div v-if="showAddMatchModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div v-if="showAddMatchModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
             <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                     <h3 class="text-sm font-bold text-slate-900">Tambah Jadwal Pertandingan Baru</h3>
-                    <button type="button" class="text-slate-400 hover:text-slate-600" @click="showAddMatchModal = false">
+                    <button type="button" aria-label="Tutup modal tambah pertandingan" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors" @click="showAddMatchModal = false">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
-                <form @submit.prevent="submitAddMatch" class="space-y-4">
+                <form novalidate @submit.prevent="submitAddMatch" class="space-y-4">
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Babak / Fase</label>
-                            <select v-model="addMatchForm.stage" class="form-input text-xs w-full">
+                            <select v-model="addMatchForm.stage" class="input-field text-xs">
                                 <option v-for="(label, key) in stages" :key="key" :value="key">{{ label }}</option>
                             </select>
                             <InputError :message="addMatchForm.errors.stage" />
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Grup (Opsional)</label>
-                            <select v-model="addMatchForm.event_group_id" class="form-input text-xs w-full">
+                            <select v-model="addMatchForm.event_group_id" class="input-field text-xs">
                                 <option value="">Bukan Fase Grup</option>
                                 <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
                             </select>
@@ -1233,7 +1349,7 @@ const filteredMatches = computed(() => {
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Tim Tuan Rumah (Home)</label>
-                            <select v-model="addMatchForm.home_team_id" class="form-input text-xs w-full">
+                            <select v-model="addMatchForm.home_team_id" class="input-field text-xs">
                                 <option value="">-- Menunggu / TBD --</option>
                                 <option v-for="t in eligibleTeams" :key="t.id" :value="t.id">{{ t.name }}</option>
                             </select>
@@ -1241,7 +1357,7 @@ const filteredMatches = computed(() => {
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Tim Tamu (Away)</label>
-                            <select v-model="addMatchForm.away_team_id" class="form-input text-xs w-full">
+                            <select v-model="addMatchForm.away_team_id" class="input-field text-xs">
                                 <option value="">-- Menunggu / TBD --</option>
                                 <option v-for="t in eligibleTeams" :key="t.id" :value="t.id">{{ t.name }}</option>
                             </select>
@@ -1252,19 +1368,19 @@ const filteredMatches = computed(() => {
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Waktu Kick-Off</label>
-                            <input type="datetime-local" v-model="addMatchForm.kickoff_at" class="form-input text-xs w-full" />
+                            <input type="datetime-local" v-model="addMatchForm.kickoff_at" class="input-field text-xs" />
                             <InputError :message="addMatchForm.errors.kickoff_at" />
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Lapangan / Venue</label>
-                            <input type="text" v-model="addMatchForm.pitch_name" class="form-input text-xs w-full" />
+                            <input type="text" v-model="addMatchForm.pitch_name" class="input-field text-xs" />
                             <InputError :message="addMatchForm.errors.pitch_name" />
                         </div>
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Nama Wasit (Opsional)</label>
-                        <input type="text" v-model="addMatchForm.referee_name" class="form-input text-xs w-full" />
+                        <input type="text" v-model="addMatchForm.referee_name" class="input-field text-xs" />
                         <InputError :message="addMatchForm.errors.referee_name" />
                     </div>
 
@@ -1279,7 +1395,7 @@ const filteredMatches = computed(() => {
         </div>
 
         <!-- ================= MODAL: INPUT SKOR & KEJADIAN ================= -->
-        <div v-if="showScoreModal && activeMatchForScore" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+        <div v-if="showScoreModal && activeMatchForScore" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 overflow-y-auto">
             <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 my-8 max-h-[90vh] overflow-y-auto">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                     <div>
@@ -1290,27 +1406,27 @@ const filteredMatches = computed(() => {
                             {{ activeMatchForScore.home_team_name }} vs {{ activeMatchForScore.away_team_name }}
                         </p>
                     </div>
-                    <button type="button" class="text-slate-400 hover:text-slate-600" @click="showScoreModal = false">
+                    <button type="button" aria-label="Tutup modal input skor" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors" @click="showScoreModal = false">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
 
-                <form @submit.prevent="submitScore" class="space-y-4">
+                <form novalidate @submit.prevent="submitScore" class="space-y-4">
                     <!-- Status & Waktu -->
                     <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Status Pertandingan</label>
-                            <select v-model="scoreForm.status" class="form-input text-xs w-full">
+                            <select v-model="scoreForm.status" class="input-field text-xs">
                                 <option v-for="(lbl, stKey) in matchStatuses" :key="stKey" :value="stKey">{{ lbl }}</option>
                             </select>
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Lapangan</label>
-                            <input type="text" v-model="scoreForm.pitch_name" class="form-input text-xs w-full" />
+                            <input type="text" v-model="scoreForm.pitch_name" class="input-field text-xs" />
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Wasit Utama</label>
-                            <input type="text" v-model="scoreForm.referee_name" class="form-input text-xs w-full" />
+                            <input type="text" v-model="scoreForm.referee_name" class="input-field text-xs" />
                         </div>
                     </div>
 
@@ -1343,7 +1459,7 @@ const filteredMatches = computed(() => {
 
                         <!-- Babak Penalti jika Fase Gugur -->
                         <div v-if="activeMatchForScore.stage !== 'group_stage'" class="mt-4 pt-3 border-t border-slate-800 text-center">
-                            <p class="text-[11px] text-slate-400 mb-1">Skor Adu Penalti (Opsional jika imbang):</p>
+                            <p class="text-[11px] text-slate-300 mb-1">Skor Adu Penalti (Opsional jika imbang):</p>
                             <div class="flex items-center justify-center gap-3">
                                 <input
                                     type="number"
@@ -1399,13 +1515,13 @@ const filteredMatches = computed(() => {
                                 class="p-2.5 rounded-xl border border-slate-200 bg-slate-50/60 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center text-xs"
                             >
                                 <div class="sm:col-span-3">
-                                    <select v-model="ev.team_id" class="form-input text-xs w-full py-1">
+                                    <select v-model="ev.team_id" class="input-field !h-8 text-xs">
                                         <option :value="activeMatchForScore.home_team_id">{{ activeMatchForScore.home_team_name }}</option>
                                         <option :value="activeMatchForScore.away_team_id">{{ activeMatchForScore.away_team_name }}</option>
                                     </select>
                                 </div>
                                 <div class="sm:col-span-3">
-                                    <select v-model="ev.player_id" class="form-input text-xs w-full py-1">
+                                    <select v-model="ev.player_id" class="input-field !h-8 text-xs">
                                         <option :value="null">-- Pilih Pemain --</option>
                                         <option
                                             v-for="p in getPlayersForTeam(ev.team_id)"
@@ -1417,7 +1533,7 @@ const filteredMatches = computed(() => {
                                     </select>
                                 </div>
                                 <div class="sm:col-span-3">
-                                    <select v-model="ev.event_type" class="form-input text-xs w-full py-1">
+                                    <select v-model="ev.event_type" class="input-field !h-8 text-xs">
                                         <option v-for="(lbl, tKey) in eventTypes" :key="tKey" :value="tKey">{{ lbl }}</option>
                                     </select>
                                 </div>
@@ -1428,13 +1544,14 @@ const filteredMatches = computed(() => {
                                         placeholder="Menit"
                                         min="1"
                                         max="150"
-                                        class="form-input text-xs w-full py-1 text-center font-mono"
+                                        class="input-field !h-8 text-xs text-center font-mono"
                                     />
                                 </div>
                                 <div class="sm:col-span-1 text-center">
                                     <button
                                         type="button"
-                                        class="text-slate-400 hover:text-rose-600 p-1"
+                                        aria-label="Hapus kejadian"
+                                        class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-600 hover:text-rose-700 hover:bg-rose-50 transition-colors font-bold text-base"
                                         title="Hapus Kejadian"
                                         @click="removeEventRow(evIdx)"
                                     >
@@ -1447,7 +1564,7 @@ const filteredMatches = computed(() => {
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Catatan Pertandingan / Berita Acara Wasit</label>
-                        <textarea v-model="scoreForm.match_notes" rows="2" class="form-input text-xs w-full"></textarea>
+                        <textarea v-model="scoreForm.match_notes" rows="2" class="input-field text-xs"></textarea>
                     </div>
 
                     <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
@@ -1461,30 +1578,30 @@ const filteredMatches = computed(() => {
         </div>
 
         <!-- ================= MODAL: PENGUMUMAN ================= -->
-        <div v-if="showAnnouncementModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div v-if="showAnnouncementModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
             <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                     <h3 class="text-sm font-bold text-slate-900">Publikasikan Pengumuman / Undangan TM</h3>
-                    <button type="button" class="text-slate-400 hover:text-slate-600" @click="showAnnouncementModal = false">
+                    <button type="button" aria-label="Tutup modal pengumuman" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors" @click="showAnnouncementModal = false">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
-                <form @submit.prevent="submitAnnouncement" class="space-y-4">
+                <form novalidate @submit.prevent="submitAnnouncement" class="space-y-4">
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Judul Pengumuman</label>
-                        <input type="text" v-model="announcementForm.title" placeholder="Contoh: Undangan Technical Meeting & Jadwal Drawing Resmi" class="form-input text-xs w-full" />
+                        <input type="text" v-model="announcementForm.title" placeholder="Contoh: Undangan Technical Meeting & Jadwal Drawing Resmi" class="input-field text-xs" />
                         <InputError :message="announcementForm.errors.title" />
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Isi Pesan / Instruksi</label>
-                        <textarea v-model="announcementForm.content" rows="4" placeholder="Tulis rincian lokasi, waktu, dresscode, dan berkas yang wajib dibawa..." class="form-input text-xs w-full"></textarea>
+                        <textarea v-model="announcementForm.content" rows="4" placeholder="Tulis rincian lokasi, waktu, dresscode, dan berkas yang wajib dibawa..." class="input-field text-xs"></textarea>
                         <InputError :message="announcementForm.errors.content" />
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Tautan Virtual Meeting (Zoom / Google Meet)</label>
-                        <input type="url" v-model="announcementForm.meeting_link" placeholder="https://meet.google.com/..." class="form-input text-xs w-full" />
+                        <input type="url" v-model="announcementForm.meeting_link" placeholder="https://meet.google.com/..." class="input-field text-xs" />
                         <InputError :message="announcementForm.errors.meeting_link" />
                     </div>
 
@@ -1504,22 +1621,22 @@ const filteredMatches = computed(() => {
         </div>
 
         <!-- ================= MODAL: PREDIKAT JUARA ================= -->
-        <div v-if="showAchievementModal && activeTeamForAchievement" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div v-if="showAchievementModal && activeTeamForAchievement" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                     <h3 class="text-sm font-bold text-slate-900">Set Predikat Piagam Tim: {{ activeTeamForAchievement.name }}</h3>
-                    <button type="button" class="text-slate-400 hover:text-slate-600" @click="showAchievementModal = false">
+                    <button type="button" aria-label="Tutup modal predikat juara" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors" @click="showAchievementModal = false">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
-                <form @submit.prevent="submitAchievement" class="space-y-4">
+                <form novalidate @submit.prevent="submitAchievement" class="space-y-4">
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Predikat Penghargaan</label>
                         <input
                             type="text"
                             v-model="achievementForm.achievement_title"
                             placeholder="Contoh: Juara 1 / Juara 2 / Semifinalis / Peserta Resmi"
-                            class="form-input text-xs w-full"
+                            class="input-field text-xs"
                         />
                         <p class="text-[11px] text-slate-500 mt-1">
                             Predikat ini otomatis tertulis dengan huruf emas di piagam penghargaan PDF setiap pemain tim ini.
@@ -1538,15 +1655,15 @@ const filteredMatches = computed(() => {
         </div>
 
         <!-- ================= MODAL: PINDAH GRUP ================= -->
-        <div v-if="showMoveTeamModal && teamToMove" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div v-if="showMoveTeamModal && teamToMove" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                     <h3 class="text-sm font-bold text-slate-900">Pindahkan Tim Antar Grup</h3>
-                    <button type="button" class="text-slate-400 hover:text-slate-600" @click="showMoveTeamModal = false">
+                    <button type="button" aria-label="Tutup modal pindah grup" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors" @click="showMoveTeamModal = false">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
-                <form @submit.prevent="submitMoveTeam" class="space-y-4">
+                <form novalidate @submit.prevent="submitMoveTeam" class="space-y-4">
                     <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
                         <span class="text-slate-500">Tim yang dipindahkan:</span>
                         <strong class="block text-slate-900 font-bold text-sm mt-0.5">{{ teamToMove.team_name }}</strong>
@@ -1554,7 +1671,7 @@ const filteredMatches = computed(() => {
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Pilih Grup Tujuan</label>
-                        <select v-model="moveTeamForm.target_group_id" class="form-input text-xs w-full">
+                        <select v-model="moveTeamForm.target_group_id" class="input-field text-xs">
                             <option value="">-- Pilih Grup Baru --</option>
                             <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
                         </select>
@@ -1574,18 +1691,18 @@ const filteredMatches = computed(() => {
         </div>
 
         <!-- ================= MODAL: GENERATE KNOCKOUT STAGE ================= -->
-        <div v-if="showKnockoutModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div v-if="showKnockoutModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                     <h3 class="text-sm font-bold text-slate-900">Generate Babak Gugur (Knockout) Otomatis</h3>
-                    <button type="button" class="text-slate-400 hover:text-slate-600" @click="showKnockoutModal = false">
+                    <button type="button" aria-label="Tutup modal generate knockout" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors" @click="showKnockoutModal = false">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
-                <form @submit.prevent="submitGenKnockout" class="space-y-4">
+                <form novalidate @submit.prevent="submitGenKnockout" class="space-y-4">
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Babak Fase Gugur</label>
-                        <select v-model="genKnockoutForm.stage" class="form-input text-xs w-full">
+                        <select v-model="genKnockoutForm.stage" class="input-field text-xs">
                             <option value="round_of_16">Babak 16 Besar (Round of 16)</option>
                             <option value="quarter_final">Babak 8 Besar (Quarter Final)</option>
                             <option value="semi_final">Babak Semifinal (Semi Final)</option>
@@ -1600,19 +1717,19 @@ const filteredMatches = computed(() => {
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Waktu Mulai Pertandingan Pertama</label>
-                        <input type="datetime-local" v-model="genKnockoutForm.start_time" class="form-input text-xs w-full" />
+                        <input type="datetime-local" v-model="genKnockoutForm.start_time" class="input-field text-xs" />
                         <InputError :message="genKnockoutForm.errors.start_time" />
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Interval Waktu Antar Laga (Menit)</label>
-                        <input type="number" v-model="genKnockoutForm.interval_minutes" min="15" max="240" step="5" class="form-input text-xs w-full" />
+                        <input type="number" v-model="genKnockoutForm.interval_minutes" min="15" max="240" step="5" class="input-field text-xs" />
                         <InputError :message="genKnockoutForm.errors.interval_minutes" />
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Nama Lapangan / Venue</label>
-                        <input type="text" v-model="genKnockoutForm.pitches" placeholder="Lapangan Utama" class="form-input text-xs w-full" />
+                        <input type="text" v-model="genKnockoutForm.pitches" placeholder="Lapangan Utama" class="input-field text-xs" />
                         <InputError :message="genKnockoutForm.errors.pitches" />
                     </div>
 
@@ -1627,17 +1744,17 @@ const filteredMatches = computed(() => {
         </div>
 
         <!-- ================= MODAL: RESCHEDULE MATCH ================= -->
-        <div v-if="showRescheduleModal && activeMatchForReschedule" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+        <div v-if="showRescheduleModal && activeMatchForReschedule" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
             <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                     <h3 class="text-sm font-bold text-slate-900">
                         Reschedule Pertandingan #{{ activeMatchForReschedule.match_number }}
                     </h3>
-                    <button type="button" class="text-slate-400 hover:text-slate-600" @click="showRescheduleModal = false">
+                    <button type="button" aria-label="Tutup modal reschedule" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors" @click="showRescheduleModal = false">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
-                <form @submit.prevent="submitReschedule" class="space-y-4">
+                <form novalidate @submit.prevent="submitReschedule" class="space-y-4">
                     <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
                         <span class="text-slate-500 font-mono">Laga:</span>
                         <strong class="block text-slate-900 font-bold mt-0.5">
@@ -1647,19 +1764,19 @@ const filteredMatches = computed(() => {
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Jadwal Kick-Off Baru</label>
-                        <input type="datetime-local" v-model="rescheduleForm.kickoff_at" class="form-input text-xs w-full" />
+                        <input type="datetime-local" v-model="rescheduleForm.kickoff_at" class="input-field text-xs" />
                         <InputError :message="rescheduleForm.errors.kickoff_at" />
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Lapangan / Venue</label>
-                        <input type="text" v-model="rescheduleForm.pitch_name" class="form-input text-xs w-full" />
+                        <input type="text" v-model="rescheduleForm.pitch_name" class="input-field text-xs" />
                         <InputError :message="rescheduleForm.errors.pitch_name" />
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Status Pertandingan</label>
-                        <select v-model="rescheduleForm.status" class="form-input text-xs w-full">
+                        <select v-model="rescheduleForm.status" class="input-field text-xs">
                             <option value="scheduled">Terjadwal (Scheduled)</option>
                             <option value="ongoing">Sedang Berlangsung (Ongoing)</option>
                             <option value="completed">Selesai (Completed)</option>
@@ -1670,13 +1787,13 @@ const filteredMatches = computed(() => {
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Nama Wasit</label>
-                        <input type="text" v-model="rescheduleForm.referee_name" placeholder="Thoriq Alkatiri" class="form-input text-xs w-full" />
+                        <input type="text" v-model="rescheduleForm.referee_name" placeholder="Contoh: Nama wasit utama" class="input-field text-xs" />
                         <InputError :message="rescheduleForm.errors.referee_name" />
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Alasan Penjadwalan Ulang / Catatan</label>
-                        <textarea v-model="rescheduleForm.match_notes" rows="2" placeholder="Kondisi cuaca hujan lebat / pergeseran waktu..." class="form-input text-xs w-full"></textarea>
+                        <textarea v-model="rescheduleForm.match_notes" rows="2" placeholder="Kondisi cuaca hujan lebat / pergeseran waktu..." class="input-field text-xs"></textarea>
                         <InputError :message="rescheduleForm.errors.match_notes" />
                     </div>
 
@@ -1689,5 +1806,16 @@ const filteredMatches = computed(() => {
                 </form>
             </div>
         </div>
+
+        <ConfirmModal
+            :show="confirmState.show"
+            :title="confirmState.title"
+            :description="confirmState.description"
+            :confirm-text="confirmState.confirmText"
+            :processing="confirmState.processing"
+            danger
+            @confirm="runConfirmAction"
+            @close="closeConfirm"
+        />
     </AdminLayout>
 </template>

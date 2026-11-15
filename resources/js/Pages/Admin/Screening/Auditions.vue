@@ -2,6 +2,8 @@
 import { reactive } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import TableSkeletonCard from '@/Components/Skeletons/TableSkeletonCard.vue';
+import { useNavigationLoading } from '@/Composables/useNavigationLoading';
 
 const props = defineProps({
     events: {
@@ -27,6 +29,8 @@ const filterState = reactive({
     status: props.filters.status || '',
     search: props.filters.search || '',
 });
+
+const { isPartialLoading } = useNavigationLoading();
 
 const applyFilters = () => {
     router.get(
@@ -204,7 +208,9 @@ const setStatusFilter = (status) => {
             </div>
 
             <!-- Participants Card List -->
-            <div v-if="participants.data.length > 0" class="space-y-4">
+            <TableSkeletonCard v-if="isPartialLoading" mode="cards" :rows="5" />
+
+            <div v-else-if="participants.data.length > 0" class="space-y-4">
                 <div
                     v-for="p in participants.data"
                     :key="p.id"

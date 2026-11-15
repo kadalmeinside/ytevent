@@ -50,6 +50,13 @@ class SystemSettingController extends Controller
         $headerLogoStyle = $validated['header_logo_style'] ?? 'logo_only';
         SystemSetting::set('header_logo_style', $headerLogoStyle, 'text', 'branding');
 
+        if (array_key_exists('ga4_measurement_id', $validated)) {
+            SystemSetting::set('ga4_measurement_id', strtoupper(trim((string) ($validated['ga4_measurement_id'] ?? ''))), 'text', 'analytics');
+        }
+        if (array_key_exists('plausible_domain', $validated)) {
+            SystemSetting::set('plausible_domain', strtolower(trim((string) ($validated['plausible_domain'] ?? ''))), 'text', 'analytics');
+        }
+
         if ($request->hasFile('logo')) {
             $oldLogo = SystemSetting::where('key', 'app_logo')->value('value');
             if ($oldLogo && Storage::disk('public')->exists($oldLogo)) {

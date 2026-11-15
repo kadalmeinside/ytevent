@@ -2,6 +2,8 @@
 import { reactive } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import TableSkeletonCard from '@/Components/Skeletons/TableSkeletonCard.vue';
+import { useNavigationLoading } from '@/Composables/useNavigationLoading';
 
 const props = defineProps({
     events: {
@@ -27,6 +29,8 @@ const filterState = reactive({
     status: props.filters.status || '',
     search: props.filters.search || '',
 });
+
+const { isPartialLoading } = useNavigationLoading();
 
 const applyFilters = () => {
     router.get(
@@ -165,7 +169,7 @@ const getStatusBadge = (status) => {
                         <select
                             id="screening-team-event"
                             v-model="filterState.event_id"
-                            class="input-field text-xs w-auto min-w-[220px]"
+                            class="input-field text-xs w-full sm:w-60 shrink-0"
                             @change="applyFilters"
                         >
                             <option value="">Semua Kompetisi / Event</option>
@@ -223,8 +227,10 @@ const getStatusBadge = (status) => {
 
             <!-- Teams Screening Queue List (Responsive Card List View) -->
             <div class="space-y-3.5">
+                <TableSkeletonCard v-if="isPartialLoading" mode="cards" :rows="5" />
+
                 <!-- Empty State -->
-                <div v-if="teams.data.length === 0" class="frosted-card p-12 text-center text-xs text-slate-600 bg-white">
+                <div v-else-if="teams.data.length === 0" class="frosted-card p-12 text-center text-xs text-slate-600 bg-white">
                     <svg class="w-12 h-12 mx-auto mb-2.5 text-slate-400" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                     </svg>

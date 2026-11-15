@@ -195,7 +195,7 @@ const clearFile = (e) => {
                     : isDragging
                     ? 'border-orange-500 bg-orange-50/80 shadow-md ring-4 ring-orange-500/10'
                     : displayFileName
-                    ? 'border-orange-400/80 bg-gradient-to-br from-white/95 to-orange-50/40 shadow-sm'
+                    ? 'border-emerald-500 bg-gradient-to-br from-white/95 to-emerald-50/40 shadow-sm'
                     : 'border-slate-300 hover:border-orange-500 bg-white/70 hover:bg-orange-50/30'
             ]"
             @click="openPicker"

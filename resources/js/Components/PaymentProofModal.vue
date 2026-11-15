@@ -120,12 +120,20 @@ const goToManualQueue = () => {
                             </span>
                         </div>
                         <p class="text-[11px] text-slate-500">
-                            {{ payment.team?.name ? `${payment.team.name} • ` : '' }}{{ payment.event?.name || 'Kompetisi' }}
+                            {{ (payment.payer?.name || payment.team?.name) ? `${payment.payer?.name || payment.team?.name} • ` : '' }}{{ payment.event?.name || 'Kompetisi' }}
                         </p>
                     </div>
                 </div>
 
                 <div class="flex items-center gap-2">
+                    <a
+                        v-if="payment.invoice_url"
+                        :href="payment.invoice_url"
+                        target="_blank"
+                        class="btn-sm-secondary text-[11px]"
+                    >
+                        Unduh Invoice PDF
+                    </a>
                     <StatusBadge :status="payment.status" />
                     <button
                         type="button"

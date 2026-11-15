@@ -8,7 +8,9 @@ use App\Models\Team;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class TeamRegistrationAndQuotaTest extends TestCase
@@ -353,5 +355,253 @@ class TeamRegistrationAndQuotaTest extends TestCase
         // Resync all events
         $resAll = $this->actingAs($admin)->post(route('admin.events.resync-slots'));
         $resAll->assertSessionHas('info');
+    }
+
+    public function test_manager_can_register_same_team_in_non_overlapping_event_but_rejected_when_dates_overlap(): void
+    {
+        $this->event->update([
+            'match_start_date' => now()->addDays(10)->toDateString(),
+            'match_end_date' => now()->addDays(12)->toDateString(),
+        ]);
+
+        // 1. Daftarkan tim pertama pada event utama
+        $this->post(route('events.register.store', ['event' => $this->event->slug]), [
+            'team_name' => 'SSB Garuda Nusantara',
+            'origin_association' => 'Askot PSSI Jakarta Selatan',
+            'manager_name' => 'Budi Santoso',
+            'email' => 'budi.multi@example.com',
+            'password' => 'Password123',
+            'password_confirmation' => 'Password123',
+            'manager_whatsapp' => '081234567890',
+            'head_coach_name' => 'Coach Ahmad',
+            'terms_accepted' => '1',
+            'logo' => UploadedFile::fake()->image('garuda_logo.png', 200, 200),
+        ])->assertRedirect(route('manager.payments'));
+
+        $manager = User::where('email', 'budi.multi@example.com')->firstOrFail();
+        $firstTeam = Team::where('user_id', $manager->id)->firstOrFail();
+
+        // 2. Event kedua dengan jadwal BERTABRAKAN (hari ke-11 s.d. ke-13) -> harus ditolak
+        $overlappingEvent = Event::create([
+            'name' => 'Turnamen Bentrok Cup',
+            'slug' => 'turnamen-bentrok-cup',
+            'venue_name' => 'Stadion Madya',
+            'city' => 'Jakarta Pusat',
+            'format' => 'cup',
+            'age_category' => 'U-15',
+            'min_players_per_team' => 14,
+            'max_players_per_team' => 20,
+            'max_officials_per_team' => 5,
+            'required_documents' => ['birth_certificate', 'family_card'],
+            'max_teams' => 8,
+            'registration_fee' => 500000,
+            'payment_deadline_hours' => 24,
+            'match_start_date' => now()->addDays(11)->toDateString(),
+            'match_end_date' => now()->addDays(13)->toDateString(),
+            'status' => 'open',
+        ]);
+
+        $this->actingAs($manager)
+            ->get(route('events.register', ['event' => $overlappingEvent->slug]))
+            ->assertRedirect(route('events.show', ['event' => $overlappingEvent->slug]))
+            ->assertSessionHas('warning');
+
+        $this->actingAs($manager)
+            ->post(route('events.register.store', ['event' => $overlappingEvent->slug]), [
+                'team_name' => 'Nama Tim Berbeda',
+                'origin_association' => 'Askot PSSI Jakarta Selatan',
+                'manager_name' => 'Budi Santoso',
+                'manager_whatsapp' => '081234567890',
+                'head_coach_name' => 'Coach Ahmad',
+                'terms_accepted' => '1',
+            ])
+            ->assertSessionHasErrors('event_quota');
+
+        $this->assertDatabaseMissing('teams', [
+            'event_id' => $overlappingEvent->id,
+            'user_id' => $manager->id,
+        ]);
+
+        // 3. Event ketiga dengan jadwal TIDAK BERTABRAKAN (hari ke-20 s.d. ke-22) -> harus berhasil dengan tim & logo yang sama
+        $nonOverlappingEvent = Event::create([
+            'name' => 'Turnamen Bulan Depan Cup',
+            'slug' => 'turnamen-bulan-depan-cup',
+            'venue_name' => 'Stadion Soemantri',
+            'city' => 'Jakarta Selatan',
+            'format' => 'cup',
+            'age_category' => 'U-15',
+            'min_players_per_team' => 14,
+            'max_players_per_team' => 20,
+            'max_officials_per_team' => 5,
+            'required_documents' => ['birth_certificate', 'family_card'],
+            'max_teams' => 8,
+            'registration_fee' => 500000,
+            'payment_deadline_hours' => 24,
+            'match_start_date' => now()->addDays(20)->toDateString(),
+            'match_end_date' => now()->addDays(22)->toDateString(),
+            'status' => 'open',
+        ]);
+
+        $this->actingAs($manager)
+            ->post(route('events.register.store', ['event' => $nonOverlappingEvent->slug]), [
+                'team_name' => 'Coba Ganti Nama',
+                'origin_association' => 'Askot PSSI Jakarta Selatan',
+                'manager_name' => 'Budi Santoso',
+                'manager_whatsapp' => '081234567890',
+                'head_coach_name' => 'Coach Ahmad',
+                'terms_accepted' => '1',
+            ])
+            ->assertRedirect(route('manager.payments'));
+
+        $secondTeam = Team::where('event_id', $nonOverlappingEvent->id)
+            ->where('user_id', $manager->id)
+            ->firstOrFail();
+
+        $this->assertSame('SSB Garuda Nusantara', $secondTeam->name);
+        $this->assertSame($firstTeam->logo_path, $secondTeam->logo_path);
+    }
+
+    public function test_catalog_home_displays_registered_and_conflicting_team_context_for_logged_in_manager(): void
+    {
+        $this->event->update([
+            'match_start_date' => now()->addDays(10)->toDateString(),
+            'match_end_date' => now()->addDays(12)->toDateString(),
+        ]);
+
+        $overlappingEvent = Event::create([
+            'name' => 'Turnamen Jadwal Bentrok',
+            'slug' => 'turnamen-jadwal-bentrok',
+            'venue_name' => 'Stadion Madya',
+            'city' => 'Jakarta Pusat',
+            'format' => 'cup',
+            'age_category' => 'U-15',
+            'min_players_per_team' => 14,
+            'max_players_per_team' => 20,
+            'max_officials_per_team' => 5,
+            'required_documents' => ['birth_certificate', 'family_card'],
+            'max_teams' => 8,
+            'registration_fee' => 500000,
+            'payment_deadline_hours' => 24,
+            'match_start_date' => now()->addDays(11)->toDateString(),
+            'match_end_date' => now()->addDays(13)->toDateString(),
+            'status' => 'open',
+        ]);
+
+        $openEvent = Event::create([
+            'name' => 'Turnamen Terbuka Non Bentrok',
+            'slug' => 'turnamen-terbuka-non-bentrok',
+            'venue_name' => 'Stadion Soemantri',
+            'city' => 'Jakarta Selatan',
+            'format' => 'cup',
+            'age_category' => 'U-15',
+            'min_players_per_team' => 14,
+            'max_players_per_team' => 20,
+            'max_officials_per_team' => 5,
+            'required_documents' => ['birth_certificate', 'family_card'],
+            'max_teams' => 8,
+            'registration_fee' => 500000,
+            'payment_deadline_hours' => 24,
+            'match_start_date' => now()->addDays(25)->toDateString(),
+            'match_end_date' => now()->addDays(27)->toDateString(),
+            'status' => 'open',
+        ]);
+
+        $manager = User::factory()->create();
+        $manager->assignRole('team_manager');
+
+        $team = Team::create([
+            'event_id' => $this->event->id,
+            'user_id' => $manager->id,
+            'name' => 'SSB Persija Muda',
+            'slug' => 'ssb-persija-muda',
+            'logo_path' => 'logos/persija_muda.png',
+            'origin_association' => 'Askot PSSI Jakarta Pusat',
+            'manager_name' => 'Manager Uji',
+            'manager_email' => $manager->email,
+            'manager_whatsapp' => '081234567890',
+            'head_coach_name' => 'Coach Uji',
+            'terms_accepted_at' => now(),
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($manager)
+            ->get(route('home'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Public/Home')
+                ->has('events.data', 3)
+                ->where('events.data.0.id', $this->event->id)
+                ->where('events.data.0.user_context.registered_team.id', $team->id)
+                ->where('events.data.0.user_context.registered_team.name', 'SSB Persija Muda')
+                ->where('events.data.0.user_context.registered_team.status', 'active')
+                ->where('events.data.1.id', $overlappingEvent->id)
+                ->where('events.data.1.user_context.conflicting_team.event_name', $this->event->name)
+                ->where('events.data.2.id', $openEvent->id)
+                ->where('events.data.2.user_context', null)
+            );
+    }
+
+    public function test_catalog_home_paginates_events_and_has_constant_query_count(): void
+    {
+        $createMixedEvents = function (int $count, string $prefix): void {
+            for ($i = 1; $i <= $count; $i++) {
+                $isIndividual = $i % 2 === 0;
+                Event::create([
+                    'name' => "{$prefix} Event {$i}",
+                    'slug' => strtolower("{$prefix}-event-{$i}") . '-' . uniqid(),
+                    'venue_name' => 'Lapangan Pancoran',
+                    'city' => 'Jakarta Selatan',
+                    'format' => 'festival',
+                    'age_category' => 'U-15',
+                    'event_type' => $isIndividual ? 'audition' : 'tournament',
+                    'participant_type' => $isIndividual ? 'individual' : 'team',
+                    'quota_type' => 'fixed',
+                    'max_teams' => 16,
+                    'max_participants' => $isIndividual ? 80 : null,
+                    'registration_fee' => 500000,
+                    'match_start_date' => now()->addDays(20 + $i)->toDateString(),
+                    'match_end_date' => now()->addDays(21 + $i)->toDateString(),
+                    'required_documents' => ['birth_certificate', 'family_card'],
+                    'status' => 'open',
+                ]);
+            }
+        };
+
+        $createMixedEvents(2, 'Small');
+
+        // Warm up SystemSetting / shared prop caches before measuring query parity
+        $this->get(route('home'))->assertOk();
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->get(route('home'))->assertOk();
+        $smallQueries = collect(DB::getQueryLog())->pluck('query')->values()->all();
+        DB::disableQueryLog();
+
+        $createMixedEvents(10, 'Bulk');
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->get(route('home'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Public/Home')
+                ->has('events.data', 9)
+                ->where('events.total', 13)
+                ->where('events.current_page', 1)
+                ->where('events.last_page', 2)
+            );
+        $bulkQueries = collect(DB::getQueryLog())->pluck('query')->values()->all();
+        DB::disableQueryLog();
+
+        $this->assertSame($smallQueries, $bulkQueries);
+
+        $this->get(route('home', ['page' => 2, 'age_category' => 'U-15']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Public/Home')
+                ->has('events.data', 4)
+                ->where('events.current_page', 2)
+            );
     }
 }

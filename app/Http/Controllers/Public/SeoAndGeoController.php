@@ -103,6 +103,7 @@ class SeoAndGeoController extends Controller
     {
         $events = Event::query()
             ->where('status', '!=', 'draft')
+            ->withOccupiedSlotsCount()
             ->orderByDesc('updated_at')
             ->get();
 

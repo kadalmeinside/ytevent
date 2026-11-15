@@ -134,16 +134,17 @@ class AuditionQualificationController extends Controller
         $customNotes = $validated['notes'] ?? null;
 
         $isPassed = ! str_ends_with($targetStatus, '_eliminated');
-        $maxStageNumber = (int) ($event->auditionStages()->max('stage_number') ?: 1);
+        $stagesByNumber = $event->auditionStages()->get()->keyBy('stage_number');
+        $maxStageNumber = (int) ($stagesByNumber->keys()->max() ?: 1);
 
         $participants = AuditionParticipant::query()
             ->where('event_id', $event->id)
             ->whereIn('id', $ids)
-            ->with(['user', 'event'])
+            ->with(['user', 'event', 'attendances', 'evaluations'])
             ->get();
         abort_unless($participants->count() === count($ids), 422, 'Semua peserta harus berasal dari event ini.');
 
-        DB::transaction(function () use ($participants, $targetStatus, $event, $maxStageNumber, $ids, $dispatchEmail, $request) {
+        DB::transaction(function () use ($participants, $targetStatus, $event, $stagesByNumber, $maxStageNumber, $ids, $dispatchEmail, $request) {
             foreach ($participants as $participant) {
                 $oldStatus = $participant->stage_status;
                 $requiredStageNumber = match ($targetStatus) {
@@ -163,13 +164,13 @@ class AuditionQualificationController extends Controller
                     'final_selected' => in_array($oldStatus, $allowedFinalSources, true),
                     default => false,
                 };
-                $stage = $requiredStageNumber ? $event->auditionStages()->where('stage_number', $requiredStageNumber)->first() : null;
-                $attendance = $stage?->attendances()
-                    ->where('audition_participant_id', $participant->id)
-                    ->first();
+                $stage = $requiredStageNumber ? $stagesByNumber->get($requiredStageNumber) : null;
+                $attendance = $stage
+                    ? $participant->attendances->firstWhere('audition_stage_id', $stage->id)
+                    : null;
                 $isElimination = str_ends_with($targetStatus, '_eliminated');
                 $validAttendance = $attendance && ($attendance->status === 'present' || ($isElimination && in_array($attendance->status, ['no_show', 'absent'], true)));
-                $evaluated = $stage && $participant->evaluations()->where('audition_stage_id', $stage->id)->exists();
+                $evaluated = $stage && $participant->evaluations->contains('audition_stage_id', $stage->id);
 
                 abort_unless($validTransition && $validAttendance && ($isElimination || $evaluated), 422, 'Peserta belum memenuhi kehadiran, evaluasi, atau urutan tahap.');
 
@@ -209,7 +210,7 @@ class AuditionQualificationController extends Controller
                 try {
                     Mail::to($participant->user->email)->send(
                         new AuditionStageResultMail(
-                            participant: $participant->fresh(['event', 'user']),
+                            participant: $participant,
                             resultStatus: $isPassed ? 'passed' : 'eliminated',
                             customNotes: $customNotes,
                         )

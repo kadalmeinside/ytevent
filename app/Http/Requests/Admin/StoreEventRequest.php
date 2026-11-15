@@ -169,6 +169,12 @@ class StoreEventRequest extends FormRequest
             'contact_person' => ['nullable', 'string', 'max:120'],
             'contact_whatsapp' => ['nullable', 'string', 'max:30'],
             'status' => ['required', Rule::in(array_keys(Event::STATUSES))],
+            'tnc_mode' => ['sometimes', 'nullable', Rule::in(['existing', 'new'])],
+            'tnc_version_id' => ['nullable', 'integer', 'exists:tnc_versions,id'],
+            'tnc_code' => ['nullable', 'string', 'max:64'],
+            'tnc_title' => ['required_if:tnc_mode,new', 'nullable', 'string', 'max:180'],
+            'tnc_summary' => ['nullable', 'string', 'max:500'],
+            'tnc_content' => ['required_if:tnc_mode,new', 'nullable', 'string', 'max:50000'],
             'banner_file' => ['nullable', File::image()->max(5120), 'mimes:png,jpg,jpeg,webp'],
             'regulation_pdf' => ['nullable', File::types(['pdf'])->max(5120)],
         ];
@@ -177,6 +183,9 @@ class StoreEventRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'tnc_version_id.exists' => 'Versi Syarat & Ketentuan yang dipilih tidak ditemukan.',
+            'tnc_title.required_if' => 'Judul dokumen Syarat & Ketentuan wajib diisi saat membuat versi baru.',
+            'tnc_content.required_if' => 'Isi dokumen Syarat & Ketentuan wajib diisi saat membuat versi baru.',
             'name.required' => 'Nama kompetisi wajib diisi.',
             'name.min' => 'Nama kompetisi minimal terdiri dari 3 karakter.',
             'venue_name.required' => 'Lokasi atau nama stadion utama wajib diisi.',

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Event;
 use App\Models\Payment;
+use App\Models\Team;
 use Illuminate\Support\Facades\DB;
 
 class QuotaExpirationService
@@ -23,31 +24,48 @@ class QuotaExpirationService
             ->lockForUpdate()
             ->get();
 
-        $count = 0;
+        $count = $expiredPayments->count();
 
-        foreach ($expiredPayments as $payment) {
-            $payment->update(['status' => 'expired']);
+        if ($count > 0) {
+            Payment::query()
+                ->whereIn('id', $expiredPayments->pluck('id'))
+                ->update(['status' => 'expired']);
 
-            $team = $payment->team()->lockForUpdate()->first();
-            if ($team && $team->status === 'pending_payment') {
-                $hasActiveOrWaitingPayment = $team->payments()
-                    ->whereIn('status', ['paid', 'waiting_verification'])
-                    ->orWhere(function ($q) use ($now) {
-                        $q->whereIn('status', ['unpaid', 'rejected'])
-                            ->where('expires_at', '>', $now);
-                    })
-                    ->exists();
+            $candidateTeamIds = $expiredPayments->pluck('team_id')->filter()->unique()->values();
 
-                if (! $hasActiveOrWaitingPayment) {
-                    $team->update(['status' => 'expired']);
+            if ($candidateTeamIds->isNotEmpty()) {
+                $pendingTeams = Team::query()
+                    ->whereIn('id', $candidateTeamIds)
+                    ->where('status', 'pending_payment')
+                    ->lockForUpdate()
+                    ->pluck('id');
+
+                if ($pendingTeams->isNotEmpty()) {
+                    $protectedTeamIds = Payment::query()
+                        ->whereIn('team_id', $pendingTeams)
+                        ->where(function ($query) use ($now) {
+                            $query->whereIn('status', ['paid', 'waiting_verification'])
+                                ->orWhere(function ($q) use ($now) {
+                                    $q->whereIn('status', ['unpaid', 'rejected'])
+                                        ->where('expires_at', '>', $now);
+                                });
+                        })
+                        ->distinct()
+                        ->pluck('team_id');
+
+                    $teamsToExpire = $pendingTeams->diff($protectedTeamIds)->values();
+                    if ($teamsToExpire->isNotEmpty()) {
+                        Team::query()
+                            ->whereIn('id', $teamsToExpire)
+                            ->update(['status' => 'expired']);
+                    }
                 }
             }
-
-            $count++;
         }
 
         // Juga pastikan tim pending_payment yang slot_expires_at sudah lewat tanpa waiting_verification ditandai expired
         $staleTeams = $lockedEvent->teams()
+            ->with(['event', 'user'])
             ->where('status', 'pending_payment')
             ->whereNotNull('slot_expires_at')
             ->where('slot_expires_at', '<=', $now)
@@ -57,13 +75,24 @@ class QuotaExpirationService
             ->lockForUpdate()
             ->get();
 
-        foreach ($staleTeams as $staleTeam) {
-            $staleTeam->update(['status' => 'expired']);
-            $staleTeam->payments()
+        if ($staleTeams->isNotEmpty()) {
+            $staleTeamIds = $staleTeams->pluck('id');
+
+            Team::query()
+                ->whereIn('id', $staleTeamIds)
+                ->update(['status' => 'expired']);
+
+            Payment::query()
+                ->whereIn('team_id', $staleTeamIds)
                 ->whereIn('status', ['unpaid', 'rejected'])
                 ->update(['status' => 'expired']);
-            $count++;
-            app(EmailNotificationService::class)->sendSlotExpired($staleTeam);
+
+            $emailService = app(EmailNotificationService::class);
+            foreach ($staleTeams as $staleTeam) {
+                $staleTeam->status = 'expired';
+                $count++;
+                $emailService->sendSlotExpired($staleTeam);
+            }
         }
 
         $lockedEvent->syncQuotaStatus();

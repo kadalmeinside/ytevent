@@ -16,6 +16,7 @@ class Payment extends Model
         'team_id',
         'audition_participant_id',
         'event_id',
+        'billing_snapshot',
         'amount',
         'gateway_fee',
         'total_amount',
@@ -24,6 +25,7 @@ class Payment extends Model
         'external_reference_id',
         'snap_token',
         'payment_url',
+        'issued_at',
         'expires_at',
         'webhook_payload',
         'sender_bank_name',
@@ -46,10 +48,12 @@ class Payment extends Model
     protected function casts(): array
     {
         return [
+            'billing_snapshot' => 'array',
             'amount' => 'decimal:2',
             'gateway_fee' => 'decimal:2',
             'total_amount' => 'decimal:2',
             'refund_amount' => 'decimal:2',
+            'issued_at' => 'datetime',
             'expires_at' => 'datetime',
             'transfer_date' => 'date',
             'refunded_at' => 'datetime',

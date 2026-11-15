@@ -1,9 +1,11 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { usePage, useForm, Head } from '@inertiajs/vue3';
 import FlashAlert from '@/Components/FlashAlert.vue';
 import InputError from '@/Components/InputError.vue';
 import SimulationFloatingTool from '@/Components/SimulationFloatingTool.vue';
+import PageSkeleton from '@/Components/Skeletons/PageSkeleton.vue';
+import { useNavigationLoading } from '@/Composables/useNavigationLoading';
 
 defineProps({
     pageTitle: {
@@ -22,6 +24,7 @@ const systemSettings = computed(() => page.props.systemSettings || {});
 const adminNotifications = computed(() => page.props.adminNotifications || {});
 const mobileMenuOpen = ref(false);
 const currentPath = computed(() => page.url.split('?')[0]);
+const { isNavigating, skeletonVariant } = useNavigationLoading();
 
 const isItemActive = (item) => {
     if (!item?.match) return false;
@@ -40,7 +43,7 @@ const can = (permission) => {
 const badgeColorClass = (variant) => {
     switch (variant) {
         case 'orange':
-            return 'bg-gradient-to-r from-orange-600 to-red-600 text-white border-orange-600 shadow-2xs';
+            return 'bg-gradient-to-r from-orange-600 to-red-600 text-white border-orange-600 shadow-sm';
         case 'red':
             return 'bg-red-100 text-red-800 border-red-200';
         case 'amber':
@@ -81,6 +84,14 @@ const navSections = computed(() => {
                         : null,
                 },
                 {
+                    label: 'Analitik & Laporan',
+                    href: safeRoute('admin.analytics.index', {}, '/admin/analytics'),
+                    match: '/admin/analytics',
+                    icon: 'analytics',
+                    show: can('dashboard.admin.view'),
+                    badge: null,
+                },
+                {
                     label: 'Event & Kompetisi',
                     href: safeRoute('admin.events.index', {}, '/admin/events'),
                     match: '/admin/events',
@@ -111,11 +122,35 @@ const navSections = computed(() => {
                         : null,
                 },
                 {
+                    label: 'Screening Audisi',
+                    href: safeRoute('admin.screening.auditions', {}, '/admin/screening/auditions'),
+                    match: '/admin/screening/auditions',
+                    icon: 'screening',
+                    show: can('screening.view_queue'),
+                    badge: null,
+                },
+                {
                     label: 'QR Scanner Pertandingan',
                     href: safeRoute('admin.qr-scanner', {}, '/admin/qr-scanner'),
                     match: '/admin/qr-scanner',
                     icon: 'screening',
                     show: can('screening.view_queue'),
+                    badge: null,
+                },
+                {
+                    label: 'Scanner Gerbang Audisi',
+                    href: safeRoute('admin.auditions.scanner', {}, '/admin/auditions/scanner'),
+                    match: '/admin/auditions/scanner',
+                    icon: 'verify',
+                    show: can('screening.view_queue') || can('auditions.attendance.scan'),
+                    badge: null,
+                },
+                {
+                    label: 'Portal Talent Scout',
+                    href: safeRoute('scout.index', {}, '/scout'),
+                    match: '/scout',
+                    icon: 'analytics',
+                    show: can('auditions.scout.grade'),
                     badge: null,
                 },
             ],
@@ -193,6 +228,14 @@ const navSections = computed(() => {
                         : null,
                 },
                 {
+                    label: 'Versi Syarat & Ketentuan',
+                    href: safeRoute('admin.tnc-versions.index', {}, '/admin/tnc-versions'),
+                    match: '/admin/tnc-versions',
+                    icon: 'document',
+                    show: user.value?.roles?.includes('superadmin'),
+                    badge: null,
+                },
+                {
                     label: 'Pengaturan Global',
                     href: safeRoute('admin.settings.index', {}, '/admin/settings'),
                     match: '/admin/settings',
@@ -240,6 +283,24 @@ const closePasswordModal = () => {
     isPasswordModalOpen.value = false;
 };
 
+const handleEscapeKey = (event) => {
+    if (event.key === 'Escape') {
+        if (isPasswordModalOpen.value) {
+            closePasswordModal();
+        } else if (mobileMenuOpen.value) {
+            mobileMenuOpen.value = false;
+        }
+    }
+};
+
+onMounted(() => {
+    window.addEventListener('keydown', handleEscapeKey);
+});
+
+onUnmounted(() => {
+    window.removeEventListener('keydown', handleEscapeKey);
+});
+
 const submitPasswordUpdate = () => {
     passwordForm.put(route('admin.password.update'), {
         preserveScroll: true,
@@ -261,11 +322,27 @@ const submitPasswordUpdate = () => {
             <div class="flex items-center gap-2.5">
                 <button
                     type="button"
-                    class="p-1.5 rounded-lg border border-slate-200 text-slate-700 bg-white"
+                    aria-label="Buka menu navigasi admin"
+                    :aria-expanded="mobileMenuOpen ? 'true' : 'false'"
+                    aria-controls="admin-sidebar-nav"
+                    class="w-10 h-10 flex items-center justify-center rounded-lg border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 active:scale-95 transition-all"
                     @click="mobileMenuOpen = !mobileMenuOpen"
                 >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                    <svg class="w-5 h-5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                            v-if="!mobileMenuOpen"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M4 6h16M4 12h16M4 18h16"
+                        />
+                        <path
+                            v-else
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12"
+                        />
                     </svg>
                 </button>
                 <template v-if="systemSettings.header_logo_style === 'logo_only' && systemSettings.app_logo_url">
@@ -286,17 +363,38 @@ const submitPasswordUpdate = () => {
             </span>
         </header>
 
-        <aside
-            class="w-64 bg-white/80 backdrop-blur-xl border-r border-slate-200/80 shrink-0 flex-col justify-between lg:flex lg:sticky lg:top-0 lg:h-screen z-50"
-            :class="mobileMenuOpen ? 'fixed inset-y-0 left-0 flex shadow-2xl' : 'hidden'"
+        <!-- Mobile Backdrop -->
+        <Transition
+            enter-active-class="transition-opacity duration-300 ease-out"
+            enter-from-class="opacity-0"
+            enter-to-class="opacity-100"
+            leave-active-class="transition-opacity duration-200 ease-in"
+            leave-from-class="opacity-100"
+            leave-to-class="opacity-0"
         >
-            <div class="p-4 space-y-5 overflow-y-auto">
-                <div class="flex items-center justify-between">
+            <div
+                v-if="mobileMenuOpen"
+                class="fixed inset-0 z-40 bg-slate-900/45 backdrop-blur-[2px] lg:hidden"
+                aria-hidden="true"
+                @click="mobileMenuOpen = false"
+            ></div>
+        </Transition>
+
+        <!-- Sidebar Navigation (Matte surface per R-10) -->
+        <aside
+            id="admin-sidebar-nav"
+            class="fixed inset-y-0 left-0 z-50 w-64 sidebar-ambient-surface border-r border-slate-200/80 shrink-0 flex flex-col justify-between lg:sticky lg:top-0 lg:h-screen transition-[transform,visibility] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+            :class="mobileMenuOpen ? 'translate-x-0 visible shadow-2xl' : '-translate-x-full invisible pointer-events-none lg:translate-x-0 lg:visible lg:pointer-events-auto'"
+        >
+            <div class="p-3.5 space-y-3 overflow-y-auto">
+                <div class="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-200/75">
                     <Link :href="route('admin.dashboard')" class="flex items-center group min-w-0">
                         <template v-if="systemSettings.header_logo_style === 'logo_only' && systemSettings.app_logo_url">
                             <img
                                 :src="systemSettings.app_logo_url"
                                 :alt="systemSettings.app_name || 'Logo'"
+                                width="170"
+                                height="32"
                                 class="h-8 w-auto max-w-[170px] object-contain group-hover:opacity-90 transition-opacity"
                             />
                         </template>
@@ -306,30 +404,40 @@ const submitPasswordUpdate = () => {
                                     v-if="systemSettings.app_logo_url"
                                     :src="systemSettings.app_logo_url"
                                     :alt="systemSettings.app_name || 'Logo'"
-                                    class="w-8 h-8 rounded-xl object-contain bg-white border border-slate-200 shadow-xs shrink-0"
+                                    width="36"
+                                    height="36"
+                                    class="w-9 h-9 rounded-xl object-contain bg-white border border-slate-200/90 shadow-sm shrink-0"
                                 />
-                                <div v-else class="w-8 h-8 rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white flex items-center justify-center font-bold text-xs shadow-sm group-hover:scale-105 transition-transform shrink-0">
+                                <div v-else class="w-9 h-9 rounded-xl bg-gradient-to-br from-slate-900 via-slate-800 to-orange-950 text-white ring-1 ring-orange-500/25 flex items-center justify-center font-bold text-xs shadow-sm group-hover:scale-105 transition-transform shrink-0">
                                     ADM
                                 </div>
                                 <div class="min-w-0">
-                                    <span class="block text-sm font-bold text-slate-900 leading-tight truncate">{{ systemSettings.app_name || 'Control Center' }}</span>
-                                    <span class="block text-[11px] font-medium text-slate-500 truncate">Operasional &amp; Finance</span>
+                                    <span class="block text-sm font-bold text-slate-900 leading-tight group-hover:text-orange-700 transition-colors truncate">{{ systemSettings.app_name || 'Control Center' }}</span>
+                                    <span class="block text-[11px] font-medium text-slate-600 truncate">Operasional &amp; Finance</span>
                                 </div>
                             </div>
                         </template>
                     </Link>
                     <button
                         type="button"
-                        class="lg:hidden text-xs text-slate-500 hover:text-slate-800 p-1 rounded-lg border border-slate-200 bg-white"
+                        aria-label="Tutup menu navigasi admin"
+                        class="lg:hidden w-9 h-9 flex items-center justify-center text-slate-600 hover:text-slate-900 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 active:scale-95 transition-all"
                         @click="mobileMenuOpen = false"
                     >
-                        Tutup
+                        <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
                     </button>
                 </div>
 
-                <nav class="space-y-4 pt-1">
-                    <div v-for="section in navSections" :key="section.title" class="space-y-1">
-                        <p class="px-3 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                <nav class="space-y-2.5">
+                    <div
+                        v-for="(section, sectionIdx) in navSections"
+                        :key="section.title"
+                        class="space-y-1"
+                        :class="sectionIdx > 0 ? 'pt-2.5 border-t border-slate-200/70' : ''"
+                    >
+                        <p class="px-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-600">
                             {{ section.title }}
                         </p>
                         <div class="space-y-0.5">
@@ -337,22 +445,26 @@ const submitPasswordUpdate = () => {
                                 v-for="item in section.items"
                                 :key="item.href"
                                 :href="item.href"
-                                class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150"
-                                :class="
-                                    isItemActive(item)
-                                        ? 'bg-orange-500/10 text-orange-950 font-bold border-l-[3px] border-orange-600 shadow-2xs'
-                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 border-l-[3px] border-transparent'
-                                "
+                                class="group sidebar-nav-item"
+                                :class="isItemActive(item) ? 'sidebar-nav-item-active' : 'sidebar-nav-item-idle'"
                                 @click="mobileMenuOpen = false"
                             >
                                 <!-- Icons -->
-                                <span class="w-4 h-4 shrink-0" :class="isItemActive(item) ? 'text-orange-600' : 'text-slate-400'">
+                                <span
+                                    class="sidebar-nav-icon"
+                                    aria-hidden="true"
+                                    :class="isItemActive(item) ? 'sidebar-nav-icon-active' : 'sidebar-nav-icon-idle'"
+                                >
                                     <!-- Dashboard Icon -->
                                     <svg v-if="item.icon === 'dashboard'" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4">
                                         <rect width="7" height="9" x="3" y="3" rx="1" stroke-width="2"/>
                                         <rect width="7" height="5" x="14" y="3" rx="1" stroke-width="2"/>
                                         <rect width="7" height="9" x="14" y="12" rx="1" stroke-width="2"/>
                                         <rect width="7" height="5" x="3" y="16" rx="1" stroke-width="2"/>
+                                    </svg>
+                                    <!-- Analytics Icon -->
+                                    <svg v-else-if="item.icon === 'analytics'" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3v18h18M9 17V9m4 8V5m4 12v-4" />
                                     </svg>
                                     <!-- Trophy Icon -->
                                     <svg v-else-if="item.icon === 'trophy'" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4">
@@ -387,13 +499,17 @@ const submitPasswordUpdate = () => {
                                     <svg v-else-if="item.icon === 'mail'" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                     </svg>
+                                    <!-- Document / TnC Icon -->
+                                    <svg v-else-if="item.icon === 'document'" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
                                     <!-- Settings Icon -->
                                     <svg v-else fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4">
                                         <circle cx="12" cy="12" r="3" stroke-width="2"/>
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
                                     </svg>
                                 </span>
-                                <span class="truncate flex-1">{{ item.label }}</span>
+                                <span class="truncate flex-1 transition-transform duration-200 ease-out group-hover:translate-x-0.5">{{ item.label }}</span>
                                 <span
                                     v-if="item.badge"
                                     :title="item.badge.title || ''"
@@ -408,13 +524,13 @@ const submitPasswordUpdate = () => {
                 </nav>
             </div>
 
-            <div class="p-4 border-t border-slate-200/80 space-y-3 bg-slate-50/60 backdrop-blur-sm">
+            <div class="p-4 space-y-3 sidebar-footer-surface">
                 <div class="flex items-center justify-between gap-2">
                     <div class="min-w-0">
-                        <p class="text-xs font-semibold text-slate-900 truncate">{{ user?.name }}</p>
-                        <p class="text-[11px] text-slate-500 truncate">{{ user?.email }}</p>
+                        <p class="text-xs font-bold text-slate-900 truncate">{{ user?.name }}</p>
+                        <p class="text-[11px] text-slate-600 truncate">{{ user?.email }}</p>
                     </div>
-                    <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-orange-50 text-orange-800 border border-orange-200 shrink-0">
+                    <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-orange-50 text-orange-800 border border-orange-200 shrink-0 shadow-sm">
                         {{ roleBadge }}
                     </span>
                 </div>
@@ -481,25 +597,41 @@ const submitPasswordUpdate = () => {
             </header>
 
             <main class="flex-1 p-4 sm:p-6 lg:p-8 w-full">
-                <FlashAlert />
-                <slot />
+                <PageSkeleton v-if="isNavigating" :variant="skeletonVariant" />
+                <div v-show="!isNavigating" class="page-transition-enter">
+                    <FlashAlert />
+                    <slot />
+                </div>
             </main>
         </div>
 
         <!-- Modal Ubah Kata Sandi Akun Panitia / Admin -->
-        <div
-            v-if="isPasswordModalOpen"
-            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
-            @click.self="closePasswordModal"
+        <Transition
+            enter-active-class="transition-opacity duration-200 ease-out"
+            enter-from-class="opacity-0"
+            enter-to-class="opacity-100"
+            leave-active-class="transition-opacity duration-150 ease-in"
+            leave-from-class="opacity-100"
+            leave-to-class="opacity-0"
         >
+            <div
+                v-if="isPasswordModalOpen"
+                class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+                @click.self="closePasswordModal"
+            >
             <div class="frosted-card bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
                 <div class="flex items-start justify-between gap-3 pb-3 border-b border-slate-100">
                     <div>
                         <h3 class="text-sm font-bold text-slate-900">Ubah Kata Sandi Akun Panitia</h3>
                         <p class="text-xs text-slate-500 mt-0.5">{{ user?.name }} ({{ user?.email }})</p>
                     </div>
-                    <button type="button" class="text-slate-400 hover:text-slate-700 text-lg leading-none" @click="closePasswordModal">
-                        &times;
+                    <button
+                        type="button"
+                        aria-label="Tutup modal ubah kata sandi"
+                        class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 text-lg leading-none"
+                        @click="closePasswordModal"
+                    >
+                        <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
 
@@ -546,8 +678,9 @@ const submitPasswordUpdate = () => {
                         </button>
                     </div>
                 </form>
+                </div>
             </div>
-        </div>
+        </Transition>
 
         <SimulationFloatingTool context-area="admin" />
     </div>

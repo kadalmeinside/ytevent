@@ -27,6 +27,8 @@ const brandingForm = useForm({
     footer_copyright: props.settings.footer_copyright || 'YTEvent Multi-Event Football Tournament System',
     contact_email: props.settings.contact_email || 'sekretariat@ytevent.id',
     contact_whatsapp: props.settings.contact_whatsapp || '',
+    ga4_measurement_id: props.settings.ga4_measurement_id || '',
+    plausible_domain: props.settings.plausible_domain || '',
     logo: null,
     favicon: null,
 });
@@ -245,6 +247,45 @@ const toggleSimulationSetting = () => {
                     <div>
                         <label class="block font-semibold text-slate-700 mb-1">Teks Hak Cipta (Footer Copyright)</label>
                         <input v-model="brandingForm.footer_copyright" type="text" class="input-field text-xs" />
+                    </div>
+
+                    <!-- Public Web Analytics (Opsional) -->
+                    <div class="pt-4 border-t border-slate-200 space-y-3">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-900">Analitik Trafik Halaman Publik (Opsional)</h3>
+                            <p class="text-[11px] text-slate-600 mt-0.5">
+                                Skrip pelacakan pengunjung hanya dimuat di portal publik (`/`, `/events/*`, `/live-scores`) dan tidak pernah dijalankan di panel privat (`/admin`, `/manager`, `/scout`).
+                            </p>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label for="ga4-measurement-id" class="block font-semibold text-slate-700 mb-1">
+                                    Google Analytics 4 (Measurement ID)
+                                </label>
+                                <input
+                                    id="ga4-measurement-id"
+                                    v-model="brandingForm.ga4_measurement_id"
+                                    type="text"
+                                    placeholder="G-XXXXXXXXXX"
+                                    class="input-field text-xs font-mono"
+                                />
+                                <InputError :message="brandingForm.errors.ga4_measurement_id" />
+                            </div>
+                            <div>
+                                <label for="plausible-domain" class="block font-semibold text-slate-700 mb-1">
+                                    Domain Plausible Analytics
+                                </label>
+                                <input
+                                    id="plausible-domain"
+                                    v-model="brandingForm.plausible_domain"
+                                    type="text"
+                                    placeholder="kompetisi.domainanda.id"
+                                    class="input-field text-xs font-mono"
+                                />
+                                <InputError :message="brandingForm.errors.plausible_domain" />
+                            </div>
+                        </div>
                     </div>
 
                     <div class="pt-4 border-t border-slate-200 flex justify-end">

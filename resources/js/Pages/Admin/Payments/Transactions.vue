@@ -5,7 +5,9 @@ import AdminLayout from '@/Layouts/AdminLayout.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import InputError from '@/Components/InputError.vue';
 import PaymentProofModal from '@/Components/PaymentProofModal.vue';
+import TableSkeletonCard from '@/Components/Skeletons/TableSkeletonCard.vue';
 import { useFormatters } from '@/Composables/useFormatters';
+import { useNavigationLoading } from '@/Composables/useNavigationLoading';
 
 const props = defineProps({
     transactions: {
@@ -23,6 +25,7 @@ const props = defineProps({
 });
 
 const { formatRupiah, formatDateTime, formatDate } = useFormatters();
+const { isPartialLoading } = useNavigationLoading();
 
 const filterState = reactive({
     event_id: props.filters.event_id || '',
@@ -156,11 +159,11 @@ const resetFilters = () => {
                     </div>
 
                     <div>
-                        <label class="block font-semibold text-slate-700 mb-1.5">Cari No. Invoice / Tim</label>
+                        <label class="block font-semibold text-slate-700 mb-1.5">Cari Invoice / Tim / Peserta</label>
                         <input
                             v-model="filterState.search"
                             type="text"
-                            placeholder="INV-... atau nama tim"
+                            placeholder="INV-..., nama tim, atau peserta"
                             class="input-field"
                         />
                     </div>
@@ -196,7 +199,9 @@ const resetFilters = () => {
 
             <!-- Transactions Container (Responsive Card List View) -->
             <div class="space-y-3.5">
-                <div v-if="transactions.length === 0" class="frosted-card p-12 text-center text-xs text-slate-500">
+                <TableSkeletonCard v-if="isPartialLoading" mode="cards" :rows="5" />
+
+                <div v-else-if="transactions.length === 0" class="frosted-card p-12 text-center text-xs text-slate-500">
                     <svg class="w-10 h-10 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
@@ -229,14 +234,22 @@ const resetFilters = () => {
 
                         <!-- Card Body Grid -->
                         <div class="grid grid-cols-1 md:grid-cols-12 gap-4 text-xs items-center">
-                            <!-- Team & Event (Col 1-5) -->
+                            <!-- Team/Participant & Event (Col 1-5) -->
                             <div class="md:col-span-5 space-y-1">
                                 <div class="flex items-center gap-2.5">
                                     <div class="w-9 h-9 rounded-lg bg-orange-50 border border-orange-200 text-orange-700 flex items-center justify-center font-bold text-sm shrink-0">
-                                        {{ tx.team?.name?.charAt(0) || 'T' }}
+                                        {{ (tx.payer?.name || tx.team?.name)?.charAt(0) || 'P' }}
                                     </div>
                                     <div class="min-w-0">
-                                        <h4 class="font-bold text-slate-900 text-sm truncate">{{ tx.team?.name }}</h4>
+                                        <div class="flex items-center gap-1.5">
+                                            <h4 class="font-bold text-slate-900 text-sm truncate">{{ tx.payer?.name || tx.team?.name }}</h4>
+                                            <span
+                                                class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase shrink-0"
+                                                :class="tx.payer?.subject_type === 'individual' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-slate-100 text-slate-600 border border-slate-200'"
+                                            >
+                                                {{ tx.payer?.subject_type === 'individual' ? 'Individu' : 'Tim' }}
+                                            </span>
+                                        </div>
                                         <p class="text-slate-500 text-xs truncate">{{ tx.event?.name }}</p>
                                     </div>
                                 </div>
@@ -271,6 +284,15 @@ const resetFilters = () => {
 
                             <!-- Actions (Col 11-12) -->
                             <div class="md:col-span-2 flex flex-wrap items-center justify-end gap-2" @click.stop>
+                                <a
+                                    v-if="tx.invoice_url"
+                                    :href="tx.invoice_url"
+                                    target="_blank"
+                                    class="btn-sm-secondary w-full sm:w-auto justify-center"
+                                    title="Unduh Invoice / Kwitansi PDF"
+                                >
+                                    <span>PDF</span>
+                                </a>
                                 <button
                                     v-if="tx.status === 'refund_required'"
                                     type="button"

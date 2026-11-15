@@ -4,7 +4,9 @@ import { router } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
 import PaymentProofModal from '@/Components/PaymentProofModal.vue';
+import TableSkeletonCard from '@/Components/Skeletons/TableSkeletonCard.vue';
 import { useFormatters } from '@/Composables/useFormatters';
+import { useNavigationLoading } from '@/Composables/useNavigationLoading';
 
 const props = defineProps({
     teams: {
@@ -22,6 +24,7 @@ const props = defineProps({
 });
 
 const { formatRupiah, formatDateTime, formatDate } = useFormatters();
+const { isPartialLoading } = useNavigationLoading();
 
 const isPast = (dateStr) => {
     if (!dateStr) return false;
@@ -212,7 +215,9 @@ const resetFilters = () => {
 
             <!-- Teams Container (Responsive Card List View) -->
             <div class="space-y-3.5">
-                <div v-if="teams.length === 0" class="frosted-card p-12 text-center text-xs text-slate-500">
+                <TableSkeletonCard v-if="isPartialLoading" mode="cards" :rows="5" />
+
+                <div v-else-if="teams.length === 0" class="frosted-card p-12 text-center text-xs text-slate-500">
                     <svg class="w-10 h-10 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>

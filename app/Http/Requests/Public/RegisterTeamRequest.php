@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Public;
 
 use App\Models\Event;
+use App\Models\Team;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\File;
@@ -14,11 +15,34 @@ class RegisterTeamRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $user = $this->user();
+        if (! $user) {
+            return;
+        }
+
+        $primaryTeam = Team::query()
+            ->where('user_id', $user->id)
+            ->latest('id')
+            ->first();
+
+        if ($primaryTeam) {
+            $this->merge([
+                'team_name' => $primaryTeam->name,
+            ]);
+        }
+    }
+
     public function rules(): array
     {
         /** @var Event|null $event */
         $event = $this->route('event');
         $isGuest = $this->user() === null;
+        $hasExistingLogo = ! $isGuest && Team::query()
+            ->where('user_id', $this->user()->id)
+            ->whereNotNull('logo_path')
+            ->exists();
 
         $rules = [
             'team_name' => [
@@ -32,7 +56,11 @@ class RegisterTeamRequest extends FormRequest
                         ->whereNull('deleted_at')
                     : 'string',
             ],
-            'logo' => ['required', File::image()->max(2048), 'mimes:png,jpg,jpeg'],
+            'logo' => [
+                $hasExistingLogo ? 'nullable' : 'required',
+                File::image()->max(2048),
+                'mimes:png,jpg,jpeg',
+            ],
             'origin_association' => ['required', 'string', 'min:3', 'max:120'],
             'manager_name' => ['required', 'string', 'min:3', 'max:100'],
             'manager_whatsapp' => [
@@ -46,6 +74,7 @@ class RegisterTeamRequest extends FormRequest
                 : ['nullable', 'string', 'max:80'],
             'secretariat_address' => ['nullable', 'string', 'max:500'],
             'terms_accepted' => ['accepted'],
+            'tnc_version_id' => ['nullable', 'integer'],
         ];
 
         if ($isGuest) {
@@ -93,6 +122,31 @@ class RegisterTeamRequest extends FormRequest
             'head_coach_license.required' => 'Nomor atau jenis lisensi pelatih kepala wajib diisi sesuai regulasi kompetisi ini.',
             'head_coach_license.min' => 'Nomor atau jenis lisensi pelatih kepala minimal 2 karakter.',
             'terms_accepted.accepted' => 'Anda wajib menyetujui syarat, ketentuan, dan regulasi kompetisi untuk melanjutkan pendaftaran.',
+        ];
+    }
+
+    public function after(): array
+    {
+        return [
+            function (\Illuminate\Validation\Validator $validator): void {
+                if (! $this->filled('tnc_version_id')) {
+                    return;
+                }
+
+                /** @var Event|null $event */
+                $event = $this->route('event');
+                if (! $event instanceof Event) {
+                    return;
+                }
+
+                $activeTnc = $event->resolveTncVersion();
+                if ((int) $this->input('tnc_version_id') !== $activeTnc->id) {
+                    $validator->errors()->add(
+                        'terms_accepted',
+                        'Dokumen Syarat & Ketentuan telah diperbarui oleh panitia. Silakan buka dan setujui versi terbaru terlebih dahulu.'
+                    );
+                }
+            },
         ];
     }
 }

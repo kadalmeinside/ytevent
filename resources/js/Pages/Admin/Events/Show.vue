@@ -3,6 +3,7 @@ import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import StatusBadge from '@/Components/StatusBadge.vue';
+import ConfirmModal from '@/Components/ConfirmModal.vue';
 import { useFormatters } from '@/Composables/useFormatters';
 
 const props = defineProps({
@@ -64,6 +65,22 @@ const resolveInitialTab = () => {
 };
 
 const activeTab = ref(resolveInitialTab()); // 'overview', 'participants', 'operations'
+const setActiveTab = (tab) => {
+    activeTab.value = tab;
+    if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        if (tab === 'overview') {
+            url.searchParams.delete('tab');
+        } else {
+            url.searchParams.set('tab', tab);
+        }
+        window.history.replaceState(window.history.state, '', url.toString());
+    }
+};
+
+const totalParticipantsCount = computed(() => {
+    return props.participantsPagination?.total ?? props.summary?.total ?? props.participants.length;
+});
 const searchQuery = ref(props.participantFilters?.search || '');
 const statusFilter = ref(props.participantFilters?.status || 'all');
 const syncing = ref(false);
@@ -114,6 +131,29 @@ const triggerResync = () => {
             syncing.value = false;
         },
     });
+};
+
+const confirmActionModal = ref(null); // null | 'duplicate' | 'delete'
+const confirmProcessing = ref(false);
+
+const executeEventLifecycleAction = () => {
+    if (!confirmActionModal.value || confirmProcessing.value) return;
+    confirmProcessing.value = true;
+    if (confirmActionModal.value === 'duplicate') {
+        router.post(route('admin.events.duplicate', { event: props.event.id }), {}, {
+            onFinish: () => {
+                confirmProcessing.value = false;
+                confirmActionModal.value = null;
+            },
+        });
+    } else {
+        router.delete(route('admin.events.destroy', { event: props.event.id }), {
+            onFinish: () => {
+                confirmProcessing.value = false;
+                confirmActionModal.value = null;
+            },
+        });
+    }
 };
 
 const filteredParticipants = computed(() => props.participants);
@@ -286,12 +326,48 @@ const birthDateSummary = computed(() => {
 
                         <Link
                             :href="route('admin.events.edit', { event: event.id })"
-                            class="btn-sm-pitch inline-flex items-center gap-1.5"
+                            :class="isIndividual ? 'btn-sm-pitch inline-flex items-center gap-1.5' : 'btn-sm-secondary inline-flex items-center gap-1.5'"
                         >
                             <svg class="w-3.5 h-3.5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
                             <span>Edit Konfigurasi</span>
+                        </Link>
+
+                        <button
+                            type="button"
+                            class="btn-sm-secondary inline-flex items-center gap-1.5"
+                            title="Salin seluruh konfigurasi event ini menjadi Draft baru"
+                            @click="confirmActionModal = 'duplicate'"
+                        >
+                            <svg class="w-3.5 h-3.5 text-slate-600" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                            <span>Duplikat Event</span>
+                        </button>
+
+                        <button
+                            v-if="(event.total_registrants || summary.total || 0) === 0 && Number(event.occupied_slots || 0) === 0"
+                            type="button"
+                            class="btn-sm-secondary text-rose-700 border-rose-200 hover:bg-rose-50 inline-flex items-center gap-1.5"
+                            title="Hapus draft event karena belum memiliki pendaftar"
+                            @click="confirmActionModal = 'delete'"
+                        >
+                            <svg class="w-3.5 h-3.5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span>Hapus Draft</span>
+                        </button>
+
+                        <Link
+                            v-if="!isIndividual"
+                            :href="route('admin.events.tournament', { event: event.id })"
+                            class="btn-sm-pitch inline-flex items-center gap-1.5 shadow-sm"
+                        >
+                            <svg class="w-3.5 h-3.5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                            </svg>
+                            <span>Pusat Turnamen</span>
                         </Link>
                     </div>
                 </div>
@@ -325,8 +401,8 @@ const birthDateSummary = computed(() => {
                     role="tab"
                     :aria-selected="activeTab === 'overview'"
                     class="px-4 py-2 min-h-[44px] sm:min-h-0 rounded-xl text-xs font-bold transition-colors inline-flex items-center gap-2"
-                    :class="activeTab === 'overview' ? 'bg-orange-600 text-white' : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'"
-                    @click="activeTab = 'overview'"
+                    :class="activeTab === 'overview' ? 'bg-orange-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'"
+                    @click="setActiveTab('overview')"
                 >
                     <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -339,13 +415,13 @@ const birthDateSummary = computed(() => {
                     role="tab"
                     :aria-selected="activeTab === 'participants'"
                     class="px-4 py-2 min-h-[44px] sm:min-h-0 rounded-xl text-xs font-bold transition-colors inline-flex items-center gap-2"
-                    :class="activeTab === 'participants' ? 'bg-orange-600 text-white' : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'"
-                    @click="activeTab = 'participants'"
+                    :class="activeTab === 'participants' ? 'bg-orange-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'"
+                    @click="setActiveTab('participants')"
                 >
                     <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span>{{ isIndividual ? `Peserta & Screening (${participants.length})` : `Tim & Screening (${teams.length})` }}</span>
+                    <span>{{ isIndividual ? `Peserta & Screening (${totalParticipantsCount})` : `Tim & Screening (${teams.length})` }}</span>
                 </button>
 
                 <button
@@ -353,8 +429,8 @@ const birthDateSummary = computed(() => {
                     role="tab"
                     :aria-selected="activeTab === 'operations'"
                     class="px-4 py-2 min-h-[44px] sm:min-h-0 rounded-xl text-xs font-bold transition-colors inline-flex items-center gap-2"
-                    :class="activeTab === 'operations' ? 'bg-orange-600 text-white' : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'"
-                    @click="activeTab = 'operations'"
+                    :class="activeTab === 'operations' ? 'bg-orange-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'"
+                    @click="setActiveTab('operations')"
                 >
                     <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
@@ -368,17 +444,26 @@ const birthDateSummary = computed(() => {
                 <!-- Asymmetric Operational Priority Summary -->
                 <div v-if="isIndividual" class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
                     <!-- Focal Card: Antrean Screening -->
-                    <div class="frosted-card p-5 lg:col-span-4 h-full border-orange-300 bg-orange-50/40 flex flex-col justify-between gap-4">
-                        <div class="flex items-start justify-between gap-3">
+                    <div class="group relative overflow-hidden rounded-2xl border border-orange-300/90 bg-gradient-to-br from-white via-orange-50/35 to-amber-50/85 p-5 lg:col-span-4 h-full hover:border-orange-400 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-950/[0.04] transition-all duration-300 ease-out flex flex-col justify-between gap-4">
+                        <svg
+                            aria-hidden="true"
+                            class="pointer-events-none select-none absolute -right-2 top-2.5 w-24 h-24 text-orange-500/[0.12] transition-all duration-500 ease-out group-hover:text-orange-500/[0.22] group-hover:scale-110 group-hover:-translate-x-1.5 group-hover:-translate-y-1 group-hover:-rotate-6"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div class="relative z-10 flex items-start justify-between gap-3">
                             <div>
-                                <span class="text-xs font-bold text-orange-900 block">Antrean Screening Aktif</span>
-                                <p class="text-3xl font-black text-slate-900 mt-1 tabular-data">{{ summary.submitted || 0 }}</p>
+                                <span class="text-[11px] font-extrabold uppercase tracking-wider text-orange-900 block">Antrean Screening Aktif</span>
+                                <p class="text-3xl font-black text-slate-900 mt-1.5 tabular-data font-mono tracking-tight">{{ summary.submitted || 0 }}</p>
                                 <span class="text-xs text-slate-700 mt-1 block">Peserta menunggu pemeriksaan berkas</span>
                             </div>
                             <Link
                                 v-if="summary.total > 0 || participants.length > 0"
                                 :href="route('admin.screening.auditions.review', { event: event.id })"
-                                class="btn-sm-pitch shrink-0 whitespace-nowrap"
+                                class="btn-sm-pitch shrink-0 whitespace-nowrap shadow-sm"
                             >
                                 Mulai Periksa
                             </Link>
@@ -387,61 +472,168 @@ const birthDateSummary = computed(() => {
 
                     <!-- Secondary Breakdown Metric Tiles -->
                     <div class="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-3 h-full">
-                        <div class="frosted-card p-4 bg-white flex flex-col justify-between">
-                            <span class="text-xs font-semibold text-slate-600 block">Total Pendaftar</span>
-                            <div class="mt-2">
-                                <p class="text-2xl font-black text-slate-900 tabular-data">{{ summary.total || 0 }}</p>
-                                <span class="text-[11px] text-slate-500 block mt-0.5">Peserta terdaftar</span>
+                        <div class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white via-white to-sky-50/90 p-4 hover:border-sky-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-sky-950/[0.04] transition-all duration-300 ease-out flex flex-col justify-between">
+                            <svg
+                                aria-hidden="true"
+                                class="pointer-events-none select-none absolute -right-2 top-2 w-20 h-20 text-sky-600/[0.10] transition-all duration-500 ease-out group-hover:text-sky-600/[0.19] group-hover:scale-110 group-hover:-translate-x-1.5 group-hover:-translate-y-1 group-hover:rotate-6"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span class="relative z-10 text-[11px] font-extrabold uppercase tracking-wider text-slate-600 block">Total Pendaftar</span>
+                            <div class="relative z-10 mt-2">
+                                <p class="text-2xl font-black text-slate-900 tabular-data font-mono">{{ summary.total || 0 }}</p>
+                                <span class="text-[11px] text-slate-600 block mt-0.5">Peserta terdaftar</span>
                             </div>
                         </div>
-                        <div class="frosted-card p-4 bg-white flex flex-col justify-between">
-                            <span class="text-xs font-semibold text-slate-600 block">Lunas</span>
-                            <div class="mt-2">
-                                <p class="text-2xl font-black text-emerald-700 tabular-data">{{ summary.paid || 0 }}</p>
-                                <span class="text-[11px] text-slate-500 block mt-0.5">Pembayaran terkonfirmasi</span>
+
+                        <div class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white via-white to-emerald-50/90 p-4 hover:border-emerald-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-emerald-950/[0.04] transition-all duration-300 ease-out flex flex-col justify-between">
+                            <svg
+                                aria-hidden="true"
+                                class="pointer-events-none select-none absolute -right-2 top-2 w-20 h-20 text-emerald-500/[0.11] transition-all duration-500 ease-out group-hover:text-emerald-500/[0.20] group-hover:scale-110 group-hover:-translate-x-1.5 group-hover:-translate-y-1 group-hover:-rotate-6"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="relative z-10 text-[11px] font-extrabold uppercase tracking-wider text-slate-600 block">Lunas</span>
+                            <div class="relative z-10 mt-2">
+                                <p class="text-2xl font-black text-emerald-700 tabular-data font-mono">{{ summary.paid || 0 }}</p>
+                                <span class="text-[11px] text-slate-600 block mt-0.5">Pembayaran terkonfirmasi</span>
                             </div>
                         </div>
-                        <div class="frosted-card p-4 bg-white flex flex-col justify-between">
-                            <span class="text-xs font-semibold text-slate-600 block">Digital Pass Aktif</span>
-                            <div class="mt-2">
-                                <p class="text-2xl font-black text-slate-900 tabular-data">{{ summary.digital_pass_active || 0 }}</p>
-                                <span class="text-[11px] text-slate-500 block mt-0.5">Siap scan di gerbang</span>
+
+                        <div class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white via-white to-amber-50/90 p-4 hover:border-amber-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-amber-950/[0.04] transition-all duration-300 ease-out flex flex-col justify-between">
+                            <svg
+                                aria-hidden="true"
+                                class="pointer-events-none select-none absolute -right-2 top-2 w-20 h-20 text-amber-500/[0.11] transition-all duration-500 ease-out group-hover:text-amber-500/[0.20] group-hover:scale-110 group-hover:-translate-x-1.5 group-hover:-translate-y-1 group-hover:rotate-6"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                            </svg>
+                            <span class="relative z-10 text-[11px] font-extrabold uppercase tracking-wider text-slate-600 block">Digital Pass Aktif</span>
+                            <div class="relative z-10 mt-2">
+                                <p class="text-2xl font-black text-slate-900 tabular-data font-mono">{{ summary.digital_pass_active || 0 }}</p>
+                                <span class="text-[11px] text-slate-600 block mt-0.5">Siap scan di gerbang</span>
                             </div>
                         </div>
-                        <div class="frosted-card p-4 bg-white flex flex-col justify-between">
-                            <span class="text-xs font-semibold text-slate-600 block">Perlu Revisi</span>
-                            <div class="mt-2">
-                                <p class="text-2xl font-black text-rose-700 tabular-data">{{ summary.rejected || 0 }}</p>
-                                <span class="text-[11px] text-slate-500 block mt-0.5">Menunggu unggah ulang</span>
+
+                        <div class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white via-white to-rose-50/90 p-4 hover:border-rose-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-rose-950/[0.04] transition-all duration-300 ease-out flex flex-col justify-between">
+                            <svg
+                                aria-hidden="true"
+                                class="pointer-events-none select-none absolute -right-2 top-2 w-20 h-20 text-rose-500/[0.11] transition-all duration-500 ease-out group-hover:text-rose-500/[0.20] group-hover:scale-110 group-hover:-translate-x-1.5 group-hover:-translate-y-1 group-hover:-rotate-6"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <span class="relative z-10 text-[11px] font-extrabold uppercase tracking-wider text-slate-600 block">Perlu Revisi</span>
+                            <div class="relative z-10 mt-2">
+                                <p class="text-2xl font-black text-rose-700 tabular-data font-mono">{{ summary.rejected || 0 }}</p>
+                                <span class="text-[11px] text-slate-600 block mt-0.5">Menunggu unggah ulang</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-                    <div class="frosted-card p-5 lg:col-span-4 h-full border-orange-300 bg-orange-50/40 flex flex-col justify-between gap-3">
-                        <div>
-                            <span class="text-xs font-bold text-orange-900 block">Skuad Final Terkunci</span>
-                            <p class="text-3xl font-black text-slate-900 mt-1 tabular-data">
+                    <div class="group relative overflow-hidden rounded-2xl border border-orange-300/90 bg-gradient-to-br from-white via-orange-50/35 to-amber-50/85 p-5 lg:col-span-4 h-full hover:border-orange-400 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-950/[0.04] transition-all duration-300 ease-out flex flex-col justify-between gap-3">
+                        <svg
+                            aria-hidden="true"
+                            class="pointer-events-none select-none absolute -right-2 top-2.5 w-24 h-24 text-orange-500/[0.12] transition-all duration-500 ease-out group-hover:text-orange-500/[0.22] group-hover:scale-110 group-hover:-translate-x-1.5 group-hover:-translate-y-1 group-hover:-rotate-6"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                        <div class="relative z-10">
+                            <span class="text-[11px] font-extrabold uppercase tracking-wider text-orange-900 block">Skuad Final Terkunci</span>
+                            <p class="text-3xl font-black text-slate-900 mt-1.5 tabular-data font-mono tracking-tight">
                                 {{ summary.locked_roster || 0 }}
-                                <span class="text-sm font-semibold text-slate-600">/ {{ summary.total || 0 }} Tim</span>
+                                <span class="text-sm font-semibold text-slate-600 font-sans">/ {{ summary.total || 0 }} Tim</span>
                             </p>
                             <span class="text-xs text-slate-700 mt-1 block">Tim siap bertanding &amp; cetak ID Card</span>
+                        </div>
+                        <div class="relative z-10 flex flex-wrap items-center gap-2 pt-2.5 border-t border-orange-200/60">
+                            <button
+                                type="button"
+                                class="btn-sm-secondary"
+                                @click="setActiveTab('participants')"
+                            >
+                                Screening Tim
+                            </button>
+                            <Link
+                                :href="route('admin.events.tournament', { event: event.id })"
+                                class="btn-sm-pitch shadow-sm"
+                            >
+                                Pusat Turnamen
+                            </Link>
                         </div>
                     </div>
 
                     <div class="lg:col-span-8 grid grid-cols-1 sm:grid-cols-3 gap-3 h-full">
-                        <div class="frosted-card p-4 bg-white flex flex-col justify-between">
-                            <span class="text-xs font-semibold text-slate-600 block">Tim Mendaftar</span>
-                            <p class="text-2xl font-black text-slate-900 mt-2 tabular-data">{{ summary.total || 0 }}</p>
+                        <div class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white via-white to-sky-50/90 p-4 sm:p-5 hover:border-sky-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-sky-950/[0.04] transition-all duration-300 ease-out flex flex-col justify-between">
+                            <svg
+                                aria-hidden="true"
+                                class="pointer-events-none select-none absolute -right-2 top-2.5 w-24 h-24 text-sky-600/[0.10] transition-all duration-500 ease-out group-hover:text-sky-600/[0.19] group-hover:scale-110 group-hover:-translate-x-1.5 group-hover:-translate-y-1 group-hover:rotate-6"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <div class="relative z-10">
+                                <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 block">Tim Mendaftar</span>
+                                <p class="text-2xl sm:text-3xl font-black text-slate-900 mt-2 tabular-data font-mono tracking-tight">{{ summary.total || 0 }}</p>
+                            </div>
+                            <div class="relative z-10 mt-3 pt-2.5 border-t border-sky-200/50 text-[11px] text-slate-600">
+                                Total pendaftar event
+                            </div>
                         </div>
-                        <div class="frosted-card p-4 bg-white flex flex-col justify-between">
-                            <span class="text-xs font-semibold text-slate-600 block">Lunas &amp; Aktif</span>
-                            <p class="text-2xl font-black text-emerald-700 mt-2 tabular-data">{{ summary.paid || 0 }}</p>
+
+                        <div class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white via-white to-emerald-50/90 p-4 sm:p-5 hover:border-emerald-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-emerald-950/[0.04] transition-all duration-300 ease-out flex flex-col justify-between">
+                            <svg
+                                aria-hidden="true"
+                                class="pointer-events-none select-none absolute -right-2 top-2.5 w-24 h-24 text-emerald-500/[0.11] transition-all duration-500 ease-out group-hover:text-emerald-500/[0.20] group-hover:scale-110 group-hover:-translate-x-1.5 group-hover:-translate-y-1 group-hover:-rotate-6"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div class="relative z-10">
+                                <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 block">Lunas &amp; Aktif</span>
+                                <p class="text-2xl sm:text-3xl font-black text-emerald-700 mt-2 tabular-data font-mono tracking-tight">{{ summary.paid || 0 }}</p>
+                            </div>
+                            <div class="relative z-10 mt-3 pt-2.5 border-t border-emerald-200/50 text-[11px] text-slate-600">
+                                Tim terverifikasi bayar
+                            </div>
                         </div>
-                        <div class="frosted-card p-4 bg-white flex flex-col justify-between">
-                            <span class="text-xs font-semibold text-slate-600 block">Laga Selesai</span>
-                            <p class="text-2xl font-black text-slate-900 mt-2 tabular-data">{{ summary.completed_matches_count || 0 }} / {{ summary.matches_count || 0 }}</p>
+
+                        <div class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white via-white to-amber-50/90 p-4 sm:p-5 hover:border-amber-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-amber-950/[0.04] transition-all duration-300 ease-out flex flex-col justify-between">
+                            <svg
+                                aria-hidden="true"
+                                class="pointer-events-none select-none absolute -right-2 top-2.5 w-24 h-24 text-amber-500/[0.11] transition-all duration-500 ease-out group-hover:text-amber-500/[0.21] group-hover:scale-110 group-hover:-translate-x-1.5 group-hover:-translate-y-1 group-hover:rotate-6"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.45 1-1 1H8c-.55 0-1 .45-1 1v1h10v-1c0-.55-.45-1-1-1h-1c-.55 0-1-.45-1-1v-2.34c3.27-.47 5.76-3.23 5.76-6.66V4H5.24v4c0 3.43 2.49 6.19 5.76 6.66z" />
+                            </svg>
+                            <div class="relative z-10">
+                                <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 block">Laga Selesai</span>
+                                <p class="text-2xl sm:text-3xl font-black text-slate-900 mt-2 tabular-data font-mono tracking-tight">{{ summary.completed_matches_count || 0 }} / {{ summary.matches_count || 0 }}</p>
+                            </div>
+                            <div class="relative z-10 mt-3 pt-2.5 border-t border-amber-200/50 text-[11px] text-slate-600">
+                                Pertandingan turnamen
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -624,17 +816,32 @@ const birthDateSummary = computed(() => {
                         </select>
                     </div>
 
-                    <Link
-                        v-if="isIndividual && (summary.total > 0 || participants.length > 0)"
-                        :href="route('admin.screening.auditions.review', { event: event.id })"
-                        class="btn-pitch text-xs inline-flex items-center gap-1.5 justify-center"
-                    >
-                        <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                        <span>Buka Workstation Screening Berurutan</span>
-                    </Link>
+                    <div v-if="isIndividual" class="flex flex-wrap items-center gap-2">
+                        <a
+                            :href="route('admin.events.export-participants', { event: event.id })"
+                            class="btn-sm-secondary text-xs inline-flex items-center gap-1.5"
+                        >
+                            <span>Export Peserta CSV</span>
+                        </a>
+                        <a
+                            v-if="isAudition"
+                            :href="route('admin.events.export-scouting', { event: event.id })"
+                            class="btn-sm-secondary text-xs inline-flex items-center gap-1.5"
+                        >
+                            <span>Export Nilai Scout CSV</span>
+                        </a>
+                        <Link
+                            v-if="summary.total > 0 || participants.length > 0"
+                            :href="route('admin.screening.auditions.review', { event: event.id })"
+                            class="btn-pitch text-xs inline-flex items-center gap-1.5 justify-center"
+                        >
+                            <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            <span>Buka Workstation Screening Berurutan</span>
+                        </Link>
+                    </div>
                 </div>
 
                 <!-- Individual Participants List -->
@@ -646,7 +853,7 @@ const birthDateSummary = computed(() => {
                         <div class="overflow-x-auto">
                             <table class="w-full text-left border-collapse text-xs">
                                 <thead>
-                                    <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[10px] font-bold">
+                                    <tr class="bg-slate-50 border-b border-slate-200 text-slate-700 uppercase text-[10px] font-bold">
                                         <th class="py-3 px-4">Peserta &amp; ID Pass</th>
                                         <th class="py-3 px-4">Posisi / Sesi</th>
                                         <th class="py-3 px-4">Pembayaran</th>
@@ -662,6 +869,8 @@ const birthDateSummary = computed(() => {
                                                     v-if="p.photo_url"
                                                     :src="p.photo_url"
                                                     :alt="p.full_name"
+                                                    width="36"
+                                                    height="36"
                                                     class="w-9 h-9 rounded-xl object-cover border border-slate-200 shrink-0"
                                                 />
                                                 <div v-else class="w-9 h-9 rounded-xl bg-orange-100 text-orange-800 font-black flex items-center justify-center shrink-0">
@@ -761,7 +970,7 @@ const birthDateSummary = computed(() => {
                         <div class="overflow-x-auto">
                             <table class="w-full text-left border-collapse text-xs">
                                 <thead>
-                                    <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[10px] font-bold">
+                                    <tr class="bg-slate-50 border-b border-slate-200 text-slate-700 uppercase text-[10px] font-bold">
                                         <th class="py-3 px-4">Klub / Tim</th>
                                         <th class="py-3 px-4">Manajer</th>
                                         <th class="py-3 px-4">Status Pembayaran</th>
@@ -777,6 +986,8 @@ const birthDateSummary = computed(() => {
                                                     v-if="t.logo_url"
                                                     :src="t.logo_url"
                                                     :alt="t.name"
+                                                    width="36"
+                                                    height="36"
                                                     class="w-9 h-9 rounded-xl object-cover border border-slate-200 shrink-0"
                                                 />
                                                 <div v-else class="w-9 h-9 rounded-xl bg-orange-100 text-orange-800 font-black flex items-center justify-center shrink-0">
@@ -938,6 +1149,19 @@ const birthDateSummary = computed(() => {
                 </template>
             </div>
         </div>
+
+        <ConfirmModal
+            :show="Boolean(confirmActionModal)"
+            :title="confirmActionModal === 'delete' ? 'Hapus Draft Event?' : 'Duplikasi Konfigurasi Event?'"
+            :description="confirmActionModal === 'delete'
+                ? `Event &quot;${event.name}&quot; belum memiliki pendaftar dan akan dihapus dari daftar aktif. Lanjutkan penghapusan?`
+                : `Konfigurasi regulasi, sesi, dan tahapan dari &quot;${event.name}&quot; akan disalin menjadi event Draft baru.`"
+            :confirm-text="confirmActionModal === 'delete' ? 'Ya, Hapus Draft' : 'Ya, Duplikasi Event'"
+            :danger="confirmActionModal === 'delete'"
+            :processing="confirmProcessing"
+            @confirm="executeEventLifecycleAction"
+            @close="confirmActionModal = null"
+        />
     </AdminLayout>
 </template>
 

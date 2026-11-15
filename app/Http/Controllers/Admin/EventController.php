@@ -8,7 +8,9 @@ use App\Http\Requests\Admin\UpdateEventRequest;
 use App\Models\AuditionParticipant;
 use App\Models\AuditionStage;
 use App\Models\Event;
+use App\Models\ScoutingEvaluation;
 use App\Models\Team;
+use App\Models\TncVersion;
 use App\Services\ImageOptimizationService;
 use App\Services\QuotaExpirationService;
 use App\Support\HtmlSanitizer;
@@ -21,6 +23,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EventController extends Controller
 {
@@ -34,6 +37,10 @@ class EventController extends Controller
 
         $events = Event::query()
             ->withOccupiedSlotsCount()
+            ->withCount([
+                'teams as total_teams_count',
+                'auditionParticipants as total_participants_count',
+            ])
             ->orderByDesc('created_at')
             ->get()
             ->map(fn (Event $event) => [
@@ -53,6 +60,9 @@ class EventController extends Controller
                 'age_category' => $event->age_category,
                 'max_teams' => $event->max_teams,
                 'occupied_slots' => $event->occupiedSlotsCount(),
+                'total_registrants' => $event->isIndividual()
+                    ? (int) ($event->total_participants_count ?? 0)
+                    : (int) ($event->total_teams_count ?? 0),
                 'active_teams' => (int) ($event->active_teams_count ?? 0),
                 'registration_fee' => (float) $event->registration_fee,
                 'payment_deadline_hours' => $event->payment_deadline_hours,
@@ -297,6 +307,8 @@ class EventController extends Controller
             ])->values();
         }
 
+        $eventData['total_registrants'] = (int) ($summary['total'] ?? 0);
+
         return Inertia::render('Admin/Events/Show', [
             'event' => $eventData,
             'summary' => $summary,
@@ -316,7 +328,10 @@ class EventController extends Controller
 
         $expiredCount = $quotaExpiration->sweepAllEvents();
 
-        Event::query()->get()->each(fn (Event $event) => $event->syncQuotaStatus());
+        Event::query()
+            ->withOccupiedSlotsCount()
+            ->get()
+            ->each(fn (Event $event) => $event->syncQuotaStatus());
 
         if ($expiredCount > 0) {
             return back()->with('success', "Sinkronisasi selesai. Berhasil melepas {$expiredCount} slot kedaluwarsa & memperbarui status kuota event.");
@@ -362,6 +377,7 @@ class EventController extends Controller
             'defaultFormPresets' => Event::DEFAULT_FORM_PRESETS,
             'statuses' => Event::STATUSES,
             'documentTypes' => Event::DOCUMENT_TYPES,
+            'tncVersions' => $this->tncVersionOptions($initialParticipantType),
         ]);
     }
 
@@ -442,6 +458,13 @@ class EventController extends Controller
             'regulation_pdf_path' => $pdfPath,
             'contact_person' => $validated['contact_person'] ?? null,
             'contact_whatsapp' => $validated['contact_whatsapp'] ?? null,
+            'tnc_version_id' => $this->resolveSelectedTncVersionId(
+                $validated,
+                null,
+                $validated['participant_type'] ?? 'team',
+                $validated['event_type'] ?? 'tournament',
+                $request->user()?->id
+            ),
             'status' => $validated['status'],
         ]);
 
@@ -526,6 +549,7 @@ class EventController extends Controller
                 'match_end_date' => $event->match_end_date?->toDateString(),
                 'contact_person' => $event->contact_person,
                 'contact_whatsapp' => $event->contact_whatsapp,
+                'tnc_version_id' => $event->tnc_version_id ?: $event->resolveTncVersion()->id,
                 'status' => $event->status,
                 'banner_url' => $event->banner_path ? Storage::disk('public')->url($event->banner_path) : null,
                 'regulation_pdf_url' => $event->regulation_pdf_path ? Storage::disk('public')->url($event->regulation_pdf_path) : null,
@@ -539,6 +563,7 @@ class EventController extends Controller
             'defaultFormPresets' => Event::DEFAULT_FORM_PRESETS,
             'statuses' => Event::STATUSES,
             'documentTypes' => Event::DOCUMENT_TYPES,
+            'tncVersions' => $this->tncVersionOptions($event->participant_type ?? 'team', $event->event_type),
         ]);
     }
 
@@ -638,6 +663,16 @@ class EventController extends Controller
                 $updates['regulation_pdf_path'] = $newPdf;
             }
 
+            if ($request->has('tnc_version_id') || ($validated['tnc_mode'] ?? 'existing') === 'new') {
+                $updates['tnc_version_id'] = $this->resolveSelectedTncVersionId(
+                    $validated,
+                    $lockedEvent,
+                    $participantType,
+                    $validated['event_type'] ?? $lockedEvent->event_type,
+                    $request->user()?->id
+                );
+            }
+
             $lockedEvent->update($updates);
             $lockedEvent->syncQuotaStatus($occupied);
 
@@ -648,6 +683,281 @@ class EventController extends Controller
 
         return redirect()->route('admin.events.index')
             ->with('success', 'Pengaturan event dan kuota peserta berhasil diperbarui.');
+    }
+
+    /**
+     * Duplikasi konfigurasi event (termasuk tahapan audisi dan sesi) menjadi Draft baru.
+     */
+    public function duplicate(Request $request, Event $event): RedirectResponse
+    {
+        $this->authorize('create', Event::class);
+
+        $clonedEvent = DB::transaction(function () use ($event) {
+            $baseName = $event->name . ' (Salinan)';
+            $baseSlug = Str::slug($baseName);
+            $slug = $baseSlug;
+            $counter = 1;
+
+            while (Event::withTrashed()->where('slug', $slug)->exists()) {
+                $counter++;
+                $slug = $baseSlug . '-' . $counter;
+            }
+
+            $copy = $event->replicate([
+                'slug',
+                'status',
+                'is_group_locked',
+                'certificates_released',
+                'deleted_at',
+            ]);
+            $copy->name = $baseName;
+            $copy->slug = $slug;
+            $copy->status = 'draft';
+            $copy->is_group_locked = false;
+            $copy->certificates_released = false;
+
+            if ($event->banner_path && Storage::disk('public')->exists($event->banner_path)) {
+                $ext = pathinfo($event->banner_path, PATHINFO_EXTENSION) ?: 'jpg';
+                $newBannerPath = 'events/banners/' . Str::uuid() . '.' . $ext;
+                Storage::disk('public')->copy($event->banner_path, $newBannerPath);
+                $copy->banner_path = $newBannerPath;
+            }
+
+            if ($event->banner_optimized_path && $event->banner_optimized_path !== $event->banner_path && Storage::disk('public')->exists($event->banner_optimized_path)) {
+                $ext = pathinfo($event->banner_optimized_path, PATHINFO_EXTENSION) ?: 'webp';
+                $newOptPath = 'events/banners/' . Str::uuid() . '.' . $ext;
+                Storage::disk('public')->copy($event->banner_optimized_path, $newOptPath);
+                $copy->banner_optimized_path = $newOptPath;
+            } elseif ($event->banner_optimized_path === $event->banner_path && ! empty($copy->banner_path)) {
+                $copy->banner_optimized_path = $copy->banner_path;
+            }
+
+            if ($event->regulation_pdf_path && Storage::disk('public')->exists($event->regulation_pdf_path)) {
+                $newPdfPath = 'events/regulations/' . Str::uuid() . '.pdf';
+                Storage::disk('public')->copy($event->regulation_pdf_path, $newPdfPath);
+                $copy->regulation_pdf_path = $newPdfPath;
+            }
+
+            $copy->save();
+
+            foreach ($event->auditionStages()->orderBy('stage_number')->get() as $stage) {
+                $copy->auditionStages()->create([
+                    'stage_number' => $stage->stage_number,
+                    'stage_name' => $stage->stage_name,
+                    'stage_date' => $stage->stage_date,
+                    'start_time' => $stage->start_time,
+                    'end_time' => $stage->end_time,
+                    'venue_name' => $stage->venue_name,
+                    'target_quota' => $stage->target_quota,
+                    'is_active' => $stage->is_active,
+                    'is_completed' => false,
+                    'instructions' => $stage->instructions,
+                ]);
+            }
+
+            foreach ($event->eventSessions()->orderBy('session_date')->orderBy('start_time')->get() as $session) {
+                $copy->eventSessions()->create([
+                    'session_name' => $session->session_name,
+                    'session_date' => $session->session_date,
+                    'start_time' => $session->start_time,
+                    'end_time' => $session->end_time,
+                    'quota' => $session->quota,
+                    'occupied_slots' => 0,
+                    'notes' => $session->notes,
+                ]);
+            }
+
+            return $copy;
+        });
+
+        return redirect()->route('admin.events.edit', ['event' => $clonedEvent->id])
+            ->with('success', "Event \"{$clonedEvent->name}\" berhasil diduplikasi sebagai Draft. Silakan sesuaikan tanggal dan konfigurasi.");
+    }
+
+    /**
+     * Hapus event (soft delete) khusus untuk event yang belum memiliki pendaftar.
+     */
+    public function destroy(Request $request, Event $event): RedirectResponse
+    {
+        $this->authorize('delete', $event);
+
+        $teamCount = $event->teams()->count();
+        $participantCount = $event->auditionParticipants()->count();
+
+        if ($teamCount > 0 || $participantCount > 0 || $event->occupiedSlotsCount() > 0) {
+            return back()->with('error', "Event \"{$event->name}\" tidak dapat dihapus karena sudah memiliki pendaftar. Ubah status menjadi Completed atau Closed jika event telah selesai.");
+        }
+
+        $eventName = $event->name;
+        $event->delete();
+
+        return redirect()->route('admin.events.index')
+            ->with('success', "Draft event \"{$eventName}\" berhasil dihapus.");
+    }
+
+    /**
+     * Ekspor rekap peserta perorangan/audisi & riwayat presensi gerbang ke format CSV (UTF-8 BOM).
+     */
+    public function exportParticipantsCsv(Request $request, Event $event): StreamedResponse
+    {
+        $this->authorize('view', $event);
+
+        $participants = AuditionParticipant::query()
+            ->where('event_id', $event->id)
+            ->with([
+                'user:id,name,email,phone',
+                'eventSession:id,session_name',
+                'latestPayment',
+                'attendances.stage',
+            ])
+            ->orderBy('registration_number')
+            ->orderBy('id')
+            ->get();
+
+        $filename = 'rekap-peserta-' . $event->slug . '-' . now()->format('Ymd-His') . '.csv';
+
+        return response()->streamDownload(function () use ($participants) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF");
+
+            fputcsv($out, [
+                'No',
+                'No. Registrasi',
+                'No. Bib',
+                'Nama Lengkap',
+                'Panggilan',
+                'NIK',
+                'Tanggal Lahir',
+                'Gender',
+                'Posisi Utama',
+                'Posisi Kedua',
+                'Kaki Dominan',
+                'Tinggi (cm)',
+                'Berat (kg)',
+                'SSB / Klub Asal',
+                'Ukuran Jersey',
+                'Sesi / Gelombang',
+                'Email Akun',
+                'WhatsApp Akun',
+                'Kontak Darurat',
+                'No. HP Darurat',
+                'Status Pembayaran',
+                'Total Bayar (Rp)',
+                'Status Screening',
+                'Status Tahapan',
+                'Riwayat Presensi Gerbang',
+            ]);
+
+            foreach ($participants as $index => $p) {
+                $attendanceSummary = $p->attendances
+                    ->where('status', 'present')
+                    ->map(fn ($att) => trim(($att->stage?->stage_name ?? 'Tahap') . ' (' . ($att->check_in_at?->format('d/m H:i') ?? '-') . ')'))
+                    ->implode('; ');
+
+                fputcsv($out, [
+                    $index + 1,
+                    $p->registration_number ?? '-',
+                    $p->bib_number ? '#' . $p->bib_number : '-',
+                    $p->full_name,
+                    $p->nickname ?? '-',
+                    $p->nik ? "'" . $p->nik : '-',
+                    $p->birth_date?->format('Y-m-d') ?? '-',
+                    $p->gender ?? '-',
+                    $p->preferred_position ?? '-',
+                    $p->secondary_position ?? '-',
+                    $p->dominant_foot ?? '-',
+                    $p->height_cm ?? '-',
+                    $p->weight_kg ?? '-',
+                    $p->current_club_ssb ?? 'Independen',
+                    $p->jersey_size ?? '-',
+                    $p->eventSession?->session_name ?? 'Utama',
+                    $p->user?->email ?? '-',
+                    $p->user?->phone ?? '-',
+                    $p->emergency_contact_name ?? '-',
+                    $p->emergency_contact_phone ? "'" . $p->emergency_contact_phone : '-',
+                    $p->latestPayment?->status ?? ($p->status === 'active' || $p->status === 'confirmed' ? 'paid' : 'unpaid'),
+                    (float) ($p->latestPayment?->total_amount ?? 0),
+                    $p->screeningStatusLabel(),
+                    $p->stageStatusLabel(),
+                    $attendanceSummary !== '' ? $attendanceSummary : 'Belum Check-in',
+                ]);
+            }
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    /**
+     * Ekspor hasil penilaian & evaluasi Talent Scout ke format CSV (UTF-8 BOM).
+     */
+    public function exportScoutingCsv(Request $request, Event $event): StreamedResponse
+    {
+        $this->authorize('view', $event);
+
+        $evaluations = ScoutingEvaluation::query()
+            ->whereHas('participant', fn ($q) => $q->where('event_id', $event->id))
+            ->with([
+                'participant',
+                'stage',
+                'scout:id,name',
+            ])
+            ->orderBy('audition_stage_id')
+            ->orderBy('audition_participant_id')
+            ->get();
+
+        $filename = 'rekap-scouting-' . $event->slug . '-' . now()->format('Ymd-His') . '.csv';
+
+        return response()->streamDownload(function () use ($evaluations) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF");
+
+            fputcsv($out, [
+                'No',
+                'Tahap Audisi',
+                'No. Registrasi',
+                'No. Bib',
+                'Nama Peserta',
+                'Posisi Utama',
+                'SSB / Klub Asal',
+                'Status Tahapan Peserta',
+                'Nama Scout Penilai',
+                'Quick Grade',
+                'Rating Bintang',
+                'Tag Atribut',
+                'Catatan Pelatih',
+                'Status Kunci Sesi',
+                'Waktu Penilaian',
+            ]);
+
+            foreach ($evaluations as $index => $eval) {
+                $p = $eval->participant;
+                $tags = is_array($eval->tags) ? implode(', ', $eval->tags) : '';
+
+                fputcsv($out, [
+                    $index + 1,
+                    $eval->stage?->stage_name ?? ('Tahap ' . ($eval->stage?->stage_number ?? '-')),
+                    $p?->registration_number ?? '-',
+                    $p?->bib_number ? '#' . $p->bib_number : '-',
+                    $p?->full_name ?? '-',
+                    $p?->preferred_position ?? '-',
+                    $p?->current_club_ssb ?? 'Independen',
+                    $p ? $p->stageStatusLabel() : '-',
+                    $eval->scout?->name ?? 'Scout',
+                    $eval->quick_grade ?? '-',
+                    $eval->rating_stars ?? '-',
+                    $tags !== '' ? $tags : '-',
+                    $eval->coach_notes ?? '-',
+                    $eval->is_locked ? 'Terkunci' : 'Draft',
+                    $eval->updated_at?->format('Y-m-d H:i:s') ?? '-',
+                ]);
+            }
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 
     protected function syncIndividualStages(Event $event, array $stagesInput, bool $isCreate, bool $stagesFieldSubmitted): void
@@ -724,5 +1034,62 @@ class EventController extends Controller
     protected function sanitizeDescription(?string $html): ?string
     {
         return HtmlSanitizer::clean($html);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected function tncVersionOptions(string $participantType = 'team', ?string $eventType = null): array
+    {
+        TncVersion::ensureDefaultsExist();
+
+        return TncVersion::query()
+            ->where('is_active', true)
+            ->orderBy('title')
+            ->orderByDesc('version_number')
+            ->get()
+            ->map(fn (TncVersion $version) => [
+                'id' => $version->id,
+                'code' => $version->code,
+                'title' => $version->title,
+                'scope' => $version->scope,
+                'version' => $version->version,
+                'summary' => $version->summary,
+                'content_html' => TncVersion::formatDisplayHtml($version->content),
+                'published_at' => $version->published_at?->toIso8601String(),
+            ])
+            ->values()
+            ->all();
+    }
+
+    protected function resolveSelectedTncVersionId(
+        array $validated,
+        ?Event $existingEvent,
+        ?string $participantType,
+        ?string $eventType,
+        ?int $createdBy
+    ): ?int {
+        if (($validated['tnc_mode'] ?? 'existing') === 'new' && ! empty($validated['tnc_title']) && ! empty($validated['tnc_content'])) {
+            $scope = $participantType === 'individual'
+                ? ($eventType === 'coaching_clinic' ? 'coaching_clinic' : 'audition')
+                : 'team';
+
+            $created = TncVersion::createNewVersion(
+                title: $validated['tnc_title'],
+                content: $validated['tnc_content'],
+                scope: $scope,
+                summary: $validated['tnc_summary'] ?? null,
+                code: $validated['tnc_code'] ?? null,
+                createdBy: $createdBy,
+            );
+
+            return $created->id;
+        }
+
+        if (! empty($validated['tnc_version_id'])) {
+            return (int) $validated['tnc_version_id'];
+        }
+
+        return $existingEvent?->tnc_version_id;
     }
 }

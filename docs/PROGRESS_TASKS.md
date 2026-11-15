@@ -17,6 +17,8 @@ Legenda Status:
 7. **Fase 7** — Cetak Biru Skalabilitas & Ekosistem Jangka Panjang (*Post Go-Live Roadmap*) (`[~] Roadmap Berjalan`)
 8. **Fase 8** — Ekosistem Multi-Event & Audisi/Seleksi Bakat Individual Versi 2.0 (Sub-Fase 8.1 – 8.8) (`[x] Selesai`)
 9. **Fase 9** — Audit Menyeluruh Arsitektur, Kepatuhan Best Practice (`GEMINI-2.md`), & Penegakan Batasan SOP Lifecycle Event (`[x] Selesai`)
+10. **Fase 10** — Hardening Modul Pembayaran, Gateway Provider Separation, & Rekonsiliasi Refund Terstruktur (`[x] Selesai`)
+11. **Fase 11** — TnC Versioning Global, Surat Pernyataan Medis Terstruktur, & Modal Read-Before-Accept (`[x] Selesai`)
 
 ---
 
@@ -646,6 +648,28 @@ Fase ini menindaklanjuti audit keamanan dan keandalan modul pembayaran (`Midtran
 
 ## REKAPITULASI STATUS PENGUJIAN AKHIR FASE 10:
 - **Total Automated Tests**: **185 Tests PASS 100% (1,689 assertions)**
+- **Regresi Sistem Eksisting**: **0 Failed (Zero Regression)**
+
+---
+
+## FASE 11 — TNC VERSIONING GLOBAL & MODAL PERSETUJUAN READ-BEFORE-ACCEPT
+
+Fase ini menerapkan sistem versi dokumen persetujuan (*Terms & Conditions* & Surat Pernyataan Bebas Tanggung Jawab Medis) secara terpusat untuk semua tipe event (`team`, `audition`, `coaching_clinic`).
+
+### 11.1 Skema Versi Immutable & Audit Trail Persetujuan
+- [x] **11.1.1** **Tabel `tnc_versions` & Snapshot Peserta (`2026_11_13_215000_create_tnc_versions_table`, `TncVersion`)**:
+  - Menyediakan versioning otomatis per `code` (`v1.0`, `v2.0`, dst.), sanitasi HTML (`HtmlSanitizer::clean`), placeholder dinamis `{{event_name}}` & `{{payment_deadline_hours}}`, serta 3 dokumen bawaan awal (`team-competition-standard`, `individual-audition-waiver`, `coaching-clinic-standard`).
+  - Menyimpan rekam persetujuan digital pada `teams` & `audition_participants`: `accepted_tnc_version_id`, `accepted_tnc_version`, `accepted_tnc_hash` (SHA-256), `accepted_ip`, dan `accepted_user_agent`.
+- [x] **11.1.2** **Manajemen TnC di Form Event Admin (`Admin/Events/Form.vue`, `EventController`, `StoreEventRequest`)**:
+  - Panitia dapat memilih versi TnC eksisting (dengan pratinjau langsung), merevisi versi eksisting (*bump version*), atau membuat versi dokumen baru langsung saat pembuatan/pembaruan event.
+- [x] **11.1.3** **Modal *Read-Before-Accept* Publik (`TncAgreementModal.vue`, `RegisterTeam.vue`, `RegisterAudition.vue`, `RegisterTeamRequest`, `RegisterAuditionRequest`)**:
+  - Klik checkbox membuka modal isi lengkap TnC & badge versi; tombol **Saya Setuju** otomatis mencentang checkbox, mengisi `tnc_version_id`, dan menutup modal secara otomatis, sementara backend menolak `tnc_version_id` usang apabila event baru diperbarui ke versi lebih baru.
+- [x] **11.1.4** **Panel Manajemen TnC Versioning Super Admin (`/admin/tnc-versions`, `TncVersionController`, `StoreTncVersionRequest`, `Admin/TncVersions/Index.vue`)**:
+  - Halaman khusus `superadmin` di sidebar *Sistem & Akses* untuk meninjau daftar versi, melihat status *Terkunci Audit* & jumlah persetujuan, pratinjau modal identik pendaftar, menerbitkan revisi versi baru (*bump version*), serta mengaktifkan/menonaktifkan versi.
+
+## REKAPITULASI STATUS PENGUJIAN AKHIR FASE 11:
+- **Total Automated Tests**: **191 Tests PASS 100% (1,778 assertions)**
+- **Frontend Production Build (`npm run build`)**: **Sukses**
 - **Regresi Sistem Eksisting**: **0 Failed (Zero Regression)**
 
 

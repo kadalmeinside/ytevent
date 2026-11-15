@@ -93,12 +93,12 @@ const forgetJob = (job) => {
                         class="input-field text-xs flex-1"
                         @keyup.enter="applyFilters"
                     />
-                    <select v-model="filterState.provider" aria-label="Filter provider" class="input-field text-xs" @change="applyFilters">
+                    <select v-model="filterState.provider" aria-label="Filter provider" class="input-field text-xs w-full lg:w-44 shrink-0" @change="applyFilters">
                         <option value="">Semua provider</option>
                         <option value="midtrans">Midtrans</option>
                         <option value="xendit">Xendit</option>
                     </select>
-                    <select v-model="filterState.status" aria-label="Filter status webhook" class="input-field text-xs" @change="applyFilters">
+                    <select v-model="filterState.status" aria-label="Filter status webhook" class="input-field text-xs w-full lg:w-44 shrink-0" @change="applyFilters">
                         <option value="">Semua status</option>
                         <option value="failed">Gagal</option>
                         <option value="processed">Diproses</option>

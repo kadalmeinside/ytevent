@@ -18,7 +18,8 @@ use Illuminate\Validation\ValidationException;
 class AuditionRegistrationService
 {
     public function __construct(
-        protected ImageOptimizationService $imageOptimization
+        protected ImageOptimizationService $imageOptimization,
+        protected InvoiceService $invoiceService
     ) {}
 
     public function registerAuditionParticipant(
@@ -28,7 +29,9 @@ class AuditionRegistrationService
         ?UploadedFile $birthCertFile = null,
         ?UploadedFile $familyCardFile = null,
         ?UploadedFile $additionalDocFile = null,
-        ?User $authenticatedUser = null
+        ?User $authenticatedUser = null,
+        ?string $acceptedIp = null,
+        ?string $acceptedUserAgent = null
     ): array {
         return DB::transaction(function () use (
             $event,
@@ -37,7 +40,9 @@ class AuditionRegistrationService
             $birthCertFile,
             $familyCardFile,
             $additionalDocFile,
-            $authenticatedUser
+            $authenticatedUser,
+            $acceptedIp,
+            $acceptedUserAgent
         ) {
             /** @var Event $lockedEvent */
             $lockedEvent = Event::query()->whereKey($event->id)->lockForUpdate()->firstOrFail();
@@ -47,6 +52,8 @@ class AuditionRegistrationService
                     'event' => 'Pendaftaran untuk event ini sedang ditutup atau kuota telah terpenuhi.',
                 ]);
             }
+
+            $tncVersion = $lockedEvent->resolveTncVersion();
 
             // Quota Check untuk mode fixed
             if (! $lockedEvent->isUnlimitedQuota() && $lockedEvent->max_participants) {
@@ -163,9 +170,17 @@ class AuditionRegistrationService
                 }
             }
 
+            // Resolve source participant for document reuse (when parent registers existing child)
+            $sourceParticipant = null;
+            if ($authenticatedUser && ! empty($validated['source_participant_id'])) {
+                $sourceParticipant = AuditionParticipant::query()
+                    ->where('user_id', $authenticatedUser->id)
+                    ->find((int) $validated['source_participant_id']);
+            }
+
             // Upload Files
             // Pas Foto (Public Storage dengan WebP/JPEG optimization jika ada)
-            $photoPath = null;
+            $photoPath = $sourceParticipant?->photo_path;
             if ($photoFile) {
                 $photoStored = $this->imageOptimization->storeWithOptimizedVariant(
                     $photoFile,
@@ -178,7 +193,7 @@ class AuditionRegistrationService
             }
 
             // Dokumen Keabsahan (Private Storage)
-            $birthCertPath = null;
+            $birthCertPath = $sourceParticipant?->birth_certificate_path;
             if ($birthCertFile) {
                 $birthCertExt = $birthCertFile->getClientOriginalExtension() ?: 'pdf';
                 $birthCertPath = $birthCertFile->storeAs(
@@ -188,7 +203,7 @@ class AuditionRegistrationService
                 );
             }
 
-            $familyCardPath = null;
+            $familyCardPath = $sourceParticipant?->family_card_path;
             if ($familyCardFile) {
                 $familyCardExt = $familyCardFile->getClientOriginalExtension() ?: 'pdf';
                 $familyCardPath = $familyCardFile->storeAs(
@@ -246,6 +261,11 @@ class AuditionRegistrationService
                 'medical_notes' => $validated['medical_notes'] ?? null,
                 'custom_answers' => $validated['custom_answers'] ?? null,
                 'liability_accepted_at' => now(),
+                'accepted_tnc_version_id' => $tncVersion->id,
+                'accepted_tnc_version' => $tncVersion->version,
+                'accepted_tnc_hash' => $tncVersion->contentHashForEvent($lockedEvent),
+                'accepted_ip' => $acceptedIp,
+                'accepted_user_agent' => $acceptedUserAgent ? Str::limit($acceptedUserAgent, 500, '') : null,
                 'photo_path' => $photoPath,
                 'birth_certificate_path' => $birthCertPath,
                 'family_card_path' => $familyCardPath,
@@ -262,22 +282,26 @@ class AuditionRegistrationService
                 EventSession::where('id', $sessionId)->increment('occupied_slots');
             }
 
-            // Create Payment Invoice jika berbayar
-            $payment = null;
-            if ($fee > 0) {
-                $invoiceNumber = sprintf('INV-%s-AUD%d-%04d', $year, $lockedEvent->id, $participant->id);
+            // Terbitkan Invoice / Kwitansi Resmi secara konsisten (termasuk pendaftaran gratis Rp 0)
+            $issuedAt = now();
+            $isFree = $fee <= 0;
+            $invoiceNumber = $this->invoiceService->generateNumber($lockedEvent);
 
-                $payment = Payment::create([
-                    'invoice_number' => $invoiceNumber,
-                    'audition_participant_id' => $participant->id,
-                    'event_id' => $lockedEvent->id,
-                    'amount' => $fee,
-                    'gateway_fee' => 0,
-                    'total_amount' => $fee,
-                    'status' => 'unpaid',
-                    'expires_at' => $slotExpiresAt,
-                ]);
-            }
+            $payment = Payment::create([
+                'invoice_number' => $invoiceNumber,
+                'audition_participant_id' => $participant->id,
+                'event_id' => $lockedEvent->id,
+                'billing_snapshot' => $this->invoiceService->buildSnapshot($lockedEvent, null, $participant, $user),
+                'amount' => $fee,
+                'gateway_fee' => 0,
+                'total_amount' => $fee,
+                'method' => $isFree ? 'manual' : null,
+                'payment_channel' => $isFree ? 'Pendaftaran Gratis' : null,
+                'status' => $isFree ? 'paid' : 'unpaid',
+                'expires_at' => $isFree ? null : $slotExpiresAt,
+                'issued_at' => $issuedAt,
+                'paid_at' => $isFree ? $issuedAt : null,
+            ]);
 
             AuditLog::record(
                 entity: $participant,

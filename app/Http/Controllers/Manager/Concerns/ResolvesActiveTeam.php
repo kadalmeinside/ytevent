@@ -17,7 +17,26 @@ trait ResolvesActiveTeam
             ->with(['event', 'latestPayment', 'players.documents', 'officials'])
             ->where('user_id', $user->id)
             ->orderByDesc('created_at')
-            ->get();
+            ->get()
+            ->sortBy(function (Team $t) {
+                $isCompleted = $t->event?->status === 'completed';
+                $hasRejected = $t->players->where('screening_status', 'rejected')->isNotEmpty()
+                    || $t->latestPayment?->status === 'rejected';
+                $needsPayment = in_array($t->status, ['pending_payment', 'expired'], true);
+
+                $tier = $isCompleted ? 2 : ($needsPayment || $hasRejected ? 0 : 1);
+                $dateKey = $t->event?->match_start_date
+                    ? ($isCompleted ? -$t->event->match_start_date->timestamp : $t->event->match_start_date->timestamp)
+                    : PHP_INT_MAX;
+
+                return sprintf('%d_%012d_%012d', $tier, $dateKey + 10000000000, -$t->created_at?->timestamp ?? 0);
+            })
+            ->values();
+
+        $requestedTeamId = $request->integer('team_id');
+        if ($requestedTeamId > 0 && $teams->contains('id', $requestedTeamId)) {
+            $request->session()->put('active_manager_team_id', $requestedTeamId);
+        }
 
         $activeId = (int) $request->session()->get('active_manager_team_id', 0);
         $activeTeam = $teams->firstWhere('id', $activeId) ?? $teams->first();
@@ -29,12 +48,52 @@ trait ResolvesActiveTeam
         return [
             'activeTeam' => $activeTeam,
             'teamPayload' => $activeTeam ? $this->formatTeamForManager($activeTeam) : null,
-            'teamsList' => $teams->map(fn (Team $t) => [
-                'id' => $t->id,
-                'name' => $t->name,
-                'status' => $t->status,
-                'event_name' => $t->event?->name,
-            ])->values(),
+            'teamsList' => $teams->map(function (Team $t) {
+                $event = $t->event;
+                $isCompleted = $event?->status === 'completed';
+                $latestPayment = $t->latestPayment;
+                $isPaid = $latestPayment?->status === 'paid' || (float) ($event?->registration_fee ?? 0) <= 0;
+                $playersCount = $t->players->count();
+                $playersPassedCount = $t->players->where('screening_status', 'passed')->count();
+                $playersRejectedCount = $t->players->where('screening_status', 'rejected')->count();
+                $needsAttention = ! $isCompleted && (
+                    in_array($t->status, ['pending_payment', 'expired'], true)
+                    || $latestPayment?->status === 'rejected'
+                    || $playersRejectedCount > 0
+                );
+
+                return [
+                    'id' => $t->id,
+                    'name' => $t->name,
+                    'status' => $t->status,
+                    'screening_status' => $t->screening_status,
+                    'is_roster_locked' => $t->isRosterLocked(),
+                    'logo_url' => $t->logo_path ? Storage::disk('public')->url($t->logo_path) : null,
+                    'event_id' => $event?->id,
+                    'event_name' => $event?->name,
+                    'event_banner_url' => $event?->banner_url,
+                    'age_category' => $event?->age_category,
+                    'city' => $event?->city,
+                    'match_start_date' => $event?->match_start_date?->format('d M Y'),
+                    'event_status' => $event?->status,
+                    'event_status_label' => $event ? (Event::STATUSES[$event->status] ?? $event->status) : null,
+                    'is_event_completed' => $isCompleted,
+                    'is_paid' => $isPaid,
+                    'latest_payment' => $latestPayment ? [
+                        'id' => $latestPayment->id,
+                        'invoice_number' => $latestPayment->invoice_number,
+                        'total_amount' => (float) $latestPayment->total_amount,
+                        'status' => $latestPayment->status,
+                        'invoice_url' => route('manager.payments.invoice', ['payment' => $latestPayment->id]),
+                    ] : null,
+                    'players_count' => $playersCount,
+                    'players_passed_count' => $playersPassedCount,
+                    'players_rejected_count' => $playersRejectedCount,
+                    'min_players_required' => (int) ($event?->min_players_per_team ?? 11),
+                    'officials_count' => $t->officials->count(),
+                    'needs_attention' => $needsAttention,
+                ];
+            })->values(),
         ];
     }
 
@@ -70,6 +129,10 @@ trait ResolvesActiveTeam
                 'id' => $event->id,
                 'name' => $event->name,
                 'slug' => $event->slug,
+                'banner_url' => $event->banner_url,
+                'status' => $event->status,
+                'status_label' => Event::STATUSES[$event->status] ?? $event->status,
+                'is_completed' => $event->status === 'completed',
                 'age_category' => $event->age_category,
                 'format' => $event->format,
                 'format_label' => Event::FORMATS[$event->format] ?? $event->format,

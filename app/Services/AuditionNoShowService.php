@@ -16,13 +16,17 @@ class AuditionNoShowService
         }
 
         $marked = 0;
+        $now = now();
+        $timestamp = $now->format('Y-m-d H:i:s');
+
         AuditionStage::query()
+            ->with('event')
             ->whereHas('event', fn ($query) => $query
                 ->where('participant_type', 'individual')
                 ->where('event_type', 'audition'))
             ->get()
-            ->each(function (AuditionStage $stage) use ($systemUserId, &$marked): void {
-                if (! $this->hasEnded($stage)) {
+            ->each(function (AuditionStage $stage) use ($systemUserId, $timestamp, &$marked): void {
+                if (! $this->hasEnded($stage) || ! $stage->event) {
                     return;
                 }
 
@@ -32,30 +36,30 @@ class AuditionNoShowService
                     default => 'day_2_passed',
                 };
 
-                $stage->event->auditionParticipants()
+                $participantIds = $stage->event->auditionParticipants()
                     ->where('status', 'active')
                     ->where('screening_status', 'passed')
                     ->whereHas('payments', fn ($query) => $query->where('status', 'paid'))
                     ->where('stage_status', $eligibleStatus)
                     ->whereDoesntHave('attendances', fn ($query) => $query->where('audition_stage_id', $stage->id))
-                    ->get()
-                    ->each(function ($participant) use ($stage, $systemUserId, &$marked): void {
-                        $attendance = AuditionAttendance::firstOrCreate(
-                            [
-                                'audition_participant_id' => $participant->id,
-                                'audition_stage_id' => $stage->id,
-                            ],
-                            [
-                                'scanned_by' => $systemUserId,
-                                'check_in_at' => now(),
-                                'status' => 'no_show',
-                                'notes' => 'Ditandai otomatis setelah tahap berakhir.',
-                            ]
-                        );
-                        if ($attendance->wasRecentlyCreated) {
-                            $marked++;
-                        }
-                    });
+                    ->pluck('id');
+
+                if ($participantIds->isEmpty()) {
+                    return;
+                }
+
+                $rows = $participantIds->map(fn (int $participantId) => [
+                    'audition_participant_id' => $participantId,
+                    'audition_stage_id' => $stage->id,
+                    'scanned_by' => $systemUserId,
+                    'check_in_at' => $timestamp,
+                    'status' => 'no_show',
+                    'notes' => 'Ditandai otomatis setelah tahap berakhir.',
+                    'created_at' => $timestamp,
+                    'updated_at' => $timestamp,
+                ])->all();
+
+                $marked += AuditionAttendance::insertOrIgnore($rows);
             });
 
         return $marked;

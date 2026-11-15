@@ -33,6 +33,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    userRegistrationContext: {
+        type: Object,
+        default: null,
+    },
 });
 
 const { formatRupiah, formatDate, formatDateTime, formatBirthDateRange } = useFormatters();
@@ -222,7 +226,7 @@ const eventJsonLd = computed(() => {
                         </div>
 
                         <h1 class="text-xl sm:text-2xl font-bold text-slate-900">{{ event.name }}</h1>
-                        <div v-if="event.short_description" class="mt-2.5 text-sm text-slate-700 leading-relaxed prose prose-sm max-w-none break-words" v-html="formattedDescription" />
+                        <div v-if="event.short_description" class="mt-2.5 text-sm text-slate-700 leading-relaxed rich-text-content" v-html="formattedDescription" />
 
                         <div class="mt-5 pt-4 border-t border-slate-200/80 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
                             <div>
@@ -977,22 +981,95 @@ const eventJsonLd = computed(() => {
                             </div>
                         </dl>
 
-                        <div class="mt-5">
-                            <Link
-                                v-if="event.can_register"
-                                :href="isIndividual ? route('events.register-audition', { event: event.slug }) : route('events.register', { event: event.slug })"
-                                class="btn-pitch w-full py-2.5 flex items-center justify-center gap-2"
-                            >
-                                <span>{{ isIndividual ? 'Daftar Audisi Sekarang' : 'Daftar Tim Sekarang' }}</span>
-                            </Link>
-                            <button
-                                v-else
-                                type="button"
-                                disabled
-                                class="w-full py-2.5 px-4 rounded-lg text-sm font-semibold bg-rose-50 text-rose-800 border border-rose-200 cursor-not-allowed"
-                            >
-                                {{ event.available_slots === 0 ? 'Kuota Pendaftaran Penuh' : 'Pendaftaran Ditutup' }}
-                            </button>
+                        <div class="mt-5 space-y-3">
+                            <!-- Case 1: Akun sudah mendaftarkan tim pada event ini -->
+                            <template v-if="!isIndividual && userRegistrationContext?.already_registered_team">
+                                <div class="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 space-y-1">
+                                    <p class="font-bold">Tim Anda Sudah Terdaftar</p>
+                                    <p class="text-[11px] text-emerald-800 leading-relaxed">
+                                        Akun ini telah mendaftarkan <strong>{{ userRegistrationContext.already_registered_team.name }}</strong> pada kompetisi ini (maksimal 1 tim per akun).
+                                    </p>
+                                </div>
+                                <Link
+                                    :href="route('manager.dashboard', { team_id: userRegistrationContext.already_registered_team.id })"
+                                    class="btn-pitch w-full flex items-center justify-center gap-2"
+                                >
+                                    <span>Kelola Tim di Dashboard</span>
+                                </Link>
+                            </template>
+
+                            <!-- Case 2: Akun memiliki tim aktif pada event lain dengan tanggal bertabrakan -->
+                            <template v-else-if="!isIndividual && userRegistrationContext?.conflicting_team">
+                                <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-950 space-y-1">
+                                    <p class="font-bold">Jadwal Kompetisi Bertabrakan</p>
+                                    <p class="text-[11px] text-amber-900 leading-relaxed">
+                                        Tim <strong>{{ userRegistrationContext.conflicting_team.team_name }}</strong> sudah terdaftar pada
+                                        <strong>{{ userRegistrationContext.conflicting_team.event_name }}</strong>
+                                        ({{ userRegistrationContext.conflicting_team.date_range }}) yang tanggal penyelenggaraannya bertabrakan.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    disabled
+                                    class="w-full h-10 px-4 rounded-lg text-xs sm:text-sm font-semibold bg-amber-50 text-amber-900 border border-amber-200 cursor-not-allowed"
+                                >
+                                    Jadwal Penyelenggaraan Bertabrakan
+                                </button>
+                            </template>
+
+                            <!-- Case 3 & 4: Normal Team (including same team across non-overlapping dates) or Individual (multi-child) -->
+                            <template v-else>
+                                <div
+                                    v-if="!isIndividual && userRegistrationContext?.existing_team && event.can_register"
+                                    class="p-3 rounded-xl bg-orange-50/80 border border-orange-200 text-xs text-orange-950 space-y-0.5"
+                                >
+                                    <p class="font-bold">Tim Akun Siap Didaftarkan</p>
+                                    <p class="text-[11px] text-orange-900 leading-relaxed">
+                                        Menggunakan tim akun Anda: <strong>{{ userRegistrationContext.existing_team.name }}</strong>.
+                                    </p>
+                                </div>
+
+                                <div
+                                    v-if="isIndividual && userRegistrationContext?.registered_participants?.length > 0"
+                                    class="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 space-y-1.5"
+                                >
+                                    <p class="font-bold">
+                                        {{ userRegistrationContext.registered_participants.length }} Anak Sudah Terdaftar di Event Ini
+                                    </p>
+                                    <ul class="space-y-0.5 text-[11px] text-emerald-900">
+                                        <li v-for="p in userRegistrationContext.registered_participants" :key="p.id" class="truncate">
+                                            {{ p.full_name }} ({{ p.registration_number }})
+                                        </li>
+                                    </ul>
+                                    <Link
+                                        :href="route('manager.dashboard', { view: 'participants' })"
+                                        class="inline-block text-[11px] font-bold text-emerald-800 hover:underline"
+                                    >
+                                        Lihat di Dashboard &rarr;
+                                    </Link>
+                                </div>
+
+                                <Link
+                                    v-if="event.can_register"
+                                    :href="isIndividual ? route('events.register-audition', { event: event.slug }) : route('events.register', { event: event.slug })"
+                                    class="btn-pitch w-full flex items-center justify-center gap-2 text-center"
+                                >
+                                    <span v-if="isIndividual">
+                                        {{ userRegistrationContext?.registered_participants?.length > 0 ? '+ Daftarkan Anak Lainnya' : 'Daftar Audisi Sekarang' }}
+                                    </span>
+                                    <span v-else>
+                                        {{ userRegistrationContext?.existing_team ? `Daftarkan ${userRegistrationContext.existing_team.name}` : 'Daftar Tim Sekarang' }}
+                                    </span>
+                                </Link>
+                                <button
+                                    v-else
+                                    type="button"
+                                    disabled
+                                    class="w-full h-10 px-4 rounded-lg text-sm font-semibold bg-rose-50 text-rose-800 border border-rose-200 cursor-not-allowed"
+                                >
+                                    {{ event.available_slots === 0 ? 'Kuota Pendaftaran Penuh' : 'Pendaftaran Ditutup' }}
+                                </button>
+                            </template>
                         </div>
                     </div>
                 </div>

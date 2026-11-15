@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AnalyticsController as AdminAnalyticsController;
 use App\Http\Controllers\Admin\AuditLogController as AdminAuditLogController;
 use App\Http\Controllers\Admin\AuditionAttendanceController as AdminAuditionAttendanceController;
 use App\Http\Controllers\Admin\AuditionQualificationController as AdminAuditionQualificationController;
@@ -12,6 +13,7 @@ use App\Http\Controllers\Admin\RolePermissionController as AdminRolePermissionCo
 use App\Http\Controllers\Admin\ScreeningController as AdminScreeningController;
 use App\Http\Controllers\Admin\SystemSettingController as AdminSystemSettingController;
 use App\Http\Controllers\Admin\TeamManagementController as AdminTeamManagementController;
+use App\Http\Controllers\Admin\TncVersionController as AdminTncVersionController;
 use App\Http\Controllers\Admin\TournamentController as AdminTournamentController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Auth\PasswordResetController;
@@ -40,7 +42,13 @@ Route::get('/llms-full.txt', [SeoAndGeoController::class, 'llmsFullTxt'])->name(
 
 // Area Publik
 Route::get('/', [PublicEventController::class, 'index'])->name('home');
+Route::post('/events/check-email', [PublicEventController::class, 'checkAccountEmail'])
+    ->middleware('throttle:30,1')
+    ->name('events.check-email');
 Route::get('/events/{event:slug}', [PublicEventController::class, 'show'])->name('events.show');
+Route::post('/events/{event:slug}/inline-login', [PublicEventController::class, 'inlineLogin'])
+    ->middleware('throttle:10,1')
+    ->name('events.inline-login');
 Route::get('/events/{event:slug}/register', [PublicEventController::class, 'showRegister'])->name('events.register');
 Route::post('/events/{event:slug}/register', [PublicEventController::class, 'register'])
     ->middleware('throttle:team-registration')
@@ -100,6 +108,7 @@ Route::middleware(['auth', 'manager.portal'])->prefix('manager')->name('manager.
     Route::put('/password', [ManagerDashboardController::class, 'updatePassword'])->name('password.update');
 
     Route::get('/payments', [ManagerPaymentController::class, 'index'])->name('payments');
+    Route::get('/payments/{payment}/invoice', [ManagerPaymentController::class, 'downloadInvoice'])->name('payments.invoice');
     Route::post('/payments/{payment}/gateway', [ManagerPaymentController::class, 'initiateGateway'])->name('payments.gateway');
     Route::post('/payments/{payment}/simulate-sandbox', [ManagerPaymentController::class, 'simulateSandbox'])->name('payments.simulate');
     Route::post('/payments/{payment}/manual-proof', [ManagerPaymentController::class, 'uploadManualProof'])->name('payments.manual-proof');
@@ -142,6 +151,7 @@ Route::middleware('auth')->group(function () {
 
 // Panel Pemandu Bakat (Mobile Quick Scouting Web Panel)
 Route::middleware(['auth', 'permission:auditions.scout.grade'])->prefix('scout')->name('scout.')->group(function () {
+    Route::get('/', [AuditionScoutingController::class, 'portal'])->name('index');
     Route::get('/events/{event}', [AuditionScoutingController::class, 'index'])->name('events.show');
     Route::post('/events/{event}/grade', [AuditionScoutingController::class, 'grade'])->name('events.grade');
     Route::post('/events/{event}/lock-session', [AuditionScoutingController::class, 'lockSession'])->name('events.lock-session');
@@ -152,6 +162,10 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])
         ->middleware('permission:dashboard.admin.view')
         ->name('dashboard');
+
+    Route::get('/analytics', [AdminAnalyticsController::class, 'index'])
+        ->middleware('permission:dashboard.admin.view')
+        ->name('analytics.index');
 
     Route::put('/password', [AdminDashboardController::class, 'updatePassword'])
         ->name('password.update');
@@ -166,12 +180,20 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
     Route::middleware('permission:events.create')->group(function () {
         Route::get('/events/create', [AdminEventController::class, 'create'])->name('events.create');
         Route::post('/events', [AdminEventController::class, 'store'])->name('events.store');
+        Route::post('/events/{event}/duplicate', [AdminEventController::class, 'duplicate'])->name('events.duplicate');
     });
+
+    // Hapus draft event kosong: events.delete
+    Route::delete('/events/{event}', [AdminEventController::class, 'destroy'])
+        ->middleware('permission:events.delete')
+        ->name('events.destroy');
 
     // Detail Workspace Manajemen Event & Turnamen: events.view
     Route::middleware('permission:events.view')->group(function () {
         Route::get('/events/{event}', [AdminEventController::class, 'show'])->name('events.show');
         Route::get('/events/{event}/tournament', [AdminTournamentController::class, 'show'])->name('events.tournament');
+        Route::get('/events/{event}/export-participants-csv', [AdminEventController::class, 'exportParticipantsCsv'])->name('events.export-participants');
+        Route::get('/events/{event}/export-scouting-csv', [AdminEventController::class, 'exportScoutingCsv'])->name('events.export-scouting');
     });
 
     // Ubah event, jalankan turnamen, jadwal, skor, pengumuman, & rilis sertifikat: events.update
@@ -302,6 +324,10 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
         ->middleware('permission:payments.view_all')
         ->name('payments.transactions.export');
 
+    Route::get('/payments/{payment}/invoice', [AdminPaymentVerificationController::class, 'downloadInvoice'])
+        ->middleware('permission:payments.view_all')
+        ->name('payments.invoice');
+
     // Audit Logs & Audit Trail (Dukungan URL /admin/audit-logs, /admin/audit-trail, dan /admin/system/audit-logs)
     Route::get('/audit-logs', [AdminAuditLogController::class, 'index'])
         ->middleware('permission:audit_logs.view')
@@ -357,6 +383,10 @@ Route::middleware(['admin.portal'])->prefix('admin')->name('admin.')->group(func
         Route::get('/settings', [AdminSystemSettingController::class, 'index'])->name('settings.index');
         Route::post('/settings/branding', [AdminSystemSettingController::class, 'updateBranding'])->name('settings.branding');
         Route::post('/settings/payment-gateway', [AdminSystemSettingController::class, 'updatePaymentGateway'])->name('settings.payment-gateway');
+
+        Route::get('/tnc-versions', [AdminTncVersionController::class, 'index'])->name('tnc-versions.index');
+        Route::post('/tnc-versions', [AdminTncVersionController::class, 'store'])->name('tnc-versions.store');
+        Route::post('/tnc-versions/{tncVersion}/toggle-active', [AdminTncVersionController::class, 'toggleActive'])->name('tnc-versions.toggle-active');
     });
 });
 

@@ -59,7 +59,13 @@ class MatchLineupController extends Controller
                 ->orderBy('kickoff_at')
                 ->get();
 
-            $matchesPayload = $matches->map(function (TournamentMatch $m) use ($team, $passedPlayers) {
+            $disciplinaryLookup = $this->standingsService->checkPlayersDisciplinaryStatusForMatches(
+                (int) $team->event_id,
+                $passedPlayers,
+                $matches
+            );
+
+            $matchesPayload = $matches->map(function (TournamentMatch $m) use ($team, $passedPlayers, $disciplinaryLookup) {
                 $teamLineups = $m->lineups->where('team_id', $team->id);
                 $event = $team->event;
                 $cutoffMinutes = (int) ($event?->dsp_cutoff_minutes ?? 30);
@@ -74,8 +80,13 @@ class MatchLineupController extends Controller
                     $lockReason = "Batas waktu pengajuan DSP telah ditutup ({$cutoffMinutes} menit sebelum kick-off).";
                 }
 
-                $playersWithDisciplinary = $passedPlayers->map(function (Player $p) use ($m) {
-                    $disc = $this->standingsService->checkPlayerDisciplinaryStatus($p, $m);
+                $playersWithDisciplinary = $passedPlayers->map(function (Player $p) use ($m, $disciplinaryLookup) {
+                    $disc = $disciplinaryLookup[$m->id][$p->id] ?? [
+                        'is_suspended' => false,
+                        'reason' => null,
+                        'yellow_count' => 0,
+                        'red_count' => 0,
+                    ];
 
                     return [
                         'id' => $p->id,
@@ -243,8 +254,13 @@ class MatchLineupController extends Controller
         }
 
         // Validasi suspensi kartu disiplin
+        $disciplinaryByPlayer = $this->standingsService->checkPlayersDisciplinaryStatusForMatch(
+            (int) $team->event_id,
+            $players,
+            $match
+        );
         foreach ($players as $player) {
-            $disc = $this->standingsService->checkPlayerDisciplinaryStatus($player, $match);
+            $disc = $disciplinaryByPlayer[$player->id] ?? ['is_suspended' => false, 'reason' => null];
             if ($disc['is_suspended']) {
                 throw ValidationException::withMessages([
                     'lineup' => "Pemain {$player->full_name} (#{$player->jersey_number}) tidak dapat diturunkan: {$disc['reason']}",

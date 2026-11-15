@@ -322,48 +322,153 @@ class StandingsCalculatorService
      */
     public function checkPlayerDisciplinaryStatus(Player $player, ?TournamentMatch $targetMatch = null): array
     {
-        $completedMatchIdsQuery = TournamentMatch::query()
+        $completedMatches = TournamentMatch::query()
+            ->select(['id', 'match_number', 'home_team_id', 'away_team_id'])
             ->where('event_id', $player->event_id)
-            ->where('status', 'completed');
+            ->where('status', 'completed')
+            ->orderByDesc('match_number')
+            ->get();
 
-        if ($targetMatch) {
-            $completedMatchIdsQuery->where('id', '!=', $targetMatch->id)
-                ->where(function ($q) use ($targetMatch) {
-                    $q->where('match_number', '<', $targetMatch->match_number)
-                        ->orWhereNull('match_number');
-                });
+        if ($completedMatches->isEmpty()) {
+            return $this->emptyDisciplinaryStatus();
         }
 
-        $completedMatchIds = $completedMatchIdsQuery->pluck('id');
-
-        if ($completedMatchIds->isEmpty()) {
-            return [
-                'is_suspended' => false,
-                'reason' => null,
-                'yellow_count' => 0,
-                'red_count' => 0,
-            ];
-        }
-
-        $events = MatchEvent::query()
-            ->whereIn('match_id', $completedMatchIds)
+        $eventsByPlayer = MatchEvent::query()
+            ->whereIn('match_id', $completedMatches->pluck('id'))
             ->where('player_id', $player->id)
             ->whereIn('event_type', ['yellow_card', 'second_yellow_card', 'red_card'])
+            ->get()
+            ->groupBy('player_id');
+
+        return $this->evaluatePlayerDisciplinaryStatus(
+            $player,
+            $completedMatches,
+            $eventsByPlayer->get($player->id, collect()),
+            $targetMatch
+        );
+    }
+
+    /**
+     * Batch-evaluate disciplinary status for multiple players across multiple target matches using only 2 queries total.
+     *
+     * @return array<int, array<int, array{is_suspended: bool, reason: string|null, yellow_count: int, red_count: int}>>
+     */
+    public function checkPlayersDisciplinaryStatusForMatches(
+        int $eventId,
+        Collection $players,
+        Collection $targetMatches
+    ): array {
+        if ($players->isEmpty() || $targetMatches->isEmpty()) {
+            return [];
+        }
+
+        $completedMatches = TournamentMatch::query()
+            ->select(['id', 'match_number', 'home_team_id', 'away_team_id'])
+            ->where('event_id', $eventId)
+            ->where('status', 'completed')
+            ->orderByDesc('match_number')
             ->get();
+
+        if ($completedMatches->isEmpty()) {
+            $empty = $this->emptyDisciplinaryStatus();
+            $result = [];
+            foreach ($targetMatches as $match) {
+                foreach ($players as $player) {
+                    $result[$match->id][$player->id] = $empty;
+                }
+            }
+
+            return $result;
+        }
+
+        $eventsByPlayer = MatchEvent::query()
+            ->whereIn('match_id', $completedMatches->pluck('id'))
+            ->whereIn('player_id', $players->pluck('id'))
+            ->whereIn('event_type', ['yellow_card', 'second_yellow_card', 'red_card'])
+            ->get()
+            ->groupBy('player_id');
+
+        $result = [];
+        foreach ($targetMatches as $match) {
+            foreach ($players as $player) {
+                $result[$match->id][$player->id] = $this->evaluatePlayerDisciplinaryStatus(
+                    $player,
+                    $completedMatches,
+                    $eventsByPlayer->get($player->id, collect()),
+                    $match
+                );
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array<int, array{is_suspended: bool, reason: string|null, yellow_count: int, red_count: int}>
+     */
+    public function checkPlayersDisciplinaryStatusForMatch(
+        int $eventId,
+        Collection $players,
+        TournamentMatch $targetMatch
+    ): array {
+        return $this->checkPlayersDisciplinaryStatusForMatches($eventId, $players, collect([$targetMatch]))[$targetMatch->id] ?? [];
+    }
+
+    /**
+     * @return array{is_suspended: bool, reason: string|null, yellow_count: int, red_count: int}
+     */
+    private function emptyDisciplinaryStatus(): array
+    {
+        return [
+            'is_suspended' => false,
+            'reason' => null,
+            'yellow_count' => 0,
+            'red_count' => 0,
+        ];
+    }
+
+    /**
+     * @return array{is_suspended: bool, reason: string|null, yellow_count: int, red_count: int}
+     */
+    private function evaluatePlayerDisciplinaryStatus(
+        Player $player,
+        Collection $completedMatches,
+        Collection $playerEvents,
+        ?TournamentMatch $targetMatch = null
+    ): array {
+        $relevantMatches = $targetMatch
+            ? $completedMatches->filter(fn (TournamentMatch $m) => (int) $m->id !== (int) $targetMatch->id
+                && ($m->match_number === null || $m->match_number < $targetMatch->match_number))
+            : $completedMatches;
+
+        if ($relevantMatches->isEmpty()) {
+            return $this->emptyDisciplinaryStatus();
+        }
+
+        $relevantMatchIds = $relevantMatches->pluck('id')->flip();
+        $events = $playerEvents->filter(fn (MatchEvent $e) => $relevantMatchIds->has($e->match_id));
 
         $yellowCount = $events->where('event_type', 'yellow_card')->count();
         $redCount = $events->whereIn('event_type', ['second_yellow_card', 'red_card'])->count();
 
         // Cek pertandingan terakhir tim yang sudah selesai: jika pemain mendapat kartu merah di laga sebelumnya, ia disuspensi
-        $lastTeamMatch = TournamentMatch::query()
-            ->where('event_id', $player->event_id)
-            ->where('status', 'completed')
-            ->where(function ($q) use ($player) {
-                $q->where('home_team_id', $player->team_id)
-                    ->orWhere('away_team_id', $player->team_id);
+        $lastTeamMatch = $completedMatches
+            ->filter(function (TournamentMatch $m) use ($player, $targetMatch) {
+                $isTeamMatch = (int) $m->home_team_id === (int) $player->team_id
+                    || (int) $m->away_team_id === (int) $player->team_id;
+
+                if (! $isTeamMatch) {
+                    return false;
+                }
+
+                if (! $targetMatch) {
+                    return true;
+                }
+
+                return (int) $m->id !== (int) $targetMatch->id
+                    && $m->match_number !== null
+                    && $m->match_number < $targetMatch->match_number;
             })
-            ->when($targetMatch, fn ($q) => $q->where('id', '!=', $targetMatch->id)->where('match_number', '<', $targetMatch->match_number))
-            ->orderByDesc('match_number')
             ->first();
 
         if ($lastTeamMatch) {

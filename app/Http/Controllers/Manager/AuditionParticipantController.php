@@ -25,13 +25,20 @@ class AuditionParticipantController extends Controller
         abort_unless($isOwner || $isStaff, 403, 'Anda tidak memiliki hak akses untuk mengunduh Digital Pass peserta ini.');
 
         if (! $participant->canDownloadBib()) {
-            abort(403, 'Digital Pass (E-Tiket) belum dapat diunduh. Pastikan pembayaran telah lunas dan berkas screening telah disetujui panitia.');
+            $message = in_array($participant->event?->status, ['completed', 'cancelled'], true)
+                ? 'Kegiatan telah berakhir atau diarsipkan sehingga Digital Pass (E-Tiket) tidak lagi berlaku untuk diunduh.'
+                : 'Digital Pass (E-Tiket) belum dapat diunduh. Pastikan pembayaran telah lunas dan berkas screening telah disetujui panitia.';
+            abort(403, $message);
         }
 
         $pdf = $pdfService->generateBibPdf($participant);
         $cleanName = preg_replace('/[^A-Za-z0-9_-]/', '_', $participant->full_name);
         $ticketId = $participant->registration_number ?: ('PASS-'.$participant->id);
         $fileName = sprintf('DIGITAL-PASS-%s-%s.pdf', $ticketId, $cleanName);
+
+        if ($request->boolean('inline')) {
+            return $pdf->stream($fileName);
+        }
 
         return $pdf->download($fileName);
     }

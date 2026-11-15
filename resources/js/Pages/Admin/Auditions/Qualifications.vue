@@ -146,7 +146,19 @@ const submitAdvance = () => {
                     </p>
                 </div>
 
-                <div class="flex items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2">
+                    <a
+                        :href="route('admin.events.export-participants', { event: event.id })"
+                        class="px-3 py-2 rounded-xl text-xs font-bold bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 transition inline-flex items-center gap-1.5"
+                    >
+                        <span>Export Peserta CSV</span>
+                    </a>
+                    <a
+                        :href="route('admin.events.export-scouting', { event: event.id })"
+                        class="px-3 py-2 rounded-xl text-xs font-bold bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 transition inline-flex items-center gap-1.5"
+                    >
+                        <span>Export Nilai Scout CSV</span>
+                    </a>
                     <Link
                         :href="route('admin.auditions.scanner', { event_id: event.id })"
                         class="px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center gap-1.5"
@@ -206,13 +218,13 @@ const submitAdvance = () => {
                         v-model="searchQuery"
                         type="text"
                         placeholder="Ketik ID Digital Pass atau nama atlet..."
-                        class="input-pitch w-full text-xs"
+                        class="input-field w-full text-xs"
                     />
                 </div>
 
                 <div>
                     <label class="block font-bold text-slate-600 uppercase mb-1">Posisi</label>
-                    <select v-model="filterPosition" class="input-pitch w-full text-xs">
+                    <select v-model="filterPosition" class="input-field w-full text-xs">
                         <option value="ALL">Semua Posisi</option>
                         <option value="KIPER">Kiper</option>
                         <option value="BEK">Bek</option>
@@ -223,7 +235,7 @@ const submitAdvance = () => {
 
                 <div>
                     <label class="block font-bold text-slate-600 uppercase mb-1">Status Kelolosan</label>
-                    <select v-model="filterStatus" class="input-pitch w-full text-xs">
+                    <select v-model="filterStatus" class="input-field w-full text-xs">
                         <option value="ALL">Semua Status</option>
                         <option v-for="(lbl, val) in stageStatuses" :key="val" :value="val">
                             {{ lbl }}
@@ -233,7 +245,7 @@ const submitAdvance = () => {
 
                 <div>
                     <label class="block font-bold text-slate-600 uppercase mb-1">Rekomendasi Scout</label>
-                    <select v-model="filterConsensus" class="input-pitch w-full text-xs">
+                    <select v-model="filterConsensus" class="input-field w-full text-xs">
                         <option value="ALL">Semua Konsensus</option>
                         <option value="HAS_A">Minimal 1 Scout Memilih A</option>
                         <option value="HIGH_STARS">Rating Bintang &ge; 4.0</option>
@@ -395,7 +407,7 @@ const submitAdvance = () => {
                 <div class="space-y-3">
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Status Kelolosan Tujuan:</label>
-                        <select v-model="advanceForm.target_stage_status" class="input-pitch w-full text-xs">
+                        <select v-model="advanceForm.target_stage_status" class="input-field w-full text-xs">
                             <option v-for="(lbl, val) in stageStatuses" :key="val" :value="val">
                                 {{ lbl }}
                             </option>
@@ -408,7 +420,7 @@ const submitAdvance = () => {
                             v-model="advanceForm.notes"
                             rows="3"
                             placeholder="Contoh: Jadwal Hari 2 dimulai pukul 08:00 WIB di Lapangan A. Jangan lupa membawa Digital Pass (E-Tiket)..."
-                            class="input-pitch w-full text-xs"
+                            class="input-field w-full text-xs"
                         ></textarea>
                     </div>
 

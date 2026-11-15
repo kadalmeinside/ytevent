@@ -7,12 +7,15 @@ use App\Models\AuditionStage;
 use App\Models\Event;
 use App\Models\EventSession;
 use App\Models\Payment;
+use App\Models\SystemSetting;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class Phase8AuditionRegistrationAndScreeningTest extends TestCase
@@ -98,7 +101,6 @@ class Phase8AuditionRegistrationAndScreeningTest extends TestCase
 
         $response = $this->post(route('events.register-audition.store', ['event' => $event->slug]), $payload);
 
-        $response->assertRedirect(route('manager.dashboard'));
         $this->assertAuthenticated();
 
         // Verifikasi User dibuat dengan role participant_parent
@@ -109,6 +111,7 @@ class Phase8AuditionRegistrationAndScreeningTest extends TestCase
         // Verifikasi AuditionParticipant tersimpan
         $participant = AuditionParticipant::where('nik', '3171012345678901')->first();
         $this->assertNotNull($participant);
+        $response->assertRedirect(route('manager.payments', ['participant_id' => $participant->id]));
         $this->assertSame($user->id, $participant->user_id);
         $this->assertSame($event->id, $participant->event_id);
         $this->assertSame($session->id, $participant->event_session_id);
@@ -127,6 +130,19 @@ class Phase8AuditionRegistrationAndScreeningTest extends TestCase
         // Verifikasi session increment
         $session->refresh();
         $this->assertSame(1, $session->occupied_slots);
+
+        // Verifikasi halaman Manager/Payments memuat tagihan peserta (tidak muncul "Tidak Ada Tagihan Aktif")
+        $this->actingAs($user)
+            ->get(route('manager.payments'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Manager/Payments')
+                ->where('billingType', 'audition_participant')
+                ->where('auditionParticipant.id', $participant->id)
+                ->where('auditionParticipant.full_name', 'Bagas Pamungkas')
+                ->where('payment.invoice_number', $payment->invoice_number)
+                ->where('payment.status', 'unpaid')
+            );
     }
 
     public function test_nik_must_be_unique_per_event(): void
@@ -586,5 +602,347 @@ class Phase8AuditionRegistrationAndScreeningTest extends TestCase
         $this->assertDatabaseMissing('audition_participants', [
             'nik' => '3171012345678999',
         ]);
+    }
+
+    public function test_paid_audition_registration_auto_initiates_midtrans_snap_and_redirects_to_checkout(): void
+    {
+        Notification::fake();
+
+        SystemSetting::set('payment_method_mode', 'midtrans', 'payment');
+        SystemSetting::set('payment_gateway_default', 'midtrans', 'payment');
+        SystemSetting::set('midtrans_server_key', 'SB-Mid-server-test-key', 'payment');
+        SystemSetting::set('midtrans_client_key', 'SB-Mid-client-test-key', 'payment');
+        config(['payment.sandbox_simulator' => false]);
+
+        Http::fake([
+            'https://app.sandbox.midtrans.com/snap/v1/transactions' => Http::response([
+                'token' => 'snap-token-aud-999',
+                'redirect_url' => 'https://app.sandbox.midtrans.com/snap/v2/vtweb/snap-token-aud-999',
+            ], 201),
+        ]);
+
+        $event = Event::create([
+            'name' => 'Coaching Clinic Persija 2026',
+            'slug' => 'coaching-clinic-persija-2026',
+            'venue_name' => 'Lapangan Bojongsari',
+            'city' => 'Depok',
+            'format' => 'festival',
+            'age_category' => 'U-12',
+            'event_type' => 'coaching_clinic',
+            'participant_type' => 'individual',
+            'quota_type' => 'fixed',
+            'max_participants' => 50,
+            'registration_fee' => 250000,
+            'status' => 'open',
+            'required_documents' => ['birth_certificate'],
+            'form_presets' => [
+                'photo' => false,
+                'position' => true,
+                'foot_dominance' => false,
+                'team_origin' => false,
+                'body_measurements' => false,
+                'experience' => false,
+                'jersey_size' => false,
+            ],
+        ]);
+
+        $response = $this->post(route('events.register-audition.store', ['event' => $event->slug]), [
+            'guardian_name' => 'Hendra Setiawan',
+            'guardian_email' => 'hendra.clinic@persija.id',
+            'guardian_phone' => '081234567890',
+            'guardian_password' => 'Rahasia123',
+            'guardian_password_confirmation' => 'Rahasia123',
+            'full_name' => 'Raka Setiawan',
+            'nik' => '3171022345678901',
+            'birth_date' => '2014-04-10',
+            'gender' => 'male',
+            'preferred_position' => 'CMF',
+            'emergency_contact_name' => 'Dian',
+            'emergency_contact_phone' => '081234567891',
+            'liability_waiver' => '1',
+            'birth_certificate' => UploadedFile::fake()->create('akta.pdf', 150, 'application/pdf'),
+        ]);
+
+        $participant = AuditionParticipant::where('nik', '3171022345678901')->firstOrFail();
+        $payment = Payment::where('audition_participant_id', $participant->id)->firstOrFail();
+
+        $this->assertSame('snap-token-aud-999', $payment->snap_token);
+        $response->assertRedirect(route('manager.payments', [
+            'participant_id' => $participant->id,
+            'auto_pay' => 1,
+        ]));
+        $response->assertSessionHas('auto_open_snap', true);
+    }
+
+    public function test_inline_email_check_and_inline_login_for_registration_forms(): void
+    {
+        $teamEvent = Event::create([
+            'name' => 'Turnamen Persija Cup 2026',
+            'slug' => 'turnamen-persija-cup-2026',
+            'venue_name' => 'Stadion Cendrawasih',
+            'city' => 'Jakarta Barat',
+            'format' => 'league',
+            'age_category' => 'U-12',
+            'event_type' => 'tournament',
+            'participant_type' => 'team',
+            'quota_type' => 'fixed',
+            'max_teams' => 16,
+            'registration_fee' => 1500000,
+            'status' => 'open',
+            'required_documents' => ['birth_certificate', 'family_card'],
+        ]);
+
+        $auditionEvent = Event::create([
+            'name' => 'Audisi Talenta 2026',
+            'slug' => 'audisi-talenta-2026',
+            'venue_name' => 'Bojongsari',
+            'city' => 'Depok',
+            'format' => 'audition',
+            'age_category' => 'U-14',
+            'event_type' => 'audition',
+            'participant_type' => 'individual',
+            'quota_type' => 'fixed',
+            'max_participants' => 100,
+            'registration_fee' => 150000,
+            'status' => 'open',
+            'required_documents' => ['birth_certificate', 'family_card'],
+        ]);
+
+        $existingUser = User::factory()->create([
+            'name' => 'Andi Pratama',
+            'email' => 'andi.terdaftar@persija.id',
+            'password' => bcrypt('Rahasia123'),
+            'is_active' => true,
+        ]);
+        $existingUser->assignRole('participant_parent');
+
+        // 1. Check unknown email
+        $this->postJson(route('events.check-email'), [
+            'email' => 'baru.belumdaftar@persija.id',
+        ])->assertOk()->assertJson([
+            'exists' => false,
+        ]);
+
+        // 2. Check existing email (case-insensitive)
+        $this->postJson(route('events.check-email'), [
+            'email' => 'ANDI.TERDAFTAR@persija.id',
+        ])->assertOk()->assertJson([
+            'exists' => true,
+            'name' => 'Andi Pratama',
+        ]);
+
+        // 3. Inline login with wrong password fails on login_password
+        $this->post(route('events.inline-login', ['event' => $auditionEvent->slug]), [
+            'email' => 'andi.terdaftar@persija.id',
+            'password' => 'SalahPassword',
+            'redirect_to' => 'register-audition',
+        ])->assertSessionHasErrors('login_password');
+        $this->assertGuest();
+
+        // 4. Guest submitting audition registration with already-registered email gets validation error
+        $this->post(route('events.register-audition.store', ['event' => $auditionEvent->slug]), [
+            'guardian_name' => 'Andi Pratama',
+            'guardian_email' => 'andi.terdaftar@persija.id',
+            'guardian_phone' => '081234567890',
+            'guardian_password' => 'Rahasia123',
+            'full_name' => 'Fajar Pratama',
+            'nik' => '3171022345678888',
+            'birth_date' => '2012-04-10',
+            'gender' => 'male',
+            'preferred_position' => 'CMF',
+            'emergency_contact_name' => 'Ibu Fajar',
+            'emergency_contact_phone' => '081234567891',
+            'liability_waiver' => '1',
+            'birth_certificate' => UploadedFile::fake()->create('akta.pdf', 150, 'application/pdf'),
+            'family_card' => UploadedFile::fake()->create('kk.pdf', 150, 'application/pdf'),
+        ])->assertSessionHasErrors('guardian_email');
+
+        // 5. Inline login succeeds and redirects to audition registration page
+        $this->post(route('events.inline-login', ['event' => $auditionEvent->slug]), [
+            'email' => 'andi.terdaftar@persija.id',
+            'password' => 'Rahasia123',
+            'redirect_to' => 'register-audition',
+        ])->assertRedirect(route('events.register-audition', ['event' => $auditionEvent->slug]));
+        $this->assertAuthenticatedAs($existingUser);
+
+        auth()->logout();
+
+        // 6. Inline login for team event redirects to team registration page
+        $this->post(route('events.inline-login', ['event' => $teamEvent->slug]), [
+            'email' => 'andi.terdaftar@persija.id',
+            'password' => 'Rahasia123',
+            'redirect_to' => 'register',
+        ])->assertRedirect(route('events.register', ['event' => $teamEvent->slug]));
+        $this->assertAuthenticatedAs($existingUser);
+    }
+
+    public function test_logged_in_parent_sees_existing_children_and_can_register_eligible_child_without_reuploading_documents_while_already_registered_child_is_marked(): void
+    {
+        Notification::fake();
+
+        $oldEvent = Event::create([
+            'name' => 'Audisi Seri Sebelumnya',
+            'slug' => 'audisi-seri-sebelumnya',
+            'venue_name' => 'Sawangan',
+            'city' => 'Depok',
+            'format' => 'audition',
+            'age_category' => 'U-14',
+            'event_type' => 'audition',
+            'participant_type' => 'individual',
+            'status' => 'completed',
+            'required_documents' => ['birth_certificate', 'family_card'],
+        ]);
+
+        $targetEvent = Event::create([
+            'name' => 'Audisi Seri Terbaru 2026',
+            'slug' => 'audisi-seri-terbaru-2026',
+            'venue_name' => 'Bojongsari',
+            'city' => 'Depok',
+            'format' => 'audition',
+            'age_category' => 'U-14',
+            'event_type' => 'audition',
+            'participant_type' => 'individual',
+            'quota_type' => 'fixed',
+            'max_participants' => 100,
+            'registration_fee' => 0,
+            'min_birth_date' => '2012-01-01',
+            'max_birth_date' => '2013-12-31',
+            'status' => 'open',
+            'required_documents' => ['birth_certificate', 'family_card'],
+            'form_presets' => [
+                'photo' => true,
+                'position' => true,
+                'foot_dominance' => false,
+                'team_origin' => false,
+                'body_measurements' => false,
+                'experience' => false,
+                'jersey_size' => false,
+            ],
+        ]);
+
+        $parent = User::factory()->create([
+            'name' => 'Siti Orang Tua',
+            'email' => 'siti.parent@persija.id',
+            'is_active' => true,
+        ]);
+        $parent->assignRole('participant_parent');
+
+        $storedPhotoPath = 'auditions/photos/existing_child_photo.jpg';
+        $storedAktaPath = 'auditions/documents/birth_cert/existing_akta.pdf';
+        $storedKkPath = 'auditions/documents/family_card/existing_kk.pdf';
+        Storage::disk('public')->put($storedPhotoPath, 'PHOTO');
+        Storage::disk('private')->put($storedAktaPath, 'AKTA');
+        Storage::disk('private')->put($storedKkPath, 'KK');
+
+        // Child 1: Eligible & not yet in targetEvent
+        $eligibleChild = AuditionParticipant::create([
+            'event_id' => $oldEvent->id,
+            'user_id' => $parent->id,
+            'registration_number' => 'AUD-2025-0001',
+            'full_name' => 'Rafi Anak Pertama',
+            'nik' => '3171011122330001',
+            'birth_date' => '2012-07-15',
+            'gender' => 'male',
+            'preferred_position' => 'CMF',
+            'emergency_contact_name' => 'Ayah Rafi',
+            'emergency_contact_phone' => '081234567890',
+            'photo_path' => $storedPhotoPath,
+            'birth_certificate_path' => $storedAktaPath,
+            'family_card_path' => $storedKkPath,
+            'screening_status' => 'passed',
+            'status' => 'active',
+        ]);
+
+        // Child 2: Too old (out of min_birth_date)
+        AuditionParticipant::create([
+            'event_id' => $oldEvent->id,
+            'user_id' => $parent->id,
+            'registration_number' => 'AUD-2025-0002',
+            'full_name' => 'Bima Anak Sulung',
+            'nik' => '3171011122330002',
+            'birth_date' => '2010-03-20',
+            'gender' => 'male',
+            'preferred_position' => 'CF',
+            'emergency_contact_name' => 'Ayah Rafi',
+            'emergency_contact_phone' => '081234567890',
+            'screening_status' => 'passed',
+            'status' => 'active',
+        ]);
+
+        // Child 3: Already registered in targetEvent
+        AuditionParticipant::create([
+            'event_id' => $targetEvent->id,
+            'user_id' => $parent->id,
+            'registration_number' => 'AUD-2026-0099',
+            'full_name' => 'Danu Anak Ketiga',
+            'nik' => '3171011122330003',
+            'birth_date' => '2013-02-11',
+            'gender' => 'male',
+            'preferred_position' => 'GK',
+            'emergency_contact_name' => 'Ayah Rafi',
+            'emergency_contact_phone' => '081234567890',
+            'screening_status' => 'submitted',
+            'status' => 'active',
+        ]);
+
+        // 1. Check Inertia props on register-audition page
+        $this->actingAs($parent)
+            ->get(route('events.register-audition', ['event' => $targetEvent->slug]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Public/RegisterAudition')
+                ->has('existingChildren', 3)
+                ->where('existingChildren.0.nik', '3171011122330003')
+                ->where('existingChildren.0.already_in_this_event', true)
+                ->where('existingChildren.1.nik', '3171011122330002')
+                ->where('existingChildren.1.already_in_this_event', false)
+                ->where('existingChildren.1.age_eligible', false)
+                ->where('existingChildren.2.nik', '3171011122330001')
+                ->where('existingChildren.2.already_in_this_event', false)
+                ->where('existingChildren.2.age_eligible', true)
+                ->where('existingChildren.2.has_photo', true)
+                ->where('existingChildren.2.has_birth_certificate', true)
+                ->where('existingChildren.2.has_family_card', true)
+            );
+
+        // 2. Register eligibleChild using source_participant_id without re-uploading files
+        $registerResponse = $this->actingAs($parent)
+            ->post(route('events.register-audition.store', ['event' => $targetEvent->slug]), [
+                'source_participant_id' => $eligibleChild->id,
+                'full_name' => $eligibleChild->full_name,
+                'nik' => $eligibleChild->nik,
+                'birth_date' => '2012-07-15',
+                'gender' => 'male',
+                'preferred_position' => 'CMF',
+                'emergency_contact_name' => 'Ayah Rafi',
+                'emergency_contact_phone' => '081234567890',
+                'liability_waiver' => '1',
+            ]);
+
+        $registerResponse->assertRedirect(route('manager.dashboard'));
+
+        $newRegistration = AuditionParticipant::query()
+            ->where('event_id', $targetEvent->id)
+            ->where('nik', '3171011122330001')
+            ->firstOrFail();
+
+        $this->assertSame($storedPhotoPath, $newRegistration->photo_path);
+        $this->assertSame($storedAktaPath, $newRegistration->birth_certificate_path);
+        $this->assertSame($storedKkPath, $newRegistration->family_card_path);
+
+        // 3. Re-registering already registered child in same event is blocked
+        $this->actingAs($parent)
+            ->post(route('events.register-audition.store', ['event' => $targetEvent->slug]), [
+                'source_participant_id' => $eligibleChild->id,
+                'full_name' => $eligibleChild->full_name,
+                'nik' => $eligibleChild->nik,
+                'birth_date' => '2012-07-15',
+                'gender' => 'male',
+                'preferred_position' => 'CMF',
+                'emergency_contact_name' => 'Ayah Rafi',
+                'emergency_contact_phone' => '081234567890',
+                'liability_waiver' => '1',
+            ])
+            ->assertSessionHasErrors('nik');
     }
 }

@@ -5,7 +5,9 @@ import AdminLayout from '@/Layouts/AdminLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import FormErrorBanner from '@/Components/FormErrorBanner.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
+import TableSkeletonCard from '@/Components/Skeletons/TableSkeletonCard.vue';
 import { useFormValidator } from '@/Composables/useFormValidator';
+import { useNavigationLoading } from '@/Composables/useNavigationLoading';
 
 const props = defineProps({
     users: {
@@ -23,6 +25,7 @@ const props = defineProps({
 });
 
 const { applyValidation, isEmpty, isValidEmail, isEmail } = useFormValidator();
+const { isPartialLoading } = useNavigationLoading();
 
 const filterState = reactive({
     search: props.filters.search || '',
@@ -160,7 +163,7 @@ const executeDelete = () => {
                         class="input-field max-w-xs text-xs"
                         @keyup.enter="applyFilters"
                     />
-                    <select v-model="filterState.role" class="input-field w-auto text-xs" @change="applyFilters">
+                    <select v-model="filterState.role" class="input-field w-full sm:w-44 text-xs" @change="applyFilters">
                         <option value="">Semua Peran</option>
                         <option v-for="r in roles" :key="r.id" :value="r.name">{{ r.label }}</option>
                     </select>
@@ -177,7 +180,9 @@ const executeDelete = () => {
 
             <!-- Users Container (Responsive Card List View) -->
             <div class="space-y-3.5">
-                <div v-if="users.data.length === 0" class="frosted-card p-12 text-center text-xs text-slate-500">
+                <TableSkeletonCard v-if="isPartialLoading" mode="cards" :rows="5" />
+
+                <div v-else-if="users.data.length === 0" class="frosted-card p-12 text-center text-xs text-slate-500">
                     <svg class="w-10 h-10 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                     </svg>

@@ -34,6 +34,11 @@ class Team extends Model
         'gk_jersey_color',
         'achievement_title',
         'terms_accepted_at',
+        'accepted_tnc_version_id',
+        'accepted_tnc_version',
+        'accepted_tnc_hash',
+        'accepted_ip',
+        'accepted_user_agent',
         'status',
         'roster_locked_at',
         'slot_reserved_at',
@@ -76,6 +81,11 @@ class Team extends Model
     public function manager(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function acceptedTncVersion(): BelongsTo
+    {
+        return $this->belongsTo(TncVersion::class, 'accepted_tnc_version_id');
     }
 
     public function payments(): HasMany

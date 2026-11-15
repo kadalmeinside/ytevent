@@ -1,7 +1,9 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { Head, router, Link } from '@inertiajs/vue3';
+import { Head, router, Link, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
+
+const page = usePage();
 
 const props = defineProps({
     event: {
@@ -28,7 +30,49 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    stageDiagnostics: {
+        type: Object,
+        default: () => ({}),
+    },
 });
+
+const authRoles = computed(() => page.props.auth?.user?.roles || []);
+const authPermissions = computed(() => page.props.auth?.user?.permissions || []);
+
+const canOpenScanner = computed(() => {
+    return authRoles.value.includes('superadmin') || authPermissions.value.includes('auditions.attendance.scan');
+});
+
+const canOpenScreening = computed(() => {
+    return authRoles.value.includes('superadmin') || authPermissions.value.includes('screening.view_queue');
+});
+
+const diagnosticSteps = computed(() => ([
+    {
+        label: 'Terdaftar',
+        value: props.stageDiagnostics?.total_registered ?? 0,
+    },
+    {
+        label: 'Aktif / Lunas',
+        value: props.stageDiagnostics?.active_paid ?? 0,
+    },
+    {
+        label: 'Lolos Screening',
+        value: props.stageDiagnostics?.screening_passed ?? 0,
+    },
+    {
+        label: 'Check-in Tahap Ini',
+        value: props.stageDiagnostics?.checked_in_stage ?? 0,
+        hint: (props.stageDiagnostics?.eligible_for_stage ?? 0) > 0 && (props.stageDiagnostics?.checked_in_stage ?? 0) === 0
+            ? `${props.stageDiagnostics.eligible_for_stage} siap check-in`
+            : '',
+    },
+]));
+
+const resetFilters = () => {
+    searchBib.value = '';
+    selectedPosition.value = 'ALL';
+};
 
 // Search and filter states
 const searchBib = ref('');
@@ -208,23 +252,35 @@ const handleLockSession = async () => {
         <header class="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md text-white border-b border-slate-800 shadow-lg">
             <div class="max-w-4xl mx-auto px-4 py-3">
                 <div class="flex items-center justify-between gap-3">
-                    <div class="min-w-0">
-                        <div class="flex items-center gap-2">
-                            <span class="px-2 py-0.5 rounded bg-orange-600 text-[10px] font-black uppercase tracking-wider">
-                                SCOUT PANEL
-                            </span>
-                            <span v-if="isLocked" class="px-2 py-0.5 rounded bg-red-600 text-[10px] font-bold">
-                                TERKUNCI
-                            </span>
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <Link
+                            :href="route('scout.index')"
+                            aria-label="Kembali ke Daftar Event Scout"
+                            title="Kembali ke Daftar Event Scout"
+                            class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-700 bg-slate-800 text-slate-200 transition hover:border-orange-500 hover:bg-slate-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        >
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                            </svg>
+                        </Link>
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-0.5 rounded bg-orange-600 text-[10px] font-black uppercase tracking-wider">
+                                    SCOUT PANEL
+                                </span>
+                                <span v-if="isLocked" class="px-2 py-0.5 rounded bg-red-600 text-[10px] font-bold">
+                                    TERKUNCI
+                                </span>
+                            </div>
+                            <h1 class="text-base font-black truncate mt-0.5">{{ event.name }}</h1>
                         </div>
-                        <h1 class="text-base font-black truncate mt-0.5">{{ event.name }}</h1>
                     </div>
 
                     <!-- Stage Switcher & Action -->
                     <div class="flex items-center gap-2 shrink-0">
                         <select
                             :value="activeStageId"
-                            class="bg-slate-800 border border-slate-700 text-white rounded-lg px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-orange-500"
+                            class="select-dark font-bold"
                             @change="onStageSwitch(Number($event.target.value))"
                         >
                             <option v-for="s in stages" :key="s.id" :value="s.id">
@@ -298,10 +354,74 @@ const handleLockSession = async () => {
 
         <!-- Main Content Area -->
         <main class="max-w-4xl mx-auto px-4 py-4 space-y-4">
-            <!-- Empty state -->
-            <div v-if="filteredParticipants.length === 0" class="p-8 text-center bg-white rounded-2xl shadow-sm text-slate-400">
-                <p class="text-sm font-bold">Tidak ada peserta yang cocok dengan filter atau pencarian.</p>
-                <p class="text-xs mt-1">Coba sesuaikan kata kunci ID Digital Pass atau nama peserta.</p>
+            <!-- Empty state: belum ada peserta yang check-in atau memenuhi syarat tahap -->
+            <div v-if="participants.length === 0" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 space-y-5">
+                <div class="space-y-1.5">
+                    <span class="inline-flex items-center rounded-lg bg-amber-100 px-2.5 py-1 text-[11px] font-bold text-amber-900">
+                        {{ currentStage ? `Tahap ${currentStage.stage_number}: ${currentStage.stage_name}` : 'Tahap Seleksi' }}
+                    </span>
+                    <h2 class="text-base font-black text-slate-900">
+                        Belum ada peserta yang siap dinilai pada tahap ini
+                    </h2>
+                    <p class="text-xs leading-relaxed text-slate-600">
+                        Peserta hanya tampil di Panel Scout apabila status pembayaran sudah lunas (aktif), lolos verifikasi berkas screening, memenuhi syarat tahap aktif, dan telah dipindai hadir (check-in) di gerbang tahap ini.
+                    </p>
+                </div>
+
+                <!-- Ringkasan Pipeline Diagnostik -->
+                <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div
+                        v-for="step in diagnosticSteps"
+                        :key="step.label"
+                        class="rounded-xl border border-slate-200 bg-slate-50 p-3"
+                    >
+                        <p class="text-[11px] font-bold text-slate-600">{{ step.label }}</p>
+                        <p class="mt-1 text-xl font-black text-slate-900">{{ step.value }}</p>
+                        <p v-if="step.hint" class="mt-0.5 text-[11px] font-semibold text-orange-700">
+                            {{ step.hint }}
+                        </p>
+                    </div>
+                </div>
+
+                <div v-if="!canOpenScanner && !canOpenScreening" class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-700">
+                    Koordinasikan dengan petugas Gatekeeper atau Screening Officer untuk memastikan berkas peserta telah lolos screening dan barcode Digital Pass peserta sudah di-scan hadir pada tahap ini.
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2.5 pt-1">
+                    <Link
+                        v-if="canOpenScanner"
+                        :href="route('admin.auditions.scanner', { event_id: event.id })"
+                        class="inline-flex items-center justify-center rounded-xl bg-orange-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    >
+                        Buka Scanner Gerbang Audisi
+                    </Link>
+                    <Link
+                        v-if="canOpenScreening"
+                        :href="route('admin.screening.auditions')"
+                        class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                    >
+                        Buka Screening Audisi
+                    </Link>
+                    <Link
+                        :href="route('scout.index')"
+                        class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                    >
+                        Kembali ke Daftar Event Scout
+                    </Link>
+                </div>
+            </div>
+
+            <!-- Empty state: peserta ada, tetapi tidak cocok filter/pencarian -->
+            <div v-else-if="filteredParticipants.length === 0" class="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+                <p class="text-sm font-bold text-slate-800">Tidak ada peserta yang cocok dengan filter atau pencarian.</p>
+                <p class="mt-1 text-xs text-slate-600">Coba sesuaikan kata kunci ID Digital Pass, nama peserta, atau pilih filter posisi lain.</p>
+                <button
+                    type="button"
+                    class="mt-4 inline-flex items-center justify-center rounded-xl bg-orange-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    @click="resetFilters"
+                >
+                    Reset Filter
+                </button>
             </div>
 
             <!-- Participant Cards List -->
@@ -322,7 +442,7 @@ const handleLockSession = async () => {
                             </div>
                             <span
                                 class="inline-block mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-                                :class="p.is_present ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'"
+                                :class="p.is_present ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'"
                             >
                                 {{ p.is_present ? 'Hadir' : 'Belum hadir' }}
                             </span>
@@ -330,9 +450,17 @@ const handleLockSession = async () => {
 
                         <!-- Athlete Info -->
                         <div class="min-w-0">
-                            <h2 class="text-base font-black text-slate-900 leading-tight truncate">
-                                {{ p.full_name }}
-                            </h2>
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <h2 class="text-base font-black text-slate-900 leading-tight truncate">
+                                    {{ p.full_name }}
+                                </h2>
+                                <span
+                                    v-if="p.stage_status_label"
+                                    class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700"
+                                >
+                                    {{ p.stage_status_label }}
+                                </span>
+                            </div>
                             <p v-if="p.nickname" class="text-xs text-orange-600 font-bold truncate">
                                 "{{ p.nickname }}"
                             </p>
@@ -408,6 +536,7 @@ const handleLockSession = async () => {
                             :key="star"
                             type="button"
                             :disabled="isLocked || localEvals[p.id]?.is_saving"
+                            :aria-label="`Beri nilai ${star} bintang untuk ${p.full_name}`"
                             :title="isLocked ? 'Sesi penilaian sudah dikunci' : `Beri ${star} dari 5`"
                             class="p-1 focus:outline-none transition active:scale-125"
                             @click="setStars(p.id, star)"
@@ -434,7 +563,7 @@ const handleLockSession = async () => {
                         :title="isLocked ? 'Sesi penilaian sudah dikunci' : `Tambahkan tag ${tag}`"
                         class="px-2.5 py-1 rounded-lg text-[10px] font-bold transition active:scale-95"
                         :class="localEvals[p.id]?.tags?.includes(tag)
-                            ? 'bg-orange-600 text-white shadow-2xs'
+                            ? 'bg-orange-600 text-white shadow-sm'
                             : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
                         @click="toggleTag(p.id, tag)"
                     >
@@ -458,7 +587,7 @@ const handleLockSession = async () => {
         </main>
 
         <!-- Lock Confirmation Modal -->
-        <div v-if="lockModalOpen" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div v-if="lockModalOpen" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl space-y-4">
                 <div class="w-12 h-12 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center mx-auto">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

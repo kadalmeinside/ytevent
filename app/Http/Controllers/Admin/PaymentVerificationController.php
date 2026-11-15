@@ -7,9 +7,13 @@ use App\Http\Requests\Admin\MarkPaymentRefundedRequest;
 use App\Http\Requests\Admin\VerifyManualPaymentRequest;
 use App\Models\Event;
 use App\Models\Payment;
+use App\Services\InvoicePdfService;
+use App\Services\InvoiceService;
 use App\Services\PaymentService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -17,12 +21,16 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PaymentVerificationController extends Controller
 {
+    public function __construct(
+        protected InvoiceService $invoiceService
+    ) {}
+
     public function manualQueue(): Response
     {
         $this->authorize('viewAny', Payment::class);
 
         $queue = Payment::query()
-            ->with(['team', 'event', 'verifier'])
+            ->with(['team.manager', 'auditionParticipant.user', 'auditionParticipant.eventSession', 'event', 'verifier'])
             ->where('status', 'waiting_verification')
             ->orderBy('updated_at')
             ->get()
@@ -55,27 +63,10 @@ class PaymentVerificationController extends Controller
         $this->authorize('viewAny', Payment::class);
 
         $query = Payment::query()
-            ->with(['team', 'event', 'verifier'])
+            ->with(['team.manager', 'auditionParticipant.user', 'auditionParticipant.eventSession', 'event', 'verifier'])
             ->orderByDesc('created_at');
 
-        if ($eventId = $request->query('event_id')) {
-            $query->where('event_id', $eventId);
-        }
-
-        if ($status = $request->query('status')) {
-            $query->where('status', $status);
-        }
-
-        if ($method = $request->query('method')) {
-            $query->where('method', $method);
-        }
-
-        if ($search = trim((string) $request->query('search', ''))) {
-            $query->where(function ($q) use ($search) {
-                $q->where('invoice_number', 'like', "%{$search}%")
-                    ->orWhereHas('team', fn ($tq) => $tq->where('name', 'like', "%{$search}%"));
-            });
-        }
+        $this->applyTransactionFilters($query, $request);
 
         $transactions = $query->get()->map(fn (Payment $p) => $this->transformPayment($p));
 
@@ -107,8 +98,12 @@ class PaymentVerificationController extends Controller
                     ->with('warning', "Pembayaran {$payment->invoice_number} diterima setelah kuota penuh, sehingga dialihkan ke status Perlu Refund.");
             }
 
+            $subjectStatusMsg = $approved->audition_participant_id
+                ? 'Status peserta kini AKTIF.'
+                : 'Status tim kini AKTIF.';
+
             return redirect()->back()
-                ->with('success', "Pembayaran {$payment->invoice_number} disetujui (LUNAS). Status tim kini AKTIF.");
+                ->with('success', "Pembayaran {$payment->invoice_number} disetujui (LUNAS). {$subjectStatusMsg}");
         }
 
         $paymentService->rejectManualPayment(
@@ -143,7 +138,16 @@ class PaymentVerificationController extends Controller
         );
 
         return redirect()->back()
-            ->with('success', "Transaksi {$payment->invoice_number} berhasil ditandai REFUND SELESAI dan notifikasi email telah dikirim ke manajer tim.");
+            ->with('success', "Transaksi {$payment->invoice_number} berhasil ditandai REFUND SELESAI dan notifikasi email telah dikirim ke peserta/manajer.");
+    }
+
+    public function downloadInvoice(Payment $payment, InvoicePdfService $pdfService): HttpResponse
+    {
+        $this->authorize('view', $payment);
+
+        $pdf = $pdfService->generateInvoicePdf($payment);
+
+        return $pdf->download($pdfService->filename($payment));
     }
 
     /**
@@ -154,24 +158,10 @@ class PaymentVerificationController extends Controller
         $this->authorize('viewAny', Payment::class);
 
         $query = Payment::query()
-            ->with(['team', 'event', 'verifier'])
+            ->with(['team.manager', 'auditionParticipant.user', 'auditionParticipant.eventSession', 'event', 'verifier'])
             ->orderByDesc('created_at');
 
-        if ($eventId = $request->query('event_id')) {
-            $query->where('event_id', $eventId);
-        }
-        if ($status = $request->query('status')) {
-            $query->where('status', $status);
-        }
-        if ($method = $request->query('method')) {
-            $query->where('method', $method);
-        }
-        if ($search = trim((string) $request->query('search', ''))) {
-            $query->where(function ($q) use ($search) {
-                $q->where('invoice_number', 'like', "%{$search}%")
-                    ->orWhereHas('team', fn ($tq) => $tq->where('name', 'like', "%{$search}%"));
-            });
-        }
+        $this->applyTransactionFilters($query, $request);
 
         $payments = $query->get();
         $filename = 'laporan-transaksi-ytevent-' . now()->format('Ymd-His') . '.csv';
@@ -184,11 +174,13 @@ class PaymentVerificationController extends Controller
                 'No. Invoice',
                 'Tanggal Dibuat',
                 'Tanggal Lunas',
-                'Kompetisi',
+                'Kompetisi / Event',
+                'Jenis Event',
+                'Tipe Peserta',
                 'Kategori Usia',
-                'Nama Tim',
-                'Manajer Tim',
-                'WhatsApp Manajer',
+                'Nama Tim / Peserta',
+                'Penanggung Jawab / Wali',
+                'Kontak WhatsApp',
                 'Metode',
                 'Kanal Pembayaran',
                 'Nominal Tagihan (Rp)',
@@ -205,15 +197,20 @@ class PaymentVerificationController extends Controller
             ]);
 
             foreach ($payments as $p) {
+                $resolved = $this->invoiceService->resolveInvoiceData($p);
+                $payer = $resolved['payer'];
+
                 fputcsv($out, [
                     $p->invoice_number,
                     $p->created_at?->format('Y-m-d H:i:s') ?? '-',
                     $p->paid_at?->format('Y-m-d H:i:s') ?? '-',
-                    $p->event?->name ?? '-',
-                    $p->event?->age_category ?? '-',
-                    $p->team?->name ?? '-',
-                    $p->team?->manager_name ?? '-',
-                    $p->team?->manager_whatsapp ?? '-',
+                    $resolved['event']['name'] ?? ($p->event?->name ?? '-'),
+                    $resolved['event']['event_type_label'] ?? '-',
+                    ($payer['subject_type'] ?? 'team') === 'individual' ? 'Peserta Perorangan' : 'Tim / Klub',
+                    $resolved['event']['age_category'] ?? ($p->event?->age_category ?? '-'),
+                    $payer['name'] ?? '-',
+                    $payer['contact_name'] ?? '-',
+                    $payer['contact_phone'] ?? '-',
                     $p->method ?? 'manual',
                     $p->payment_channel ?? '-',
                     (float) $p->amount,
@@ -236,16 +233,47 @@ class PaymentVerificationController extends Controller
         ]);
     }
 
+    protected function applyTransactionFilters(Builder $query, Request $request): void
+    {
+        if ($eventId = $request->query('event_id')) {
+            $query->where('event_id', $eventId);
+        }
+
+        if ($status = $request->query('status')) {
+            $query->where('status', $status);
+        }
+
+        if ($method = $request->query('method')) {
+            $query->where('method', $method);
+        }
+
+        if ($search = trim((string) $request->query('search', ''))) {
+            $query->where(function ($q) use ($search) {
+                $q->where('invoice_number', 'like', "%{$search}%")
+                    ->orWhereHas('team', fn ($tq) => $tq->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('auditionParticipant', function ($pq) use ($search) {
+                        $pq->where('full_name', 'like', "%{$search}%")
+                            ->orWhere('registration_number', 'like', "%{$search}%");
+                    });
+            });
+        }
+    }
+
     protected function transformPayment(Payment $p): array
     {
         $ext = $p->proof_file_path
             ? strtolower(pathinfo($p->proof_file_path, PATHINFO_EXTENSION))
             : null;
+        $resolved = $this->invoiceService->resolveInvoiceData($p);
 
         return [
             'id' => $p->id,
             'invoice_number' => $p->invoice_number,
+            'document_type' => $resolved['document_type'],
+            'document_title' => $resolved['document_title'],
+            'invoice_url' => route('admin.payments.invoice', ['payment' => $p->id]),
             'amount' => (float) $p->amount,
+            'gateway_fee' => (float) ($p->gateway_fee ?? 0),
             'total_amount' => (float) $p->total_amount,
             'method' => $p->method,
             'payment_channel' => $p->payment_channel,
@@ -269,6 +297,7 @@ class PaymentVerificationController extends Controller
                 ? route('private.payment-proof', ['payment' => $p->id])
                 : null,
             'proof_is_pdf' => $ext === 'pdf',
+            'payer' => $resolved['payer'],
             'team' => $p->team ? [
                 'id' => $p->team->id,
                 'name' => $p->team->name,
@@ -277,9 +306,19 @@ class PaymentVerificationController extends Controller
                 'manager_whatsapp' => $p->team->manager_whatsapp,
                 'logo_url' => $p->team->logo_path ? Storage::disk('public')->url($p->team->logo_path) : null,
             ] : null,
+            'audition_participant' => $p->auditionParticipant ? [
+                'id' => $p->auditionParticipant->id,
+                'full_name' => $p->auditionParticipant->full_name,
+                'registration_number' => $p->auditionParticipant->registration_number,
+                'current_club_ssb' => $p->auditionParticipant->current_club_ssb,
+                'guardian_name' => $p->auditionParticipant->user?->name ?? $p->auditionParticipant->emergency_contact_name,
+                'guardian_phone' => $p->auditionParticipant->emergency_contact_phone ?? $p->auditionParticipant->user?->whatsapp,
+                'photo_url' => $p->auditionParticipant->photo_path ? Storage::disk('public')->url($p->auditionParticipant->photo_path) : null,
+            ] : null,
             'event' => $p->event ? [
                 'id' => $p->event->id,
                 'name' => $p->event->name,
+                'event_type' => $p->event->event_type,
                 'age_category' => $p->event->age_category,
             ] : null,
         ];

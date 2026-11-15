@@ -118,8 +118,16 @@ class HtmlSanitizer
                 continue;
             }
 
-            if ($name === 'style' && preg_match('/^\s*text-align\s*:\s*(left|right|center|justify)\s*;?\s*$/i', $value)) {
+            if ($name === 'align' && in_array(strtolower(trim($value)), ['left', 'right', 'center', 'justify'], true)) {
                 continue;
+            }
+
+            if ($name === 'style') {
+                $safeStyle = static::sanitizeStyle($value);
+                if ($safeStyle !== '') {
+                    $element->setAttribute('style', $safeStyle);
+                    continue;
+                }
             }
 
             $element->removeAttribute($attr->name);
@@ -150,5 +158,32 @@ class HtmlSanitizer
         }
 
         return in_array(strtolower($m[1]), self::ALLOWED_SCHEMES, true);
+    }
+
+    protected static function sanitizeStyle(string $style): string
+    {
+        $allowed = [];
+
+        foreach (explode(';', $style) as $declaration) {
+            if (! str_contains($declaration, ':')) {
+                continue;
+            }
+
+            [$prop, $val] = array_map('trim', explode(':', $declaration, 2));
+            $prop = strtolower($prop);
+            $valLower = strtolower($val);
+
+            if ($prop === 'text-align' && in_array($valLower, ['left', 'right', 'center', 'justify'], true)) {
+                $allowed[] = "text-align:{$valLower}";
+            } elseif ($prop === 'font-weight' && preg_match('/^(normal|bold|bolder|lighter|[1-9]00)$/', $valLower)) {
+                $allowed[] = "font-weight:{$valLower}";
+            } elseif ($prop === 'font-style' && in_array($valLower, ['normal', 'italic', 'oblique'], true)) {
+                $allowed[] = "font-style:{$valLower}";
+            } elseif ($prop === 'text-decoration' && preg_match('/^(none|underline|line-through)(\s+(underline|line-through))*$/', $valLower)) {
+                $allowed[] = "text-decoration:{$valLower}";
+            }
+        }
+
+        return implode(';', $allowed);
     }
 }

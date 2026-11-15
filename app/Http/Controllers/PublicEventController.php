@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Public\CheckAccountEmailRequest;
+use App\Http\Requests\Public\InlineLoginRequest;
 use App\Http\Requests\Public\RegisterAuditionRequest;
 use App\Http\Requests\Public\RegisterTeamRequest;
 use App\Models\AuditionParticipant;
@@ -11,14 +13,17 @@ use App\Models\Player;
 use App\Models\SystemSetting;
 use App\Models\Team;
 use App\Models\TournamentMatch;
+use App\Models\User;
 use App\Services\AuditionRegistrationService;
 use App\Services\StandingsCalculatorService;
 use App\Services\TeamRegistrationService;
 use App\Support\HtmlSanitizer;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -63,11 +68,69 @@ class PublicEventController extends Controller
             }
         }
 
+        $user = $request->user();
+        $userTeamsByEvent = collect();
+        $activeTeamsForConflict = collect();
+        $userParticipantCountsByEvent = collect();
+        $teamService = $user ? app(TeamRegistrationService::class) : null;
+
+        if ($user) {
+            $userTeams = Team::query()
+                ->with('event:id,name,status,match_start_date,match_end_date')
+                ->where('user_id', $user->id)
+                ->whereIn('status', ['pending_payment', 'active', 'locked_roster', 'expired'])
+                ->latest('id')
+                ->get();
+
+            $userTeamsByEvent = $userTeams->unique('event_id')->keyBy('event_id');
+            $activeTeamsForConflict = $userTeams->whereIn('status', ['pending_payment', 'active', 'locked_roster'])->values();
+
+            $userParticipantCountsByEvent = AuditionParticipant::query()
+                ->where('user_id', $user->id)
+                ->selectRaw('event_id, COUNT(*) as total')
+                ->groupBy('event_id')
+                ->pluck('total', 'event_id');
+        }
+
         $events = $query
             ->orderByRaw("CASE WHEN status = 'open' THEN 1 WHEN status = 'quota_full' THEN 2 WHEN status = 'ongoing' THEN 3 ELSE 4 END")
             ->orderBy('match_start_date')
-            ->get()
-            ->map(fn (Event $event) => $this->transformPublicEvent($event));
+            ->paginate(9)
+            ->withQueryString()
+            ->through(function (Event $event) use ($user, $userTeamsByEvent, $activeTeamsForConflict, $userParticipantCountsByEvent, $teamService) {
+                $payload = $this->transformPublicEvent($event);
+
+                if ($user) {
+                    if ($event->isIndividual()) {
+                        $registeredCount = (int) ($userParticipantCountsByEvent->get($event->id) ?? 0);
+                        $payload['user_context'] = $registeredCount > 0 ? [
+                            'registered_participants_count' => $registeredCount,
+                        ] : null;
+                    } else {
+                        /** @var Team|null $sameEventTeam */
+                        $sameEventTeam = $userTeamsByEvent->get($event->id);
+                        $conflictTeam = (! $sameEventTeam && $teamService)
+                            ? $teamService->findConflictingTeamInCollection($activeTeamsForConflict, $event)
+                            : null;
+
+                        $payload['user_context'] = ($sameEventTeam || $conflictTeam) ? [
+                            'registered_team' => $sameEventTeam ? [
+                                'id' => $sameEventTeam->id,
+                                'name' => $sameEventTeam->name,
+                                'status' => $sameEventTeam->status,
+                            ] : null,
+                            'conflicting_team' => $conflictTeam ? [
+                                'team_name' => $conflictTeam->name,
+                                'event_name' => $conflictTeam->event?->name,
+                            ] : null,
+                        ] : null;
+                    }
+                } else {
+                    $payload['user_context'] = null;
+                }
+
+                return $payload;
+            });
 
         $ageCategories = Event::query()
             ->where('status', '!=', 'draft')
@@ -97,7 +160,7 @@ class PublicEventController extends Controller
         ]);
     }
 
-    public function show(Event $event): Response
+    public function show(Request $request, Event $event): Response
     {
         if ($event->status === 'draft') {
             abort(404);
@@ -207,6 +270,52 @@ class PublicEventController extends Controller
             $leaderboard = app(StandingsCalculatorService::class)->getEventLeaderboard($event);
         }
 
+        $userRegistrationContext = null;
+        if ($user = $request->user()) {
+            if ($event->isIndividual()) {
+                $myParticipants = $event->auditionParticipants()
+                    ->where('user_id', $user->id)
+                    ->get(['id', 'full_name', 'registration_number', 'status'])
+                    ->map(fn (AuditionParticipant $p) => [
+                        'id' => $p->id,
+                        'full_name' => $p->full_name,
+                        'registration_number' => $p->registration_number,
+                        'status' => $p->status,
+                    ])
+                    ->values();
+
+                $userRegistrationContext = [
+                    'registered_participants' => $myParticipants,
+                ];
+            } else {
+                $teamService = app(TeamRegistrationService::class);
+                $sameEventTeam = $event->teams()
+                    ->where('user_id', $user->id)
+                    ->whereIn('status', ['pending_payment', 'active', 'locked_roster', 'expired'])
+                    ->latest('id')
+                    ->first();
+                $conflictTeam = $sameEventTeam ? null : $teamService->findConflictingActiveRegistration($user, $event);
+                $primaryTeam = $teamService->resolvePrimaryTeamForUser($user);
+
+                $userRegistrationContext = [
+                    'already_registered_team' => $sameEventTeam ? [
+                        'id' => $sameEventTeam->id,
+                        'name' => $sameEventTeam->name,
+                        'status' => $sameEventTeam->status,
+                    ] : null,
+                    'conflicting_team' => $conflictTeam ? [
+                        'team_name' => $conflictTeam->name,
+                        'event_name' => $conflictTeam->event?->name,
+                        'date_range' => $conflictTeam->event ? $teamService->formatEventDateRange($conflictTeam->event) : '-',
+                    ] : null,
+                    'existing_team' => $primaryTeam ? [
+                        'id' => $primaryTeam->id,
+                        'name' => $primaryTeam->name,
+                    ] : null,
+                ];
+            }
+        }
+
         return Inertia::render('Public/EventDetail', [
             'event' => $this->transformPublicEvent($event, detailed: true),
             'registeredTeams' => $registeredTeams,
@@ -215,6 +324,7 @@ class PublicEventController extends Controller
             'leaderboard' => $leaderboard,
             'stages' => $stages,
             'registeredParticipants' => $registeredParticipants,
+            'userRegistrationContext' => $userRegistrationContext,
         ])->withViewData([
             'seoMeta' => $this->buildEventSeoMeta($event, isRegisterPage: false),
         ]);
@@ -230,11 +340,47 @@ class PublicEventController extends Controller
             return redirect()->route('events.register-audition', ['event' => $event->slug]);
         }
 
+        $user = $request->user();
+        $existingTeamPayload = null;
+
+        if ($user) {
+            $teamService = app(TeamRegistrationService::class);
+            $sameEventTeam = $event->teams()
+                ->where('user_id', $user->id)
+                ->whereIn('status', ['pending_payment', 'active', 'locked_roster'])
+                ->latest('id')
+                ->first();
+
+            if ($sameEventTeam) {
+                return redirect()->route('manager.dashboard', ['team_id' => $sameEventTeam->id])
+                    ->with('info', "Tim Anda ({$sameEventTeam->name}) sudah terdaftar pada kompetisi ini.");
+            }
+
+            $conflictTeam = $teamService->findConflictingActiveRegistration($user, $event);
+            if ($conflictTeam && $conflictTeam->event) {
+                return redirect()->route('events.show', ['event' => $event->slug])
+                    ->with('warning', "Tim Anda ({$conflictTeam->name}) sudah terdaftar pada kompetisi {$conflictTeam->event->name} ({$teamService->formatEventDateRange($conflictTeam->event)}) yang jadwal penyelenggaraannya bertabrakan.");
+            }
+
+            $primaryTeam = $teamService->resolvePrimaryTeamForUser($user);
+            if ($primaryTeam) {
+                $existingTeamPayload = [
+                    'id' => $primaryTeam->id,
+                    'name' => $primaryTeam->name,
+                    'origin_association' => $primaryTeam->origin_association,
+                    'secretariat_address' => $primaryTeam->secretariat_address,
+                    'manager_name' => $primaryTeam->manager_name,
+                    'manager_whatsapp' => $primaryTeam->manager_whatsapp,
+                    'head_coach_name' => $primaryTeam->head_coach_name,
+                    'head_coach_license' => $primaryTeam->head_coach_license,
+                    'logo_url' => $this->publicStorageUrl($primaryTeam->logo_optimized_path ?: $primaryTeam->logo_path),
+                ];
+            }
+        }
+
         $event->loadCount([
             'teams as occupied_slots_count' => fn ($q) => $q->occupyingQuotaAt(now()),
         ]);
-
-        $user = $request->user();
 
         return Inertia::render('Public/RegisterTeam', [
             'event' => $this->transformPublicEvent($event, detailed: true),
@@ -243,9 +389,51 @@ class PublicEventController extends Controller
                 'email' => $user->email,
                 'phone' => $user->phone,
             ] : null,
+            'existingTeam' => $existingTeamPayload,
         ])->withViewData([
             'seoMeta' => $this->buildEventSeoMeta($event, isRegisterPage: true),
         ]);
+    }
+
+    public function checkAccountEmail(CheckAccountEmailRequest $request): JsonResponse
+    {
+        $email = strtolower(trim((string) $request->validated('email')));
+        $user = User::query()->where('email', $email)->first();
+
+        return response()->json([
+            'exists' => (bool) $user,
+            'name' => $user?->name,
+        ]);
+    }
+
+    public function inlineLogin(InlineLoginRequest $request, Event $event): RedirectResponse
+    {
+        if ($event->status === 'draft') {
+            abort(404);
+        }
+
+        $validated = $request->validated();
+        $email = strtolower(trim((string) $validated['email']));
+
+        if (! Auth::attempt([
+            'email' => $email,
+            'password' => (string) $validated['password'],
+            'is_active' => true,
+        ])) {
+            throw ValidationException::withMessages([
+                'login_password' => 'Kata sandi yang Anda masukkan tidak sesuai dengan akun email tersebut.',
+            ]);
+        }
+
+        $request->session()->regenerate();
+
+        $targetRoute = ($validated['redirect_to'] ?? null) === 'register-audition' || $event->isIndividual()
+            ? 'events.register-audition'
+            : 'events.register';
+
+        return redirect()
+            ->route($targetRoute, ['event' => $event->slug])
+            ->with('success', 'Berhasil masuk ke akun Anda. Data pendaftaran telah dimuat otomatis.');
     }
 
     public function showRegisterAudition(Request $request, Event $event): Response|RedirectResponse
@@ -261,6 +449,67 @@ class PublicEventController extends Controller
         $event->load(['eventSessions' => fn ($q) => $q->orderBy('session_date')->orderBy('start_time')]);
 
         $user = $request->user();
+        $existingChildren = [];
+
+        if ($user) {
+            $registeredNiksInEvent = AuditionParticipant::query()
+                ->where('event_id', $event->id)
+                ->pluck('registration_number', 'nik');
+
+            $existingChildren = AuditionParticipant::query()
+                ->where('user_id', $user->id)
+                ->latest('id')
+                ->get()
+                ->unique('nik')
+                ->values()
+                ->map(function (AuditionParticipant $child) use ($event, $registeredNiksInEvent) {
+                    $birthDateStr = $child->birth_date?->format('Y-m-d');
+                    $ageEligible = true;
+                    $ageIneligibleReason = null;
+
+                    if ($birthDateStr && $event->min_birth_date && $birthDateStr < $event->min_birth_date->toDateString()) {
+                        $ageEligible = false;
+                        $ageIneligibleReason = 'Kelahiran sebelum batas minimal ' . $event->min_birth_date->format('d/m/Y');
+                    } elseif ($birthDateStr && $event->max_birth_date && $birthDateStr > $event->max_birth_date->toDateString()) {
+                        $ageEligible = false;
+                        $ageIneligibleReason = 'Kelahiran melewati batas maksimal ' . $event->max_birth_date->format('d/m/Y');
+                    }
+
+                    $alreadyInEvent = $registeredNiksInEvent->has($child->nik);
+
+                    return [
+                        'id' => $child->id,
+                        'full_name' => $child->full_name,
+                        'nickname' => $child->nickname,
+                        'nik' => $child->nik,
+                        'birth_date' => $birthDateStr,
+                        'birth_date_formatted' => $child->birth_date?->format('d/m/Y'),
+                        'gender' => $child->gender,
+                        'preferred_position' => $child->preferred_position,
+                        'secondary_position' => $child->secondary_position,
+                        'dominant_foot' => $child->dominant_foot,
+                        'height_cm' => $child->height_cm,
+                        'weight_kg' => $child->weight_kg,
+                        'current_club_ssb' => $child->current_club_ssb,
+                        'playing_experience' => $child->playing_experience,
+                        'jersey_size' => $child->jersey_size,
+                        'emergency_contact_name' => $child->emergency_contact_name,
+                        'emergency_contact_phone' => $child->emergency_contact_phone,
+                        'emergency_contact_relation' => $child->emergency_contact_relation,
+                        'medical_notes' => $child->medical_notes,
+                        'photo_url' => $this->publicStorageUrl($child->photo_path),
+                        'has_photo' => ! empty($child->photo_path),
+                        'has_birth_certificate' => ! empty($child->birth_certificate_path),
+                        'has_family_card' => ! empty($child->family_card_path),
+                        'already_in_this_event' => $alreadyInEvent,
+                        'this_event_registration_number' => $alreadyInEvent ? $registeredNiksInEvent->get($child->nik) : null,
+                        'age_eligible' => $ageEligible,
+                        'age_ineligible_reason' => $ageIneligibleReason,
+                    ];
+                })
+                ->values()
+                ->all();
+        }
 
         return Inertia::render('Public/RegisterAudition', [
             'event' => array_merge($this->transformPublicEvent($event, detailed: true), [
@@ -279,6 +528,7 @@ class PublicEventController extends Controller
                 'email' => $user->email,
                 'phone' => $user->phone,
             ] : null,
+            'existingChildren' => $existingChildren,
         ])->withViewData([
             'seoMeta' => $this->buildEventSeoMeta($event, isRegisterPage: true),
         ]);
@@ -300,16 +550,54 @@ class PublicEventController extends Controller
             birthCertFile: $request->file('birth_certificate'),
             familyCardFile: $request->file('family_card'),
             additionalDocFile: $request->file('additional_doc'),
-            authenticatedUser: $request->user()
+            authenticatedUser: $request->user(),
+            acceptedIp: $request->ip(),
+            acceptedUserAgent: $request->userAgent()
         );
 
         $user = $result['user'];
         $participant = $result['participant'];
+        $latestPayment = $result['payment'] ?? $participant->latestPayment;
 
         if (! $request->user()) {
             Auth::login($user);
             $request->session()->regenerate();
         }
+
+        if ($latestPayment && $latestPayment->status === 'unpaid') {
+            $request->session()->put('active_payment_context', 'participant');
+            $request->session()->put('active_manager_participant_id', $participant->id);
+
+            $autoSnap = false;
+            if (\App\Services\PaymentService::isGatewayMode()
+                && ! config('payment.sandbox_simulator')
+            ) {
+                $defaultProvider = \App\Services\PaymentService::activeGatewayProvider();
+                if (\App\Services\PaymentService::isProviderEnabled($defaultProvider)) {
+                    try {
+                        app(\App\Services\PaymentService::class)->initiateGatewayPayment(
+                            payment: $latestPayment,
+                            provider: $defaultProvider
+                        );
+                        $autoSnap = $defaultProvider === 'midtrans';
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::warning('Auto initiate gateway on audition registration failed: '.$e->getMessage());
+                    }
+                }
+            }
+
+            if ($autoSnap) {
+                $request->session()->flash('auto_open_snap', true);
+            }
+
+            return redirect()->route('manager.payments', array_filter([
+                'participant_id' => $participant->id,
+                'auto_pay' => $autoSnap ? 1 : null,
+            ]))
+                ->with('success', "Pendaftaran atlet {$participant->full_name} berhasil dicatat (No. Reg: {$participant->registration_number})! Silakan selesaikan pembayaran sebelum batas waktu reservasi berakhir.");
+        }
+
+        $request->session()->flash('highlight_participant_id', $participant->id);
 
         return redirect()->route('manager.dashboard')
             ->with('success', "Pendaftaran atlet {$participant->full_name} berhasil dicatat (No. Reg: {$participant->registration_number})! Silakan pantau tahapan verifikasi berkas di akun Anda.");
@@ -328,7 +616,9 @@ class PublicEventController extends Controller
             event: $event,
             validated: $request->validated(),
             logoFile: $request->file('logo'),
-            authenticatedUser: $request->user()
+            authenticatedUser: $request->user(),
+            acceptedIp: $request->ip(),
+            acceptedUserAgent: $request->userAgent()
         );
 
         if (! $request->user()) {
@@ -337,6 +627,7 @@ class PublicEventController extends Controller
         }
 
         $request->session()->put('active_manager_team_id', $team->id);
+        $request->session()->put('active_payment_context', 'team');
 
         $latestPayment = $team->latestPayment;
         $autoSnap = false;
@@ -440,6 +731,14 @@ class PublicEventController extends Controller
                     'label' => Event::documentLabel($type),
                 ])
                 ->values();
+            $data['tnc'] = $event->resolveTncVersion()->toPublicPayload($event);
+            $data['payment_config'] = [
+                'mode' => \App\Services\PaymentService::activeMode(),
+                'provider' => \App\Services\PaymentService::activeGatewayProvider(),
+                'fee_borne_by' => (string) SystemSetting::get('fee_borne_by', 'team'),
+                'va_fee' => (int) SystemSetting::get('midtrans_va_fee', 4000),
+                'qris_fee_percent' => (float) SystemSetting::get('midtrans_qris_fee_percent', 0.7),
+            ];
         }
 
         return $data;
