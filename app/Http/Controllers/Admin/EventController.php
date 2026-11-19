@@ -785,7 +785,7 @@ class EventController extends Controller
         $participantCount = $event->auditionParticipants()->count();
 
         if ($teamCount > 0 || $participantCount > 0 || $event->occupiedSlotsCount() > 0) {
-            return back()->with('error', "Event \"{$event->name}\" tidak dapat dihapus karena sudah memiliki pendaftar. Ubah status menjadi Completed atau Closed jika event telah selesai.");
+            return back()->with('error', "Event \"{$event->name}\" tidak dapat dihapus karena sudah memiliki pendaftar. Ubah status menjadi Batal (Cancelled) atau Selesai (Completed).");
         }
 
         $eventName = $event->name;

@@ -1,4 +1,20 @@
-# UI/UX Design Specification: High-Density Operational Utility + Liquid Glass Persija Red-Orange
+# UI/UX Design Specification: High-Density Operational Utility + Persija Red-Orange
+
+## 0. Production UI/UX Gate
+
+Dokumen ini adalah source of truth untuk implementasi UI produksi. Implementasi yang tidak bertentangan dengan dokumen spesifik antislop tetapi tidak lolos gate berikut dianggap belum siap:
+
+- Satu primary action per konteks keputusan.
+- Target sentuh minimum 44px pada mobile.
+- `:focus-visible`, label form eksplisit, semantik control native, dan modal yang mendukung Escape.
+- Tidak ada emoji, pulse, ping, dot indicator, atau glassmorphism berlebihan.
+- Kontras minimum WCAG 2.2 AA untuk teks dan kontrol penting.
+- Loading, empty, error, stale, and success states wajib ada pada workflow operasional.
+- Glass effect hanya boleh dipakai pada elemen mengambang nyata: sticky header, modal, atau sticky decision bar.
+- Semua pernyataan visual status menggunakan teks eksplisit, bukan warna atau dot saja.
+- Setiap workflow kritis harus diverifikasi pada viewport desktop dan mobile.
+
+Lihat urutan pengerjaan produksi di [PRODUCTION_GO_LIVE_IMPLEMENTATION_PLAN.md](PRODUCTION_GO_LIVE_IMPLEMENTATION_PLAN.md).
 
 ## 1. Filosofi Desain & Karakter Visual
 Aplikasi dirancang sebagai **perangkat kerja operasional sepak bola berdensitas tinggi** (seperti portal kompetisi resmi FIFA TMS / Premier League) yang dipadukan dengan estetika **Ultra-Clean Liquid Glass** dan identitas warna **Persija Red-Orange (Merah-Oranye Api / Macan Kemayoran)**.

@@ -332,6 +332,7 @@ const executeConfirmAction = () => {
                             <option value="closed">Ditutup (Closed)</option>
                             <option value="draft">Draft</option>
                             <option value="completed">Selesai (Completed)</option>
+                            <option value="cancelled">Dibatalkan (Batal)</option>
                         </select>
 
                         <button

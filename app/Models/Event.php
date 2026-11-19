@@ -85,6 +85,7 @@ class Event extends Model
         'closed' => 'Pendaftaran Ditutup',
         'ongoing' => 'Sedang Berjalan',
         'completed' => 'Selesai',
+        'cancelled' => 'Dibatalkan',
     ];
 
     public const DOCUMENT_TYPES = [
@@ -443,6 +444,11 @@ class Event extends Model
         return $this->status === 'completed';
     }
 
+    public function isCancelled(): bool
+    {
+        return $this->status === 'cancelled';
+    }
+
     /**
      * Manajer tim hanya boleh mengelola roster (pemain/ofisial/profil) sebelum event berlangsung atau selesai.
      */
@@ -452,19 +458,19 @@ class Event extends Model
     }
 
     /**
-     * Screening dan emergency unlock berlaku selama event aktif (tidak draft dan belum selesai).
+     * Screening dan emergency unlock berlaku selama event aktif (tidak draft, belum selesai, dan tidak dibatalkan).
      */
     public function canVerifyScreening(): bool
     {
-        return ! in_array($this->status, ['draft', 'completed'], true);
+        return ! in_array($this->status, ['draft', 'completed', 'cancelled'], true);
     }
 
     /**
-     * Penyusunan grup dan penjadwalan pertandingan tidak diperbolehkan pada event draft atau selesai.
+     * Penyusunan grup dan penjadwalan pertandingan tidak diperbolehkan pada event draft, selesai, atau dibatalkan.
      */
     public function canManageTournamentSetup(): bool
     {
-        return ! in_array($this->status, ['draft', 'completed'], true);
+        return ! in_array($this->status, ['draft', 'completed', 'cancelled'], true);
     }
 
     /**

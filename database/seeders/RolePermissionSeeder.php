@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -125,8 +124,9 @@ class RolePermissionSeeder extends Seeder
                 $plain = $configured ?: $defaultPassword;
 
                 if (app()->isProduction() && ! $configured) {
-                    $plain = Str::password(24);
-                    $this->command?->warn("[SEEDER] Password awal {$email}: {$plain} (catat sekarang, tidak ditampilkan lagi)");
+                    $this->command?->warn("[SEEDER] Lewati akun produksi {$email}: set {$role} credential melalui SEEDER_".strtoupper($role).'_PASSWORD'.' terlebih dahulu.');
+
+                    return null;
                 }
 
                 $user->password = Hash::make($plain);

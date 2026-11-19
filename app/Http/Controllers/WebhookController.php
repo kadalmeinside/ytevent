@@ -28,17 +28,34 @@ class WebhookController extends Controller
     protected function process(string $provider, Request $request, \Closure $handler): JsonResponse
     {
         $payload = $this->safePayload($provider, $request->all());
+        $idempotencyKey = hash('sha256', $provider.'|'.json_encode($payload, JSON_THROW_ON_ERROR));
+
+        $existingLog = WebhookLog::query()
+            ->where('idempotency_key', $idempotencyKey)
+            ->where('status', 'processed')
+            ->first();
+
+        if ($existingLog) {
+            return response()->json([
+                'status' => 'ok',
+                'duplicate' => true,
+                'invoice_number' => $existingLog->invoice_number,
+                'payment_status' => 'already_processed',
+            ]);
+        }
 
         try {
             $payment = $handler();
             $log = WebhookLog::create([
                 'provider' => $provider,
+                'idempotency_key' => $idempotencyKey,
                 'invoice_number' => $payment->invoice_number,
                 'external_reference' => $payment->external_reference_id,
                 'event_name' => $payload['status'] ?? $payload['transaction_status'] ?? null,
                 'status' => 'processed',
                 'http_status' => 200,
                 'payload' => $payload,
+                'processed_at' => now(),
             ]);
 
             return response()->json([
@@ -49,6 +66,7 @@ class WebhookController extends Controller
         } catch (Throwable $exception) {
             $log = WebhookLog::create([
                 'provider' => $provider,
+                'idempotency_key' => $idempotencyKey,
                 'invoice_number' => $payload['external_id'] ?? $payload['order_id'] ?? null,
                 'external_reference' => $payload['id'] ?? $payload['transaction_id'] ?? null,
                 'event_name' => $payload['status'] ?? $payload['transaction_status'] ?? null,

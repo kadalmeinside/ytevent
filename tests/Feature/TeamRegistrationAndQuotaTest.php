@@ -604,4 +604,133 @@ class TeamRegistrationAndQuotaTest extends TestCase
                 ->where('events.current_page', 2)
             );
     }
+
+    public function test_cancelled_event_is_ignored_and_allows_new_event_registration_on_same_dates_without_schedule_conflict(): void
+    {
+        $this->event->update([
+            'match_start_date' => now()->addDays(10)->toDateString(),
+            'match_end_date' => now()->addDays(12)->toDateString(),
+        ]);
+
+        $manager = User::factory()->create();
+        $manager->assignRole('team_manager');
+
+        Team::create([
+            'event_id' => $this->event->id,
+            'user_id' => $manager->id,
+            'name' => 'SSB Mentari Batal',
+            'slug' => 'ssb-mentari-batal',
+            'logo_path' => 'logos/mentari_batal.png',
+            'origin_association' => 'Askot PSSI Jakarta Barat',
+            'manager_name' => 'Manager Mentari',
+            'manager_email' => $manager->email,
+            'manager_whatsapp' => '081234567891',
+            'head_coach_name' => 'Coach Anton',
+            'terms_accepted_at' => now(),
+            'status' => 'active',
+        ]);
+
+        // Event pertama diubah statusnya menjadi 'cancelled' (batal)
+        $this->event->update(['status' => 'cancelled']);
+        $this->assertTrue($this->event->fresh()->isCancelled());
+
+        // Buat event baru dengan tanggal tanding yang persis sama / bertabrakan
+        $newEvent = Event::create([
+            'name' => 'Turnamen Pengganti Cup',
+            'slug' => 'turnamen-pengganti-cup',
+            'venue_name' => 'Stadion Kamal Muara',
+            'city' => 'Jakarta Utara',
+            'format' => 'cup',
+            'age_category' => 'U-15',
+            'min_players_per_team' => 14,
+            'max_players_per_team' => 20,
+            'max_officials_per_team' => 5,
+            'required_documents' => ['birth_certificate', 'family_card'],
+            'max_teams' => 8,
+            'registration_fee' => 500000,
+            'payment_deadline_hours' => 24,
+            'match_start_date' => now()->addDays(10)->toDateString(),
+            'match_end_date' => now()->addDays(12)->toDateString(),
+            'status' => 'open',
+        ]);
+
+        // Manajer seharusnya BISA membuka form pendaftaran tanpa warning bentrok
+        $this->actingAs($manager)
+            ->get(route('events.register', ['event' => $newEvent->slug]))
+            ->assertOk();
+
+        // Dan pendaftaran berhasil tanpa error event_quota jadwal bentrok
+        $this->actingAs($manager)
+            ->post(route('events.register.store', ['event' => $newEvent->slug]), [
+                'team_name' => 'SSB Mentari Baru',
+                'origin_association' => 'Askot PSSI Jakarta Barat',
+                'manager_name' => 'Manager Mentari',
+                'manager_whatsapp' => '081234567891',
+                'head_coach_name' => 'Coach Anton',
+                'terms_accepted' => '1',
+            ])
+            ->assertRedirect(route('manager.payments'));
+
+        $this->assertDatabaseHas('teams', [
+            'event_id' => $newEvent->id,
+            'user_id' => $manager->id,
+            'name' => 'SSB Mentari Batal',
+        ]);
+    }
+
+    public function test_cancelled_event_blocks_direct_registration_access(): void
+    {
+        $this->event->update(['status' => 'cancelled']);
+
+        $manager = User::factory()->create();
+        $manager->assignRole('team_manager');
+
+        $this->actingAs($manager)
+            ->get(route('events.register', ['event' => $this->event->slug]))
+            ->assertRedirect(route('events.show', ['event' => $this->event->slug]))
+            ->assertSessionHas('error', 'Pendaftaran tidak tersedia karena event ini telah dibatalkan.');
+    }
+
+    public function test_catalog_home_statistics_and_default_exclusion_of_cancelled_events(): void
+    {
+        $cancelledEvent = Event::create([
+            'name' => 'Event Dibatalkan Resmi',
+            'slug' => 'event-dibatalkan-resmi',
+            'venue_name' => 'Stadion Rawamangun',
+            'city' => 'Jakarta Timur',
+            'format' => 'cup',
+            'age_category' => 'U-17',
+            'min_players_per_team' => 14,
+            'max_players_per_team' => 20,
+            'max_officials_per_team' => 5,
+            'required_documents' => ['birth_certificate'],
+            'max_teams' => 8,
+            'registration_fee' => 500000,
+            'payment_deadline_hours' => 24,
+            'match_start_date' => now()->addDays(5)->toDateString(),
+            'match_end_date' => now()->addDays(7)->toDateString(),
+            'status' => 'cancelled',
+        ]);
+
+        $response = $this->get(route('home'));
+        $response->assertOk();
+
+        $response->assertInertia(fn (Assert $page) => $page
+            ->component('Public/Home')
+            ->has('stats.total_events')
+            ->has('stats.open_events')
+            ->has('stats.age_categories_count')
+            ->where('stats.total_events', 1)
+            ->where('stats.open_events', 1)
+            ->where('events.total', 1)
+        );
+
+        $filteredResponse = $this->get(route('home', ['status' => 'cancelled']));
+        $filteredResponse->assertOk();
+        $filteredResponse->assertInertia(fn (Assert $page) => $page
+            ->component('Public/Home')
+            ->where('events.total', 1)
+            ->where('events.data.0.id', $cancelledEvent->id)
+        );
+    }
 }

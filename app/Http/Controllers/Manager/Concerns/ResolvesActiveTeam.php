@@ -19,7 +19,7 @@ trait ResolvesActiveTeam
             ->orderByDesc('created_at')
             ->get()
             ->sortBy(function (Team $t) {
-                $isCompleted = $t->event?->status === 'completed';
+                $isCompleted = in_array($t->event?->status, ['completed', 'cancelled'], true);
                 $hasRejected = $t->players->where('screening_status', 'rejected')->isNotEmpty()
                     || $t->latestPayment?->status === 'rejected';
                 $needsPayment = in_array($t->status, ['pending_payment', 'expired'], true);
@@ -50,7 +50,8 @@ trait ResolvesActiveTeam
             'teamPayload' => $activeTeam ? $this->formatTeamForManager($activeTeam) : null,
             'teamsList' => $teams->map(function (Team $t) {
                 $event = $t->event;
-                $isCompleted = $event?->status === 'completed';
+                $isCompleted = in_array($event?->status, ['completed', 'cancelled'], true);
+                $isCancelled = $event?->status === 'cancelled';
                 $latestPayment = $t->latestPayment;
                 $isPaid = $latestPayment?->status === 'paid' || (float) ($event?->registration_fee ?? 0) <= 0;
                 $playersCount = $t->players->count();
@@ -78,6 +79,7 @@ trait ResolvesActiveTeam
                     'event_status' => $event?->status,
                     'event_status_label' => $event ? (Event::STATUSES[$event->status] ?? $event->status) : null,
                     'is_event_completed' => $isCompleted,
+                    'is_event_cancelled' => $isCancelled,
                     'is_paid' => $isPaid,
                     'latest_payment' => $latestPayment ? [
                         'id' => $latestPayment->id,

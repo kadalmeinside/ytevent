@@ -165,7 +165,7 @@ const stripHtml = (html) => {
         <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-4 sm:pt-6 sm:pb-6">
             <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
                 <div class="max-w-2xl">
-                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-orange-100/80 text-orange-800 border border-orange-300/80 mb-3 shadow-2xs">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-orange-100/80 text-orange-800 border border-orange-300/80 mb-3 shadow-sm">
                         Multi-Event Football Management
                     </span>
                     <h1 class="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
@@ -179,16 +179,16 @@ const stripHtml = (html) => {
                 <!-- Platform Stats -->
                 <div class="grid grid-cols-3 gap-3 sm:gap-4 shrink-0">
                     <div class="frosted-card px-4 py-3">
-                        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Kompetisi</p>
+                        <p class="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Total Kompetisi</p>
                         <p class="text-xl sm:text-2xl font-black text-slate-900 tabular-data mt-0.5">{{ stats.total_events || 0 }}</p>
                     </div>
                     <div class="frosted-card px-4 py-3 border-orange-200/80 bg-orange-50/30">
-                        <p class="text-[11px] font-bold text-orange-600/80 uppercase tracking-wider">Slot Terisi</p>
-                        <p class="text-xl sm:text-2xl font-black text-orange-600 tabular-data mt-0.5">{{ stats.total_teams || 0 }}</p>
+                        <p class="text-[11px] font-bold text-orange-900 uppercase tracking-wider">Pendaftaran Dibuka</p>
+                        <p class="text-xl sm:text-2xl font-black text-orange-700 tabular-data mt-0.5">{{ stats.open_events || 0 }}</p>
                     </div>
                     <div class="frosted-card px-4 py-3">
-                        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Pemain Sah</p>
-                        <p class="text-xl sm:text-2xl font-black text-slate-900 tabular-data mt-0.5">{{ stats.total_verified_players || 0 }}</p>
+                        <p class="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Kelompok Usia</p>
+                        <p class="text-xl sm:text-2xl font-black text-slate-900 tabular-data mt-0.5">{{ stats.age_categories_count || 0 }}</p>
                     </div>
                 </div>
             </div>
@@ -197,8 +197,9 @@ const stripHtml = (html) => {
             <form @submit.prevent="applyFilters" novalidate class="mt-6 frosted-card p-4 sm:p-5">
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
                     <div class="lg:col-span-2">
-                        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Cari Nama Event / Kota</label>
+                        <label for="home-event-search" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Cari Nama Event / Kota</label>
                         <input
+                            id="home-event-search"
                             v-model="filterState.search"
                             type="text"
                             placeholder="Contoh: Youth Cup, Jakarta, Bandung..."
@@ -207,8 +208,8 @@ const stripHtml = (html) => {
                     </div>
 
                     <div>
-                        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Peserta</label>
-                        <select v-model="filterState.participant_type" class="input-field" @change="applyFilters">
+                        <label for="home-participant-type" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Peserta</label>
+                        <select id="home-participant-type" v-model="filterState.participant_type" class="input-field" @change="applyFilters">
                             <option value="">Individu &amp; Tim</option>
                             <option v-for="(label, key) in participantTypes" :key="key" :value="key">
                                 {{ label }}
@@ -217,8 +218,8 @@ const stripHtml = (html) => {
                     </div>
 
                     <div>
-                        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Format Kompetisi</label>
-                        <select v-model="filterState.format" class="input-field" @change="applyFilters">
+                        <label for="home-event-format" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Format Kompetisi</label>
+                        <select id="home-event-format" v-model="filterState.format" class="input-field" @change="applyFilters">
                             <option value="">Semua Format</option>
                             <option v-for="(label, key) in formats" :key="key" :value="key">
                                 {{ label }}
@@ -227,8 +228,8 @@ const stripHtml = (html) => {
                     </div>
 
                     <div>
-                        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Kelompok Usia</label>
-                        <select v-model="filterState.age_category" class="input-field" @change="applyFilters">
+                        <label for="home-age-category" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Kelompok Usia</label>
+                        <select id="home-age-category" v-model="filterState.age_category" class="input-field" @change="applyFilters">
                             <option value="">Semua Usia</option>
                             <option v-for="cat in ageCategories" :key="cat" :value="cat">
                                 {{ cat }}
@@ -237,9 +238,9 @@ const stripHtml = (html) => {
                     </div>
 
                     <div>
-                        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Status Kuota</label>
+                        <label for="home-event-status" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Status Kuota</label>
                         <div class="flex items-center gap-2">
-                            <select v-model="filterState.status" class="input-field" @change="applyFilters">
+                            <select id="home-event-status" v-model="filterState.status" class="input-field" @change="applyFilters">
                                 <option value="">Semua Status</option>
                                 <option value="open">Dibuka (Open)</option>
                                 <option value="quota_full">Kuota Penuh</option>
@@ -451,7 +452,7 @@ const stripHtml = (html) => {
                             v-else
                             class="flex-1 h-9 sm:h-10 inline-flex items-center justify-center text-center text-xs font-semibold px-3 rounded-lg sm:rounded-xl bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed"
                         >
-                            {{ event.available_slots === 0 ? 'Kuota Penuh' : 'Ditutup' }}
+                            {{ event.status === 'cancelled' ? 'Dibatalkan' : (event.available_slots === 0 ? 'Kuota Penuh' : 'Ditutup') }}
                         </span>
                     </div>
                     </div>

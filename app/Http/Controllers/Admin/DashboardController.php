@@ -69,10 +69,16 @@ class DashboardController extends Controller
     {
         $validated = $request->validated();
 
-        $request->user()->update([
+        $user = $request->user();
+
+        $user->update([
             'password' => Hash::make($validated['password']),
         ]);
+        $user->setRememberToken(null);
+        $user->save();
 
-        return redirect()->back()->with('success', 'Kata sandi akun panitia Anda berhasil diperbarui.');
+        $request->session()->regenerate();
+
+        return redirect()->back()->with('success', 'Kata sandi akun panitia Anda berhasil diperbarui. Sesi perangkat lain telah keluar.');
     }
 }

@@ -1049,6 +1049,16 @@ const eventJsonLd = computed(() => {
                                     </Link>
                                 </div>
 
+                                <div
+                                    v-if="event.status === 'cancelled'"
+                                    class="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-950 space-y-1"
+                                >
+                                    <p class="font-bold">Event Dibatalkan</p>
+                                    <p class="text-rose-800 text-[11px] leading-relaxed">
+                                        Penyelenggara telah membatalkan pelaksanaan event ini. Pendaftaran tidak dibuka dan kuota telah dibebaskan.
+                                    </p>
+                                </div>
+
                                 <Link
                                     v-if="event.can_register"
                                     :href="isIndividual ? route('events.register-audition', { event: event.slug }) : route('events.register', { event: event.slug })"
@@ -1067,7 +1077,7 @@ const eventJsonLd = computed(() => {
                                     disabled
                                     class="w-full h-10 px-4 rounded-lg text-sm font-semibold bg-rose-50 text-rose-800 border border-rose-200 cursor-not-allowed"
                                 >
-                                    {{ event.available_slots === 0 ? 'Kuota Pendaftaran Penuh' : 'Pendaftaran Ditutup' }}
+                                    {{ event.status === 'cancelled' ? 'Event Dibatalkan' : (event.available_slots === 0 ? 'Kuota Pendaftaran Penuh' : 'Pendaftaran Ditutup') }}
                                 </button>
                             </template>
                         </div>

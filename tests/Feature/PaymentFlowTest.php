@@ -235,6 +235,17 @@ class PaymentFlowTest extends TestCase
             'to_status' => 'paid',
             'actor_id' => null,
         ]);
+
+        $duplicate = $this->postJson(route('webhooks.midtrans'), $payload);
+
+        $duplicate->assertOk()->assertJson([
+            'status' => 'ok',
+            'duplicate' => true,
+            'invoice_number' => $orderId,
+            'payment_status' => 'already_processed',
+        ]);
+
+        $this->assertDatabaseCount('webhook_logs', 1);
     }
 
     public function test_midtrans_webhook_processes_valid_signature_with_suffixed_order_id_and_activates_team(): void

@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('app:expire-unpaid-registrations')->everyMinute()->withoutOverlapping();
 Schedule::command('app:mark-audition-no-shows')->everyMinute()->withoutOverlapping();
+Schedule::command('app:reconcile-pending-payments')->hourly()->withoutOverlapping();

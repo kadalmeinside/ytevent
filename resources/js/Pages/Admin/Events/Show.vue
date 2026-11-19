@@ -244,6 +244,23 @@ const birthDateSummary = computed(() => {
                 </div>
             </div>
 
+            <!-- Cancelled Event Alert Banner -->
+            <div
+                v-if="event.status === 'cancelled'"
+                class="rounded-xl border border-rose-300 bg-rose-50/90 p-4 text-xs text-rose-900 flex items-start gap-3 shadow-sm"
+                role="alert"
+            >
+                <svg class="w-5 h-5 text-rose-600 shrink-0 mt-0.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <div class="space-y-1">
+                    <p class="font-bold text-sm text-rose-950">Event Ini Berstatus Dibatalkan (Cancelled)</p>
+                    <p class="text-rose-800 leading-relaxed">
+                        Pendaftaran ditutup permanen, kuota dibebaskan, dan jadwal pelaksanaan event ini tidak lagi dianggap bentrok dengan pendaftaran event lain pada tanggal yang sama.
+                    </p>
+                </div>
+            </div>
+
             <!-- Event Workspace Header Card -->
             <div class="frosted-card p-5 sm:p-6 bg-white space-y-4">
                 <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-4">

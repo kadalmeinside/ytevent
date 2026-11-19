@@ -1,4 +1,4 @@
-# YTEvent — Multi-Event Football Tournament, Audition & Coaching Clinic Platform
+# YTEvent - Multi-Event Football Tournament, Audition & Coaching Clinic Platform
 
 Platform manajemen kompetisi dan pembinaan sepak bola multi-event enterprise yang mendukung **Turnamen Tim** (*Cup/Knockout*, *League*, *Group + Knockout*, *Grassroots Festival*) dan **Event Individu** (*Talent Audition* multi-tahap & *Coaching Clinic*), terintegrasi penuh dari pendaftaran anti-*race condition*, pembayaran multi-kanal (**Midtrans**, **Xendit**, & **Transfer Bank Manual**), *screening* berkas, *Digital Pass (E-Tiket)*, *Gatekeeper QR Check-in*, panel penilaian *Talent Scout*, jadwal/klasemen pertandingan, hingga penerbitan E-Sertifikat.
 
@@ -38,15 +38,18 @@ Sistem ini dibangun dengan filosofi **High-Density Operational Utility** dipaduk
 
 ## 🛠️ Tech Stack & Konvensi Arsitektur
 
-- **Backend:** Laravel 11.x (PHP 8.3+)
+- **Backend:** Laravel 12.x (PHP >= 8.2)
 - **Frontend:** Vue 3 (Composition API `<script setup>`) via Inertia.js
-- **Styling:** Tailwind CSS (Custom Theme *Persija Red-Orange Liquid Glass*)
+- **Styling:** Tailwind CSS dengan design system operasional *Persija Red-Orange*
 - **Routing:** Ziggy (`route('name')`)
 - **Database:** MySQL 8.0+ / SQLite (Strict Mode, Foreign Key Constraints & Composite Indexes)
 - **Authorization:** `spatie/laravel-permission` + Laravel Policies
 - **Form Handling:** Inertia `useForm()` + Composable `useFormValidator.js` (`<form novalidate>`)
 - **PDF & QR Code:** `barryvdh/laravel-dompdf` & `simplesoftwareio/simple-qrcode`
-- **Testing:** PHPUnit (**185 Test Cases, 1,689 Assertions — 100% PASS**)
+- **Testing:** PHPUnit 11
+- **Verified baseline:** `210` tests passed with `2232` assertions in the latest local verification run
+- **Build:** Vite production build verified
+- **Dependency audit:** `composer audit --locked` verified without known advisories
 
 ---
 
@@ -117,6 +120,21 @@ npm run build
 
 ### 5. Menjalankan Automated Test Suite
 ```bash
-# Menjalankan seluruh 185 Feature & Unit Tests (1,689 Assertions)
 php artisan test
+npm run build
+composer audit --locked
 ```
+
+Test dan security audit harus dijalankan di CI. Jangan mengandalkan angka test statis di README sebagai bukti rilis; gunakan laporan eksekusi terbaru.
+
+### 6. Persyaratan Go-Live Produksi
+
+Produksi memerlukan queue worker yang diawasi, Laravel scheduler, webhook reconciliation, monitoring, backup/restore, security headers, health check, dan runbook incident.
+
+Rencana implementasi lengkap tersedia di [PRODUCTION_GO_LIVE_IMPLEMENTATION_PLAN.md](docs/PRODUCTION_GO_LIVE_IMPLEMENTATION_PLAN.md).
+
+Pada environment production:
+- Sandbox/simulator pembayaran harus dimatikan.
+- Default seed accounts/password tidak boleh diaktifkan.
+- Queue, scheduler, HTTPS, private storage, dan backup harus diawasi.
+- Webhook, failed email, dan settlement anomaly harus mempunyai alert.

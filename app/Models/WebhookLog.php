@@ -8,6 +8,7 @@ class WebhookLog extends Model
 {
     protected $fillable = [
         'provider',
+        'idempotency_key',
         'invoice_number',
         'external_reference',
         'event_name',
@@ -15,12 +16,14 @@ class WebhookLog extends Model
         'http_status',
         'error_message',
         'payload',
+        'processed_at',
     ];
 
     protected function casts(): array
     {
         return [
             'payload' => 'array',
+            'processed_at' => 'datetime',
         ];
     }
 }

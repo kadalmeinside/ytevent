@@ -3,10 +3,15 @@
 namespace Tests\Feature;
 
 use App\Models\EmailNotificationLog;
+use App\Models\Event;
 use App\Models\User;
 use App\Services\EmailNotificationService;
 use App\Support\HtmlSanitizer;
+use Database\Seeders\RolePermissionSeeder;
+use Database\Seeders\SystemSettingSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Tests\TestCase;
 
@@ -17,8 +22,8 @@ class SecurityHardeningTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed(\Database\Seeders\RolePermissionSeeder::class);
-        $this->seed(\Database\Seeders\SystemSettingSeeder::class);
+        $this->seed(RolePermissionSeeder::class);
+        $this->seed(SystemSettingSeeder::class);
     }
 
     public function test_simulation_persona_switch_is_blocked_when_module_disabled(): void
@@ -68,14 +73,14 @@ class SecurityHardeningTest extends TestCase
     public function test_html_sanitizer_strips_xss_vectors(): void
     {
         $dirty = '<p onclick="alert(1)" style="background:url(javascript:alert(1))">Halo</p>'
-            . '<script>alert(1)</script>'
-            . '<img src=x onerror=alert(1)>'
-            . '<a href="javascript:alert(1)">klik</a>'
-            . '<a href="jav&#x09;ascript:alert(1)">klik2</a>'
-            . '<a href="https://persija.id" target="_blank" onmouseover="x()">aman</a>'
-            . '<iframe src="https://evil.test"></iframe>'
-            . '<svg onload=alert(1)><circle/></svg>'
-            . '<div style="text-align:center">tengah</div>';
+            .'<script>alert(1)</script>'
+            .'<img src=x onerror=alert(1)>'
+            .'<a href="javascript:alert(1)">klik</a>'
+            .'<a href="jav&#x09;ascript:alert(1)">klik2</a>'
+            .'<a href="https://persija.id" target="_blank" onmouseover="x()">aman</a>'
+            .'<iframe src="https://evil.test"></iframe>'
+            .'<svg onload=alert(1)><circle/></svg>'
+            .'<div style="text-align:center">tengah</div>';
 
         $clean = (string) HtmlSanitizer::clean($dirty);
 
@@ -105,7 +110,7 @@ class SecurityHardeningTest extends TestCase
 
         $last = null;
         for ($i = 0; $i < 35; $i++) {
-            $last = $this->get('/verify/player/TIDAK-ADA-' . $i);
+            $last = $this->get('/verify/player/TIDAK-ADA-'.$i);
         }
 
         $last->assertStatus(429);
@@ -123,7 +128,7 @@ class SecurityHardeningTest extends TestCase
 
     public function test_finance_and_screening_cannot_mutate_events_or_tournament(): void
     {
-        $event = \App\Models\Event::create([
+        $event = Event::create([
             'name' => 'Event Uji Otorisasi',
             'slug' => 'event-uji-otorisasi',
             'age_category' => 'U-12',
@@ -164,7 +169,7 @@ class SecurityHardeningTest extends TestCase
         $this->assertSame(serialize(['x' => 1]), EmailNotificationService::verifyPayload($signed));
 
         // Payload dimanipulasi (mis. object injection) tanpa tanda tangan valid.
-        $this->assertNull(EmailNotificationService::verifyPayload('deadbeef.' . serialize(['x' => 2])));
+        $this->assertNull(EmailNotificationService::verifyPayload('deadbeef.'.serialize(['x' => 2])));
         $this->assertNull(EmailNotificationService::verifyPayload(serialize(['x' => 3])));
         $this->assertNull(EmailNotificationService::verifyPayload(null));
         $this->assertTrue(class_exists(EmailNotificationLog::class));
@@ -175,11 +180,80 @@ class SecurityHardeningTest extends TestCase
         $this->app['env'] = 'production';
 
         User::withTrashed()->forceDelete();
-        (new \Database\Seeders\RolePermissionSeeder())->run();
+        (new RolePermissionSeeder)->run();
 
-        $admin = User::where('email', 'superadmin@persijadevelopment.id')->first();
-        $this->assertNotNull($admin);
-        $this->assertFalse(\Illuminate\Support\Facades\Hash::check('Admin12345', $admin->password));
+        $this->assertNull(User::where('email', 'superadmin@persijadevelopment.id')->first());
+        $this->assertNull(User::where('email', 'finance@persijadevelopment.id')->first());
+    }
+
+    public function test_internal_role_route_permission_matrix(): void
+    {
+        $roleRoutes = [
+            'superadmin' => [
+                '/admin/dashboard' => 200,
+                '/admin/users' => 200,
+                '/admin/payments/manual-verification' => 200,
+                '/admin/screening' => 200,
+            ],
+            'finance' => [
+                '/admin/dashboard' => 200,
+                '/admin/users' => 403,
+                '/admin/payments/manual-verification' => 200,
+                '/admin/screening' => 403,
+            ],
+            'screening_officer' => [
+                '/admin/dashboard' => 200,
+                '/admin/users' => 403,
+                '/admin/payments/manual-verification' => 403,
+                '/admin/screening' => 200,
+            ],
+        ];
+
+        foreach ($roleRoutes as $role => $routes) {
+            $user = User::factory()->create([
+                'is_active' => true,
+                'password' => Hash::make('Secret123!'),
+            ]);
+            $user->assignRole($role);
+
+            foreach ($routes as $url => $status) {
+                $this->actingAs($user)->get($url)->assertStatus($status);
+            }
+
+            Auth::logout();
+        }
+    }
+
+    public function test_admin_password_change_revokes_remember_token(): void
+    {
+        $user = User::factory()->create([
+            'password' => Hash::make('Admin12345'),
+            'is_active' => true,
+            'remember_token' => 'existing-token',
+        ]);
+        $user->assignRole('superadmin');
+
+        $response = $this->actingAs($user)->put('/admin/password', [
+            'current_password' => 'Admin12345',
+            'password' => 'NewPassword123',
+            'password_confirmation' => 'NewPassword123',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertNull($user->refresh()->remember_token);
+        $this->assertTrue(Hash::check('NewPassword123', $user->password));
+        $this->assertTrue(Auth::check());
+    }
+
+    public function test_production_seeder_skips_internal_users_without_configured_password(): void
+    {
+        $this->app['env'] = 'production';
+        User::withTrashed()->forceDelete();
+
+        (new RolePermissionSeeder)->run();
+
+        $this->assertNull(User::where('email', 'superadmin@persijadevelopment.id')->first());
+        $this->assertNull(User::where('email', 'finance@persijadevelopment.id')->first());
     }
 
     public function test_custom_404_error_page_renders_branded_view(): void

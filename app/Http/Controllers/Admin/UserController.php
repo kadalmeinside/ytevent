@@ -100,16 +100,28 @@ class UserController extends Controller
         $updatePayload = [
             'name' => trim($data['name']),
             'email' => strtolower(trim($data['email'])),
-            'phone' => !empty($data['phone']) ? trim($data['phone']) : null,
+            'phone' => ! empty($data['phone']) ? trim($data['phone']) : null,
             'is_active' => (bool) $data['is_active'],
         ];
 
-        if (!empty($data['password'])) {
+        if (! empty($data['password'])) {
             $updatePayload['password'] = Hash::make($data['password']);
         }
 
+        $oldRoles = $user->getRoleNames()->sort()->values()->all();
         $user->update($updatePayload);
         $user->syncRoles([$data['role']]);
+
+        $newRoles = $user->getRoleNames()->sort()->values()->all();
+        if (! empty($data['password']) || $oldRoles !== $newRoles) {
+            $user->setRememberToken(null);
+            $user->save();
+
+            if ($user->id === $request->user()?->id) {
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+            }
+        }
 
         return redirect()->route('admin.users.index')
             ->with('success', "Data pengguna {$user->name} berhasil diperbarui.");
@@ -128,4 +140,3 @@ class UserController extends Controller
             ->with('success', "Akun pengguna {$userName} berhasil dihapus dari sistem.");
     }
 }
-

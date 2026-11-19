@@ -32,12 +32,16 @@ class TeamRegistrationService
 
     public function findConflictingActiveRegistration(User $user, Event $targetEvent): ?Team
     {
+        if ($targetEvent->status === 'cancelled') {
+            return null;
+        }
+
         $activeTeams = Team::query()
             ->with('event')
             ->where('user_id', $user->id)
             ->where('event_id', '!=', $targetEvent->id)
             ->whereIn('status', ['pending_payment', 'active', 'locked_roster'])
-            ->whereHas('event', fn ($q) => $q->where('status', '!=', 'completed'))
+            ->whereHas('event', fn ($q) => $q->whereNotIn('status', ['completed', 'cancelled']))
             ->get();
 
         return $this->findConflictingTeamInCollection($activeTeams, $targetEvent);
@@ -45,7 +49,7 @@ class TeamRegistrationService
 
     public function findConflictingTeamInCollection(\Illuminate\Support\Collection $activeTeams, Event $targetEvent): ?Team
     {
-        if (! $targetEvent->match_start_date) {
+        if (! $targetEvent->match_start_date || $targetEvent->status === 'cancelled') {
             return null;
         }
 
@@ -62,7 +66,7 @@ class TeamRegistrationService
             }
 
             $existingEvent = $existingTeam->event;
-            if (! $existingEvent?->match_start_date || $existingEvent->status === 'completed') {
+            if (! $existingEvent?->match_start_date || in_array($existingEvent->status, ['completed', 'cancelled'], true)) {
                 return false;
             }
 

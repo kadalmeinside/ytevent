@@ -66,6 +66,8 @@ class PublicEventController extends Controller
             } else {
                 $query->where('status', $status);
             }
+        } else {
+            $query->where('status', '!=', 'cancelled');
         }
 
         $user = $request->user();
@@ -83,7 +85,10 @@ class PublicEventController extends Controller
                 ->get();
 
             $userTeamsByEvent = $userTeams->unique('event_id')->keyBy('event_id');
-            $activeTeamsForConflict = $userTeams->whereIn('status', ['pending_payment', 'active', 'locked_roster'])->values();
+            $activeTeamsForConflict = $userTeams
+                ->whereIn('status', ['pending_payment', 'active', 'locked_roster'])
+                ->filter(fn ($t) => $t->event && ! in_array($t->event->status, ['completed', 'cancelled'], true))
+                ->values();
 
             $userParticipantCountsByEvent = AuditionParticipant::query()
                 ->where('user_id', $user->id)
@@ -133,7 +138,7 @@ class PublicEventController extends Controller
             });
 
         $ageCategories = Event::query()
-            ->where('status', '!=', 'draft')
+            ->whereNotIn('status', ['draft', 'cancelled'])
             ->select('age_category')
             ->distinct()
             ->orderBy('age_category')
@@ -153,7 +158,10 @@ class PublicEventController extends Controller
             'participantTypes' => Event::PARTICIPANT_TYPES,
             'ageCategories' => $ageCategories,
             'stats' => [
-                'total_events' => Event::query()->where('status', '!=', 'draft')->count(),
+                'total_events' => Event::query()->whereNotIn('status', ['draft', 'cancelled'])->count(),
+                'open_events' => Event::query()->where('status', 'open')->count(),
+                'age_categories_count' => Event::query()->whereNotIn('status', ['draft', 'cancelled'])->distinct('age_category')->count('age_category'),
+                'cities_count' => Event::query()->whereNotIn('status', ['draft', 'cancelled'])->whereNotNull('city')->where('city', '!=', '')->distinct('city')->count('city'),
                 'total_teams' => Team::query()->occupyingQuotaAt(now())->count(),
                 'total_verified_players' => Player::query()->where('screening_status', 'passed')->count(),
             ],
@@ -336,6 +344,11 @@ class PublicEventController extends Controller
             abort(404);
         }
 
+        if ($event->status === 'cancelled') {
+            return redirect()->route('events.show', ['event' => $event->slug])
+                ->with('error', 'Pendaftaran tidak tersedia karena event ini telah dibatalkan.');
+        }
+
         if ($event->isIndividual()) {
             return redirect()->route('events.register-audition', ['event' => $event->slug]);
         }
@@ -440,6 +453,11 @@ class PublicEventController extends Controller
     {
         if ($event->status === 'draft') {
             abort(404);
+        }
+
+        if ($event->status === 'cancelled') {
+            return redirect()->route('events.show', ['event' => $event->slug])
+                ->with('error', 'Pendaftaran tidak tersedia karena event ini telah dibatalkan.');
         }
 
         if (! $event->isIndividual()) {

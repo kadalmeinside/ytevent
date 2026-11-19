@@ -15,17 +15,9 @@ const form = useForm({
     remember: false,
 });
 
-const isForgotModalOpen = ref(false);
+const showPassword = ref(false);
 
-const whatsappNumber = computed(() => {
-    const raw = page.props.systemSettings?.contact_whatsapp || '6281234567890';
-    return raw.replace(/[^0-9]/g, '');
-});
-
-const whatsappHelpUrl = computed(() => {
-    const text = encodeURIComponent('Halo Panitia Pelaksana YTEvent, saya manajer tim ingin mengajukan permohonan reset kata sandi akun portal manajer tim kami.');
-    return `https://wa.me/${whatsappNumber.value}?text=${text}`;
-});
+const systemSettings = computed(() => page.props.systemSettings || {});
 
 const submit = () => {
     const ok = applyValidation(form, () => {
@@ -53,15 +45,56 @@ const submit = () => {
     <PublicLayout>
         <Head title="Masuk ke Akun Anda" />
 
-        <div class="max-w-md mx-auto px-4 py-12">
-            <div class="frosted-card p-6 sm:p-8">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-14">
+            <div class="grid overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.10)] lg:grid-cols-[0.9fr_1.1fr]">
+                <aside class="relative hidden min-h-[580px] flex-col justify-between overflow-hidden bg-slate-950 p-10 text-white lg:flex">
+                    <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(234,88,12,0.30),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(220,38,38,0.18),transparent_38%)]"></div>
+                    <div class="relative">
+                        <Link :href="route('home')" class="inline-flex items-center gap-3">
+                            <img
+                                v-if="systemSettings.app_logo_url"
+                                :src="systemSettings.app_logo_url"
+                                :alt="systemSettings.app_name || 'YTEvent'"
+                                class="h-11 w-11 rounded-lg object-contain bg-white p-1"
+                            />
+                            <div v-else class="flex h-11 w-11 items-center justify-center rounded-lg bg-orange-600 text-sm font-black">YT</div>
+                            <div>
+                                <div class="font-bold">{{ systemSettings.app_name || 'YTEvent' }}</div>
+                                <div class="mt-0.5 text-xs text-slate-300">Portal peserta dan manajemen tim</div>
+                            </div>
+                        </Link>
+                    </div>
+
+                    <div class="relative max-w-sm">
+                        <p class="mb-4 text-xs font-bold uppercase text-orange-400">Pusat aktivitas kompetisi</p>
+                        <h2 class="text-3xl font-black leading-tight tracking-tight">Kelola perjalanan tim Anda.</h2>
+                        <p class="mt-4 text-sm leading-6 text-slate-300">
+                            Pantau pembayaran, kelengkapan pemain, screening, akreditasi, jadwal, dan Digital Pass dari satu akun.
+                        </p>
+
+                        <div class="mt-8 grid grid-cols-2 gap-3">
+                            <div class="rounded-lg border border-white/10 bg-white/5 p-4">
+                                <div class="text-lg font-black text-white">Tim</div>
+                                <div class="mt-1 text-xs text-slate-300">Roster &amp; dokumen</div>
+                            </div>
+                            <div class="rounded-lg border border-white/10 bg-white/5 p-4">
+                                <div class="text-lg font-black text-white">Event</div>
+                                <div class="mt-1 text-xs text-slate-300">Skor &amp; jadwal</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="relative text-xs text-slate-400">Akses aman untuk manajer tim dan peserta audisi.</p>
+                </aside>
+
+                <div class="p-6 sm:p-10 lg:p-12">
                 <div class="mb-6">
-                    <span class="inline-block text-xs font-semibold uppercase tracking-wider text-orange-800 bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-md mb-2">
-                        Portal Akun Terpadu
+                    <span class="inline-flex items-center rounded-md border border-orange-200 bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-800">
+                        Portal akun terpadu
                     </span>
-                    <h1 class="text-xl font-bold text-slate-900">Masuk ke Akun Anda</h1>
-                    <p class="text-xs text-slate-600 mt-1">
-                        Satu akun universal untuk mengelola tim turnamen, pendaftaran audisi anak, pembayaran, dan berkas keabsahan.
+                    <h1 class="mt-4 text-2xl font-black text-slate-950">Masuk ke akun Anda</h1>
+                    <p class="mt-2 text-sm leading-6 text-slate-600">
+                        Kelola turnamen, audisi, pembayaran, dan berkas dari satu akun.
                     </p>
                 </div>
 
@@ -90,16 +123,33 @@ const submit = () => {
                         <label for="password" class="block text-xs font-semibold text-slate-700 mb-1">
                             Kata Sandi
                         </label>
-                        <input
-                            id="password"
-                            v-model="form.password"
-                            type="password"
-                            autocomplete="current-password"
-                            placeholder="Masukkan kata sandi"
-                            class="input-field"
-                            :class="{ 'input-field-error': form.errors.password }"
-                            @input="form.clearErrors('password')"
-                        />
+                        <div class="relative">
+                            <input
+                                id="password"
+                                v-model="form.password"
+                                :type="showPassword ? 'text' : 'password'"
+                                autocomplete="current-password"
+                                placeholder="Masukkan kata sandi"
+                                class="input-field pr-12"
+                                :class="{ 'input-field-error': form.errors.password }"
+                                @input="form.clearErrors('password')"
+                            />
+                            <button
+                                type="button"
+                                class="absolute right-2 top-1/2 min-h-10 min-w-10 -translate-y-1/2 inline-flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                                :aria-label="showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'"
+                                :aria-pressed="showPassword"
+                                @click="showPassword = !showPassword"
+                            >
+                                <svg v-if="!showPassword" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    <circle cx="12" cy="12" r="3" stroke-width="2" />
+                                </svg>
+                                <svg v-else class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3l18 18M10.585 10.585A2 2 0 0012 14a2 2 0 001.414-.586M9.88 5.11A9.953 9.953 0 0112 5c4.477 0 8.268 2.943 9.542 7a9.96 9.96 0 01-1.745 3.097M6.61 6.61C4.45 7.814 2.94 9.718 2.458 12c1.274 4.057 5.065 7 9.542 7 1.17 0 2.292-.202 3.327-.572" />
+                                </svg>
+                            </button>
+                        </div>
                         <InputError :message="form.errors.password" />
                     </div>
 
@@ -132,69 +182,10 @@ const submit = () => {
                         Lihat Program & Kompetisi di Katalog Event
                     </Link>
                 </div>
-            </div>
-        </div>
-
-        <!-- Forgot Password Help Modal -->
-        <div
-            v-if="isForgotModalOpen"
-            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
-        >
-            <div class="frosted-card bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-                <div class="flex items-center justify-between pb-3 border-b border-slate-200">
-                    <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                            </svg>
-                        </div>
-                        <h3 class="text-sm font-bold text-slate-900">Bantuan Lupa Kata Sandi</h3>
-                    </div>
-                    <button
-                        type="button"
-                        class="text-slate-400 hover:text-slate-600 text-lg leading-none"
-                        @click="isForgotModalOpen = false"
-                    >
-                        &times;
-                    </button>
-                </div>
-
-                <div class="space-y-3 text-xs text-slate-600 leading-relaxed">
-                    <p>
-                        Untuk menjaga keamanan data berkas pemain dan status kepesertaan turnamen, pemulihan atau reset kata sandi akun Manajer Tim dilakukan melalui verifikasi Panitia Pelaksana.
-                    </p>
-
-                    <div class="p-3.5 rounded-xl bg-orange-50/70 border border-orange-200 space-y-2">
-                        <p class="font-bold text-slate-900 text-xs">Cara Reset Kata Sandi:</p>
-                        <ol class="list-decimal list-inside space-y-1 text-slate-700">
-                            <li>Hubungi Panitia Pelaksana melalui tombol WhatsApp di bawah.</li>
-                            <li>Sebutkan <strong>Nama Tim</strong> dan <strong>Alamat Email</strong> terdaftar.</li>
-                            <li>Panitia/Superadmin akan mereset kata sandi melalui panel admin dan memberikan kata sandi baru untuk Anda.</li>
-                        </ol>
-                    </div>
-                </div>
-
-                <div class="pt-2 flex flex-col sm:flex-row items-center gap-2">
-                    <a
-                        :href="whatsappHelpUrl"
-                        target="_blank"
-                        class="btn-pitch w-full sm:flex-1 justify-center inline-flex items-center gap-2"
-                    >
-                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.698c.97.529 1.954.81 3.033.81 3.181 0 5.767-2.586 5.768-5.766 0-3.18-2.587-5.767-5.767-5.767zm7.659 5.766c0 4.225-3.438 7.662-7.66 7.662-1.309 0-2.551-.334-3.649-.927l-4.041 1.06 1.079-3.941c-.672-1.155-1.049-2.482-1.049-3.854 0-4.225 3.438-7.662 7.66-7.662 4.223 0 7.66 3.437 7.66 7.662z"/>
-                        </svg>
-                        <span>Hubungi Panitia via WA</span>
-                    </a>
-                    <button
-                        type="button"
-                        class="btn-secondary w-full sm:w-auto"
-                        @click="isForgotModalOpen = false"
-                    >
-                        Tutup
-                    </button>
                 </div>
             </div>
         </div>
+
     </PublicLayout>
 </template>
 

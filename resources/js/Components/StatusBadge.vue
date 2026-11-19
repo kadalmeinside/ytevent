@@ -40,6 +40,8 @@ const statusMeta = computed(() => {
         quota_full: { text: 'KUOTA PENUH', variant: 'rose' },
         disqualified: { text: 'DISKUALIFIKASI', variant: 'rose' },
         refund_required: { text: 'PERLU REFUND', variant: 'rose' },
+        cancelled: { text: 'DIBATALKAN', variant: 'rose' },
+        batal: { text: 'DIBATALKAN', variant: 'rose' },
 
         draft: { text: 'DRAFT', variant: 'slate' },
         not_started: { text: 'BELUM DIMULAI', variant: 'slate' },
