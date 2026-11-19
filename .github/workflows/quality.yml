@@ -27,6 +27,22 @@ jobs:
             - name: Install PHP dependencies
               run: composer install --prefer-dist --no-interaction --no-progress
 
+            - name: Prepare application environment for CI
+              run: |
+                  cp .env.example .env
+                  sed -i 's/^APP_ENV=.*/APP_ENV=local/' .env
+                  sed -i 's/^APP_DEBUG=.*/APP_DEBUG=true/' .env
+                  sed -i 's|^APP_URL=.*|APP_URL=http://127.0.0.1:8000|' .env
+                  sed -i 's/^DB_CONNECTION=.*/DB_CONNECTION=sqlite/' .env
+                  sed -i '/^DB_DATABASE=/d' .env
+                  sed -i 's/^SESSION_DRIVER=.*/SESSION_DRIVER=file/' .env
+                  sed -i 's/^SESSION_SECURE_COOKIE=.*/SESSION_SECURE_COOKIE=false/' .env
+                  sed -i 's/^CACHE_STORE=.*/CACHE_STORE=file/' .env
+                  php artisan key:generate --force
+                  mkdir -p database
+                  touch database/database.sqlite
+                  php artisan migrate --force
+
             - name: Install frontend dependencies
               run: npm ci
 
